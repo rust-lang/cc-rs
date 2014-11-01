@@ -1,6 +1,21 @@
 use std::os;
 use std::io::Command;
 use std::io::process::InheritFd;
+use std::default::Default;
+
+/// Extra configuration to pass to gcc.
+pub struct Config {
+    /// Directories where gcc will look for header files.
+    pub include_directories: Vec<Path>,
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            include_directories: Vec::new(),
+        }
+    }
+}
 
 /// Compile a library from the given set of input C files.
 ///
@@ -10,10 +25,14 @@ use std::io::process::InheritFd;
 ///
 /// # Example
 ///
+/// ```no_run
+/// use std::default::Default;
+/// gcc::compile_library("libfoo.a", &Default::default(), &[
+///     "foo.c",
+///     "bar.c",
+/// ]);
 /// ```
-/// gcc::compile_library("libfoo.a", &["foo.c", "bar.c"]);
-/// ```
-pub fn compile_library(output: &str, files: &[&str]) {
+pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     assert!(output.starts_with("lib"));
     assert!(output.ends_with(".a"));
 
@@ -34,6 +53,10 @@ pub fn compile_library(output: &str, files: &[&str]) {
 
     if !target.as_slice().contains("i686") {
         cmd.arg("-fPIC");
+    }
+
+    for directory in config.include_directories.iter() {
+        cmd.arg("-I").arg(directory);
     }
 
     let src = Path::new(os::getenv("CARGO_MANIFEST_DIR").unwrap());
