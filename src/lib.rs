@@ -32,6 +32,10 @@ pub fn compile_library(output: &str, files: &[&str]) {
         cmd.arg("-m64");
     }
 
+    if !target.as_slice().contains("i686") {
+        cmd.arg("-fPIC");
+    }
+
     let src = Path::new(os::getenv("CARGO_MANIFEST_DIR").unwrap());
     let dst = Path::new(os::getenv("OUT_DIR").unwrap());
     let mut objects = Vec::new();
