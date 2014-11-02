@@ -1,3 +1,5 @@
+#![feature(if_let)]
+
 use std::os;
 use std::io::Command;
 use std::io::process::InheritFd;
@@ -7,12 +9,15 @@ use std::default::Default;
 pub struct Config {
     /// Directories where gcc will look for header files.
     pub include_directories: Vec<Path>,
+    /// Additional definitions (`-DKEY` or `-DKEY=VALUE`).
+    pub definitions: Vec<(String, Option<String>)>,
 }
 
 impl Default for Config {
     fn default() -> Config {
         Config {
             include_directories: Vec::new(),
+            definitions: Vec::new(),
         }
     }
 }
@@ -57,6 +62,14 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
 
     for directory in config.include_directories.iter() {
         cmd.arg("-I").arg(directory);
+    }
+
+    for &(ref key, ref value) in config.definitions.iter() {
+        if let &Some(ref value) = value {
+            cmd.arg(format!("-D{}={}", key, value));
+        } else {
+            cmd.arg(format!("-D{}", key));
+        }
     }
 
     let src = Path::new(os::getenv("CARGO_MANIFEST_DIR").unwrap());
