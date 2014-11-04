@@ -77,6 +77,7 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     let mut objects = Vec::new();
     for file in files.iter() {
         let obj = dst.join(*file).with_extension("o");
+        std::io::fs::mkdir_recursive(&obj.dir_path(), std::io::USER_RWX).unwrap();
         run(cmd.clone().arg(src.join(*file)).arg("-o").arg(&obj));
         objects.push(obj);
     }
