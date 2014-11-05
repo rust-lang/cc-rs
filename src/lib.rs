@@ -86,7 +86,7 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     run(Command::new(ar()).arg("crus")
                           .arg(dst.join(output))
                           .args(objects.as_slice()));
-    println!("cargo:rustc-flags=-L {} -l {}",
+    println!("cargo:rustc-flags=-L {} -l {}:static",
              dst.display(), output.slice(3, output.len() - 2));
 }
 
