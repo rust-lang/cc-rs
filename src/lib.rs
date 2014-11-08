@@ -11,6 +11,8 @@ pub struct Config {
     pub include_directories: Vec<Path>,
     /// Additional definitions (`-DKEY` or `-DKEY=VALUE`).
     pub definitions: Vec<(String, Option<String>)>,
+    /// Additional object files to link into the final archive
+    pub objects: Vec<Path>,
 }
 
 impl Default for Config {
@@ -18,6 +20,7 @@ impl Default for Config {
         Config {
             include_directories: Vec::new(),
             definitions: Vec::new(),
+            objects: Vec::new(),
         }
     }
 }
@@ -85,7 +88,8 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
 
     run(Command::new(ar()).arg("crus")
                           .arg(dst.join(output))
-                          .args(objects.as_slice()));
+                          .args(objects.as_slice())
+                          .args(config.objects.as_slice()));
     println!("cargo:rustc-flags=-L {} -l {}:static",
              dst.display(), output.slice(3, output.len() - 2));
 }
