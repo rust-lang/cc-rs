@@ -53,14 +53,18 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     cmd.arg("-ffunction-sections").arg("-fdata-sections");
     cmd.args(cflags().as_slice());
 
-    if target.as_slice().contains("i686") {
-        cmd.arg("-m32");
-    } else if target.as_slice().contains("x86_64") {
-        cmd.arg("-m64");
-    }
+    if target.as_slice().contains("-ios") {
+        cmd.args(ios_flags(target.as_slice()).as_slice());
+    } else {
+        if target.as_slice().contains("i686") {
+            cmd.arg("-m32");
+        } else if target.as_slice().contains("x86_64") {
+            cmd.arg("-m64");
+        }
 
-    if !target.as_slice().contains("i686") {
-        cmd.arg("-fPIC");
+        if !target.as_slice().contains("i686") {
+            cmd.arg("-fPIC");
+        }
     }
 
     for directory in config.include_directories.iter() {
@@ -120,4 +124,42 @@ fn cflags() -> Vec<String> {
     os::getenv("CFLAGS").unwrap_or(String::new())
        .as_slice().words().map(|s| s.to_string())
        .collect()
+}
+
+fn ios_flags(target: &str) -> Vec<String> {
+    let mut is_device_arch = false;
+    let mut res = Vec::new();
+
+    if target.starts_with("arm-") {
+        res.push("-arch");
+        res.push("armv7");
+        is_device_arch = true;
+    } else if target.starts_with("arm64-") {
+        res.push("-arch");
+        res.push("arm64");
+        is_device_arch = true;
+    } else if target.starts_with("i386-") {
+        res.push("-m32");
+    } else if target.starts_with("x86_64-") {
+        res.push("-m64");
+    }
+
+    let sdk = if is_device_arch {"iphoneos"} else {"iphonesimulator"};
+
+    println!("Detecting iOS SDK path for {}", sdk);
+    let sdk_path = Command::new("xcrun")
+        .arg("--show-sdk-path")
+        .arg("--sdk")
+        .arg(sdk)
+        .stderr(InheritFd(2))
+        .output()
+        .unwrap()
+        .output;
+
+    let sdk_path = String::from_utf8(sdk_path).unwrap();
+
+    res.push("-isysroot");
+    res.push(sdk_path.as_slice().trim());
+
+    res.iter().map(|s| s.to_string()).collect::<Vec<_>>()
 }
