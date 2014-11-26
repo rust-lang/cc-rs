@@ -100,12 +100,13 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
 
 fn run(cmd: &mut Command) {
     println!("running: {}", cmd);
-    assert!(cmd.stdout(InheritFd(1))
-               .stderr(InheritFd(2))
-               .status()
-               .unwrap()
-               .success());
-
+    let status = match cmd.stdout(InheritFd(1)).stderr(InheritFd(2)).status() {
+        Ok(status) => status,
+        Err(e) => panic!("failed to spawn process: {}", e),
+    };
+    if !status.success() {
+        panic!("nonzero exit status: {}", status);
+    }
 }
 
 fn gcc() -> String {
