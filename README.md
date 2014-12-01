@@ -13,11 +13,16 @@ fn main() {
 
 # Windows notes
 
-You will need an installation of gcc for this to work. The MinGW-w64 project provides a compiler toolchain for Windows. Make sure to install the appropriate architecture corresponding to your installation of rustc.
+Currently use of this crate means that Windows users will require gcc to be
+installed at compile-time. This is typically acquired through the
+[MinGW-w64](http://mingw-w64.sourceforge.net), although we recommend installing
+through [MSYS2 instead][msys2]. Make sure to install the appropriate
+architecture corresponding to your installation of rustc.
 
-http://mingw-w64.sourceforge.net/
+[msys2]: https://github.com/rust-lang/rust/wiki/Note-getting-started-developing-Rust#windows
 
-Make sure that the installation directory containing gcc is in your PATH environment variable.
+Once gcc is installed, it also requires that the directory containing gcc is in
+the PATH environment variable.
 
 # License
 
