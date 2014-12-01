@@ -11,6 +11,14 @@ fn main() {
 }
 ```
 
+# Windows notes
+
+You will need an installation of gcc for this to work. The MinGW-w64 project provides a compiler toolchain for Windows. Make sure to install the appropriate architecture corresponding to your installation of rustc.
+
+http://mingw-w64.sourceforge.net/
+
+Make sure that the installation directory containing gcc is in your PATH environment variable.
+
 # License
 
 `gcc-rs` is primarily distributed under the terms of both the MIT license and
