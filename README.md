@@ -11,6 +11,31 @@ fn main() {
 }
 ```
 
+# External configuration via environment variables
+
+To control the programs and flags used for building, the builder can set a number of different enviroment variables.
+* `CFLAGS` - a series of space seperated flags passed to "gcc". Note that
+             individual flags cannot currently contain spaces, so doing
+             something like: "-L=foo\ bar" is not possible.
+* `CC` - the actual c compiler used. Note that this is used as an exact
+         executable name, so (for example) no extra flags can be passed inside
+         this variable, and the builder must ensure that there aren't any
+         trailing spaces. This compiler must understand the `-c` flag. For
+         certain `TARGET`s, it also is assumed to know about other flags (most
+         common is `-fPIC`).
+* `AR` - the `ar` (archiver) executable to use to build the static library.
+
+Each of these variables can also be supplied with certain prefixes and suffixes, in the following prioritized order:
+
+1. `<var>_<target>` - for example, `CC_x86_64-unknown-linux-gnu`
+1. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu`
+1. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
+1. `<var>` - a plain `CC`, `AR` as above.
+
+If none of these varaibles exist, gcc-rs uses built-in defaults
+
+In addition to the the above optional environment variables, `gcc-rs` has some functions with hard requirements on some variables supplied by [cargo's build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`, and `HOST` variables
+
 # Windows notes
 
 Currently use of this crate means that Windows users will require gcc to be
