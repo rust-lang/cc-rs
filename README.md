@@ -36,6 +36,8 @@ If none of these varaibles exist, gcc-rs uses built-in defaults
 
 In addition to the the above optional environment variables, `gcc-rs` has some functions with hard requirements on some variables supplied by [cargo's build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`, and `HOST` variables
 
+[cargo]: http://doc.crates.io/build-script.html#inputs-to-the-build-script
+
 # Windows notes
 
 Currently use of this crate means that Windows users will require gcc to be
