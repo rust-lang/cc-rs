@@ -109,8 +109,23 @@ fn run(cmd: &mut Command) {
     }
 }
 
+fn get_var(var_base: &str) -> Option<String> {
+    let target = os::getenv("TARGET")
+        .expect("Environment variable 'TARGET' is unset");
+    let host = os::getenv("HOST")
+        .expect("Environment variable 'HOST' is unset");
+    let kind = if host == target { "HOST" } else { "TARGET" };
+    let target_u = target.split('-')
+        .collect::<Vec<&str>>()
+        .connect("_");
+    os::getenv(format!("{}_{}", var_base, target).as_slice())
+        .or_else(|| os::getenv(format!("{}_{}", var_base, target_u).as_slice()))
+        .or_else(|| os::getenv(format!("{}_{}", kind, var_base).as_slice()))
+        .or_else(|| os::getenv(var_base))
+}
+
 fn gcc() -> String {
-    os::getenv("CC").unwrap_or(if cfg!(windows) {
+    get_var("CC").unwrap_or(if cfg!(windows) {
         "gcc".to_string()
     } else {
         "cc".to_string()
@@ -118,11 +133,11 @@ fn gcc() -> String {
 }
 
 fn ar() -> String {
-    os::getenv("AR").unwrap_or("ar".to_string())
+    get_var("AR").unwrap_or("ar".to_string())
 }
 
 fn cflags() -> Vec<String> {
-    os::getenv("CFLAGS").unwrap_or(String::new())
+    get_var("CFLAGS").unwrap_or(String::new())
        .as_slice().words().map(|s| s.to_string())
        .collect()
 }
