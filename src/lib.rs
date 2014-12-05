@@ -109,19 +109,22 @@ fn run(cmd: &mut Command) {
     }
 }
 
-fn get_var(var_base: &str) -> Option<String> {
+fn get_var(var_base: &str) -> Result<String, String> {
     let target = os::getenv("TARGET")
         .expect("Environment variable 'TARGET' is unset");
-    let host = os::getenv("HOST")
-        .expect("Environment variable 'HOST' is unset");
+    let host = match os::getenv("HOST") {
+            None => { return Err("Environment variable 'HOST' is unset".to_string()); }
+            Some(x) => x 
+        };
     let kind = if host == target { "HOST" } else { "TARGET" };
     let target_u = target.split('-')
         .collect::<Vec<&str>>()
         .connect("_");
-    os::getenv(format!("{}_{}", var_base, target).as_slice())
+    let res = os::getenv(format!("{}_{}", var_base, target).as_slice())
         .or_else(|| os::getenv(format!("{}_{}", var_base, target_u).as_slice()))
         .or_else(|| os::getenv(format!("{}_{}", kind, var_base).as_slice()))
-        .or_else(|| os::getenv(var_base))
+        .or_else(|| os::getenv(var_base)).expect("Could not get environment variable");
+    Ok(res)
 }
 
 fn gcc() -> String {
