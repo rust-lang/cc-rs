@@ -1,6 +1,5 @@
 #![feature(if_let)]
 
-use std::os;
 use std::io::Command;
 use std::io::process::InheritFd;
 use std::default::Default;
@@ -25,6 +24,13 @@ impl Default for Config {
     }
 }
 
+fn getenv(v: &str) -> Option<String> {
+    use std::os::getenv;
+    let r = getenv(v);
+    println!("{} = {}", v, r);
+    r
+}
+
 /// Compile a library from the given set of input C files.
 ///
 /// This will simply compile all files into object files and then assemble them
@@ -44,8 +50,8 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     assert!(output.starts_with("lib"));
     assert!(output.ends_with(".a"));
 
-    let target = os::getenv("TARGET").unwrap();
-    let opt_level = os::getenv("OPT_LEVEL").unwrap();
+    let target = getenv("TARGET").unwrap();
+    let opt_level = getenv("OPT_LEVEL").unwrap();
 
     let mut cmd = Command::new(gcc());
     cmd.arg(format!("-O{}", opt_level));
@@ -79,8 +85,8 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
         }
     }
 
-    let src = Path::new(os::getenv("CARGO_MANIFEST_DIR").unwrap());
-    let dst = Path::new(os::getenv("OUT_DIR").unwrap());
+    let src = Path::new(getenv("CARGO_MANIFEST_DIR").unwrap());
+    let dst = Path::new(getenv("OUT_DIR").unwrap());
     let mut objects = Vec::new();
     for file in files.iter() {
         let obj = dst.join(*file).with_extension("o");
@@ -110,21 +116,25 @@ fn run(cmd: &mut Command) {
 }
 
 fn get_var(var_base: &str) -> Result<String, String> {
-    let target = os::getenv("TARGET")
+    let target = getenv("TARGET")
         .expect("Environment variable 'TARGET' is unset");
-    let host = match os::getenv("HOST") {
+    let host = match getenv("HOST") {
             None => { return Err("Environment variable 'HOST' is unset".to_string()); }
-            Some(x) => x 
+            Some(x) => x
         };
     let kind = if host == target { "HOST" } else { "TARGET" };
     let target_u = target.split('-')
         .collect::<Vec<&str>>()
         .connect("_");
-    let res = os::getenv(format!("{}_{}", var_base, target).as_slice())
-        .or_else(|| os::getenv(format!("{}_{}", var_base, target_u).as_slice()))
-        .or_else(|| os::getenv(format!("{}_{}", kind, var_base).as_slice()))
-        .or_else(|| os::getenv(var_base)).expect("Could not get environment variable");
-    Ok(res)
+    let res = getenv(format!("{}_{}", var_base, target).as_slice())
+        .or_else(|| getenv(format!("{}_{}", var_base, target_u).as_slice()))
+        .or_else(|| getenv(format!("{}_{}", kind, var_base).as_slice()))
+        .or_else(|| getenv(var_base));
+
+    match res {
+        Some(res) => Ok(res),
+        None => Err("Could not get environment variable".to_string()),
+    }
 }
 
 fn gcc() -> String {
