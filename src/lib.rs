@@ -10,6 +10,8 @@ pub struct Config {
     pub definitions: Vec<(String, Option<String>)>,
     /// Additional object files to link into the final archive
     pub objects: Vec<Path>,
+    /// Additional flags and parameter to pass to the compiler
+    pub flags: Vec<String>,
 }
 
 impl Default for Config {
@@ -18,6 +20,7 @@ impl Default for Config {
             include_directories: Vec::new(),
             definitions: Vec::new(),
             objects: Vec::new(),
+            flags: Vec::new(),
         }
     }
 }
@@ -73,6 +76,10 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
 
     for directory in config.include_directories.iter() {
         cmd.arg("-I").arg(directory);
+    }
+
+    for flag in config.flags.iter() {
+        cmd.arg(flag);
     }
 
     for &(ref key, ref value) in config.definitions.iter() {
