@@ -51,7 +51,7 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     let target = getenv("TARGET").unwrap();
     let opt_level = getenv("OPT_LEVEL").unwrap();
 
-    let mut cmd = Command::new(gcc());
+    let mut cmd = Command::new(gcc(target.as_slice()));
     cmd.arg(format!("-O{}", opt_level));
     cmd.arg("-c");
     cmd.arg("-ffunction-sections").arg("-fdata-sections");
@@ -94,10 +94,10 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     }
 
 
-    run(Command::new(ar()).arg("crus")
-                          .arg(dst.join(output))
-                          .args(objects.as_slice())
-                          .args(config.objects.as_slice()));
+    run(Command::new(ar(target.as_slice())).arg("crus")
+                                           .arg(dst.join(output))
+                                           .args(objects.as_slice())
+                                           .args(config.objects.as_slice()));
     println!("cargo:rustc-flags=-L {} -l {}:static",
              dst.display(), output.slice(3, output.len() - 2));
 }
@@ -135,16 +135,26 @@ fn get_var(var_base: &str) -> Result<String, String> {
     }
 }
 
-fn gcc() -> String {
+fn gcc(target: &str) -> String {
+    let is_android = target.find_str("android").is_some();
+
     get_var("CC").unwrap_or(if cfg!(windows) {
         "gcc".to_string()
+    } else if is_android {
+        format!("{}-gcc", target)
     } else {
         "cc".to_string()
     })
 }
 
-fn ar() -> String {
-    get_var("AR").unwrap_or("ar".to_string())
+fn ar(target: &str) -> String {
+    let is_android = target.find_str("android").is_some();
+
+    get_var("AR").unwrap_or(if is_android {
+        format!("{}-ar", target)
+    } else {
+        "ar".to_string()
+    })
 }
 
 fn cflags() -> Vec<String> {
