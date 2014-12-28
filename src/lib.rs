@@ -63,6 +63,10 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     if target.as_slice().contains("-ios") {
         cmd.args(ios_flags(target.as_slice()).as_slice());
     } else {
+        if target.contains("windows") {
+            cmd.arg("-mwin32");
+        }
+
         if target.as_slice().contains("i686") {
             cmd.arg("-m32");
         } else if target.as_slice().contains("x86_64") {
