@@ -175,24 +175,34 @@ fn cflags() -> Vec<String> {
 }
 
 fn ios_flags(target: &str) -> Vec<String> {
-    let mut is_device_arch = false;
-    let mut res = Vec::new();
-
-    if target.starts_with("arm-") {
-        res.push("-arch");
-        res.push("armv7");
-        is_device_arch = true;
-    } else if target.starts_with("arm64-") {
-        res.push("-arch");
-        res.push("arm64");
-        is_device_arch = true;
-    } else if target.starts_with("i386-") {
-        res.push("-m32");
-    } else if target.starts_with("x86_64-") {
-        res.push("-m64");
+    enum ArchSpec {
+        Device(&'static str),
+        Simulator(&'static str),
     }
 
-    let sdk = if is_device_arch {"iphoneos"} else {"iphonesimulator"};
+    let mut res = Vec::new();
+
+    let arch = target.split('-').nth(0).expect("expected target in format `arch-vendor-os`");
+    let arch = match arch {
+        "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
+        "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
+        "arm64" | "aarch64" => ArchSpec::Device("aarch64"),
+        "i386" | "i686" => ArchSpec::Simulator("-m32"),
+        "x86_64" => ArchSpec::Simulator("-m64"),
+        _ => unreachable!("Unknown arch for iOS target")
+    };
+
+    let sdk = match arch {
+        ArchSpec::Device(arch) => {
+            res.push("-arch");
+            res.push(arch);
+            "iphoneos"
+        },
+        ArchSpec::Simulator(arch) => {
+            res.push(arch);
+            "iphonesimulator"
+        }
+    };
 
     println!("Detecting iOS SDK path for {}", sdk);
     let sdk_path = Command::new("xcrun")
