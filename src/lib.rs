@@ -109,7 +109,7 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
                                            .arg(dst.join(output))
                                            .args(objects.as_slice())
                                            .args(config.objects.as_slice()));
-    println!("cargo:rustc-flags=-L {} -l {}:static",
+    println!("cargo:rustc-flags=-L native={} -l {}:static",
              dst.display(), output.slice(3, output.len() - 2));
 }
 
