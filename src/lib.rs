@@ -28,7 +28,7 @@ impl Default for Config {
 fn getenv(v: &str) -> Option<String> {
     use std::os::getenv;
     let r = getenv(v);
-    println!("{} = {}", v, r);
+    println!("{:?} = {:?}", v, r);
     r
 }
 
