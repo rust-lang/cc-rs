@@ -1,3 +1,5 @@
+#![allow(unstable)]
+
 use std::io::Command;
 use std::io::process::InheritFd;
 use std::default::Default;
@@ -28,7 +30,7 @@ impl Default for Config {
 fn getenv(v: &str) -> Option<String> {
     use std::os::getenv;
     let r = getenv(v);
-    println!("{:?} = {:?}", v, r);
+    println!("{} = {:?}", v, r);
     r
 }
 
