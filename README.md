@@ -1,13 +1,19 @@
 # gcc-rs
 
+[![Build Status](https://travis-ci.org/alexcrichton/gcc-rs.svg?branch=master)](https://travis-ci.org/alexcrichton/gcc-rs)
+
+[Documentation](http://alexcrichton.com/gcc-rs/gcc/index.html)
+
 A simple library meant to be used as a build dependency with Cargo packages in
 order to build a set of C files into a static archive.
 
-```rust
+```rust,no_run
 extern crate gcc;
 
+use std::default::Default;
+
 fn main() {
-    gcc::compile_library("libfoo.a", &["foo.c", "bar.c"]);
+    gcc::compile_library("libfoo.a", &Default::default(), &["foo.c", "bar.c"]);
 }
 ```
 
