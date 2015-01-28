@@ -1,7 +1,7 @@
 #![allow(unstable)]
 
-use std::io::Command;
-use std::io::process::InheritFd;
+use std::old_io::Command;
+use std::old_io::process::InheritFd;
 use std::default::Default;
 
 /// Extra configuration to pass to gcc.
@@ -101,7 +101,7 @@ pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
     let mut objects = Vec::new();
     for file in files.iter() {
         let obj = dst.join(*file).with_extension("o");
-        std::io::fs::mkdir_recursive(&obj.dir_path(), std::io::USER_RWX).unwrap();
+        std::old_io::fs::mkdir_recursive(&obj.dir_path(), std::old_io::USER_RWX).unwrap();
         run(cmd.clone().arg(src.join(*file)).arg("-o").arg(&obj));
         objects.push(obj);
     }
@@ -196,12 +196,12 @@ fn ios_flags(target: &str) -> Vec<String> {
 
     let sdk = match arch {
         ArchSpec::Device(arch) => {
-            res.push("-arch");
-            res.push(arch);
+            res.push("-arch".to_string());
+            res.push(arch.to_string());
             "iphoneos"
         },
         ArchSpec::Simulator(arch) => {
-            res.push(arch);
+            res.push(arch.to_string());
             "iphonesimulator"
         }
     };
@@ -218,8 +218,8 @@ fn ios_flags(target: &str) -> Vec<String> {
 
     let sdk_path = String::from_utf8(sdk_path).unwrap();
 
-    res.push("-isysroot");
-    res.push(sdk_path.as_slice().trim());
+    res.push("-isysroot".to_string());
+    res.push(sdk_path.trim().to_string());
 
-    res.iter().map(|s| s.to_string()).collect::<Vec<_>>()
+    res
 }
