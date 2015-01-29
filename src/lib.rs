@@ -1,4 +1,4 @@
-#![allow(unstable)]
+#![feature(collections, core, io, path, os)]
 
 use std::old_io::Command;
 use std::old_io::process::InheritFd;
