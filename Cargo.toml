@@ -11,3 +11,4 @@ A build-time dependency for Cargo build scripts to assist in invoking the native
 C compiler to compile native C code into a static archive to be linked into Rust
 code.
 """
+keywords = ["build-dependencies"]
