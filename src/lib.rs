@@ -1,8 +1,9 @@
-#![feature(collections, core, io, path, os)]
+#![feature(core, io, path, env)]
 
+use std::default::Default;
+use std::env;
 use std::old_io::Command;
 use std::old_io::process::InheritFd;
-use std::default::Default;
 
 /// Extra configuration to pass to gcc.
 pub struct Config {
@@ -28,8 +29,7 @@ impl Default for Config {
 }
 
 fn getenv(v: &str) -> Option<String> {
-    use std::os::getenv;
-    let r = getenv(v);
+    let r = env::var_string(v).ok();
     println!("{} = {:?}", v, r);
     r
 }
