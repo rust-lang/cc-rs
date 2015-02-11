@@ -1,31 +1,60 @@
-#![feature(core, io, path, env)]
+//! A library for build scripts to compile custom C code
+//!
+//! This library is intended to be used as a `build-dependencies` entry in
+//! `Cargo.toml`:
+//!
+//! ```toml
+//! [build-dependencies]
+//! gcc = "0.2"
+//! ```
+//!
+//! The purpose of this crate is to provide the utility functions necessary to
+//! compile C code into a static archive which is then linked into a Rust crate.
+//! The top-level `compile_library` function serves as a convenience and more
+//! advanced configuration is available through the `Config` builder.
+//!
+//! This crate will automatically detect situations such as cross compilation or
+//! other environment variables set by Cargo and will build code appropriately.
+//!
+//! # Examples
+//!
+//! Use the default configuration:
+//!
+//! ```no_run
+//! extern crate gcc;
+//!
+//! fn main() {
+//!     gcc::compile_library("libfoo.a", &["src/foo.c"]);
+//! }
+//! ```
+//!
+//! Use more advanced configuration:
+//!
+//! ```no_run
+//! extern crate gcc;
+//!
+//! fn main() {
+//!     gcc::Config::new()
+//!                 .file("src/foo.c")
+//!                 .define("FOO", Some("bar"))
+//!                 .include(Path::new("src"))
+//!                 .compile("libfoo.a");
+//! }
+//! ```
 
-use std::default::Default;
+#![feature(core, io, path, env, collections)]
+
 use std::env;
-use std::old_io::Command;
+use std::old_io::{self, Command};
 use std::old_io::process::InheritFd;
 
 /// Extra configuration to pass to gcc.
 pub struct Config {
-    /// Directories where gcc will look for header files.
-    pub include_directories: Vec<Path>,
-    /// Additional definitions (`-DKEY` or `-DKEY=VALUE`).
-    pub definitions: Vec<(String, Option<String>)>,
-    /// Additional object files to link into the final archive
-    pub objects: Vec<Path>,
-    /// Additional flags and parameter to pass to the compiler
-    pub flags: Vec<String>,
-}
-
-impl Default for Config {
-    fn default() -> Config {
-        Config {
-            include_directories: Vec::new(),
-            definitions: Vec::new(),
-            objects: Vec::new(),
-            flags: Vec::new(),
-        }
-    }
+    include_directories: Vec<Path>,
+    definitions: Vec<(String, Option<String>)>,
+    objects: Vec<Path>,
+    flags: Vec<String>,
+    files: Vec<Path>,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -34,112 +63,175 @@ fn getenv(v: &str) -> Option<String> {
     r
 }
 
+fn getenv_unwrap(v: &str) -> String {
+    match getenv(v) {
+        Some(s) => s,
+        None => fail(&format!("environment variable `{}` not defined", v)),
+    }
+}
+
 /// Compile a library from the given set of input C files.
 ///
 /// This will simply compile all files into object files and then assemble them
 /// into the output. This will read the standard environment variables to detect
 /// cross compilations and such.
 ///
+/// This function will also print all metadata on standard output for Cargo.
+///
 /// # Example
 ///
 /// ```no_run
-/// use std::default::Default;
-/// gcc::compile_library("libfoo.a", &Default::default(), &[
-///     "foo.c",
-///     "bar.c",
-/// ]);
+/// gcc::compile_library("libfoo.a", &["foo.c", "bar.c"]);
 /// ```
-pub fn compile_library(output: &str, config: &Config, files: &[&str]) {
-    assert!(output.starts_with("lib"));
-    assert!(output.ends_with(".a"));
-
-    let target = getenv("TARGET").unwrap();
-    let opt_level = getenv("OPT_LEVEL").unwrap();
-
-    let mut cmd = Command::new(gcc(target.as_slice()));
-    cmd.arg(format!("-O{}", opt_level));
-    cmd.arg("-c");
-    cmd.arg("-ffunction-sections").arg("-fdata-sections");
-    cmd.args(cflags().as_slice());
-
-    if target.as_slice().contains("-ios") {
-        cmd.args(ios_flags(target.as_slice()).as_slice());
-    } else {
-        if target.contains("windows") {
-            cmd.arg("-mwin32");
-        }
-
-        if target.as_slice().contains("i686") {
-            cmd.arg("-m32");
-        } else if target.as_slice().contains("x86_64") {
-            cmd.arg("-m64");
-        }
-
-        if !target.as_slice().contains("i686") {
-            cmd.arg("-fPIC");
-        }
+pub fn compile_library(output: &str, files: &[&str]) {
+    let mut c = Config::new();
+    for f in files.iter() {
+        c.file(*f);
     }
-
-    for directory in config.include_directories.iter() {
-        cmd.arg("-I").arg(directory);
-    }
-
-    for flag in config.flags.iter() {
-        cmd.arg(flag);
-    }
-
-    for &(ref key, ref value) in config.definitions.iter() {
-        if let &Some(ref value) = value {
-            cmd.arg(format!("-D{}={}", key, value));
-        } else {
-            cmd.arg(format!("-D{}", key));
-        }
-    }
-
-    let src = Path::new(getenv("CARGO_MANIFEST_DIR").unwrap());
-    let dst = Path::new(getenv("OUT_DIR").unwrap());
-    let mut objects = Vec::new();
-    for file in files.iter() {
-        let obj = dst.join(*file).with_extension("o");
-        std::old_io::fs::mkdir_recursive(&obj.dir_path(), std::old_io::USER_RWX).unwrap();
-        run(cmd.clone().arg(src.join(*file)).arg("-o").arg(&obj));
-        objects.push(obj);
-    }
-
-
-    run(Command::new(ar(target.as_slice())).arg("crus")
-                                           .arg(dst.join(output))
-                                           .args(objects.as_slice())
-                                           .args(config.objects.as_slice()));
-    println!("cargo:rustc-flags=-L native={} -l static={}",
-             dst.display(), output.slice(3, output.len() - 2));
+    c.compile(output)
 }
 
-fn run(cmd: &mut Command) {
+impl Config {
+    /// Construct a new instance of a blank set of configuration.
+    ///
+    /// This builder is finished with the `compile` function.
+    pub fn new() -> Config {
+        Config {
+            include_directories: Vec::new(),
+            definitions: Vec::new(),
+            objects: Vec::new(),
+            flags: Vec::new(),
+            files: Vec::new(),
+        }
+    }
+
+    /// Add a directory to the `-I` or include path for headers
+    pub fn include(&mut self, dir: Path) -> &mut Config {
+        self.include_directories.push(dir);
+        self
+    }
+
+    /// Specify a `-D` variable with an optional value.
+    pub fn define(&mut self, var: &str, val: Option<&str>) -> &mut Config {
+        self.definitions.push((var.to_string(), val.map(|s| s.to_string())));
+        self
+    }
+
+    /// Add an arbitrary object file to link in
+    pub fn object(&mut self, obj: Path) -> &mut Config {
+        self.objects.push(obj);
+        self
+    }
+
+    /// Add an arbitrary flag to the invocation of the compiler
+    pub fn flag(&mut self, flag: &str) -> &mut Config {
+        self.flags.push(flag.to_string());
+        self
+    }
+
+    /// Add a file which will be compiled
+    pub fn file(&mut self, p: &str) -> &mut Config {
+        self.files.push(Path::new(p));
+        self
+    }
+
+    /// Run the compiler, generating the file `output`
+    ///
+    /// The name `output` must begin with `lib` and end with `.a`
+    pub fn compile(&self, output: &str) {
+        assert!(output.starts_with("lib"));
+        assert!(output.ends_with(".a"));
+
+        let target = getenv_unwrap("TARGET");
+        let opt_level = getenv_unwrap("OPT_LEVEL");
+        let profile = getenv_unwrap("PROFILE");
+        println!("{} {}", profile, opt_level);
+
+        let mut cmd = Command::new(gcc(&target));
+        cmd.arg(format!("-O{}", opt_level));
+        cmd.arg("-c");
+        cmd.arg("-ffunction-sections").arg("-fdata-sections");
+        cmd.args(&cflags());
+
+        if target.contains("-ios") {
+            cmd.args(&ios_flags(&target));
+        } else {
+            if target.contains("windows") {
+                cmd.arg("-mwin32");
+            }
+
+            if target.contains("i686") {
+                cmd.arg("-m32");
+            } else if target.contains("x86_64") {
+                cmd.arg("-m64");
+            }
+
+            if !target.contains("i686") {
+                cmd.arg("-fPIC");
+            }
+        }
+
+        for directory in self.include_directories.iter() {
+            cmd.arg("-I").arg(directory);
+        }
+
+        for flag in self.flags.iter() {
+            cmd.arg(flag);
+        }
+
+        for &(ref key, ref value) in self.definitions.iter() {
+            if let &Some(ref value) = value {
+                cmd.arg(format!("-D{}={}", key, value));
+            } else {
+                cmd.arg(format!("-D{}", key));
+            }
+        }
+
+        let src = Path::new(getenv_unwrap("CARGO_MANIFEST_DIR"));
+        let dst = Path::new(getenv_unwrap("OUT_DIR"));
+        let mut objects = Vec::new();
+        for file in self.files.iter() {
+            let obj = dst.join(file).with_extension("o");
+            std::old_io::fs::mkdir_recursive(&obj.dir_path(),
+                                             std::old_io::USER_RWX).unwrap();
+            run(cmd.clone().arg(src.join(file)).arg("-o").arg(&obj),
+                &gcc(&target));
+            objects.push(obj);
+        }
+
+        run(Command::new(ar(&target)).arg("crus")
+                                     .arg(dst.join(output))
+                                     .args(&objects)
+                                     .args(&self.objects),
+            &ar(&target));
+        println!("cargo:rustc-flags=-L native={} -l static={}",
+                 dst.display(), output.slice(3, output.len() - 2));
+    }
+}
+
+fn run(cmd: &mut Command, program: &str) {
     println!("running: {:?}", cmd);
     let status = match cmd.stdout(InheritFd(1)).stderr(InheritFd(2)).status() {
         Ok(status) => status,
-        Err(e) => panic!("failed to spawn process: {}", e),
+        Err(ref e) if e.kind == old_io::FileNotFound => {
+            fail(&format!("failed to execute command: {}\nis `{}` not installed?",
+                          e, program));
+        }
+        Err(e) => fail(&format!("failed to execute command: {}", e)),
     };
     if !status.success() {
-        panic!("nonzero exit status: {}", status);
+        fail(&format!("command did not execute successfully, got: {}", status));
     }
 }
 
 fn get_var(var_base: &str) -> Result<String, String> {
-    let target = getenv("TARGET")
-        .expect("Environment variable 'TARGET' is unset");
-    let host = match getenv("HOST") {
-            None => { return Err("Environment variable 'HOST' is unset".to_string()); }
-            Some(x) => x
-        };
-    let kind = if host == target { "HOST" } else { "TARGET" };
-    let target_u = target.split('-')
-        .collect::<Vec<&str>>()
-        .connect("_");
-    let res = getenv(format!("{}_{}", var_base, target).as_slice())
-        .or_else(|| getenv(format!("{}_{}", var_base, target_u).as_slice()))
-        .or_else(|| getenv(format!("{}_{}", kind, var_base).as_slice()))
+    let target = getenv_unwrap("TARGET");
+    let host = getenv_unwrap("HOST");
+    let kind = if host == target {"HOST"} else {"TARGET"};
+    let target_u = target.replace("-", "_");
+    let res = getenv(&format!("{}_{}", var_base, target))
+        .or_else(|| getenv(&format!("{}_{}", var_base, target_u)))
+        .or_else(|| getenv(&format!("{}_{}", kind, var_base)))
         .or_else(|| getenv(var_base));
 
     match res {
@@ -172,7 +264,7 @@ fn ar(target: &str) -> String {
 
 fn cflags() -> Vec<String> {
     get_var("CFLAGS").unwrap_or(String::new())
-       .as_slice().words().map(|s| s.to_string())
+       .words().map(|s| s.to_string())
        .collect()
 }
 
@@ -222,4 +314,11 @@ fn ios_flags(target: &str) -> Vec<String> {
     res.push(sdk_path.trim().to_string());
 
     res
+}
+
+fn fail(s: &str) -> ! {
+    println!("{}", s);
+    env::set_exit_status(1);
+    old_io::stdio::set_stderr(Box::new(old_io::util::NullWriter));
+    panic!()
 }
