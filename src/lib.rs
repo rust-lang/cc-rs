@@ -42,7 +42,7 @@
 //! }
 //! ```
 
-#![feature(core, io, path, env, collections)]
+#![feature(io, path, env, collections)]
 
 use std::env;
 use std::old_io::{self, Command};
@@ -58,7 +58,7 @@ pub struct Config {
 }
 
 fn getenv(v: &str) -> Option<String> {
-    let r = env::var_string(v).ok();
+    let r = env::var(v).ok();
     println!("{} = {:?}", v, r);
     r
 }
