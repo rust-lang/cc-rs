@@ -280,7 +280,7 @@ fn ios_flags(target: &str) -> Vec<String> {
     let arch = match arch {
         "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
         "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
-        "arm64" | "aarch64" => ArchSpec::Device("aarch64"),
+        "arm64" | "aarch64" => ArchSpec::Device("arm64"),
         "i386" | "i686" => ArchSpec::Simulator("-m32"),
         "x86_64" => ArchSpec::Simulator("-m64"),
         _ => unreachable!("Unknown arch for iOS target")
