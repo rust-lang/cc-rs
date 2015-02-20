@@ -37,24 +37,26 @@
 //!     gcc::Config::new()
 //!                 .file("src/foo.c")
 //!                 .define("FOO", Some("bar"))
-//!                 .include(Path::new("src"))
+//!                 .include("src")
 //!                 .compile("libfoo.a");
 //! }
 //! ```
 
-#![feature(io, path, env, collections)]
+#![feature(old_io, io, path, env, collections, process, fs)]
 
 use std::env;
-use std::old_io::{self, Command};
-use std::old_io::process::InheritFd;
+use std::fs;
+use std::io;
+use std::path::{PathBuf, AsPath};
+use std::process::{Command, Stdio};
 
 /// Extra configuration to pass to gcc.
 pub struct Config {
-    include_directories: Vec<Path>,
+    include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
-    objects: Vec<Path>,
+    objects: Vec<PathBuf>,
     flags: Vec<String>,
-    files: Vec<Path>,
+    files: Vec<PathBuf>,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -106,8 +108,8 @@ impl Config {
     }
 
     /// Add a directory to the `-I` or include path for headers
-    pub fn include(&mut self, dir: Path) -> &mut Config {
-        self.include_directories.push(dir);
+    pub fn include<P: AsPath + ?Sized>(&mut self, dir: &P) -> &mut Config {
+        self.include_directories.push(dir.as_path().to_path_buf());
         self
     }
 
@@ -118,8 +120,8 @@ impl Config {
     }
 
     /// Add an arbitrary object file to link in
-    pub fn object(&mut self, obj: Path) -> &mut Config {
-        self.objects.push(obj);
+    pub fn object<P: AsPath + ?Sized>(&mut self, obj: &P) -> &mut Config {
+        self.objects.push(obj.as_path().to_path_buf());
         self
     }
 
@@ -130,8 +132,8 @@ impl Config {
     }
 
     /// Add a file which will be compiled
-    pub fn file(&mut self, p: &str) -> &mut Config {
-        self.files.push(Path::new(p));
+    pub fn file<P: AsPath + ?Sized>(&mut self, p: &P) -> &mut Config {
+        self.files.push(p.as_path().to_path_buf());
         self
     }
 
@@ -143,12 +145,35 @@ impl Config {
         assert!(output.ends_with(".a"));
 
         let target = getenv_unwrap("TARGET");
+        let src = PathBuf::new(&getenv_unwrap("CARGO_MANIFEST_DIR"));
+        let dst = PathBuf::new(&getenv_unwrap("OUT_DIR"));
+        let mut objects = Vec::new();
+        for file in self.files.iter() {
+            let mut cmd = self.gcc();
+            let obj = dst.join(file).with_extension("o");
+            fs::create_dir_all(&obj.parent().unwrap()).unwrap();
+            run(cmd.arg(&src.join(file)).arg("-o").arg(&obj),
+                &gcc(&target));
+            objects.push(obj);
+        }
+
+        run(Command::new(&ar(&target)).arg("crus")
+                                      .arg(&dst.join(output))
+                                      .args(&objects)
+                                      .args(&self.objects),
+            &ar(&target));
+        println!("cargo:rustc-flags=-L native={} -l static={}",
+                 dst.display(), output.slice(3, output.len() - 2));
+    }
+
+    fn gcc(&self) -> Command {
+        let target = getenv_unwrap("TARGET");
         let opt_level = getenv_unwrap("OPT_LEVEL");
         let profile = getenv_unwrap("PROFILE");
         println!("{} {}", profile, opt_level);
 
-        let mut cmd = Command::new(gcc(&target));
-        cmd.arg(format!("-O{}", opt_level));
+        let mut cmd = Command::new(&gcc(&target));
+        cmd.arg(&format!("-O{}", opt_level));
         cmd.arg("-c");
         cmd.arg("-ffunction-sections").arg("-fdata-sections");
         cmd.args(&cflags());
@@ -181,39 +206,20 @@ impl Config {
 
         for &(ref key, ref value) in self.definitions.iter() {
             if let &Some(ref value) = value {
-                cmd.arg(format!("-D{}={}", key, value));
+                cmd.arg(&format!("-D{}={}", key, value));
             } else {
-                cmd.arg(format!("-D{}", key));
+                cmd.arg(&format!("-D{}", key));
             }
         }
-
-        let src = Path::new(getenv_unwrap("CARGO_MANIFEST_DIR"));
-        let dst = Path::new(getenv_unwrap("OUT_DIR"));
-        let mut objects = Vec::new();
-        for file in self.files.iter() {
-            let obj = dst.join(file).with_extension("o");
-            std::old_io::fs::mkdir_recursive(&obj.dir_path(),
-                                             std::old_io::USER_RWX).unwrap();
-            run(cmd.clone().arg(src.join(file)).arg("-o").arg(&obj),
-                &gcc(&target));
-            objects.push(obj);
-        }
-
-        run(Command::new(ar(&target)).arg("crus")
-                                     .arg(dst.join(output))
-                                     .args(&objects)
-                                     .args(&self.objects),
-            &ar(&target));
-        println!("cargo:rustc-flags=-L native={} -l static={}",
-                 dst.display(), output.slice(3, output.len() - 2));
+        return cmd;
     }
 }
 
 fn run(cmd: &mut Command, program: &str) {
     println!("running: {:?}", cmd);
-    let status = match cmd.stdout(InheritFd(1)).stderr(InheritFd(2)).status() {
+    let status = match cmd.status() {
         Ok(status) => status,
-        Err(ref e) if e.kind == old_io::FileNotFound => {
+        Err(ref e) if e.kind() == io::ErrorKind::FileNotFound => {
             fail(&format!("failed to execute command: {}\nis `{}` not installed?",
                           e, program));
         }
@@ -264,7 +270,7 @@ fn ar(target: &str) -> String {
 
 fn cflags() -> Vec<String> {
     get_var("CFLAGS").unwrap_or(String::new())
-       .words().map(|s| s.to_string())
+       .split(|c: char| c.is_whitespace()).map(|s| s.to_string())
        .collect()
 }
 
@@ -303,10 +309,10 @@ fn ios_flags(target: &str) -> Vec<String> {
         .arg("--show-sdk-path")
         .arg("--sdk")
         .arg(sdk)
-        .stderr(InheritFd(2))
+        .stderr(Stdio::inherit())
         .output()
         .unwrap()
-        .output;
+        .stdout;
 
     let sdk_path = String::from_utf8(sdk_path).unwrap();
 
@@ -319,6 +325,6 @@ fn ios_flags(target: &str) -> Vec<String> {
 fn fail(s: &str) -> ! {
     println!("{}", s);
     env::set_exit_status(1);
-    old_io::stdio::set_stderr(Box::new(old_io::util::NullWriter));
+    std::old_io::stdio::set_stderr(Box::new(std::old_io::util::NullWriter));
     panic!()
 }
