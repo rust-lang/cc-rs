@@ -270,7 +270,8 @@ fn ar(target: &str) -> String {
 
 fn cflags() -> Vec<String> {
     get_var("CFLAGS").unwrap_or(String::new())
-       .split(|c: char| c.is_whitespace()).map(|s| s.to_string())
+       .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
+       .map(|s| s.to_string())
        .collect()
 }
 
