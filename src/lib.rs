@@ -42,7 +42,7 @@
 //! }
 //! ```
 
-#![feature(old_io, io, path, env, collections, process, fs)]
+#![feature(io, path, fs)]
 
 use std::env;
 use std::fs;
@@ -247,7 +247,7 @@ fn get_var(var_base: &str) -> Result<String, String> {
 }
 
 fn gcc(target: &str) -> String {
-    let is_android = target.find_str("android").is_some();
+    let is_android = target.find("android").is_some();
 
     get_var("CC").unwrap_or(if cfg!(windows) {
         "gcc".to_string()
@@ -259,7 +259,7 @@ fn gcc(target: &str) -> String {
 }
 
 fn ar(target: &str) -> String {
-    let is_android = target.find_str("android").is_some();
+    let is_android = target.find("android").is_some();
 
     get_var("AR").unwrap_or(if is_android {
         format!("{}-ar", target)
@@ -324,8 +324,6 @@ fn ios_flags(target: &str) -> Vec<String> {
 }
 
 fn fail(s: &str) -> ! {
-    println!("{}", s);
-    env::set_exit_status(1);
-    std::old_io::stdio::set_stderr(Box::new(std::old_io::util::NullWriter));
+    println!("\n\n{}\n\n", s);
     panic!()
 }
