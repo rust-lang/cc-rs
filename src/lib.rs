@@ -42,6 +42,7 @@
 //! }
 //! ```
 
+#![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
 #![feature(io, path, fs)]
 
 use std::env;
