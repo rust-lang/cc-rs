@@ -4,7 +4,7 @@ script:
   - cargo build --verbose
   - cargo test --verbose
   - cargo doc
-  - rustdoc --test README.md -L target
+  - rustdoc --test README.md -L target/debug
 after_success: |
   [ $TRAVIS_BRANCH = master ] &&
   [ $TRAVIS_PULL_REQUEST = false ] &&
