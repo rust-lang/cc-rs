@@ -43,7 +43,8 @@
 //! ```
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
-#![feature(io, path, fs)]
+#![feature(io, path)]
+#![cfg_attr(test, deny(warnings))]
 
 use std::env;
 use std::fs;
@@ -164,7 +165,7 @@ impl Config {
                                       .args(&self.objects),
             &ar(&target));
         println!("cargo:rustc-flags=-L native={} -l static={}",
-                 dst.display(), output.slice(3, output.len() - 2));
+                 dst.display(), &output[3..output.len() - 2]);
     }
 
     fn gcc(&self) -> Command {
