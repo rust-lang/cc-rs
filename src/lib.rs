@@ -43,7 +43,7 @@
 //! ```
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
-#![feature(io, path)]
+#![feature(io, std_misc)]
 #![cfg_attr(test, deny(warnings))]
 
 use std::env;
@@ -110,7 +110,7 @@ impl Config {
     }
 
     /// Add a directory to the `-I` or include path for headers
-    pub fn include<P: AsPath + ?Sized>(&mut self, dir: &P) -> &mut Config {
+    pub fn include<P: AsPath>(&mut self, dir: P) -> &mut Config {
         self.include_directories.push(dir.as_path().to_path_buf());
         self
     }
@@ -122,7 +122,7 @@ impl Config {
     }
 
     /// Add an arbitrary object file to link in
-    pub fn object<P: AsPath + ?Sized>(&mut self, obj: &P) -> &mut Config {
+    pub fn object<P: AsPath>(&mut self, obj: P) -> &mut Config {
         self.objects.push(obj.as_path().to_path_buf());
         self
     }
@@ -134,7 +134,7 @@ impl Config {
     }
 
     /// Add a file which will be compiled
-    pub fn file<P: AsPath + ?Sized>(&mut self, p: &P) -> &mut Config {
+    pub fn file<P: AsPath>(&mut self, p: P) -> &mut Config {
         self.files.push(p.as_path().to_path_buf());
         self
     }
