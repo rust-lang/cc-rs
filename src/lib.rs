@@ -164,8 +164,9 @@ impl Config {
                                       .args(&objects)
                                       .args(&self.objects),
             &ar(&target));
-        println!("cargo:rustc-flags=-L native={} -l static={}",
-                 dst.display(), &output[3..output.len() - 2]);
+        println!("cargo:rustc-link-search=native={}", dst.display());
+        println!("cargo:rustc-link-lib=static={}",
+                 &output[3..output.len() - 2]);
     }
 
     fn gcc(&self) -> Command {
