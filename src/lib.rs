@@ -43,7 +43,7 @@
 //! ```
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
-#![feature(io, std_misc)]
+#![feature(std_misc)]
 #![cfg_attr(test, deny(warnings))]
 
 use std::env;
@@ -222,7 +222,7 @@ fn run(cmd: &mut Command, program: &str) {
     println!("running: {:?}", cmd);
     let status = match cmd.status() {
         Ok(status) => status,
-        Err(ref e) if e.kind() == io::ErrorKind::FileNotFound => {
+        Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             fail(&format!("failed to execute command: {}\nis `{}` not installed?",
                           e, program));
         }
