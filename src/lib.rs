@@ -43,13 +43,13 @@
 //! ```
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
-#![feature(std_misc)]
+#![feature(convert)]
 #![cfg_attr(test, deny(warnings))]
 
 use std::env;
 use std::fs;
 use std::io;
-use std::path::{PathBuf, AsPath};
+use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
 
 /// Extra configuration to pass to gcc.
@@ -110,8 +110,8 @@ impl Config {
     }
 
     /// Add a directory to the `-I` or include path for headers
-    pub fn include<P: AsPath>(&mut self, dir: P) -> &mut Config {
-        self.include_directories.push(dir.as_path().to_path_buf());
+    pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Config {
+        self.include_directories.push(dir.as_ref().to_path_buf());
         self
     }
 
@@ -122,8 +122,8 @@ impl Config {
     }
 
     /// Add an arbitrary object file to link in
-    pub fn object<P: AsPath>(&mut self, obj: P) -> &mut Config {
-        self.objects.push(obj.as_path().to_path_buf());
+    pub fn object<P: AsRef<Path>>(&mut self, obj: P) -> &mut Config {
+        self.objects.push(obj.as_ref().to_path_buf());
         self
     }
 
@@ -134,8 +134,8 @@ impl Config {
     }
 
     /// Add a file which will be compiled
-    pub fn file<P: AsPath>(&mut self, p: P) -> &mut Config {
-        self.files.push(p.as_path().to_path_buf());
+    pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Config {
+        self.files.push(p.as_ref().to_path_buf());
         self
     }
 
@@ -147,8 +147,8 @@ impl Config {
         assert!(output.ends_with(".a"));
 
         let target = getenv_unwrap("TARGET");
-        let src = PathBuf::new(&getenv_unwrap("CARGO_MANIFEST_DIR"));
-        let dst = PathBuf::new(&getenv_unwrap("OUT_DIR"));
+        let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
+        let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
         let mut objects = Vec::new();
         for file in self.files.iter() {
             let mut cmd = self.gcc();
