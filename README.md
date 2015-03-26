@@ -17,11 +17,11 @@ fn main() {
 
 # External configuration via environment variables
 
-To control the programs and flags used for building, the builder can set a number of different enviroment variables.
+To control the programs and flags used for building, the builder can set a number of different environment variables.
 * `CFLAGS` - a series of space seperated flags passed to "gcc". Note that
              individual flags cannot currently contain spaces, so doing
              something like: "-L=foo\ bar" is not possible.
-* `CC` - the actual c compiler used. Note that this is used as an exact
+* `CC` - the actual C compiler used. Note that this is used as an exact
          executable name, so (for example) no extra flags can be passed inside
          this variable, and the builder must ensure that there aren't any
          trailing spaces. This compiler must understand the `-c` flag. For
