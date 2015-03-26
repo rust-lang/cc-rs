@@ -59,6 +59,7 @@ pub struct Config {
     objects: Vec<PathBuf>,
     flags: Vec<String>,
     files: Vec<PathBuf>,
+    cpp: bool,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -106,6 +107,7 @@ impl Config {
             objects: Vec::new(),
             flags: Vec::new(),
             files: Vec::new(),
+            cpp: false,
         }
     }
 
@@ -139,6 +141,12 @@ impl Config {
         self
     }
 
+    /// Set C++ support
+    pub fn cpp(&mut self, cpp: bool) -> &mut Config {
+        self.cpp = cpp;
+        self
+    }
+
     /// Run the compiler, generating the file `output`
     ///
     /// The name `output` must begin with `lib` and end with `.a`
@@ -151,11 +159,11 @@ impl Config {
         let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
         let mut objects = Vec::new();
         for file in self.files.iter() {
-            let mut cmd = self.gcc();
+            let mut cmd = self.compile_cmd();
             let obj = dst.join(file).with_extension("o");
             fs::create_dir_all(&obj.parent().unwrap()).unwrap();
             run(cmd.arg(&src.join(file)).arg("-o").arg(&obj),
-                &gcc(&target));
+                &self.compiler(&target));
             objects.push(obj);
         }
 
@@ -167,19 +175,35 @@ impl Config {
         println!("cargo:rustc-link-search=native={}", dst.display());
         println!("cargo:rustc-link-lib=static={}",
                  &output[3..output.len() - 2]);
+
+        // Add specific C++ libraries, if enabled.
+        if self.cpp {
+            println!("cargo:rustc-link-lib=static=stdc++");
+        }
     }
 
-    fn gcc(&self) -> Command {
+    fn compiler(&self, target: &str) -> String {
+        let compiler_fn: fn(&str) -> String = if self.cpp { gxx } else { gcc };
+        compiler_fn(target)
+    }
+
+    fn compile_flags(&self) -> Vec<String> {
+        let flags_fn: fn() -> Vec<String> = if self.cpp { cxxflags } else { cflags };
+        flags_fn()
+    }
+
+    fn compile_cmd(&self) -> Command {
         let target = getenv_unwrap("TARGET");
         let opt_level = getenv_unwrap("OPT_LEVEL");
         let profile = getenv_unwrap("PROFILE");
         println!("{} {}", profile, opt_level);
 
-        let mut cmd = Command::new(&gcc(&target));
-        cmd.arg(&format!("-O{}", opt_level));
+        let mut cmd = Command::new(self.compiler(&target));
+
+        cmd.arg(format!("-O{}", opt_level));
         cmd.arg("-c");
         cmd.arg("-ffunction-sections").arg("-fdata-sections");
-        cmd.args(&cflags());
+        cmd.args(&self.compile_flags());
 
         if target.contains("-ios") {
             cmd.args(&ios_flags(&target));
@@ -261,6 +285,18 @@ fn gcc(target: &str) -> String {
     })
 }
 
+fn gxx(target: &str) -> String {
+    let is_android = target.find("android").is_some();
+
+    get_var("CXX").unwrap_or(if cfg!(windows) {
+        "g++".to_string()
+    } else if is_android {
+        format!("{}-g++", target)
+    } else {
+        "c++".to_string()
+    })
+}
+
 fn ar(target: &str) -> String {
     let is_android = target.find("android").is_some();
 
@@ -271,11 +307,19 @@ fn ar(target: &str) -> String {
     })
 }
 
-fn cflags() -> Vec<String> {
-    get_var("CFLAGS").unwrap_or(String::new())
+fn envflags(name: &str) -> Vec<String> {
+    get_var(name).unwrap_or(String::new())
        .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
        .map(|s| s.to_string())
        .collect()
+}
+
+fn cflags() -> Vec<String> {
+    envflags("CFLAGS")
+}
+
+fn cxxflags() -> Vec<String> {
+    envflags("CXXFLAGS")
 }
 
 fn ios_flags(target: &str) -> Vec<String> {
