@@ -183,13 +183,19 @@ impl Config {
     }
 
     fn compiler(&self, target: &str) -> String {
-        let compiler_fn: fn(&str) -> String = if self.cpp { gxx } else { gcc };
-        compiler_fn(target)
+        if self.cpp {
+            gxx(target)
+        } else {
+            gcc(target)
+        }
     }
 
     fn compile_flags(&self) -> Vec<String> {
-        let flags_fn: fn() -> Vec<String> = if self.cpp { cxxflags } else { cflags };
-        flags_fn()
+        if self.cpp {
+            cxxflags()
+        } else {
+            cflags()
+        }
     }
 
     fn compile_cmd(&self) -> Command {
