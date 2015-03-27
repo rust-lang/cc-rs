@@ -178,7 +178,7 @@ impl Config {
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
-            println!("cargo:rustc-link-lib=static=stdc++");
+            println!("cargo:rustc-link-lib=stdc++");
         }
     }
 
