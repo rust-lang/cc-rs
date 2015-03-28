@@ -33,17 +33,18 @@
 //! ```no_run
 //! extern crate gcc;
 //!
+//! use std::path::Path;
+//!
 //! fn main() {
 //!     gcc::Config::new()
-//!                 .file("src/foo.c")
+//!                 .file(Path::new("src/foo.c"))
 //!                 .define("FOO", Some("bar"))
-//!                 .include("src")
+//!                 .include(Path::new("src"))
 //!                 .compile("libfoo.a");
 //! }
 //! ```
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
-#![feature(convert)]
 #![cfg_attr(test, deny(warnings))]
 
 use std::env;
@@ -89,8 +90,8 @@ fn getenv_unwrap(v: &str) -> String {
 /// ```
 pub fn compile_library(output: &str, files: &[&str]) {
     let mut c = Config::new();
-    for f in files.iter() {
-        c.file(*f);
+    for &f in files {
+        c.file(Path::new(f));
     }
     c.compile(output)
 }
@@ -110,8 +111,8 @@ impl Config {
     }
 
     /// Add a directory to the `-I` or include path for headers
-    pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Config {
-        self.include_directories.push(dir.as_ref().to_path_buf());
+    pub fn include(&mut self, dir: &Path) -> &mut Config {
+        self.include_directories.push(dir.to_path_buf());
         self
     }
 
@@ -122,8 +123,8 @@ impl Config {
     }
 
     /// Add an arbitrary object file to link in
-    pub fn object<P: AsRef<Path>>(&mut self, obj: P) -> &mut Config {
-        self.objects.push(obj.as_ref().to_path_buf());
+    pub fn object(&mut self, obj: &Path) -> &mut Config {
+        self.objects.push(obj.to_path_buf());
         self
     }
 
@@ -134,8 +135,8 @@ impl Config {
     }
 
     /// Add a file which will be compiled
-    pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Config {
-        self.files.push(p.as_ref().to_path_buf());
+    pub fn file(&mut self, p: &Path) -> &mut Config {
+        self.files.push(p.to_path_buf());
         self
     }
 
@@ -147,8 +148,8 @@ impl Config {
         assert!(output.ends_with(".a"));
 
         let target = getenv_unwrap("TARGET");
-        let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
-        let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
+        let src = Path::new(&getenv_unwrap("CARGO_MANIFEST_DIR")).to_path_buf();
+        let dst = Path::new(&getenv_unwrap("OUT_DIR")).to_path_buf();
         let mut objects = Vec::new();
         for file in self.files.iter() {
             let mut cmd = self.gcc();
