@@ -55,6 +55,23 @@ architecture corresponding to your installation of rustc.
 Once gcc is installed, it also requires that the directory containing gcc is in
 the PATH environment variable.
 
+# C++ support
+
+`gcc-rs` supports C++ libraries compilation by using the `cpp` method on `Config`:
+
+```rust,no_run
+extern crate gcc;
+
+fn main() {
+    gcc::Config::new()
+        .cpp(true) // Switch to C++ library compilation.
+        .file("foo.cpp")
+        .compile("libfoo.a");
+}
+```
+
+When using C++ library compilation switch, the `CXX` and `CXXFLAGS` env variables are used instead of `CC` and `CFLAGS` and the C++ standard library is linked to the crate target.
+
 # License
 
 `gcc-rs` is primarily distributed under the terms of both the MIT license and
