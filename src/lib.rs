@@ -43,7 +43,6 @@
 //! ```
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
-#![feature(convert)]
 #![cfg_attr(test, deny(warnings))]
 
 use std::env;
