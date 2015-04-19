@@ -44,6 +44,7 @@
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
 #![cfg_attr(test, deny(warnings))]
+#![feature(convert)]
 
 use std::env;
 use std::fs;
