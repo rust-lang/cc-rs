@@ -1,6 +1,7 @@
 # gcc-rs
 
 [![Build Status](https://travis-ci.org/alexcrichton/gcc-rs.svg?branch=master)](https://travis-ci.org/alexcrichton/gcc-rs)
+[![Build status](https://ci.appveyor.com/api/projects/status/onu270iw98h81nwv?svg=true)](https://ci.appveyor.com/project/alexcrichton/gcc-rs)
 
 [Documentation](http://alexcrichton.com/gcc-rs/gcc/index.html)
 
@@ -44,10 +45,10 @@ In addition to the the above optional environment variables, `gcc-rs` has some f
 
 # Windows notes
 
-Currently use of this crate means that Windows users will require gcc to be installed at compile-time. 
-We recommend the [MinGW-w64](http://mingw-w64.sourceforge.net) distribution 
-([direct link to the installer][mingw-installer]). 
-You may also acquite it via [MSYS2](http://msys2.github.io), as explained [here][msys2-help]. 
+Currently use of this crate means that Windows users will require gcc to be installed at compile-time.
+We recommend the [MinGW-w64](http://mingw-w64.sourceforge.net) distribution
+([direct link to the installer][mingw-installer]).
+You may also acquite it via [MSYS2](http://msys2.github.io), as explained [here][msys2-help].
 Make sure to install the appropriate architecture corresponding to your installation of rustc.
 
 Once gcc is installed, it also requires that the directory containing gcc is in the PATH environment variable.
