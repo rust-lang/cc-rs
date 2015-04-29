@@ -255,7 +255,7 @@ fn run(cmd: &mut Command, program: &str) {
             fail(&format!("failed to execute command: {}\nIs `{}` not installed?{}",
                           e, program,
                           if cfg!(windows) {
-                             " (see http://github.com/alexcrichton/gcc-rs#windows-notes for help)"
+                             " (see https://github.com/alexcrichton/gcc-rs#windows-notes for help)"
                           } else {""}
                           ));
         }
