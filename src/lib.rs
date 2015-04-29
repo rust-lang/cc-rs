@@ -252,8 +252,12 @@ fn run(cmd: &mut Command, program: &str) {
     let status = match cmd.status() {
         Ok(status) => status,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
-            fail(&format!("failed to execute command: {}\nis `{}` not installed?",
-                          e, program));
+            fail(&format!("failed to execute command: {}\nIs `{}` not installed?{}",
+                          e, program,
+                          if cfg!(windows) {
+                             " (see http://github.com/alexcrichton/gcc-rs#windows-notes for help)"
+                          } else {""}
+                          ));
         }
         Err(e) => fail(&format!("failed to execute command: {}", e)),
     };
