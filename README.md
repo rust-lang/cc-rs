@@ -44,16 +44,16 @@ In addition to the the above optional environment variables, `gcc-rs` has some f
 
 # Windows notes
 
-Currently use of this crate means that Windows users will require gcc to be
-installed at compile-time. This is typically acquired through the
-[MinGW-w64](http://mingw-w64.sourceforge.net), although we recommend installing
-through [MSYS2 instead][msys2]. Make sure to install the appropriate
-architecture corresponding to your installation of rustc.
+Currently use of this crate means that Windows users will require gcc to be installed at compile-time. 
+We recommend the [MinGW-w64](http://mingw-w64.sourceforge.net) distribution 
+([direct link to the installer][mingw-installer]). 
+You may also acquite it via [MSYS2](http://msys2.github.io), as explained [here][msys2-help]. 
+Make sure to install the appropriate architecture corresponding to your installation of rustc.
 
-[msys2]: https://github.com/rust-lang/rust/wiki/Note-getting-started-developing-Rust#windows
+Once gcc is installed, it also requires that the directory containing gcc is in the PATH environment variable.
 
-Once gcc is installed, it also requires that the directory containing gcc is in
-the PATH environment variable.
+[mingw-installer]: http://sourceforge.net/projects/mingw-w64/files/latest/download
+[msys2-help]: http://github.com/rust-lang/rust#building-on-windows
 
 # C++ support
 
