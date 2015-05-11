@@ -59,6 +59,17 @@ pub struct Config {
     flags: Vec<String>,
     files: Vec<PathBuf>,
     cpp: bool,
+    cpp_stdlib: Option<String>,
+}
+
+/// Returns the default C++ standard library for the current target: `libc++`
+/// for OS X and `libstdc++` for anything else.
+fn target_default_cpp_stdlib() -> Option<&'static str> {
+    if getenv_unwrap("TARGET").contains("darwin") {
+        Some("c++")
+    } else {
+        Some("stdc++")
+    }
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -107,6 +118,7 @@ impl Config {
             flags: Vec::new(),
             files: Vec::new(),
             cpp: false,
+            cpp_stdlib: target_default_cpp_stdlib().map(|s| s.into()),
         }
     }
 
@@ -146,6 +158,25 @@ impl Config {
         self
     }
 
+    /// Set the standard library to use when compiling with C++ support.
+    ///
+    /// The default value of this property depends on the current target: On
+    /// OS X `Some("c++")` is used, for any other target `Some("stdc++")`.
+    ///
+    /// The choosen library is specified when compiling using the `-stdlib` flag
+    /// and Cargo is instructed to link to the given library.
+    ///
+    /// A value of `None` indicates that no special actions regarding the C++
+    /// standard library should be take. This means that neither are linking
+    /// instructions provided to Cargo nor is the compiler told to use a
+    /// specific standard library.
+    ///
+    /// The given library name must not contain the `lib` prefix.
+    pub fn cpp_stdlib(&mut self, cpp_stdlib: Option<&str>) -> &mut Config {
+        self.cpp_stdlib = cpp_stdlib.map(|s| s.into());
+        self
+    }
+
     /// Run the compiler, generating the file `output`
     ///
     /// The name `output` must begin with `lib` and end with `.a`
@@ -177,7 +208,9 @@ impl Config {
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
-            println!("cargo:rustc-link-lib=stdc++");
+            if let Some(ref stdlib) = self.cpp_stdlib {
+                println!("cargo:rustc-link-lib={}", stdlib);
+            }
         }
     }
 
@@ -225,6 +258,12 @@ impl Config {
 
             if !target.contains("i686") {
                 cmd.arg("-fPIC");
+            }
+        }
+
+        if self.cpp {
+            if let Some(ref stdlib) = self.cpp_stdlib {
+                cmd.arg(&format!("-stdlib=lib{}", stdlib));
             }
         }
 
