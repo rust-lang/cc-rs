@@ -45,6 +45,9 @@
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
 #![cfg_attr(test, deny(warnings))]
 
+extern crate glob;
+use glob::glob;
+
 use std::env;
 use std::fs;
 use std::io;
@@ -107,6 +110,7 @@ pub fn compile_library(output: &str, files: &[&str]) {
 }
 
 impl Config {
+
     /// Construct a new instance of a blank set of configuration.
     ///
     /// This builder is finished with the `compile` function.
@@ -149,6 +153,20 @@ impl Config {
     /// Add a file which will be compiled
     pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Config {
         self.files.push(p.as_ref().to_path_buf());
+        self
+    }
+    
+    /// Add files through file globbing which will be compiled
+    pub fn file_glob(&mut self, p: &str) -> &mut Config {
+        for path in glob(p).unwrap() {
+            match path {
+                Ok(v) => {
+                    self.file(&v);
+                    println!("File = {}", &v.display());
+        	}
+                Err(u) => { panic!("error {}", u); }
+            }
+        }
         self
     }
 
