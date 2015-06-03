@@ -267,6 +267,7 @@ impl Config {
 
         if target.contains("msvc") {
             cmd.arg("/c");
+            cmd.arg("/MD"); // link against msvcrt.dll for now
             cmd.arg(format!("/O{}", opt_level));
         } else {
             cmd.arg(format!("-O{}", opt_level));
