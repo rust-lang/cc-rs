@@ -66,7 +66,10 @@ pub struct Config {
 /// Returns the default C++ standard library for the current target: `libc++`
 /// for OS X and `libstdc++` for anything else.
 fn target_default_cpp_stdlib() -> Option<&'static str> {
-    if getenv_unwrap("TARGET").contains("darwin") {
+    let target = getenv_unwrap("TARGET");
+    if target.contains("msvc") {
+        None
+    } else if target.contains("darwin") {
         Some("c++")
     } else {
         Some("stdc++")
@@ -162,7 +165,8 @@ impl Config {
     /// Set the standard library to use when compiling with C++ support.
     ///
     /// The default value of this property depends on the current target: On
-    /// OS X `Some("c++")` is used, for any other target `Some("stdc++")`.
+    /// OS X `Some("c++")` is used and for other supported targets
+    /// `Some("stdc++")` is used.
     ///
     /// The choosen library is specified when compiling using the `-stdlib` flag
     /// and Cargo is instructed to link to the given library.
