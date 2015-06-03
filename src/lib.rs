@@ -162,19 +162,16 @@ impl Config {
         self
     }
 
-    /// Set the standard library to use when compiling with C++ support.
+    /// Set the standard library to link against when compiling with C++
+    /// support.
     ///
     /// The default value of this property depends on the current target: On
     /// OS X `Some("c++")` is used and for other supported targets
     /// `Some("stdc++")` is used.
     ///
-    /// The choosen library is specified when compiling using the `-stdlib` flag
-    /// and Cargo is instructed to link to the given library.
-    ///
     /// A value of `None` indicates that no special actions regarding the C++
-    /// standard library should be take. This means that neither are linking
-    /// instructions provided to Cargo nor is the compiler told to use a
-    /// specific standard library.
+    /// standard library should be take. This means that you have to link
+    /// against the correct standard library yourself if required.
     ///
     /// The given library name must not contain the `lib` prefix.
     pub fn cpp_stdlib(&mut self, cpp_stdlib: Option<&str>) -> &mut Config {
@@ -291,12 +288,6 @@ impl Config {
 
             if !target.contains("i686") {
                 cmd.arg("-fPIC");
-            }
-        }
-
-        if self.cpp {
-            if let Some(ref stdlib) = self.cpp_stdlib {
-                cmd.arg(&format!("-stdlib=lib{}", stdlib));
             }
         }
 
