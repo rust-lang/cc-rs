@@ -188,6 +188,7 @@ impl Config {
     pub fn compile(&self, output: &str) {
         assert!(output.starts_with("lib"));
         assert!(output.ends_with(".a"));
+        let lib_name = &output[3..output.len() - 2];
 
         let target = getenv_unwrap("TARGET");
         let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
@@ -215,6 +216,13 @@ impl Config {
             out.push(dst.join(output));
             run(Command::new("lib").arg(out).args(&objects).args(&self.objects),
                 "lib");
+
+            // The Rust compiler will look for libfoo.a and foo.lib, but the
+            // MSVC linker will also be passed foo.lib, so be sure that both
+            // exist for now.
+            let lib_dst = dst.join(format!("{}.lib", lib_name));
+            let _ = fs::remove_file(&lib_dst);
+            fs::hard_link(dst.join(output), lib_dst).unwrap();
         } else {
             run(Command::new(&ar(&target)).arg("crus")
                                           .arg(&dst.join(output))
