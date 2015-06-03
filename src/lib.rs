@@ -46,6 +46,7 @@
 #![cfg_attr(test, deny(warnings))]
 
 use std::env;
+use std::ffi::OsString;
 use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
@@ -189,19 +190,34 @@ impl Config {
         let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
         let mut objects = Vec::new();
         for file in self.files.iter() {
-            let mut cmd = self.compile_cmd();
+            let mut cmd = self.compile_cmd(&target);
+            cmd.arg(src.join(file));
+
             let obj = dst.join(file).with_extension("o");
             fs::create_dir_all(&obj.parent().unwrap()).unwrap();
-            run(cmd.arg(&src.join(file)).arg("-o").arg(&obj),
-                &self.compiler(&target));
+            if target.contains("msvc") {
+                let mut s = OsString::from("/Fo:");
+                s.push(&obj);
+                cmd.arg(s);
+            } else {
+                cmd.arg("-o").arg(&obj);
+            }
+            run(&mut cmd, &self.compiler(&target));
             objects.push(obj);
         }
 
-        run(Command::new(&ar(&target)).arg("crus")
-                                      .arg(&dst.join(output))
-                                      .args(&objects)
-                                      .args(&self.objects),
-            &ar(&target));
+        if target.contains("msvc") {
+            let mut out = OsString::from("/OUT:");
+            out.push(dst.join(output));
+            run(Command::new("lib").arg(out).args(&objects).args(&self.objects),
+                "lib");
+        } else {
+            run(Command::new(&ar(&target)).arg("crus")
+                                          .arg(&dst.join(output))
+                                          .args(&objects)
+                                          .args(&self.objects),
+                &ar(&target));
+        }
         println!("cargo:rustc-link-search=native={}", dst.display());
         println!("cargo:rustc-link-lib=static={}",
                  &output[3..output.len() - 2]);
@@ -230,22 +246,26 @@ impl Config {
         }
     }
 
-    fn compile_cmd(&self) -> Command {
-        let target = getenv_unwrap("TARGET");
+    fn compile_cmd(&self, target: &str) -> Command {
         let opt_level = getenv_unwrap("OPT_LEVEL");
         let profile = getenv_unwrap("PROFILE");
         println!("{} {}", profile, opt_level);
 
         let mut cmd = Command::new(self.compiler(&target));
 
-        cmd.arg(format!("-O{}", opt_level));
-        cmd.arg("-c");
-        cmd.arg("-ffunction-sections").arg("-fdata-sections");
+        if target.contains("msvc") {
+            cmd.arg("/c");
+            cmd.arg(format!("/O{}", opt_level));
+        } else {
+            cmd.arg(format!("-O{}", opt_level));
+            cmd.arg("-c");
+            cmd.arg("-ffunction-sections").arg("-fdata-sections");
+        }
         cmd.args(&self.compile_flags());
 
         if target.contains("-ios") {
             cmd.args(&ios_flags(&target));
-        } else {
+        } else if !target.contains("msvc") {
             if target.contains("windows") {
                 cmd.arg("-mwin32");
             }
@@ -268,7 +288,8 @@ impl Config {
         }
 
         for directory in self.include_directories.iter() {
-            cmd.arg("-I").arg(directory);
+            cmd.arg(if target.contains("msvc") {"/I"} else {"-I"});
+            cmd.arg(directory);
         }
 
         for flag in self.flags.iter() {
@@ -276,10 +297,11 @@ impl Config {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
+            let lead = if target.contains("msvc") {"/"} else {"-"};
             if let &Some(ref value) = value {
-                cmd.arg(&format!("-D{}={}", key, value));
+                cmd.arg(&format!("{}D{}={}", lead, key, value));
             } else {
-                cmd.arg(&format!("-D{}", key));
+                cmd.arg(&format!("{}D{}", lead, key));
             }
         }
         return cmd;
@@ -291,12 +313,14 @@ fn run(cmd: &mut Command, program: &str) {
     let status = match cmd.status() {
         Ok(status) => status,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
-            fail(&format!("failed to execute command: {}\nIs `{}` not installed?{}",
-                          e, program,
-                          if cfg!(windows) {
-                             " (see https://github.com/alexcrichton/gcc-rs#windows-notes for help)"
-                          } else {""}
-                          ));
+            let extra = if cfg!(windows) {
+                " (see https://github.com/alexcrichton/gcc-rs#windows-notes \
+                   for help)"
+            } else {
+                ""
+            };
+            fail(&format!("failed to execute command: {}\nIs `{}` \
+                           not installed?{}", e, program, extra));
         }
         Err(e) => fail(&format!("failed to execute command: {}", e)),
     };
@@ -325,7 +349,11 @@ fn gcc(target: &str) -> String {
     let is_android = target.find("android").is_some();
 
     get_var("CC").unwrap_or(if cfg!(windows) {
-        "gcc".to_string()
+        if target.contains("msvc") {
+            "cl".to_string()
+        } else {
+            "gcc".to_string()
+        }
     } else if is_android {
         format!("{}-gcc", target)
     } else {
@@ -337,7 +365,11 @@ fn gxx(target: &str) -> String {
     let is_android = target.find("android").is_some();
 
     get_var("CXX").unwrap_or(if cfg!(windows) {
-        "g++".to_string()
+        if target.contains("msvc") {
+            "cl".to_string()
+        } else {
+            "g++".to_string()
+        }
     } else if is_android {
         format!("{}-g++", target)
     } else {
