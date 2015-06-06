@@ -60,7 +60,8 @@ pub struct Config {
     flags: Vec<String>,
     files: Vec<PathBuf>,
     cpp: bool,
-    cpp_stdlib: Option<String>,
+    cpp_link_stdlib: Option<String>,
+    cpp_set_stdlib: Option<String>,
 }
 
 /// Returns the default C++ standard library for the current target: `libc++`
@@ -122,7 +123,8 @@ impl Config {
             flags: Vec::new(),
             files: Vec::new(),
             cpp: false,
-            cpp_stdlib: target_default_cpp_stdlib().map(|s| s.into()),
+            cpp_link_stdlib: target_default_cpp_stdlib().map(|s| s.into()),
+            cpp_set_stdlib: None,
         }
     }
 
@@ -156,7 +158,10 @@ impl Config {
         self
     }
 
-    /// Set C++ support
+    /// Set C++ support.
+    ///
+    /// The other `cpp_*` options will only become active if this is set to
+    /// `true`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Config {
         self.cpp = cpp;
         self
@@ -166,16 +171,43 @@ impl Config {
     /// support.
     ///
     /// The default value of this property depends on the current target: On
-    /// OS X `Some("c++")` is used and for other supported targets
-    /// `Some("stdc++")` is used.
+    /// OS X `Some("c++")` is used, when compiling for a Visual Studio based
+    /// target `None` is used and for other targets `Some("stdc++")` is used.
     ///
-    /// A value of `None` indicates that no special actions regarding the C++
-    /// standard library should be take. This means that you have to link
-    /// against the correct standard library yourself if required.
+    /// A value of `None` indicates that no automatic linking should happen,
+    /// otherwise cargo will link against the specified library.
     ///
     /// The given library name must not contain the `lib` prefix.
-    pub fn cpp_stdlib(&mut self, cpp_stdlib: Option<&str>) -> &mut Config {
-        self.cpp_stdlib = cpp_stdlib.map(|s| s.into());
+    pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>) -> &mut Config {
+        self.cpp_link_stdlib = cpp_link_stdlib.map(|s| s.into());
+        self
+    }
+
+    /// Force the C++ compiler to use the specified standard library.
+    ///
+    /// Setting this option will automatically set `cpp_link_stdlib` to the same
+    /// value.
+    ///
+    /// The default value of this option is always `None`.
+    ///
+    /// This option has no effect when compiling for a Visual Studio based
+    /// target.
+    ///
+    /// This option sets the `-stdlib` flag, which is only supported by some
+    /// compilers (clang, icc) but not by others (gcc). The library will not
+    /// detect which compiler is used, as such it is the responsibility of the
+    /// caller to ensure that this option is only used in conjuction with a
+    /// compiler which supports the `-stdlib` flag.
+    ///
+    /// A value of `None` indicates that no specific C++ standard library should
+    /// be used, otherwise `-stdlib` is added to the compile invocation.
+    ///
+    /// The given library name must not contain the `lib` prefix.
+    pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>) -> &mut Config {
+        self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
+
+        self.cpp_link_stdlib(cpp_set_stdlib);
+
         self
     }
 
@@ -233,7 +265,7 @@ impl Config {
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
-            if let Some(ref stdlib) = self.cpp_stdlib {
+            if let Some(ref stdlib) = self.cpp_link_stdlib {
                 println!("cargo:rustc-link-lib={}", stdlib);
             }
         }
@@ -288,6 +320,12 @@ impl Config {
 
             if !target.contains("i686") {
                 cmd.arg("-fPIC");
+            }
+        }
+
+        if self.cpp && !target.contains("msvc") {
+            if let Some(ref stdlib) = self.cpp_set_stdlib {
+                cmd.arg(&format!("-stdlib=lib{}", stdlib));
             }
         }
 
