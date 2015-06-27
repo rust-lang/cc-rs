@@ -52,6 +52,9 @@ use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
 
+#[cfg(unix)]
+use std::os::unix::prelude::*;
+
 /// Extra configuration to pass to gcc.
 pub struct Config {
     include_directories: Vec<PathBuf>,
@@ -224,10 +227,28 @@ impl Config {
         let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
         let mut objects = Vec::new();
         for file in self.files.iter() {
+            let obj = dst.join(file).with_extension("o");
+
+            if cfg!(unix) {
+                let file_mtime = match fs::metadata(&file) {
+                    Ok(meta) => meta.mtime(),
+                    Err(_) => 0,
+                };
+
+                let obj_mtime = match fs::metadata(&obj) {
+                    Ok(meta) => meta.mtime(),
+                    Err(_) => 0,
+                };
+
+                if file_mtime < obj_mtime {
+                    objects.push(obj);
+                    continue;
+                }
+            }
+
             let mut cmd = self.compile_cmd(&target);
             cmd.arg(src.join(file));
 
-            let obj = dst.join(file).with_extension("o");
             fs::create_dir_all(&obj.parent().unwrap()).unwrap();
             if target.contains("msvc") {
                 let mut s = OsString::from("/Fo:");
