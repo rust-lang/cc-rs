@@ -12,3 +12,6 @@ C compiler to compile native C code into a static archive to be linked into Rust
 code.
 """
 keywords = ["build-dependencies"]
+
+[dependencies]
+filetime = "0.1"

@@ -52,8 +52,8 @@ use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
 
-#[cfg(unix)]
-use std::os::unix::prelude::*;
+extern crate filetime;
+use filetime::FileTime;
 
 /// Extra configuration to pass to gcc.
 pub struct Config {
@@ -229,35 +229,29 @@ impl Config {
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
 
-            if cfg!(unix) {
-                let file_mtime = match fs::metadata(&file) {
-                    Ok(meta) => meta.mtime(),
-                    Err(_) => 0,
-                };
+            let file_mtime = fs::metadata(&file)
+                .map(|m| FileTime::from_last_modification_time(&m).seconds())
+                .unwrap_or(0);
 
-                let obj_mtime = match fs::metadata(&obj) {
-                    Ok(meta) => meta.mtime(),
-                    Err(_) => 0,
-                };
+            let obj_mtime = fs::metadata(&obj)
+                .map(|m| FileTime::from_last_modification_time(&m).seconds())
+                .unwrap_or(0);
 
-                if file_mtime < obj_mtime {
-                    objects.push(obj);
-                    continue;
+            if file_mtime > obj_mtime {
+                let mut cmd = self.compile_cmd(&target);
+                cmd.arg(src.join(file));
+
+                fs::create_dir_all(&obj.parent().unwrap()).unwrap();
+                if target.contains("msvc") {
+                    let mut s = OsString::from("/Fo:");
+                    s.push(&obj);
+                    cmd.arg(s);
+                } else {
+                    cmd.arg("-o").arg(&obj);
                 }
+                run(&mut cmd, &self.compiler(&target));
             }
 
-            let mut cmd = self.compile_cmd(&target);
-            cmd.arg(src.join(file));
-
-            fs::create_dir_all(&obj.parent().unwrap()).unwrap();
-            if target.contains("msvc") {
-                let mut s = OsString::from("/Fo:");
-                s.push(&obj);
-                cmd.arg(s);
-            } else {
-                cmd.arg("-o").arg(&obj);
-            }
-            run(&mut cmd, &self.compiler(&target));
             objects.push(obj);
         }
 
