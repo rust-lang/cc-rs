@@ -305,6 +305,10 @@ impl Config {
         }
         cmd.args(&self.compile_flags());
 
+        if profile == "debug" {
+            cmd.arg(if target.contains("msvc") {"/Z7"} else {"-g"});
+        }
+
         if target.contains("-ios") {
             cmd.args(&ios_flags(&target));
         } else if !target.contains("msvc") {
