@@ -51,6 +51,7 @@ use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
+use std::collections::HashMap;
 
 extern crate filetime;
 use filetime::FileTime;
@@ -226,18 +227,51 @@ impl Config {
         let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
         let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
         let mut objects = Vec::new();
+        let mut dependencies = HashMap::new();
+
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
+            let obj_mtime = get_mtime(&obj);
 
-            let file_mtime = fs::metadata(&file)
-                .map(|m| FileTime::from_last_modification_time(&m).seconds())
-                .unwrap_or(0);
+            let mut max_mtime = get_mtime(&file);
 
-            let obj_mtime = fs::metadata(&obj)
-                .map(|m| FileTime::from_last_modification_time(&m).seconds())
-                .unwrap_or(0);
+            // If input is older than output, check its dependencies
+            if max_mtime < obj_mtime {
+                let mut pre = self.compile_cmd(&target);
+                pre.arg(src.join(file));
+                pre.arg("-M").arg("-MG");
 
-            if file_mtime > obj_mtime {
+                let pre_output = pre.output()
+                    .map(|o| o.stdout)
+                    .unwrap_or(vec![]);
+
+                // should probably use from_utf8 => but what about windows?
+                let pre_stdout = String::from_utf8_lossy(&pre_output)
+                    .replace(" \\", "");
+
+                for dep in pre_stdout.split_whitespace().skip(2) {
+                    // FIXME: we should canonicalize dep when std::fs::canonicalize is stable
+                    let path = PathBuf::from(dep);
+
+                    // if we've already seen a dependency, it's older
+                    if dependencies.contains_key(&path) { continue; }
+
+                    let mtime = get_mtime(&path);
+                    dependencies.insert(path, mtime);
+
+                    if mtime > max_mtime {
+                        max_mtime = mtime;
+                    }
+                    if mtime >= obj_mtime {
+                        break;
+                    }
+                }
+            }
+
+            if max_mtime >= obj_mtime {
+                use std::io::Write;
+                let _out = writeln!(&mut std::io::stderr(), "# {} or dep newer than obj", file.to_str().unwrap());
+
                 let mut cmd = self.compile_cmd(&target);
                 cmd.arg(src.join(file));
 
@@ -404,6 +438,12 @@ fn get_var(var_base: &str) -> Result<String, String> {
         Some(res) => Ok(res),
         None => Err("Could not get environment variable".to_string()),
     }
+}
+
+fn get_mtime(file: &PathBuf) -> u64 {
+    fs::metadata(file)
+        .map(|mtime| FileTime::from_last_modification_time(&mtime).seconds())
+        .unwrap_or(0)
 }
 
 fn gcc(target: &str) -> String {
