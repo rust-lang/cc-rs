@@ -18,7 +18,9 @@ fn main() {
 
 # External configuration via environment variables
 
-To control the programs and flags used for building, the builder can set a number of different environment variables.
+To control the programs and flags used for building, the builder can set a
+number of different environment variables.
+
 * `CFLAGS` - a series of space seperated flags passed to "gcc". Note that
              individual flags cannot currently contain spaces, so doing
              something like: "-L=foo\ bar" is not possible.
@@ -30,35 +32,50 @@ To control the programs and flags used for building, the builder can set a numbe
          common is `-fPIC`).
 * `AR` - the `ar` (archiver) executable to use to build the static library.
 
-Each of these variables can also be supplied with certain prefixes and suffixes, in the following prioritized order:
+Each of these variables can also be supplied with certain prefixes and suffixes,
+in the following prioritized order:
 
 1. `<var>_<target>` - for example, `CC_x86_64-unknown-linux-gnu`
-1. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu`
-1. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
-1. `<var>` - a plain `CC`, `AR` as above.
+2. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu`
+3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
+4. `<var>` - a plain `CC`, `AR` as above.
 
 If none of these varaibles exist, gcc-rs uses built-in defaults
 
-In addition to the the above optional environment variables, `gcc-rs` has some functions with hard requirements on some variables supplied by [cargo's build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`, and `HOST` variables
+In addition to the the above optional environment variables, `gcc-rs` has some
+functions with hard requirements on some variables supplied by [cargo's
+build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
+and `HOST` variables.
 
 [cargo]: http://doc.crates.io/build-script.html#inputs-to-the-build-script
 
-# Windows notes
+# Compile-time Requirements
 
-Currently use of this crate means that Windows users will require gcc to be installed at compile-time.
-We recommend the [MinGW-w64](http://mingw-w64.sourceforge.net) distribution
-([direct link to the installer][mingw-installer]).
-You may also acquite it via [MSYS2](http://msys2.github.io), as explained [here][msys2-help].
-Make sure to install the appropriate architecture corresponding to your installation of rustc.
+To work properly this crate needs access to a C compiler when the build script
+is being run. This crate does not ship a C compiler with it. The compiler
+required varies per platform, but there are three broad categories:
 
-Once gcc is installed, it also requires that the directory containing gcc is in the PATH environment variable.
+* Unix platforms require `cc` to be the C compiler. This can be found by
+  installing gcc/clang on Linux distributions and Xcode on OSX, for example.
+* Windows platforms targeting MSVC (e.g. your target triple ends in `-msvc`)
+  require `cl.exe` to be available and in `PATH`. This is typically found in
+  standard Visual Studio installations and the `PATH` can be set up by running
+  the appropriate developer tools shell.
+* Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
+  require `gcc` to be available in `PATH`. We recommend the
+  [MinGW-w64](http://mingw-w64.sourceforge.net) distribution
+  ([direct link to the installer][mingw-installer]). You may also acquite it via
+  [MSYS2](http://msys2.github.io), as explained [here][msys2-help].  Make sure
+  to install the appropriate architecture corresponding to your installation of
+  rustc.
 
 [mingw-installer]: http://sourceforge.net/projects/mingw-w64/files/latest/download
 [msys2-help]: http://github.com/rust-lang/rust#building-on-windows
 
 # C++ support
 
-`gcc-rs` supports C++ libraries compilation by using the `cpp` method on `Config`:
+`gcc-rs` supports C++ libraries compilation by using the `cpp` method on
+`Config`:
 
 ```rust,no_run
 extern crate gcc;
@@ -71,7 +88,9 @@ fn main() {
 }
 ```
 
-When using C++ library compilation switch, the `CXX` and `CXXFLAGS` env variables are used instead of `CC` and `CFLAGS` and the C++ standard library is linked to the crate target.
+When using C++ library compilation switch, the `CXX` and `CXXFLAGS` env
+variables are used instead of `CC` and `CFLAGS` and the C++ standard library is
+linked to the crate target.
 
 # License
 
