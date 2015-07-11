@@ -246,18 +246,16 @@ impl Config {
                     .unwrap_or(vec![]);
 
                 // should probably use from_utf8 => but what about windows?
-                let pre_stdout = String::from_utf8_lossy(&pre_output)
-                    .replace(" \\", "");
+                let obj_deps: Vec<PathBuf> = String::from_utf8_lossy(&pre_output)
+                    .replace(" \\", "")
+                    .split_whitespace().skip(2) // skip .o and .h
+                    .map(|s| PathBuf::from(s))
+                    .filter(|s| !dependencies.contains_key(s))
+                    .collect();
 
-                for dep in pre_stdout.split_whitespace().skip(2) {
-                    // FIXME: we should canonicalize dep when std::fs::canonicalize is stable
-                    let path = PathBuf::from(dep);
-
-                    // if we've already seen a dependency, it's older
-                    if dependencies.contains_key(&path) { continue; }
-
-                    let mtime = get_mtime(&path);
-                    dependencies.insert(path, mtime);
+                for dep in obj_deps {
+                    let mtime = get_mtime(&dep);
+                    dependencies.insert(dep, mtime);
 
                     if mtime > max_mtime {
                         max_mtime = mtime;
