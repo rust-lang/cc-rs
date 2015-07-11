@@ -51,6 +51,10 @@ use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
+use std::collections::HashMap;
+
+extern crate filetime;
+use filetime::FileTime;
 
 /// Extra configuration to pass to gcc.
 pub struct Config {
@@ -223,20 +227,63 @@ impl Config {
         let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
         let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
         let mut objects = Vec::new();
-        for file in self.files.iter() {
-            let mut cmd = self.compile_cmd(&target);
-            cmd.arg(src.join(file));
+        let mut dependencies = HashMap::new();
 
+        for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
-            fs::create_dir_all(&obj.parent().unwrap()).unwrap();
-            if target.contains("msvc") {
-                let mut s = OsString::from("/Fo:");
-                s.push(&obj);
-                cmd.arg(s);
-            } else {
-                cmd.arg("-o").arg(&obj);
+            let obj_mtime = get_mtime(&obj);
+
+            let mut max_mtime = get_mtime(&file);
+
+            // If input is older than output, check its dependencies
+            if max_mtime < obj_mtime {
+                let mut pre = self.compile_cmd(&target);
+                pre.arg(src.join(file));
+                pre.arg("-M").arg("-MG");
+
+                let pre_output = pre.output()
+                    .map(|o| o.stdout)
+                    .unwrap_or(vec![]);
+
+                // should probably use from_utf8 => but what about windows?
+                let obj_deps: Vec<PathBuf> = String::from_utf8_lossy(&pre_output)
+                    .replace(" \\", "")
+                    .split_whitespace().skip(2) // skip .o and .h
+                    .map(|s| PathBuf::from(s))
+                    .filter(|s| !dependencies.contains_key(s))
+                    .collect();
+
+                for dep in obj_deps {
+                    let mtime = get_mtime(&dep);
+                    dependencies.insert(dep, mtime);
+
+                    if mtime > max_mtime {
+                        max_mtime = mtime;
+                    }
+                    if mtime >= obj_mtime {
+                        break;
+                    }
+                }
             }
-            run(&mut cmd, &self.compiler(&target));
+
+            if max_mtime >= obj_mtime {
+                use std::io::Write;
+                let _out = writeln!(&mut std::io::stderr(), "# {} or dep newer than obj", file.to_str().unwrap());
+
+                let mut cmd = self.compile_cmd(&target);
+                cmd.arg(src.join(file));
+
+                fs::create_dir_all(&obj.parent().unwrap()).unwrap();
+                if target.contains("msvc") {
+                    let mut s = OsString::from("/Fo:");
+                    s.push(&obj);
+                    cmd.arg(s);
+                } else {
+                    cmd.arg("-o").arg(&obj);
+                }
+                run(&mut cmd, &self.compiler(&target));
+            }
+
             objects.push(obj);
         }
 
@@ -389,6 +436,12 @@ fn get_var(var_base: &str) -> Result<String, String> {
         Some(res) => Ok(res),
         None => Err("Could not get environment variable".to_string()),
     }
+}
+
+fn get_mtime(file: &PathBuf) -> u64 {
+    fs::metadata(file)
+        .map(|mtime| FileTime::from_last_modification_time(&mtime).seconds())
+        .unwrap_or(0)
 }
 
 fn gcc(target: &str) -> String {
