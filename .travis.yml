@@ -7,6 +7,7 @@ sudo: false
 script:
   - cargo build --verbose
   - cargo test --verbose
+  - cargo test --manifest-path gcc-test/Cargo.toml
   - cargo doc
   - rustdoc --test README.md -L target/debug
 after_success: |
