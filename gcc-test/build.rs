@@ -13,11 +13,6 @@ fn main() {
                 .include("src/include")
                 .compile("libbar.a");
 
-    gcc::Config::new()
-                .file("src/bar1.c")
-                .file("src/bar2.c")
-                .compile("libbar.a");
-
     let target = std::env::var("TARGET").unwrap();
     let file = target.split("-").next().unwrap();
     let file = format!("src/{}.{}", file,
@@ -25,4 +20,9 @@ fn main() {
     gcc::Config::new()
                 .file(file)
                 .compile("libasm.a");
+
+    gcc::Config::new()
+                .file("src/baz.cpp")
+                .cpp(true)
+                .compile("libbaz.a");
 }

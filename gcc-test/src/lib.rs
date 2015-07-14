@@ -5,4 +5,6 @@ extern {
     pub fn bar2() -> i32;
 
     pub fn asm() -> i32;
+
+    pub fn baz() -> i32;
 }
