@@ -62,6 +62,7 @@ pub struct Config {
     cpp: bool,
     cpp_link_stdlib: Option<String>,
     cpp_set_stdlib: Option<String>,
+    target: String,
 }
 
 /// Returns the default C++ standard library for the current target: `libc++`
@@ -125,6 +126,7 @@ impl Config {
             cpp: false,
             cpp_link_stdlib: target_default_cpp_stdlib().map(|s| s.into()),
             cpp_set_stdlib: None,
+            target: getenv_unwrap("TARGET"),
         }
     }
 
@@ -178,7 +180,8 @@ impl Config {
     /// otherwise cargo will link against the specified library.
     ///
     /// The given library name must not contain the `lib` prefix.
-    pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>) -> &mut Config {
+    pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>)
+                           -> &mut Config {
         self.cpp_link_stdlib = cpp_link_stdlib.map(|s| s.into());
         self
     }
@@ -203,11 +206,10 @@ impl Config {
     /// be used, otherwise `-stdlib` is added to the compile invocation.
     ///
     /// The given library name must not contain the `lib` prefix.
-    pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>) -> &mut Config {
+    pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>)
+                          -> &mut Config {
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
-
         self.cpp_link_stdlib(cpp_set_stdlib);
-
         self
     }
 
@@ -218,47 +220,17 @@ impl Config {
         assert!(output.starts_with("lib"));
         assert!(output.ends_with(".a"));
         let lib_name = &output[3..output.len() - 2];
-
-        let target = getenv_unwrap("TARGET");
         let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
         let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
+
         let mut objects = Vec::new();
         for file in self.files.iter() {
-            let mut cmd = self.compile_cmd(&target);
-            cmd.arg(src.join(file));
-
             let obj = dst.join(file).with_extension("o");
-            fs::create_dir_all(&obj.parent().unwrap()).unwrap();
-            if target.contains("msvc") {
-                let mut s = OsString::from("/Fo:");
-                s.push(&obj);
-                cmd.arg(s);
-            } else {
-                cmd.arg("-o").arg(&obj);
-            }
-            run(&mut cmd, &self.compiler(&target));
+            self.compile_object(&src.join(file), &obj);
             objects.push(obj);
         }
 
-        if target.contains("msvc") {
-            let mut out = OsString::from("/OUT:");
-            out.push(dst.join(output));
-            run(Command::new("lib").arg(out).args(&objects).args(&self.objects),
-                "lib");
-
-            // The Rust compiler will look for libfoo.a and foo.lib, but the
-            // MSVC linker will also be passed foo.lib, so be sure that both
-            // exist for now.
-            let lib_dst = dst.join(format!("{}.lib", lib_name));
-            let _ = fs::remove_file(&lib_dst);
-            fs::hard_link(dst.join(output), lib_dst).unwrap();
-        } else {
-            run(Command::new(&ar(&target)).arg("crus")
-                                          .arg(&dst.join(output))
-                                          .args(&objects)
-                                          .args(&self.objects),
-                &ar(&target));
-        }
+        self.assemble(lib_name, &dst.join(output), &objects);
         println!("cargo:rustc-link-search=native={}", dst.display());
         println!("cargo:rustc-link-lib=static={}",
                  &output[3..output.len() - 2]);
@@ -271,31 +243,64 @@ impl Config {
         }
     }
 
-    fn compiler(&self, target: &str) -> String {
-        if self.cpp {
-            gxx(target)
+    fn compile_object(&self, file: &Path, dst: &Path) {
+        let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
+        let msvc = self.target.contains("msvc");
+        let mut cmd = if msvc && is_asm {
+            self.msvc_macro_assembler()
         } else {
-            gcc(target)
+            self.compile_cmd()
+        };
+        if msvc {
+            cmd.arg("/nologo");
         }
+        fs::create_dir_all(&dst.parent().unwrap()).unwrap();
+        if msvc && is_asm {
+            cmd.arg("/Fo").arg(dst);
+        } else if msvc {
+            let mut s = OsString::from("/Fo:");
+            s.push(&dst);
+            cmd.arg(s);
+        } else {
+            cmd.arg("-o").arg(&dst);
+        }
+        if msvc {
+            cmd.arg("/c");
+        }
+        cmd.arg(file);
+
+        run(&mut cmd, &self.compiler());
     }
 
-    fn compile_flags(&self) -> Vec<String> {
-        if self.cpp {
-            cxxflags()
+    fn compiler(&self) -> String {
+        let (env, msvc, gnu, default) = if self.cpp {
+            ("CXX", "cl", "g++", "c++")
         } else {
-            cflags()
-        }
+            ("CC", "cl", "gcc", "cc")
+        };
+
+        get_var(env).unwrap_or(if cfg!(windows) {
+            if self.target.contains("msvc") {
+                msvc.to_string()
+            } else {
+                gnu.to_string()
+            }
+        } else if self.target.contains("android") {
+            format!("{}-{}", self.target, gnu)
+        } else {
+            default.to_string()
+        })
     }
 
-    fn compile_cmd(&self, target: &str) -> Command {
+    fn compile_cmd(&self) -> Command {
         let opt_level = getenv_unwrap("OPT_LEVEL");
         let profile = getenv_unwrap("PROFILE");
+        let msvc = self.target.contains("msvc");
         println!("{} {}", profile, opt_level);
 
-        let mut cmd = Command::new(self.compiler(&target));
+        let mut cmd = Command::new(self.compiler());
 
-        if target.contains("msvc") {
-            cmd.arg("/c");
+        if msvc {
             cmd.arg("/MD"); // link against msvcrt.dll for now
             cmd.arg(format!("/O{}", opt_level));
         } else {
@@ -303,38 +308,38 @@ impl Config {
             cmd.arg("-c");
             cmd.arg("-ffunction-sections").arg("-fdata-sections");
         }
-        cmd.args(&self.compile_flags());
+        cmd.args(&envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}));
 
         if profile == "debug" {
-            cmd.arg(if target.contains("msvc") {"/Z7"} else {"-g"});
+            cmd.arg(if msvc {"/Z7"} else {"-g"});
         }
 
-        if target.contains("-ios") {
-            cmd.args(&ios_flags(&target));
-        } else if !target.contains("msvc") {
-            if target.contains("windows") {
+        if self.target.contains("-ios") {
+            self.ios_flags(&mut cmd);
+        } else if !msvc {
+            if self.target.contains("windows") {
                 cmd.arg("-mwin32");
             }
 
-            if target.contains("i686") {
+            if self.target.contains("i686") {
                 cmd.arg("-m32");
-            } else if target.contains("x86_64") {
+            } else if self.target.contains("x86_64") {
                 cmd.arg("-m64");
             }
 
-            if !target.contains("i686") {
+            if !self.target.contains("i686") {
                 cmd.arg("-fPIC");
             }
         }
 
-        if self.cpp && !target.contains("msvc") {
+        if self.cpp && !msvc {
             if let Some(ref stdlib) = self.cpp_set_stdlib {
                 cmd.arg(&format!("-stdlib=lib{}", stdlib));
             }
         }
 
         for directory in self.include_directories.iter() {
-            cmd.arg(if target.contains("msvc") {"/I"} else {"-I"});
+            cmd.arg(if msvc {"/I"} else {"-I"});
             cmd.arg(directory);
         }
 
@@ -343,14 +348,103 @@ impl Config {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
-            let lead = if target.contains("msvc") {"/"} else {"-"};
+            let lead = if msvc {"/"} else {"-"};
             if let &Some(ref value) = value {
                 cmd.arg(&format!("{}D{}={}", lead, key, value));
             } else {
                 cmd.arg(&format!("{}D{}", lead, key));
             }
         }
-        return cmd;
+        return cmd
+    }
+
+    fn msvc_macro_assembler(&self) -> Command {
+        let mut cmd = if self.target.contains("x86_64") {
+            Command::new("ml64.exe")
+        } else {
+            Command::new("ml.exe")
+        };
+        for directory in self.include_directories.iter() {
+            cmd.arg("/I").arg(directory);
+        }
+        for &(ref key, ref value) in self.definitions.iter() {
+            if let &Some(ref value) = value {
+                cmd.arg(&format!("/D{}={}", key, value));
+            } else {
+                cmd.arg(&format!("/D{}", key));
+            }
+        }
+        return cmd
+    }
+
+    fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) {
+        if self.target.contains("msvc") {
+            let mut out = OsString::from("/OUT:");
+            out.push(dst);
+            run(Command::new("lib.exe").arg(out).arg("/nologo")
+                                       .args(objects)
+                                       .args(&self.objects), "lib.exe");
+
+            // The Rust compiler will look for libfoo.a and foo.lib, but the
+            // MSVC linker will also be passed foo.lib, so be sure that both
+            // exist for now.
+            let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
+            let _ = fs::remove_file(&lib_dst);
+            fs::hard_link(dst, lib_dst).unwrap();
+        } else {
+            let ar = get_var("AR").unwrap_or(if self.target.contains("android") {
+                format!("{}-ar", self.target)
+            } else {
+                "ar".to_string()
+            });
+            run(Command::new(&ar).arg("crus")
+                                 .arg(dst)
+                                 .args(objects)
+                                 .args(&self.objects), &ar);
+        }
+    }
+
+    fn ios_flags(&self, cmd: &mut Command) {
+        enum ArchSpec {
+            Device(&'static str),
+            Simulator(&'static str),
+        }
+
+        let arch = self.target.split('-').nth(0).unwrap();
+        let arch = match arch {
+            "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
+            "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
+            "arm64" | "aarch64" => ArchSpec::Device("arm64"),
+            "i386" | "i686" => ArchSpec::Simulator("-m32"),
+            "x86_64" => ArchSpec::Simulator("-m64"),
+            _ => fail("Unknown arch for iOS target")
+        };
+
+        let sdk = match arch {
+            ArchSpec::Device(arch) => {
+                cmd.arg("-arch").arg(arch);
+                "iphoneos"
+            },
+            ArchSpec::Simulator(arch) => {
+                cmd.arg(arch);
+                "iphonesimulator"
+            }
+        };
+
+        println!("Detecting iOS SDK path for {}", sdk);
+        let sdk_path = Command::new("xcrun")
+            .arg("--show-sdk-path")
+            .arg("--sdk")
+            .arg(sdk)
+            .stderr(Stdio::inherit())
+            .output()
+            .unwrap()
+            .stdout;
+
+        let sdk_path = String::from_utf8(sdk_path).unwrap();
+
+        cmd.arg("-isysroot");
+        cmd.arg(sdk_path.trim());
     }
 }
 
@@ -391,109 +485,11 @@ fn get_var(var_base: &str) -> Result<String, String> {
     }
 }
 
-fn gcc(target: &str) -> String {
-    let is_android = target.find("android").is_some();
-
-    get_var("CC").unwrap_or(if cfg!(windows) {
-        if target.contains("msvc") {
-            "cl".to_string()
-        } else {
-            "gcc".to_string()
-        }
-    } else if is_android {
-        format!("{}-gcc", target)
-    } else {
-        "cc".to_string()
-    })
-}
-
-fn gxx(target: &str) -> String {
-    let is_android = target.find("android").is_some();
-
-    get_var("CXX").unwrap_or(if cfg!(windows) {
-        if target.contains("msvc") {
-            "cl".to_string()
-        } else {
-            "g++".to_string()
-        }
-    } else if is_android {
-        format!("{}-g++", target)
-    } else {
-        "c++".to_string()
-    })
-}
-
-fn ar(target: &str) -> String {
-    let is_android = target.find("android").is_some();
-
-    get_var("AR").unwrap_or(if is_android {
-        format!("{}-ar", target)
-    } else {
-        "ar".to_string()
-    })
-}
-
 fn envflags(name: &str) -> Vec<String> {
     get_var(name).unwrap_or(String::new())
        .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
        .map(|s| s.to_string())
        .collect()
-}
-
-fn cflags() -> Vec<String> {
-    envflags("CFLAGS")
-}
-
-fn cxxflags() -> Vec<String> {
-    envflags("CXXFLAGS")
-}
-
-fn ios_flags(target: &str) -> Vec<String> {
-    enum ArchSpec {
-        Device(&'static str),
-        Simulator(&'static str),
-    }
-
-    let mut res = Vec::new();
-
-    let arch = target.split('-').nth(0).expect("expected target in format `arch-vendor-os`");
-    let arch = match arch {
-        "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
-        "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
-        "arm64" | "aarch64" => ArchSpec::Device("arm64"),
-        "i386" | "i686" => ArchSpec::Simulator("-m32"),
-        "x86_64" => ArchSpec::Simulator("-m64"),
-        _ => unreachable!("Unknown arch for iOS target")
-    };
-
-    let sdk = match arch {
-        ArchSpec::Device(arch) => {
-            res.push("-arch".to_string());
-            res.push(arch.to_string());
-            "iphoneos"
-        },
-        ArchSpec::Simulator(arch) => {
-            res.push(arch.to_string());
-            "iphonesimulator"
-        }
-    };
-
-    println!("Detecting iOS SDK path for {}", sdk);
-    let sdk_path = Command::new("xcrun")
-        .arg("--show-sdk-path")
-        .arg("--sdk")
-        .arg(sdk)
-        .stderr(Stdio::inherit())
-        .output()
-        .unwrap()
-        .stdout;
-
-    let sdk_path = String::from_utf8(sdk_path).unwrap();
-
-    res.push("-isysroot".to_string());
-    res.push(sdk_path.trim().to_string());
-
-    res
 }
 
 fn fail(s: &str) -> ! {
