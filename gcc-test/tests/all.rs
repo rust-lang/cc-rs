@@ -17,3 +17,10 @@ fn bar_here() {
     }
 }
 
+
+#[test]
+fn asm_here() {
+    unsafe {
+        assert_eq!(asm(), 7);
+    }
+}
