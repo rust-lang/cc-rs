@@ -5,8 +5,9 @@ authors = ["Alex Crichton <alex@alexcrichton.com>"]
 build = "build.rs"
 
 [lib]
-name = "gcc-test"
+name = "gcc_test"
 doctest = false
+test = false
 
 [build-dependencies]
 gcc = { path = ".." }
