@@ -5,7 +5,7 @@
 //!
 //! ```toml
 //! [build-dependencies]
-//! gcc = "0.2"
+//! gcc = "0.3"
 //! ```
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
