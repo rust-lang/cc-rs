@@ -279,7 +279,7 @@ impl Config {
             ("CC", "cl", "gcc", "cc")
         };
 
-        get_var(env).unwrap_or(if cfg!(windows) {
+        get_var(env).unwrap_or(if target.contains("windows") {
             if self.target.contains("msvc") {
                 msvc.to_string()
             } else {
