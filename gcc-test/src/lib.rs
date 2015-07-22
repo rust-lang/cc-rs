@@ -7,4 +7,7 @@ extern {
     pub fn asm() -> i32;
 
     pub fn baz() -> i32;
+
+    #[cfg(windows)]
+    pub fn windows();
 }

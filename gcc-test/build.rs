@@ -25,4 +25,10 @@ fn main() {
                 .file("src/baz.cpp")
                 .cpp(true)
                 .compile("libbaz.a");
+
+    if target.contains("windows") {
+        gcc::Config::new()
+                    .file("src/windows.c")
+                    .compile("libwindows.a");
+    }
 }

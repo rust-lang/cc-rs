@@ -52,6 +52,10 @@ use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
 
+#[cfg(windows)]
+mod registry;
+pub mod windows_registry;
+
 /// Extra configuration to pass to gcc.
 pub struct Config {
     include_directories: Vec<PathBuf>,
@@ -246,7 +250,7 @@ impl Config {
     fn compile_object(&self, file: &Path, dst: &Path) {
         let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
         let msvc = self.target.contains("msvc");
-        let mut cmd = if msvc && is_asm {
+        let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()
         } else {
             self.compile_cmd()
@@ -269,40 +273,52 @@ impl Config {
         }
         cmd.arg(file);
 
-        run(&mut cmd, &self.compiler());
+        run(&mut cmd, &name);
     }
 
-    fn compiler(&self) -> String {
+    fn compiler(&self) -> (Command, String) {
         let (env, msvc, gnu, default) = if self.cpp {
             ("CXX", "cl", "g++", "c++")
         } else {
             ("CC", "cl", "gcc", "cc")
         };
-
-        get_var(env).unwrap_or(if self.target.contains("windows") {
-            if self.target.contains("msvc") {
-                msvc.to_string()
+        get_var(env).ok().map(|env| {
+            let fname = Path::new(&env).file_name().unwrap().to_string_lossy()
+                                       .into_owned();
+            (Command::new(env), fname)
+        }).or_else(|| {
+            windows_registry::find(&self.target, "cl.exe").map(|cmd| {
+                (cmd, "cl.exe".to_string())
+            })
+        }).unwrap_or_else(|| {
+            let compiler = if self.target.contains("windows") {
+                if self.target.contains("msvc") {
+                    msvc.to_string()
+                } else {
+                    gnu.to_string()
+                }
+            } else if self.target.contains("android") {
+                format!("{}-{}", self.target, gnu)
             } else {
-                gnu.to_string()
-            }
-        } else if self.target.contains("android") {
-            format!("{}-{}", self.target, gnu)
-        } else {
-            default.to_string()
+                default.to_string()
+            };
+            (Command::new(compiler.clone()), compiler)
         })
     }
 
-    fn compile_cmd(&self) -> Command {
+    fn compile_cmd(&self) -> (Command, String) {
         let opt_level = getenv_unwrap("OPT_LEVEL");
         let profile = getenv_unwrap("PROFILE");
         let msvc = self.target.contains("msvc");
         println!("{} {}", profile, opt_level);
 
-        let mut cmd = Command::new(self.compiler());
+        let (mut cmd, name) = self.compiler();
 
         if msvc {
             cmd.arg("/MD"); // link against msvcrt.dll for now
-            cmd.arg(format!("/O{}", opt_level));
+            if opt_level != "0" {
+                cmd.arg("/O2");
+            }
         } else {
             cmd.arg(format!("-O{}", opt_level));
             cmd.arg("-c");
@@ -355,15 +371,14 @@ impl Config {
                 cmd.arg(&format!("{}D{}", lead, key));
             }
         }
-        return cmd
+        (cmd, name)
     }
 
-    fn msvc_macro_assembler(&self) -> Command {
-        let mut cmd = if self.target.contains("x86_64") {
-            Command::new("ml64.exe")
-        } else {
-            Command::new("ml.exe")
-        };
+    fn msvc_macro_assembler(&self) -> (Command, String) {
+        let tool = if self.target.contains("x86_64") {"ml64.exe"} else {"ml.exe"};
+        let mut cmd = windows_registry::find(&self.target, tool).unwrap_or_else(|| {
+            Command::new(tool)
+        });
         for directory in self.include_directories.iter() {
             cmd.arg("/I").arg(directory);
         }
@@ -374,16 +389,18 @@ impl Config {
                 cmd.arg(&format!("/D{}", key));
             }
         }
-        return cmd
+        (cmd, tool.to_string())
     }
 
     fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) {
         if self.target.contains("msvc") {
+            let cmd = windows_registry::find(&self.target, "lib.exe");
+            let mut cmd = cmd.unwrap_or(Command::new("lib.exe"));
             let mut out = OsString::from("/OUT:");
             out.push(dst);
-            run(Command::new("lib.exe").arg(out).arg("/nologo")
-                                       .args(objects)
-                                       .args(&self.objects), "lib.exe");
+            run(cmd.arg(out).arg("/nologo")
+                   .args(objects)
+                   .args(&self.objects), "lib.exe");
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both

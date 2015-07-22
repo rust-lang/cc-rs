@@ -30,3 +30,11 @@ fn baz_here() {
         assert_eq!(baz(), 8);
     }
 }
+
+#[test]
+#[cfg(windows)]
+fn windows_here() {
+    unsafe {
+        windows();
+    }
+}
