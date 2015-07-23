@@ -31,8 +31,9 @@ pub fn find(_target: &str, _tool: &str) -> Option<Command> {
 pub fn find(target: &str, tool: &str) -> Option<Command> {
     use std::env;
     use std::ffi::OsString;
+    use std::io;
     use std::fs;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use registry::{RegistryKey, LOCAL_MACHINE};
 
     if !target.contains("msvc") { return None }
@@ -121,6 +122,9 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         let mut includes = Vec::new();
         if let Some(ref vs_install_dir) = vs_install_dir {
             includes.push(vs_install_dir.join("VC/include"));
+            if let Some((ucrt_root, vers)) = ucrt_install_dir(vs_install_dir) {
+                includes.push(ucrt_root.join("Include").join(vers).join("ucrt"));
+            }
         }
         if let Some((path, major)) = get_windows_sdk_path() {
             if major >= 8 {
@@ -141,6 +145,12 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         let mut libs = Vec::new();
         if let Some(ref vs_install_dir) = vs_install_dir {
             libs.push(vs_install_dir.join("VC/lib").join(extra));
+            if let Some((ucrt_root, vers)) = ucrt_install_dir(vs_install_dir) {
+                if let Some(arch) = windows_sdk_v8_subdir(target) {
+                    libs.push(ucrt_root.join("Lib").join(vers)
+                                       .join("ucrt").join(arch));
+                }
+            }
         }
         if let Some(path) = get_windows_sdk_lib_path(target) {
             libs.push(path);
@@ -293,5 +303,34 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         } else {
             None
         }
+    }
+
+    fn ucrt_install_dir(vs_install_dir: &Path) -> Option<(PathBuf, String)> {
+        let is_vs_14 = vs_install_dir.iter().filter_map(|p| p.to_str()).any(|s| {
+            s == "Microsoft Visual Studio 14.0"
+        });
+        if !is_vs_14 {
+            return None
+        }
+        let sdk_dir = match get_windows_sdk_path() {
+            Some((mut root, _)) => { root.pop(); root.push("10"); root }
+            None => return None,
+        };
+        (move || -> io::Result<_> {
+            let mut max = None;
+            let mut max_s = None;
+            for entry in try!(fs::read_dir(&sdk_dir.join("Lib"))) {
+                let entry = try!(entry);
+                if let Ok(s) = entry.file_name().into_string() {
+                    if let Ok(u) = s.replace(".", "").parse::<usize>() {
+                        if Some(u) > max {
+                            max = Some(u);
+                            max_s = Some(s);
+                        }
+                    }
+                }
+            }
+            Ok(max_s.map(|m| (sdk_dir, m)))
+        })().ok().and_then(|x| x)
     }
 }

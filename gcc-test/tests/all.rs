@@ -38,3 +38,11 @@ fn windows_here() {
         windows();
     }
 }
+
+#[test]
+#[cfg(target_env = "msvc")]
+fn msvc_here() {
+    unsafe {
+        msvc();
+    }
+}

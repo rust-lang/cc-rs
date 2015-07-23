@@ -10,4 +10,7 @@ extern {
 
     #[cfg(windows)]
     pub fn windows();
+
+    #[cfg(target_env = "msvc")]
+    pub fn msvc();
 }

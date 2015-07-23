@@ -1,6 +1,14 @@
 extern crate gcc;
 
+use std::env;
+use std::fs;
+use std::path::PathBuf;
+
 fn main() {
+    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    fs::remove_dir_all(&out).unwrap();
+    fs::create_dir(&out).unwrap();
+
     gcc::Config::new()
                 .file("src/foo.c")
                 .define("FOO", None)
@@ -30,5 +38,35 @@ fn main() {
         gcc::Config::new()
                     .file("src/windows.c")
                     .compile("libwindows.a");
+    }
+
+    // Test that the `windows_registry` module will set PATH by looking for
+    // nmake which runs vanilla cl, and then also test it after we remove all
+    // the relevant env vars from our own process.
+    if target.contains("msvc") {
+        let out = out.join("tmp");
+        fs::create_dir(&out).unwrap();
+        let status = gcc::windows_registry::find(&target, "nmake.exe").unwrap()
+                            .arg("/fsrc/NMakefile")
+                            .env("OUT_DIR", &out)
+                            .status()
+                            .unwrap();
+        assert!(status.success());
+
+        fs::remove_dir_all(&out).unwrap();
+        fs::create_dir(&out).unwrap();
+
+        env::remove_var("PATH");
+        env::remove_var("VCINSTALLDIR");
+        env::remove_var("INCLUDE");
+        env::remove_var("LIB");
+        let status = gcc::windows_registry::find(&target, "nmake.exe").unwrap()
+                            .arg("/fsrc/NMakefile")
+                            .env("OUT_DIR", &out)
+                            .status()
+                            .unwrap();
+        assert!(status.success());
+        println!("cargo:rustc-link-lib=msvc");
+        println!("cargo:rustc-link-search={}", out.display());
     }
 }
