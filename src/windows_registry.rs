@@ -312,9 +312,13 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         if !is_vs_14 {
             return None
         }
-        let sdk_dir = match get_windows_sdk_path() {
-            Some((mut root, _)) => { root.pop(); root.push("10"); root }
-            None => return None,
+        let key = r"SOFTWARE\Microsoft\Windows Kits\Installed Roots";
+        let sdk_dir = LOCAL_MACHINE.open(key.as_ref()).and_then(|p| {
+            p.query_str("KitsRoot10")
+        }).map(PathBuf::from);
+        let sdk_dir = match sdk_dir {
+            Ok(p) => p,
+            Err(..) => return None,
         };
         (move || -> io::Result<_> {
             let mut max = None;
