@@ -333,10 +333,6 @@ impl Config {
         if self.target.contains("-ios") {
             self.ios_flags(&mut cmd);
         } else if !msvc {
-            if self.target.contains("windows") {
-                cmd.arg("-mwin32");
-            }
-
             if self.target.contains("i686") {
                 cmd.arg("-m32");
             } else if self.target.contains("x86_64") {
