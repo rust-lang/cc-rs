@@ -123,7 +123,11 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         if let Some(ref vs_install_dir) = vs_install_dir {
             includes.push(vs_install_dir.join("VC/include"));
             if let Some((ucrt_root, vers)) = ucrt_install_dir(vs_install_dir) {
-                includes.push(ucrt_root.join("Include").join(vers).join("ucrt"));
+                let include = ucrt_root.join("Include").join(vers);
+                includes.push(include.join("ucrt"));
+                includes.push(include.join("um"));
+                includes.push(include.join("winrt"));
+                includes.push(include.join("shared"));
             }
         }
         if let Some((path, major)) = get_windows_sdk_path() {
@@ -147,8 +151,9 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
             libs.push(vs_install_dir.join("VC/lib").join(extra));
             if let Some((ucrt_root, vers)) = ucrt_install_dir(vs_install_dir) {
                 if let Some(arch) = windows_sdk_v8_subdir(target) {
-                    libs.push(ucrt_root.join("Lib").join(vers)
-                                       .join("ucrt").join(arch));
+                    let lib = ucrt_root.join("Lib").join(vers);
+                    libs.push(lib.join("ucrt").join(arch));
+                    libs.push(lib.join("um").join(arch));
                 }
             }
         }
