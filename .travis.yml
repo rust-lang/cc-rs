@@ -22,7 +22,7 @@ after_success:
   - travis-cargo --only nightly doc-upload
 env:
   global:
-    secure: bnPRXhVawJwerfEWYNzEfzK8Y4GOme0RqyLqQ6E5GU6B1EdCGaPgz8d4q8S2nXCq8IrzbEGo7nJaWptO3iNTnG/NIQ4qcLsQaDCz8ICAZTbS1dTbNByX2S9GyXUxCkaIfRNCSTuRSD276tdgj69VOW3bp0rgUpkpYhoGupmc3VY=
+    secure: ilbcq9zX+UaiBcwqkBGldeanbEQus9npLsi0/nF1PUxKbQsoWSVtVOehAD8Hy92D3hX2npIRyNL8GxBn85XEcBYc1h7DiWUhLcXfZie79v8Ly/qboHCfZLXlB1ofbypbyQfouEdOE9zHf0ZILYVpAgUkliv6KuVShsrKNlbn4QE=
   matrix:
     - TARGET=x86_64-unknown-linux-gnu
     - TARGET=i686-unknown-linux-gnu
