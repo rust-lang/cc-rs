@@ -467,7 +467,7 @@ fn run(cmd: &mut Command, program: &str) {
         Ok(status) => status,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
-                " (see https://github.com/alexcrichton/gcc-rs#windows-notes \
+                " (see https://github.com/alexcrichton/gcc-rs#compile-time-requirements \
                    for help)"
             } else {
                 ""
