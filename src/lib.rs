@@ -44,9 +44,10 @@
 
 #![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
 #![cfg_attr(test, deny(warnings))]
+#![deny(missing_docs)]
 
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsString, OsStr};
 use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
@@ -64,22 +65,14 @@ pub struct Config {
     flags: Vec<String>,
     files: Vec<PathBuf>,
     cpp: bool,
-    cpp_link_stdlib: Option<String>,
+    cpp_link_stdlib: Option<Option<String>>,
     cpp_set_stdlib: Option<String>,
-    target: String,
-}
-
-/// Returns the default C++ standard library for the current target: `libc++`
-/// for OS X and `libstdc++` for anything else.
-fn target_default_cpp_stdlib() -> Option<&'static str> {
-    let target = getenv_unwrap("TARGET");
-    if target.contains("msvc") {
-        None
-    } else if target.contains("darwin") {
-        Some("c++")
-    } else {
-        Some("stdc++")
-    }
+    target: Option<String>,
+    host: Option<String>,
+    out_dir: Option<PathBuf>,
+    opt_level: Option<u32>,
+    debug: Option<bool>,
+    env: Vec<(OsString, OsString)>,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -128,9 +121,14 @@ impl Config {
             flags: Vec::new(),
             files: Vec::new(),
             cpp: false,
-            cpp_link_stdlib: target_default_cpp_stdlib().map(|s| s.into()),
+            cpp_link_stdlib: None,
             cpp_set_stdlib: None,
-            target: getenv_unwrap("TARGET"),
+            target: None,
+            host: None,
+            out_dir: None,
+            opt_level: None,
+            debug: None,
+            env: Vec::new(),
         }
     }
 
@@ -186,7 +184,7 @@ impl Config {
     /// The given library name must not contain the `lib` prefix.
     pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>)
                            -> &mut Config {
-        self.cpp_link_stdlib = cpp_link_stdlib.map(|s| s.into());
+        self.cpp_link_stdlib = Some(cpp_link_stdlib.map(|s| s.into()));
         self
     }
 
@@ -217,6 +215,62 @@ impl Config {
         self
     }
 
+    /// Configures the target this configuration will be compiling for.
+    ///
+    /// This option is automatically scraped from the `TARGET` environment
+    /// variable by build scripts, so it's not required to call this function.
+    pub fn target(&mut self, target: &str) -> &mut Config {
+        self.target = Some(target.to_string());
+        self
+    }
+
+    /// Configures the host assumed by this configuration.
+    ///
+    /// This option is automatically scraped from the `HOST` environment
+    /// variable by build scripts, so it's not required to call this function.
+    pub fn host(&mut self, host: &str) -> &mut Config {
+        self.host = Some(host.to_string());
+        self
+    }
+
+    /// Configures the optimization level of the generated object files.
+    ///
+    /// This option is automatically scraped from the `OPT_LEVEL` environment
+    /// variable by build scripts, so it's not required to call this function.
+    pub fn opt_level(&mut self, opt_level: u32) -> &mut Config {
+        self.opt_level = Some(opt_level);
+        self
+    }
+
+    /// Configures whether the compiler will emit debug information when
+    /// generating object files.
+    ///
+    /// This option is automatically scraped from the `PROFILE` environment
+    /// variable by build scripts (only enabled when the profile is "debug"), so
+    /// it's not required to call this function.
+    pub fn debug(&mut self, debug: bool) -> &mut Config {
+        self.debug = Some(debug);
+        self
+    }
+
+    /// Configures the output directory where all object files and static
+    /// libraries will be located.
+    ///
+    /// This option is automatically scraped from the `OUT_DIR` environment
+    /// variable by build scripts, so it's not required to call this function.
+    pub fn out_dir<P: AsRef<Path>>(&mut self, out_dir: P) -> &mut Config {
+        self.out_dir = Some(out_dir.as_ref().to_owned());
+        self
+    }
+
+    #[doc(hidden)]
+    pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
+        where A: AsRef<OsStr>, B: AsRef<OsStr>
+    {
+        self.env.push((a.as_ref().to_owned(), b.as_ref().to_owned()));
+        self
+    }
+
     /// Run the compiler, generating the file `output`
     ///
     /// The name `output` must begin with `lib` and end with `.a`
@@ -224,13 +278,12 @@ impl Config {
         assert!(output.starts_with("lib"));
         assert!(output.ends_with(".a"));
         let lib_name = &output[3..output.len() - 2];
-        let src = PathBuf::from(getenv_unwrap("CARGO_MANIFEST_DIR"));
-        let dst = PathBuf::from(getenv_unwrap("OUT_DIR"));
+        let dst = self.get_out_dir();
 
         let mut objects = Vec::new();
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
-            self.compile_object(&src.join(file), &obj);
+            self.compile_object(file, &obj);
             objects.push(obj);
         }
 
@@ -241,7 +294,7 @@ impl Config {
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
-            if let Some(ref stdlib) = self.cpp_link_stdlib {
+            if let Some(stdlib) = self.get_cpp_link_stdlib() {
                 println!("cargo:rustc-link-lib={}", stdlib);
             }
         }
@@ -249,7 +302,7 @@ impl Config {
 
     fn compile_object(&self, file: &Path, dst: &Path) {
         let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
-        let msvc = self.target.contains("msvc");
+        let msvc = self.get_target().contains("msvc");
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()
         } else {
@@ -276,47 +329,18 @@ impl Config {
         run(&mut cmd, &name);
     }
 
-    fn compiler(&self) -> (Command, String) {
-        let (env, msvc, gnu, default) = if self.cpp {
-            ("CXX", "cl", "g++", "c++")
-        } else {
-            ("CC", "cl", "gcc", "cc")
-        };
-        get_var(env).ok().map(|env| {
-            let fname = Path::new(&env).file_name().unwrap().to_string_lossy()
-                                       .into_owned();
-            (Command::new(env), fname)
-        }).or_else(|| {
-            windows_registry::find(&self.target, "cl.exe").map(|cmd| {
-                (cmd, "cl.exe".to_string())
-            })
-        }).unwrap_or_else(|| {
-            let compiler = if self.target.contains("windows") {
-                if self.target.contains("msvc") {
-                    msvc.to_string()
-                } else {
-                    gnu.to_string()
-                }
-            } else if self.target.contains("android") {
-                format!("{}-{}", self.target, gnu)
-            } else {
-                default.to_string()
-            };
-            (Command::new(compiler.clone()), compiler)
-        })
-    }
-
     fn compile_cmd(&self) -> (Command, String) {
-        let opt_level = getenv_unwrap("OPT_LEVEL");
-        let profile = getenv_unwrap("PROFILE");
-        let msvc = self.target.contains("msvc");
-        println!("{} {}", profile, opt_level);
+        let opt_level = self.get_opt_level();
+        let debug = self.get_debug();
+        let target = self.get_target();
+        let msvc = target.contains("msvc");
+        println!("debug={} opt-level={}", debug, opt_level);
 
-        let (mut cmd, name) = self.compiler();
+        let (mut cmd, name) = self.get_compiler();
 
         if msvc {
             cmd.arg("/MD"); // link against msvcrt.dll for now
-            if opt_level != "0" {
+            if opt_level != 0 {
                 cmd.arg("/O2");
             }
         } else {
@@ -324,22 +348,22 @@ impl Config {
             cmd.arg("-c");
             cmd.arg("-ffunction-sections").arg("-fdata-sections");
         }
-        cmd.args(&envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}));
+        cmd.args(&self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}));
 
-        if profile == "debug" {
+        if debug {
             cmd.arg(if msvc {"/Z7"} else {"-g"});
         }
 
-        if self.target.contains("-ios") {
+        if target.contains("-ios") {
             self.ios_flags(&mut cmd);
         } else if !msvc {
-            if self.target.contains("i686") {
+            if target.contains("i686") {
                 cmd.arg("-m32");
-            } else if self.target.contains("x86_64") {
+            } else if target.contains("x86_64") {
                 cmd.arg("-m64");
             }
 
-            if !self.target.contains("i686") {
+            if !target.contains("i686") {
                 cmd.arg("-fPIC");
             }
         }
@@ -371,9 +395,10 @@ impl Config {
     }
 
     fn msvc_macro_assembler(&self) -> (Command, String) {
-        let tool = if self.target.contains("x86_64") {"ml64.exe"} else {"ml.exe"};
-        let mut cmd = windows_registry::find(&self.target, tool).unwrap_or_else(|| {
-            Command::new(tool)
+        let target = self.get_target();
+        let tool = if target.contains("x86_64") {"ml64.exe"} else {"ml.exe"};
+        let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| {
+            self.cmd(tool)
         });
         for directory in self.include_directories.iter() {
             cmd.arg("/I").arg(directory);
@@ -389,9 +414,10 @@ impl Config {
     }
 
     fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) {
-        if self.target.contains("msvc") {
-            let cmd = windows_registry::find(&self.target, "lib.exe");
-            let mut cmd = cmd.unwrap_or(Command::new("lib.exe"));
+        let target = self.get_target();
+        if target.contains("msvc") {
+            let cmd = windows_registry::find(&target, "lib.exe");
+            let mut cmd = cmd.unwrap_or(self.cmd("lib.exe"));
             let mut out = OsString::from("/OUT:");
             out.push(dst);
             run(cmd.arg(out).arg("/nologo")
@@ -405,12 +431,8 @@ impl Config {
             let _ = fs::remove_file(&lib_dst);
             fs::hard_link(dst, lib_dst).unwrap();
         } else {
-            let ar = get_var("AR").unwrap_or(if self.target.contains("android") {
-                format!("{}-ar", self.target)
-            } else {
-                "ar".to_string()
-            });
-            run(Command::new(&ar).arg("crus")
+            let ar = self.get_ar();
+            run(self.cmd(&ar).arg("crus")
                                  .arg(dst)
                                  .args(objects)
                                  .args(&self.objects), &ar);
@@ -423,7 +445,8 @@ impl Config {
             Simulator(&'static str),
         }
 
-        let arch = self.target.split('-').nth(0).unwrap();
+        let target = self.get_target();
+        let arch = target.split('-').nth(0).unwrap();
         let arch = match arch {
             "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
             "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
@@ -445,7 +468,7 @@ impl Config {
         };
 
         println!("Detecting iOS SDK path for {}", sdk);
-        let sdk_path = Command::new("xcrun")
+        let sdk_path = self.cmd("xcrun")
             .arg("--show-sdk-path")
             .arg("--sdk")
             .arg(sdk)
@@ -458,6 +481,115 @@ impl Config {
 
         cmd.arg("-isysroot");
         cmd.arg(sdk_path.trim());
+    }
+
+    fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
+        let mut cmd = Command::new(prog);
+        for &(ref a, ref b) in self.env.iter() {
+            cmd.env(a, b);
+        }
+        return cmd
+    }
+
+    fn get_compiler(&self) -> (Command, String) {
+        let target = self.get_target();
+        let (env, msvc, gnu, default) = if self.cpp {
+            ("CXX", "cl", "g++", "c++")
+        } else {
+            ("CC", "cl", "gcc", "cc")
+        };
+        self.get_var(env).ok().map(|env| {
+            let fname = Path::new(&env).file_name().unwrap().to_string_lossy()
+                                       .into_owned();
+            (self.cmd(env), fname)
+        }).or_else(|| {
+            windows_registry::find(&target, "cl.exe").map(|cmd| {
+                (cmd, "cl.exe".to_string())
+            })
+        }).unwrap_or_else(|| {
+            let compiler = if target.contains("windows") {
+                if target.contains("msvc") {
+                    msvc.to_string()
+                } else {
+                    gnu.to_string()
+                }
+            } else if target.contains("android") {
+                format!("{}-{}", target, gnu)
+            } else {
+                default.to_string()
+            };
+            (self.cmd(compiler.clone()), compiler)
+        })
+    }
+
+    fn get_var(&self, var_base: &str) -> Result<String, String> {
+        let target = self.get_target();
+        let host = self.get_host();
+        let kind = if host == target {"HOST"} else {"TARGET"};
+        let target_u = target.replace("-", "_");
+        let res = getenv(&format!("{}_{}", var_base, target))
+            .or_else(|| getenv(&format!("{}_{}", var_base, target_u)))
+            .or_else(|| getenv(&format!("{}_{}", kind, var_base)))
+            .or_else(|| getenv(var_base));
+
+        match res {
+            Some(res) => Ok(res),
+            None => Err("Could not get environment variable".to_string()),
+        }
+    }
+
+    fn envflags(&self, name: &str) -> Vec<String> {
+        self.get_var(name).unwrap_or(String::new())
+            .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect()
+    }
+
+    /// Returns the default C++ standard library for the current target: `libc++`
+    /// for OS X and `libstdc++` for anything else.
+    fn get_cpp_link_stdlib(&self) -> Option<String> {
+        self.cpp_link_stdlib.clone().unwrap_or_else(|| {
+            let target = self.get_target();
+            if target.contains("msvc") {
+                None
+            } else if target.contains("darwin") {
+                Some("c++".to_string())
+            } else {
+                Some("stdc++".to_string())
+            }
+        })
+    }
+
+    fn get_ar(&self) -> String {
+        self.get_var("AR").unwrap_or(if self.get_target().contains("android") {
+            format!("{}-ar", self.get_target())
+        } else {
+            "ar".to_string()
+        })
+    }
+
+    fn get_target(&self) -> String {
+        self.target.clone().unwrap_or_else(|| getenv_unwrap("TARGET"))
+    }
+
+    fn get_host(&self) -> String {
+        self.host.clone().unwrap_or_else(|| getenv_unwrap("HOST"))
+    }
+
+    fn get_opt_level(&self) -> u32 {
+        self.opt_level.unwrap_or_else(|| {
+            getenv_unwrap("OPT_LEVEL").parse().unwrap()
+        })
+    }
+
+    fn get_debug(&self) -> bool {
+        self.debug.unwrap_or_else(|| getenv_unwrap("PROFILE") == "debug")
+    }
+
+    fn get_out_dir(&self) -> PathBuf {
+        self.out_dir.clone().unwrap_or_else(|| {
+            env::var_os("OUT_DIR").map(PathBuf::from).unwrap()
+        })
     }
 }
 
@@ -480,29 +612,6 @@ fn run(cmd: &mut Command, program: &str) {
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }
-}
-
-fn get_var(var_base: &str) -> Result<String, String> {
-    let target = getenv_unwrap("TARGET");
-    let host = getenv_unwrap("HOST");
-    let kind = if host == target {"HOST"} else {"TARGET"};
-    let target_u = target.replace("-", "_");
-    let res = getenv(&format!("{}_{}", var_base, target))
-        .or_else(|| getenv(&format!("{}_{}", var_base, target_u)))
-        .or_else(|| getenv(&format!("{}_{}", kind, var_base)))
-        .or_else(|| getenv(var_base));
-
-    match res {
-        Some(res) => Ok(res),
-        None => Err("Could not get environment variable".to_string()),
-    }
-}
-
-fn envflags(name: &str) -> Vec<String> {
-    get_var(name).unwrap_or(String::new())
-       .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
-       .map(|s| s.to_string())
-       .collect()
 }
 
 fn fail(s: &str) -> ! {

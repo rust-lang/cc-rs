@@ -8,6 +8,9 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+//! A helper module to probe the Windows Registry when looking for
+//! windows-specific tools.
+
 use std::process::Command;
 
 /// Attempts to find a tool within an MSVC installation using the Windows
@@ -27,6 +30,7 @@ pub fn find(_target: &str, _tool: &str) -> Option<Command> {
     None
 }
 
+/// Documented above.
 #[cfg(windows)]
 pub fn find(target: &str, tool: &str) -> Option<Command> {
     use std::env;
