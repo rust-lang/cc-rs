@@ -23,7 +23,7 @@ impl Test {
     fn new() -> Test {
         let mut gcc = PathBuf::from(env::current_exe().unwrap());
         gcc.pop();
-        gcc.push("gcc-shim");
+        gcc.push(format!("gcc-shim{}", env::consts::EXE_SUFFIX));
         Test {
             td: TempDir::new("gcc-test").unwrap(),
             gcc: gcc,
@@ -45,7 +45,8 @@ impl Test {
     }
 
     fn shim(&self, name: &str) -> &Test {
-        fs::hard_link(&self.gcc, self.td.path().join(name)).unwrap();
+        let fname = format!("{}{}", name, env::consts::EXE_SUFFIX);
+        fs::hard_link(&self.gcc, self.td.path().join(fname)).unwrap();
         self
     }
 
