@@ -73,6 +73,7 @@ pub struct Config {
     opt_level: Option<u32>,
     debug: Option<bool>,
     env: Vec<(OsString, OsString)>,
+    compiler: Option<PathBuf>,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -129,6 +130,7 @@ impl Config {
             opt_level: None,
             debug: None,
             env: Vec::new(),
+            compiler: None,
         }
     }
 
@@ -260,6 +262,16 @@ impl Config {
     /// variable by build scripts, so it's not required to call this function.
     pub fn out_dir<P: AsRef<Path>>(&mut self, out_dir: P) -> &mut Config {
         self.out_dir = Some(out_dir.as_ref().to_owned());
+        self
+    }
+
+    /// Configures the compiler to be used to produce output.
+    ///
+    /// This option is automatically determined from the target platform or a
+    /// number of environment variables, so it's not required to call this
+    /// function.
+    pub fn compiler<P: AsRef<Path>>(&mut self, compiler: P) -> &mut Config {
+        self.compiler = Some(compiler.as_ref().to_owned());
         self
     }
 
@@ -492,6 +504,10 @@ impl Config {
     }
 
     fn get_compiler(&self) -> (Command, String) {
+        if let Some(ref c) = self.compiler {
+            return (self.cmd(c), c.file_name().unwrap()
+                                  .to_string_lossy().into_owned())
+        }
         let target = self.get_target();
         let (env, msvc, gnu, default) = if self.cpp {
             ("CXX", "cl", "g++", "c++")

@@ -67,6 +67,9 @@ impl Test {
            .out_dir(self.td.path())
            .__set_env("PATH", env::join_paths(path).unwrap())
            .__set_env("GCCTEST_OUT_DIR", self.td.path());
+        if self.msvc {
+            cfg.compiler(self.td.path().join("cl"));
+        }
         return cfg
     }
 
