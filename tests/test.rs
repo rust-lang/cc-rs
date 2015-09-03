@@ -69,6 +69,7 @@ impl Test {
            .__set_env("GCCTEST_OUT_DIR", self.td.path());
         if self.msvc {
             cfg.compiler(self.td.path().join("cl"));
+            cfg.archiver(self.td.path().join("lib.exe"));
         }
         return cfg
     }
@@ -262,21 +263,4 @@ fn msvc_define() {
         .file("foo.c").compile("libfoo.a");
 
     test.cmd(0).must_have("/DFOO=bar").must_have("/DBAR");
-}
-
-#[test]
-fn msvc_compile_assembly() {
-    let test = Test::msvc();
-    test.shim("ml64.exe").gcc()
-        .file("foo.asm").compile("libfoo.a");
-    test.cmd(0).must_have("foo.asm");
-}
-
-#[test]
-fn msvc_compile_assembly_32() {
-    let test = Test::msvc();
-    test.shim("ml.exe").gcc()
-        .target("i686-pc-windows-msvc")
-        .file("foo.asm").compile("libfoo.a");
-    test.cmd(0).must_have("foo.asm");
 }

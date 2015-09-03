@@ -74,6 +74,7 @@ pub struct Config {
     debug: Option<bool>,
     env: Vec<(OsString, OsString)>,
     compiler: Option<PathBuf>,
+    archiver: Option<PathBuf>,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -131,6 +132,7 @@ impl Config {
             debug: None,
             env: Vec::new(),
             compiler: None,
+            archiver: None,
         }
     }
 
@@ -272,6 +274,16 @@ impl Config {
     /// function.
     pub fn compiler<P: AsRef<Path>>(&mut self, compiler: P) -> &mut Config {
         self.compiler = Some(compiler.as_ref().to_owned());
+        self
+    }
+
+    /// Configures the tool used to assemble archives.
+    ///
+    /// This option is automatically determined from the target platform or a
+    /// number of environment variables, so it's not required to call this
+    /// function.
+    pub fn archiver<P: AsRef<Path>>(&mut self, archiver: P) -> &mut Config {
+        self.archiver = Some(archiver.as_ref().to_owned());
         self
     }
 
@@ -428,8 +440,11 @@ impl Config {
     fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) {
         let target = self.get_target();
         if target.contains("msvc") {
-            let cmd = windows_registry::find(&target, "lib.exe");
-            let mut cmd = cmd.unwrap_or(self.cmd("lib.exe"));
+            let mut cmd = match self.archiver {
+                Some(ref s) => self.cmd(s),
+                None => windows_registry::find(&target, "lib.exe")
+                                         .unwrap_or(self.cmd("lib.exe")),
+            };
             let mut out = OsString::from("/OUT:");
             out.push(dst);
             run(cmd.arg(out).arg("/nologo")
@@ -444,10 +459,11 @@ impl Config {
             fs::hard_link(dst, lib_dst).unwrap();
         } else {
             let ar = self.get_ar();
+            let cmd = ar.file_name().unwrap().to_string_lossy();
             run(self.cmd(&ar).arg("crus")
                                  .arg(dst)
                                  .args(objects)
-                                 .args(&self.objects), &ar);
+                                 .args(&self.objects), &cmd);
         }
     }
 
@@ -576,11 +592,15 @@ impl Config {
         })
     }
 
-    fn get_ar(&self) -> String {
-        self.get_var("AR").unwrap_or(if self.get_target().contains("android") {
-            format!("{}-ar", self.get_target())
-        } else {
-            "ar".to_string()
+    fn get_ar(&self) -> PathBuf {
+        self.archiver.clone().or_else(|| {
+            self.get_var("AR").map(PathBuf::from).ok()
+        }).unwrap_or_else(|| {
+            if self.get_target().contains("android") {
+                PathBuf::from(format!("{}-ar", self.get_target()))
+            } else {
+                PathBuf::from("ar")
+            }
         })
     }
 
