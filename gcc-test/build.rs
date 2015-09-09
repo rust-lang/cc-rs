@@ -72,5 +72,5 @@ fn main() {
 
     // This tests whether we  can build a library but not link it to the main crate.
     // The test module will do its own linking.
-    gcc::Config::new().link(false).file("src/opt_linkage.c").compile("libOptLinkage.a");
+    gcc::Config::new().cargo_metadata(false).file("src/opt_linkage.c").compile("libOptLinkage.a");
 }

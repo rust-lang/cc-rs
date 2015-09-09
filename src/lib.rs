@@ -75,7 +75,7 @@ pub struct Config {
     env: Vec<(OsString, OsString)>,
     compiler: Option<PathBuf>,
     archiver: Option<PathBuf>,
-    link: bool,
+    cargo_metadata: bool,
 }
 
 fn getenv(v: &str) -> Option<String> {
@@ -134,7 +134,7 @@ impl Config {
             env: Vec::new(),
             compiler: None,
             archiver: None,
-            link: true
+            cargo_metadata: true
         }
     }
 
@@ -288,13 +288,10 @@ impl Config {
         self.archiver = Some(archiver.as_ref().to_owned());
         self
     }
-    /// Define whether the compiled archive will automatically be linked.
-    ///
-    /// If you don't want the compiled archive to be linked into the rust
-    /// binary automatically, you can set this option to `false`. It can
-    /// still be linked explicitly using the `#[cfg(link())]` directive.
-    pub fn link(&mut self, link: bool) -> &mut Config {
-        self.link = link;
+    /// Define whether metadata should be emitted for cargo allowing it to
+    /// automatically link the binary. Defaults to `true`.
+    pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Config {
+        self.cargo_metadata = cargo_metadata;
         self
     }
 
@@ -324,16 +321,18 @@ impl Config {
         }
 
         self.assemble(lib_name, &dst.join(output), &objects);
-        println!("cargo:rustc-link-search=native={}", dst.display());
-        if self.link {
+
+        if self.cargo_metadata {
           println!("cargo:rustc-link-lib=static={}",
                    &output[3..output.len() - 2]);
-        }
+          println!("cargo:rustc-link-search=native={}", dst.display());
 
-        // Add specific C++ libraries, if enabled.
-        if self.cpp {
-            if let Some(stdlib) = self.get_cpp_link_stdlib() {
-                println!("cargo:rustc-link-lib={}", stdlib);
+          // Add specific C++ libraries, if enabled.
+          if self.cpp {
+              if let Some(stdlib) = self.get_cpp_link_stdlib() {
+                  println!("cargo:rustc-link-lib={}", stdlib);
+              }
+
             }
         }
     }
