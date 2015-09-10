@@ -1,5 +1,5 @@
-#include<stdint.h>
+#include <stdint.h>
 
 int32_t answer() {
- return 42;
+  return 42;
 }

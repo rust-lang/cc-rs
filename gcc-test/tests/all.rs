@@ -2,12 +2,9 @@ extern crate gcc_test;
 
 use gcc_test::*;
 
-
-// This will cause a link failure if the archive is already
-// linked against the gcc_test crate.
 #[link(name = "OptLinkage", kind = "static")]
 extern {
-  fn answer() -> i32;
+    fn answer() -> i32;
 }
 
 #[test]
@@ -57,5 +54,7 @@ fn msvc_here() {
 
 #[test]
 fn opt_linkage() {
-   unsafe { assert_eq!(answer(),42); }
+   unsafe {
+       assert_eq!(answer(), 42);
+   }
 }

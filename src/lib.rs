@@ -323,16 +323,15 @@ impl Config {
         self.assemble(lib_name, &dst.join(output), &objects);
 
         if self.cargo_metadata {
-          println!("cargo:rustc-link-lib=static={}",
-                   &output[3..output.len() - 2]);
-          println!("cargo:rustc-link-search=native={}", dst.display());
+            println!("cargo:rustc-link-lib=static={}",
+                     &output[3..output.len() - 2]);
+            println!("cargo:rustc-link-search=native={}", dst.display());
 
-          // Add specific C++ libraries, if enabled.
-          if self.cpp {
-              if let Some(stdlib) = self.get_cpp_link_stdlib() {
-                  println!("cargo:rustc-link-lib={}", stdlib);
-              }
-
+            // Add specific C++ libraries, if enabled.
+            if self.cpp {
+                if let Some(stdlib) = self.get_cpp_link_stdlib() {
+                    println!("cargo:rustc-link-lib={}", stdlib);
+                }
             }
         }
     }
