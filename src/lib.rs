@@ -399,7 +399,7 @@ impl Config {
                 cmd.arg("-m64");
             }
 
-            if !target.contains("i686") {
+            if !target.contains("i686") && !target.contains("windows-gnu") {
                 cmd.arg("-fPIC");
             }
         }
