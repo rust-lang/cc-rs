@@ -499,10 +499,12 @@ impl Config {
         let sdk = match arch {
             ArchSpec::Device(arch) => {
                 cmd.arg("-arch").arg(arch);
+                cmd.arg("-miphoneos-version-min=7.0");
                 "iphoneos"
             },
             ArchSpec::Simulator(arch) => {
                 cmd.arg(arch);
+                cmd.arg("-mios-simulator-version-min=7.0");
                 "iphonesimulator"
             }
         };
