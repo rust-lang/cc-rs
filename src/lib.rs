@@ -468,7 +468,10 @@ impl Config {
             // exist for now.
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            fs::hard_link(dst, lib_dst).unwrap();
+            if fs::hard_link(&dst, &lib_dst).is_err() {
+                println!("Hard-linking from {:?} to {:?} failed. Trying to copy...", dst, lib_dst);
+                fs::copy(&dst, &lib_dst).expect("Copying from {:?} to {:?} FAILED.");
+            };
         } else {
             let ar = self.get_ar();
             let cmd = ar.file_name().unwrap().to_string_lossy();
