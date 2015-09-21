@@ -471,7 +471,7 @@ impl Config {
             fs::hard_link(&dst, &lib_dst).or_else(|_| {
                 //if hard-link fails, just copy (ignoring the number of bytes written)
                 fs::copy(&dst, &lib_dst).map(|_| ())
-            }).expect("Copying from {:?} to {:?} failed.");;
+            }).ok().expect("Copying from {:?} to {:?} failed.");;
         } else {
             let ar = self.get_ar();
             let cmd = ar.file_name().unwrap().to_string_lossy();
