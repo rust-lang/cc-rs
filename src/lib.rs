@@ -78,6 +78,19 @@ pub struct Config {
     cargo_metadata: bool,
 }
 
+/// Configuration used to represent an invocation of a C compiler.
+///
+/// This can be used to figure out what compiler is in use, what the arguments
+/// to it are, and what the environment variables look like for the compiler.
+/// This can be used to further configure other build systems (e.g. forward
+/// along CC and/or CFLAGS) or the `to_command` method can be used to run the
+/// compiler itself.
+pub struct Tool {
+    path: PathBuf,
+    args: Vec<OsString>,
+    env: Vec<(OsString, OsString)>,
+}
+
 fn getenv(v: &str) -> Option<String> {
     let r = env::var(v).ok();
     println!("{} = {:?}", v, r);
@@ -342,11 +355,14 @@ impl Config {
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()
         } else {
-            self.compile_cmd()
+            let compiler = self.get_compiler();
+            let mut cmd = compiler.to_command();
+            for &(ref a, ref b) in self.env.iter() {
+                cmd.env(a, b);
+            }
+            (cmd, compiler.path.file_name().unwrap()
+                          .to_string_lossy().into_owned())
         };
-        if msvc {
-            cmd.arg("/nologo");
-        }
         fs::create_dir_all(&dst.parent().unwrap()).unwrap();
         if msvc && is_asm {
             cmd.arg("/Fo").arg(dst);
@@ -357,77 +373,92 @@ impl Config {
         } else {
             cmd.arg("-o").arg(&dst);
         }
-        if msvc {
-            cmd.arg("/c");
-        }
+        cmd.arg(if msvc {"/c"} else {"-c"});
         cmd.arg(file);
 
         run(&mut cmd, &name);
     }
 
-    fn compile_cmd(&self) -> (Command, String) {
+    /// Get the compiler that's in use for this configuration.
+    ///
+    /// This function will return a `Tool` which represents the culmination
+    /// of this configuration at a snapshot in time. The returned compiler can
+    /// be inspected (e.g. the path, arguments, environment) to forward along to
+    /// other tools, or the `to_command` method can be used to invoke the
+    /// compiler itself.
+    ///
+    /// This method will take into account all configuration such as debug
+    /// information, optimization level, include directories, defines, etc.
+    /// Additionally, the compiler binary in use follows the standard
+    /// conventions for this path, e.g. looking at the explicitly set compiler,
+    /// environment variables (a number of which are inspected here), and then
+    /// falling back to the default configuration.
+    pub fn get_compiler(&self) -> Tool {
         let opt_level = self.get_opt_level();
         let debug = self.get_debug();
         let target = self.get_target();
         let msvc = target.contains("msvc");
         println!("debug={} opt-level={}", debug, opt_level);
 
-        let (mut cmd, name) = self.get_compiler();
+        let mut cmd = self.get_base_compiler();
 
         if msvc {
-            cmd.arg("/MD"); // link against msvcrt.dll for now
+            cmd.args.push("/nologo".into());
+            cmd.args.push("/MD".into()); // link against msvcrt.dll for now
             if opt_level != 0 {
-                cmd.arg("/O2");
+                cmd.args.push("/O2".into());
             }
         } else {
-            cmd.arg(format!("-O{}", opt_level));
-            cmd.arg("-c");
-            cmd.arg("-ffunction-sections").arg("-fdata-sections");
+            cmd.args.push(format!("-O{}", opt_level).into());
+            cmd.args.push("-ffunction-sections".into());
+            cmd.args.push("-fdata-sections".into());
         }
-        cmd.args(&self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}));
+        for arg in self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}) {
+            cmd.args.push(arg.into());
+        }
 
         if debug {
-            cmd.arg(if msvc {"/Z7"} else {"-g"});
+            cmd.args.push(if msvc {"/Z7"} else {"-g"}.into());
         }
 
         if target.contains("-ios") {
             self.ios_flags(&mut cmd);
         } else if !msvc {
             if target.contains("i686") {
-                cmd.arg("-m32");
+                cmd.args.push("-m32".into());
             } else if target.contains("x86_64") {
-                cmd.arg("-m64");
+                cmd.args.push("-m64".into());
             }
 
             if !target.contains("i686") && !target.contains("windows-gnu") {
-                cmd.arg("-fPIC");
+                cmd.args.push("-fPIC".into());
             }
         }
 
         if self.cpp && !msvc {
             if let Some(ref stdlib) = self.cpp_set_stdlib {
-                cmd.arg(&format!("-stdlib=lib{}", stdlib));
+                cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
             }
         }
 
         for directory in self.include_directories.iter() {
-            cmd.arg(if msvc {"/I"} else {"-I"});
-            cmd.arg(directory);
+            cmd.args.push(if msvc {"/I"} else {"-I"}.into());
+            cmd.args.push(directory.into());
         }
 
         for flag in self.flags.iter() {
-            cmd.arg(flag);
+            cmd.args.push(flag.into());
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
             let lead = if msvc {"/"} else {"-"};
             if let &Some(ref value) = value {
-                cmd.arg(&format!("{}D{}={}", lead, key, value));
+                cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
-                cmd.arg(&format!("{}D{}", lead, key));
+                cmd.args.push(format!("{}D{}", lead, key).into());
             }
         }
-        (cmd, name)
+        cmd
     }
 
     fn msvc_macro_assembler(&self) -> (Command, String) {
@@ -482,7 +513,7 @@ impl Config {
         }
     }
 
-    fn ios_flags(&self, cmd: &mut Command) {
+    fn ios_flags(&self, cmd: &mut Tool) {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
@@ -501,13 +532,14 @@ impl Config {
 
         let sdk = match arch {
             ArchSpec::Device(arch) => {
-                cmd.arg("-arch").arg(arch);
-                cmd.arg("-miphoneos-version-min=7.0");
+                cmd.args.push("-arch".into());
+                cmd.args.push(arch.into());
+                cmd.args.push("-miphoneos-version-min=7.0".into());
                 "iphoneos"
             },
             ArchSpec::Simulator(arch) => {
-                cmd.arg(arch);
-                cmd.arg("-mios-simulator-version-min=7.0");
+                cmd.args.push(arch.into());
+                cmd.args.push("-mios-simulator-version-min=7.0".into());
                 "iphonesimulator"
             }
         };
@@ -524,8 +556,8 @@ impl Config {
 
         let sdk_path = String::from_utf8(sdk_path).unwrap();
 
-        cmd.arg("-isysroot");
-        cmd.arg(sdk_path.trim());
+        cmd.args.push("-isysroot".into());
+        cmd.args.push(sdk_path.trim().into());
     }
 
     fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
@@ -536,25 +568,20 @@ impl Config {
         return cmd
     }
 
-    fn get_compiler(&self) -> (Command, String) {
+    fn get_base_compiler(&self) -> Tool {
         if let Some(ref c) = self.compiler {
-            return (self.cmd(c), c.file_name().unwrap()
-                                  .to_string_lossy().into_owned())
+            return Tool::new(c.clone())
         }
         let target = self.get_target();
         let (env, msvc, gnu, default) = if self.cpp {
-            ("CXX", "cl", "g++", "c++")
+            ("CXX", "cl.exe", "g++", "c++")
         } else {
-            ("CC", "cl", "gcc", "cc")
+            ("CC", "cl.exe", "gcc", "cc")
         };
         self.get_var(env).ok().map(|env| {
-            let fname = Path::new(&env).file_name().unwrap().to_string_lossy()
-                                       .into_owned();
-            (self.cmd(env), fname)
+            Tool::new(PathBuf::from(env))
         }).or_else(|| {
-            windows_registry::find(&target, "cl.exe").map(|cmd| {
-                (cmd, "cl.exe".to_string())
-            })
+            windows_registry::find_tool(&target, "cl.exe")
         }).unwrap_or_else(|| {
             let compiler = if target.contains("windows") {
                 if target.contains("msvc") {
@@ -567,7 +594,7 @@ impl Config {
             } else {
                 default.to_string()
             };
-            (self.cmd(compiler.clone()), compiler)
+            Tool::new(PathBuf::from(compiler))
         })
     }
 
@@ -646,6 +673,52 @@ impl Config {
     }
 }
 
+impl Tool {
+    fn new(path: PathBuf) -> Tool {
+        Tool {
+            path: path,
+            args: Vec::new(),
+            env: Vec::new(),
+        }
+    }
+
+    /// Converts this compiler into a `Command` that's ready to be run.
+    ///
+    /// This is useful for when the compiler needs to be executed and the
+    /// command returned will already have the initial arguments and environment
+    /// variables configured.
+    pub fn to_command(&self) -> Command {
+        let mut cmd = Command::new(&self.path);
+        cmd.args(&self.args);
+        for &(ref k, ref v) in self.env.iter() {
+            cmd.env(k, v);
+        }
+        return cmd
+    }
+
+    /// Returns the path for this compiler.
+    ///
+    /// Note that this may not be a path to a file on the filesystem, e.g. "cc",
+    /// but rather something which will be resolved when a process is spawned.
+    pub fn path(&self) -> &Path {
+        &self.path
+    }
+
+    /// Returns the default set of arguments to the compiler needed to produce
+    /// executables for the target this compiler generates.
+    pub fn args(&self) -> &[OsString] {
+        &self.args
+    }
+
+    /// Returns the set of environment variables needed for this compiler to
+    /// operate.
+    ///
+    /// This is typically only used for MSVC compilers currently.
+    pub fn env(&self) -> &[(OsString, OsString)] {
+        &self.env
+    }
+}
+
 fn run(cmd: &mut Command, program: &str) {
     println!("running: {:?}", cmd);
     let status = match cmd.status() {
@@ -662,6 +735,7 @@ fn run(cmd: &mut Command, program: &str) {
         }
         Err(e) => fail(&format!("failed to execute command: {}", e)),
     };
+    println!("{:?}", status);
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }

@@ -13,6 +13,8 @@
 
 use std::process::Command;
 
+use Tool;
+
 /// Attempts to find a tool within an MSVC installation using the Windows
 /// registry as a point to search from.
 ///
@@ -25,14 +27,21 @@ use std::process::Command;
 /// tool with the appropriate environment variables set.
 ///
 /// Note that this function always returns `None` for non-MSVC targets.
+pub fn find(target: &str, tool: &str) -> Option<Command> {
+    find_tool(target, tool).map(|c| c.to_command())
+}
+
+/// Similar to the `find` function above, this function will attempt the same
+/// operation (finding a MSVC tool in a local install) but instead returns a
+/// `Tool` which may be introspected.
 #[cfg(not(windows))]
-pub fn find(_target: &str, _tool: &str) -> Option<Command> {
+pub fn find_tool(_target: &str, _tool: &str) -> Option<Tool> {
     None
 }
 
 /// Documented above.
 #[cfg(windows)]
-pub fn find(target: &str, tool: &str) -> Option<Command> {
+pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     use std::env;
     use std::ffi::OsString;
     use std::io;
@@ -97,9 +106,9 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
             }
         })
     }).map(|tool| {
-        Command::new(tool)
+        Tool::new(tool.into())
     }).unwrap_or_else(|| {
-        Command::new(tool)
+        Tool::new(tool.into())
     });
 
     let mut paths = Vec::new();
@@ -112,7 +121,7 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
     if let Some(path) = env::var_os("PATH") {
         paths.extend(env::split_paths(&path));
     }
-    cmd.env("PATH", env::join_paths(&paths).unwrap());
+    cmd.env.push(("PATH".into(), env::join_paths(&paths).unwrap().into()));
 
     // The MSVC compiler uses the INCLUDE environment variable as the default
     // lookup path for headers. This environment variable is normally set up
@@ -145,7 +154,8 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         } else if let Some(ref vs_install_dir) = vs_install_dir {
             includes.push(vs_install_dir.clone());
         }
-        cmd.env("INCLUDE", env::join_paths(&includes).unwrap());
+        cmd.env.push(("INCLUDE".into(),
+                      env::join_paths(&includes).unwrap().into()));
     }
 
     // Similarly with INCLUDE above, let's set LIB if it's not defined.
@@ -164,7 +174,7 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
         if let Some(path) = get_windows_sdk_lib_path(target) {
             libs.push(path);
         }
-        cmd.env("LIB", env::join_paths(&libs).unwrap());
+        cmd.env.push(("LIB".into(), env::join_paths(&libs).unwrap().into()));
     }
 
     return Some(cmd);
