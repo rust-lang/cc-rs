@@ -91,19 +91,6 @@ pub struct Tool {
     env: Vec<(OsString, OsString)>,
 }
 
-fn getenv(v: &str) -> Option<String> {
-    let r = env::var(v).ok();
-    println!("{} = {:?}", v, r);
-    r
-}
-
-fn getenv_unwrap(v: &str) -> String {
-    match getenv(v) {
-        Some(s) => s,
-        None => fail(&format!("environment variable `{}` not defined", v)),
-    }
-}
-
 /// Compile a library from the given set of input C files.
 ///
 /// This will simply compile all files into object files and then assemble them
@@ -335,16 +322,14 @@ impl Config {
 
         self.assemble(lib_name, &dst.join(output), &objects);
 
-        if self.cargo_metadata {
-            println!("cargo:rustc-link-lib=static={}",
-                     &output[3..output.len() - 2]);
-            println!("cargo:rustc-link-search=native={}", dst.display());
+        self.print(&format!("cargo:rustc-link-lib=static={}",
+                            &output[3..output.len() - 2]));
+        self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
 
-            // Add specific C++ libraries, if enabled.
-            if self.cpp {
-                if let Some(stdlib) = self.get_cpp_link_stdlib() {
-                    println!("cargo:rustc-link-lib={}", stdlib);
-                }
+        // Add specific C++ libraries, if enabled.
+        if self.cpp {
+            if let Some(stdlib) = self.get_cpp_link_stdlib() {
+                self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
         }
     }
@@ -398,7 +383,7 @@ impl Config {
         let debug = self.get_debug();
         let target = self.get_target();
         let msvc = target.contains("msvc");
-        println!("debug={} opt-level={}", debug, opt_level);
+        self.print(&format!("debug={} opt-level={}", debug, opt_level));
 
         let mut cmd = self.get_base_compiler();
 
@@ -544,7 +529,7 @@ impl Config {
             }
         };
 
-        println!("Detecting iOS SDK path for {}", sdk);
+        self.print(&format!("Detecting iOS SDK path for {}", sdk));
         let sdk_path = self.cmd("xcrun")
             .arg("--show-sdk-path")
             .arg("--sdk")
@@ -603,10 +588,10 @@ impl Config {
         let host = self.get_host();
         let kind = if host == target {"HOST"} else {"TARGET"};
         let target_u = target.replace("-", "_");
-        let res = getenv(&format!("{}_{}", var_base, target))
-            .or_else(|| getenv(&format!("{}_{}", var_base, target_u)))
-            .or_else(|| getenv(&format!("{}_{}", kind, var_base)))
-            .or_else(|| getenv(var_base));
+        let res = self.getenv(&format!("{}_{}", var_base, target))
+            .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
+            .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))
+            .or_else(|| self.getenv(var_base));
 
         match res {
             Some(res) => Ok(res),
@@ -649,27 +634,46 @@ impl Config {
     }
 
     fn get_target(&self) -> String {
-        self.target.clone().unwrap_or_else(|| getenv_unwrap("TARGET"))
+        self.target.clone().unwrap_or_else(|| self.getenv_unwrap("TARGET"))
     }
 
     fn get_host(&self) -> String {
-        self.host.clone().unwrap_or_else(|| getenv_unwrap("HOST"))
+        self.host.clone().unwrap_or_else(|| self.getenv_unwrap("HOST"))
     }
 
     fn get_opt_level(&self) -> u32 {
         self.opt_level.unwrap_or_else(|| {
-            getenv_unwrap("OPT_LEVEL").parse().unwrap()
+            self.getenv_unwrap("OPT_LEVEL").parse().unwrap()
         })
     }
 
     fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| getenv_unwrap("PROFILE") == "debug")
+        self.debug.unwrap_or_else(|| self.getenv_unwrap("PROFILE") == "debug")
     }
 
     fn get_out_dir(&self) -> PathBuf {
         self.out_dir.clone().unwrap_or_else(|| {
             env::var_os("OUT_DIR").map(PathBuf::from).unwrap()
         })
+    }
+
+    fn getenv(&self, v: &str) -> Option<String> {
+        let r = env::var(v).ok();
+        self.print(&format!("{} = {:?}", v, r));
+        r
+    }
+
+    fn getenv_unwrap(&self, v: &str) -> String {
+        match self.getenv(v) {
+            Some(s) => s,
+            None => fail(&format!("environment variable `{}` not defined", v)),
+        }
+    }
+
+    fn print(&self, s: &str) {
+        if self.cargo_metadata {
+            println!("{}", s);
+        }
     }
 }
 
