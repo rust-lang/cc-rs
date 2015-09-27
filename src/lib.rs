@@ -557,6 +557,7 @@ impl Config {
         if let Some(ref c) = self.compiler {
             return Tool::new(c.clone())
         }
+        let host = self.get_host();
         let target = self.get_target();
         let (env, msvc, gnu, default) = if self.cpp {
             ("CXX", "cl.exe", "g++", "c++")
@@ -568,7 +569,8 @@ impl Config {
         }).or_else(|| {
             windows_registry::find_tool(&target, "cl.exe")
         }).unwrap_or_else(|| {
-            let compiler = if target.contains("windows") {
+            let compiler = if host.contains("windows") &&
+                              target.contains("windows") {
                 if target.contains("msvc") {
                     msvc.to_string()
                 } else {
@@ -576,6 +578,22 @@ impl Config {
                 }
             } else if target.contains("android") {
                 format!("{}-{}", target, gnu)
+            } else if self.get_host() != target {
+                let prefix = match &target[..] {
+                    "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
+                    "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                    "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                    "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                    "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
+                    "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
+                    "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
+                    "x86_64-unknown-linux-musl" => Some("musl"),
+                    _ => None,
+                };
+                match prefix {
+                    Some(prefix) => format!("{}-{}", prefix, gnu),
+                    None => default.to_string(),
+                }
             } else {
                 default.to_string()
             };
