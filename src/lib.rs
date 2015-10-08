@@ -574,7 +574,7 @@ impl Config {
                 if target.contains("msvc") {
                     msvc.to_string()
                 } else {
-                    gnu.to_string()
+                    format!("{}.exe", gnu)
                 }
             } else if target.contains("android") {
                 format!("{}-{}", target, gnu)
