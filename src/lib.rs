@@ -418,6 +418,9 @@ impl Config {
             if !target.contains("i686") && !target.contains("windows-gnu") {
                 cmd.args.push("-fPIC".into());
             }
+            if target.contains("musl") {
+                cmd.args.push("-static".into());
+            }
         }
 
         if self.cpp && !msvc {
