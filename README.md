@@ -67,7 +67,7 @@ required varies per platform, but there are three broad categories:
   ([direct link to the installer][mingw-installer]). You may also acquite it via
   [MSYS2](http://msys2.github.io), as explained [here][msys2-help].  Make sure
   to install the appropriate architecture corresponding to your installation of
-  rustc. GCC from older [MinGW](http://www.mingw.org) project is compatible 
+  rustc. GCC from older [MinGW](http://www.mingw.org) project is compatible
   only with 32-bit rust compiler.
 
 [mingw-installer]: http://sourceforge.net/projects/mingw-w64/files/latest/download
