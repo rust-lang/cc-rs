@@ -46,7 +46,9 @@ impl Test {
 
     fn shim(&self, name: &str) -> &Test {
         let fname = format!("{}{}", name, env::consts::EXE_SUFFIX);
-        fs::hard_link(&self.gcc, self.td.path().join(fname)).unwrap();
+        fs::hard_link(&self.gcc, self.td.path().join(&fname)).or_else(|_| {
+            fs::copy(&self.gcc, self.td.path().join(&fname)).map(|_| ())
+        }).unwrap();
         self
     }
 
