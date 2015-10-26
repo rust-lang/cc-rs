@@ -58,6 +58,7 @@ mod registry;
 pub mod windows_registry;
 
 /// Extra configuration to pass to gcc.
+#[derive(Clone)]
 pub struct Config {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
@@ -85,6 +86,7 @@ pub struct Config {
 /// This can be used to further configure other build systems (e.g. forward
 /// along CC and/or CFLAGS) or the `to_command` method can be used to run the
 /// compiler itself.
+#[derive(Clone)]
 pub struct Tool {
     path: PathBuf,
     args: Vec<OsString>,
