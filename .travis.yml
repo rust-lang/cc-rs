@@ -7,7 +7,7 @@ sudo: false
 install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then OS=unknown-linux-gnu; else OS=apple-darwin; fi
   - export TARGET=$ARCH-$OS
-  - if [ "$TRAVIS_RUST_VERSION" = "stable" ]; then PKG=rustc; else PKG=rust-std-$TARGET; fi
+  - if [ "$TRAVIS_RUST_VERSION" = "1.0.0" ]; then PKG=rustc; else PKG=rust-std-$TARGET; fi
   - curl -sO https://static.rust-lang.org/dist/rust-$TRAVIS_RUST_VERSION-$TARGET.tar.gz
   - tar xf rust-$TRAVIS_RUST_VERSION-$TARGET.tar.gz
   - rm -rf $HOME/rust/lib/rustlib/$TARGET
