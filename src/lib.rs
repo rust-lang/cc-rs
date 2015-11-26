@@ -591,6 +591,7 @@ impl Config {
                     "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
                     "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
                     "x86_64-unknown-linux-musl" => Some("musl"),
+                    "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
                     _ => None,
                 };
                 match prefix {
