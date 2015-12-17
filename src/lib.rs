@@ -352,7 +352,7 @@ impl Config {
         if msvc && is_asm {
             cmd.arg("/Fo").arg(dst);
         } else if msvc {
-            let mut s = OsString::from("/Fo:");
+            let mut s = OsString::from("/Fo");
             s.push(&dst);
             cmd.arg(s);
         } else {
