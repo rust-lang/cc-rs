@@ -21,7 +21,7 @@ fn main() {
 To control the programs and flags used for building, the builder can set a
 number of different environment variables.
 
-* `CFLAGS` - a series of space seperated flags passed to "gcc". Note that
+* `CFLAGS` - a series of space separated flags passed to "gcc". Note that
              individual flags cannot currently contain spaces, so doing
              something like: "-L=foo\ bar" is not possible.
 * `CC` - the actual C compiler used. Note that this is used as an exact
@@ -40,7 +40,7 @@ in the following prioritized order:
 3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
 4. `<var>` - a plain `CC`, `AR` as above.
 
-If none of these varaibles exist, gcc-rs uses built-in defaults
+If none of these variables exist, gcc-rs uses built-in defaults
 
 In addition to the the above optional environment variables, `gcc-rs` has some
 functions with hard requirements on some variables supplied by [cargo's
@@ -64,7 +64,7 @@ required varies per platform, but there are three broad categories:
 * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
   require `gcc` to be available in `PATH`. We recommend the
   [MinGW-w64](http://mingw-w64.sourceforge.net) distribution
-  ([direct link to the installer][mingw-installer]). You may also acquite it via
+  ([direct link to the installer][mingw-installer]). You may also acquire it via
   [MSYS2](http://msys2.github.io), as explained [here][msys2-help].  Make sure
   to install the appropriate architecture corresponding to your installation of
   rustc. GCC from older [MinGW](http://www.mingw.org) project is compatible
