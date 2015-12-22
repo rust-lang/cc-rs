@@ -76,6 +76,7 @@ pub struct Config {
     compiler: Option<PathBuf>,
     archiver: Option<PathBuf>,
     cargo_metadata: bool,
+    pic: Option<bool>,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -134,7 +135,8 @@ impl Config {
             env: Vec::new(),
             compiler: None,
             archiver: None,
-            cargo_metadata: true
+            cargo_metadata: true,
+            pic: None,
         }
     }
 
@@ -295,6 +297,15 @@ impl Config {
         self
     }
 
+    /// Configures whether the compiler will emit position independent code.
+    ///
+    /// This option defaults to `false` for `i686` and `windows-gnu` targets and to `true` for all
+    /// other targets.
+    pub fn pic(&mut self, pic: bool) -> &mut Config {
+        self.pic = Some(pic);
+        self
+    }
+
 
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
@@ -415,7 +426,7 @@ impl Config {
                 cmd.args.push("-m64".into());
             }
 
-            if !target.contains("i686") && !target.contains("windows-gnu") {
+            if self.pic.unwrap_or(!target.contains("i686") && !target.contains("windows-gnu")) {
                 cmd.args.push("-fPIC".into());
             }
             if target.contains("musl") {
