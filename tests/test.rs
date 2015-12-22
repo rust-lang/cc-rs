@@ -161,6 +161,21 @@ fn gnu_x86_64() {
 }
 
 #[test]
+fn gnu_x86_64_no_pic() {
+    for vendor in &["unknown-linux-gnu", "apple-darwin"] {
+        let target = format!("x86_64-{}", vendor);
+        let test = Test::gnu();
+        test.gcc()
+            .pic(false)
+            .target(&target)
+            .host(&target)
+            .file("foo.c").compile("libfoo.a");
+
+        test.cmd(0).must_not_have("-fPIC");
+    }
+}
+
+#[test]
 fn gnu_i686() {
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("i686-{}", vendor);
@@ -172,6 +187,21 @@ fn gnu_i686() {
 
         test.cmd(0).must_not_have("-fPIC")
                    .must_have("-m32");
+    }
+}
+
+#[test]
+fn gnu_i686_pic() {
+    for vendor in &["unknown-linux-gnu", "apple-darwin"] {
+        let target = format!("i686-{}", vendor);
+        let test = Test::gnu();
+        test.gcc()
+            .pic(true)
+            .target(&target)
+            .host(&target)
+            .file("foo.c").compile("libfoo.a");
+
+        test.cmd(0).must_have("-fPIC");
     }
 }
 
