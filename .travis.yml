@@ -7,11 +7,10 @@ sudo: false
 install:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then OS=unknown-linux-gnu; else OS=apple-darwin; fi
   - export TARGET=$ARCH-$OS
-  - if [ "$TRAVIS_RUST_VERSION" = "1.0.0" ]; then PKG=rustc; else PKG=rust-std-$TARGET; fi
   - curl -sO https://static.rust-lang.org/dist/rust-$TRAVIS_RUST_VERSION-$TARGET.tar.gz
   - tar xf rust-$TRAVIS_RUST_VERSION-$TARGET.tar.gz
   - rm -rf $HOME/rust/lib/rustlib/$TARGET
-  - mv rust-$TRAVIS_RUST_VERSION-$TARGET/$PKG/lib/rustlib/$TARGET $HOME/rust/lib/rustlib
+  - mv rust-$TRAVIS_RUST_VERSION-$TARGET/rust-std-$TARGET/lib/rustlib/$TARGET $HOME/rust/lib/rustlib
 before_script:
   - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
 script:
