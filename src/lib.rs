@@ -598,6 +598,8 @@ impl Config {
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                     "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                    "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                    "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
                     "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
                     "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
                     "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
