@@ -422,7 +422,7 @@ impl Config {
         } else if !msvc {
             if target.contains("i686") {
                 cmd.args.push("-m32".into());
-            } else if target.contains("x86_64") {
+            } else if target.contains("x86_64") || target.contains("powerpc64") {
                 cmd.args.push("-m64".into());
             }
 
