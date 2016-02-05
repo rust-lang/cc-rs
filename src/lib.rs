@@ -596,7 +596,8 @@ impl Config {
                 let prefix = match &target[..] {
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                    "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                    "arm-unknown-linux-gnueabihf"  => Some("arm-linux-gnueabihf"),
+                    "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                     "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
