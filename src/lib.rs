@@ -397,6 +397,9 @@ impl Config {
         self.print(&format!("debug={} opt-level={}", debug, opt_level));
 
         let mut cmd = self.get_base_compiler();
+        let nvcc = cmd.path.to_str()
+            .map(|path| path.contains("nvcc"))
+            .unwrap_or(false);
 
         if msvc {
             cmd.args.push("/nologo".into());
@@ -404,6 +407,8 @@ impl Config {
             if opt_level != 0 {
                 cmd.args.push("/O2".into());
             }
+        } else if nvcc {
+            cmd.args.push(format!("-O{}", opt_level).into());
         } else {
             cmd.args.push(format!("-O{}", opt_level).into());
             cmd.args.push("-ffunction-sections".into());
@@ -426,8 +431,11 @@ impl Config {
                 cmd.args.push("-m64".into());
             }
 
-            if self.pic.unwrap_or(!target.contains("i686") && !target.contains("windows-gnu")) {
+            if !nvcc && self.pic.unwrap_or(!target.contains("i686") && !target.contains("windows-gnu")) {
                 cmd.args.push("-fPIC".into());
+            } else if nvcc && self.pic.unwrap_or(false) {
+                cmd.args.push("-Xcompiler".into());
+                cmd.args.push("\'-fPIC\'".into());
             }
             if target.contains("musl") {
                 cmd.args.push("-static".into());
