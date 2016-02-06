@@ -432,6 +432,10 @@ impl Config {
             if target.contains("musl") {
                 cmd.args.push("-static".into());
             }
+
+            if target == "armv7-unknown-linux-gnueabihf" {
+                cmd.args.push("-march=armv7-a".into());
+            }
         }
 
         if self.cpp && !msvc {
