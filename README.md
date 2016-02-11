@@ -63,14 +63,14 @@ required varies per platform, but there are three broad categories:
   the appropriate developer tools shell.
 * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
   require `gcc` to be available in `PATH`. We recommend the
-  [MinGW-w64](http://mingw-w64.sourceforge.net) distribution
-  ([direct link to the installer][mingw-installer]). You may also acquire it via
+  [MinGW-w64](http://mingw-w64.org) distribution, which is using the
+  [Win-builds](http://win-builds.org) installation system.
+  You may also acquire it via
   [MSYS2](http://msys2.github.io), as explained [here][msys2-help].  Make sure
   to install the appropriate architecture corresponding to your installation of
   rustc. GCC from older [MinGW](http://www.mingw.org) project is compatible
   only with 32-bit rust compiler.
 
-[mingw-installer]: http://sourceforge.net/projects/mingw-w64/files/latest/download
 [msys2-help]: http://github.com/rust-lang/rust#building-on-windows
 
 # C++ support
