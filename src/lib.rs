@@ -493,7 +493,7 @@ impl Config {
         }
 
         if target.contains("i686") {
-            cmd.arg("/SAFESEH");
+            cmd.arg("/safeseh");
         }
         for flag in self.flags.iter() {
             cmd.arg(flag);
