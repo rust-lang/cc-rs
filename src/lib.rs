@@ -407,6 +407,9 @@ impl Config {
             if opt_level != 0 {
                 cmd.args.push("/O2".into());
             }
+            if target.contains("i686") {
+                cmd.args.push("/SAFESEH".into());
+            }
         } else if nvcc {
             cmd.args.push(format!("-O{}", opt_level).into());
         } else {
@@ -488,6 +491,14 @@ impl Config {
                 cmd.arg(&format!("/D{}", key));
             }
         }
+
+        if target.contains("i686") {
+            cmd.arg("/SAFESEH");
+        }
+        for flag in self.flags.iter() {
+            cmd.arg(flag);
+        }
+
         (cmd, tool.to_string())
     }
 
