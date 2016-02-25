@@ -447,6 +447,14 @@ impl Config {
             if target == "armv7-unknown-linux-gnueabihf" {
                 cmd.args.push("-march=armv7-a".into());
             }
+            if target == "arm-unknown-linux-gnueabihf" {
+                cmd.args.push("-march=armv6".into());
+                cmd.args.push("-marm".into());
+            }
+            if target == "arm-unknown-linux-gnueabi" {
+                cmd.args.push("-march=armv6".into());
+                cmd.args.push("-marm".into());
+            }
         }
 
         if self.cpp && !msvc {
