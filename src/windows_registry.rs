@@ -372,7 +372,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
             let mut path = PathBuf::from(path);
             path.push("MSBuild.exe");
             let mut tool = Tool::new(path);
-            if path.contains("x86_64") {
+            if target.contains("x86_64") {
                 tool.env.push(("Platform".into(), "X64".into()));
             }
             tool
