@@ -52,7 +52,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     if !target.contains("msvc") { return None }
 
     if tool.contains("msbuild") {
-        return find_msbuild()
+        return find_msbuild(target)
     }
 
     // When finding binaries the 32-bit version is at the top level but the
@@ -362,7 +362,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     }
 
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
-    fn find_msbuild() -> Option<Tool> {
+    fn find_msbuild(target: &str) -> Option<Tool> {
         let key = r"SOFTWARE\Microsoft\MSBuild\ToolsVersions";
         LOCAL_MACHINE.open(key.as_ref()).ok().and_then(|key| {
             max_version(&key).and_then(|(_vers, key)| {
@@ -371,7 +371,11 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         }).map(|path| {
             let mut path = PathBuf::from(path);
             path.push("MSBuild.exe");
-            Tool::new(path)
+            let mut tool = Tool::new(path);
+            if path.contains("x86_64") {
+                tool.env.push(("Platform".into(), "X64".into()));
+            }
+            tool
         })
     }
 }
