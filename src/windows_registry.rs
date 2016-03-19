@@ -369,7 +369,9 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
                 key.query_str("MSBuildToolsPath").ok()
             })
         }).map(|path| {
-            Tool::new(path.into())
+            let mut path = PathBuf::from(path);
+            path.push("MSBuild.exe");
+            Tool::new(path)
         })
     }
 }
