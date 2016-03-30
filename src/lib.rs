@@ -417,8 +417,10 @@ impl Config {
             cmd.args.push("-ffunction-sections".into());
             cmd.args.push("-fdata-sections".into());
         }
-        for arg in self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}) {
-            cmd.args.push(arg.into());
+        if let Ok(flags) = self.get_var_shellsplit(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}) {
+            for arg in flags {
+                cmd.args.push(arg.into());
+            }
         }
 
         if debug {
@@ -609,8 +611,14 @@ impl Config {
         } else {
             ("CC", "cl.exe", "gcc", "cc")
         };
-        self.get_var(env).ok().map(|env| {
-            Tool::new(PathBuf::from(env))
+        self.get_var_shellsplit(env).ok().and_then(|cc_args| {
+            cc_args.split_first().map(|prog_args| {
+                let mut tool = Tool::new(PathBuf::from(prog_args.0));
+                for arg in prog_args.1 {
+                    tool.args.push(arg.into());
+                }
+                tool
+            })
         }).or_else(|| {
             windows_registry::find_tool(&target, "cl.exe")
         }).unwrap_or_else(|| {
@@ -667,11 +675,12 @@ impl Config {
         }
     }
 
-    fn envflags(&self, name: &str) -> Vec<String> {
-        self.get_var(name).unwrap_or(String::new())
-            .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
-            .map(|s| s.to_string())
-            .collect()
+    fn get_var_shellsplit(&self, name: &str) -> Result<Vec<String>, String> {
+        self.get_var(name).map(|val| {
+            val.split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .collect()
+        })
     }
 
     /// Returns the default C++ standard library for the current target: `libc++`
