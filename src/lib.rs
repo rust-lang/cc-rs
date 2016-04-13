@@ -444,14 +444,10 @@ impl Config {
                 cmd.args.push("-static".into());
             }
 
-            if target == "armv7-unknown-linux-gnueabihf" {
+            if target.starts_with("armv7-unknown-linux-") {
                 cmd.args.push("-march=armv7-a".into());
             }
-            if target == "arm-unknown-linux-gnueabihf" {
-                cmd.args.push("-march=armv6".into());
-                cmd.args.push("-marm".into());
-            }
-            if target == "arm-unknown-linux-gnueabi" {
+            if target.starts_with("arm-unknown-linux-") {
                 cmd.args.push("-march=armv6".into());
                 cmd.args.push("-marm".into());
             }
@@ -629,6 +625,9 @@ impl Config {
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "arm-unknown-linux-gnueabihf"  => Some("arm-linux-gnueabihf"),
                     "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                    "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
+                    "arm-unknown-linux-musleabihf"  => Some("arm-linux-musleabihf"),
+                    "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
                     "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
