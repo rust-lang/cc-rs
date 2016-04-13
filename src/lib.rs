@@ -605,8 +605,12 @@ impl Config {
         } else {
             ("CC", "cl.exe", "gcc", "cc")
         };
-        self.get_var(env).ok().map(|env| {
-            Tool::new(PathBuf::from(env))
+        self.env_tool(env).map(|(tool, args)| {
+            let mut t = Tool::new(PathBuf::from(tool));
+            for arg in args {
+                t.args.push(arg.into());
+            }
+            return t
         }).or_else(|| {
             windows_registry::find_tool(&target, "cl.exe")
         }).unwrap_or_else(|| {
@@ -662,7 +666,7 @@ impl Config {
 
         match res {
             Some(res) => Ok(res),
-            None => Err("Could not get environment variable".to_string()),
+            None => Err("could not get environment variable".to_string()),
         }
     }
 
@@ -671,6 +675,19 @@ impl Config {
             .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
             .map(|s| s.to_string())
             .collect()
+    }
+
+    fn env_tool(&self, name: &str) -> Option<(String, Vec<String>)> {
+        self.get_var(name).ok().map(|tool| {
+            let whitelist = ["ccache", "distcc"];
+            for t in whitelist.iter() {
+                if tool.starts_with(t) && tool[t.len()..].starts_with(" ") {
+                    return (t.to_string(),
+                            vec![tool[t.len()..].trim_left().to_string()])
+                }
+            }
+            (tool, Vec::new())
+        })
     }
 
     /// Returns the default C++ standard library for the current target: `libc++`
