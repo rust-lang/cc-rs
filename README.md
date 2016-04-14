@@ -52,6 +52,10 @@ pub fn call() {
         bar_function();
     }
 }
+
+fn main() {
+    // ...
+}
 ```
 
 ## External configuration via environment variables
