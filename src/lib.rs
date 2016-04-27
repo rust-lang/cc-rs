@@ -431,7 +431,7 @@ impl Config {
         if target.contains("-ios") {
             self.ios_flags(&mut cmd);
         } else if !msvc {
-            if target.contains("i686") {
+            if target.contains("i686") || target.contains("i586") {
                 cmd.args.push("-m32".into());
             } else if target.contains("x86_64") || target.contains("powerpc64") {
                 cmd.args.push("-m64".into());
@@ -453,6 +453,9 @@ impl Config {
             if target.starts_with("arm-unknown-linux-") {
                 cmd.args.push("-march=armv6".into());
                 cmd.args.push("-marm".into());
+            }
+            if target.starts_with("i586-unknown-linux-") {
+                cmd.args.push("-march=pentium".into());
             }
         }
 
