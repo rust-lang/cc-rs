@@ -409,6 +409,9 @@ impl Config {
             }
             if target.contains("i686") {
                 cmd.args.push("/SAFESEH".into());
+            } else if target.contains("i586") {
+                cmd.args.push("/SAFESEH".into());
+                cmd.args.push("/ARCH:IA32".into());
             }
         } else if nvcc {
             cmd.args.push(format!("-O{}", opt_level).into());
@@ -496,7 +499,7 @@ impl Config {
             }
         }
 
-        if target.contains("i686") {
+        if target.contains("i686") || target.contains("i586") {
             cmd.arg("/safeseh");
         }
         for flag in self.flags.iter() {
