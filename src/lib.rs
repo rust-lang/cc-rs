@@ -77,6 +77,7 @@ pub struct Config {
     archiver: Option<PathBuf>,
     cargo_metadata: bool,
     pic: Option<bool>,
+    links: Vec<String>,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -137,6 +138,7 @@ impl Config {
             archiver: None,
             cargo_metadata: true,
             pic: None,
+            links: Vec::new(),
         }
     }
 
@@ -306,6 +308,13 @@ impl Config {
         self
     }
 
+    /// Adds a library name to be linked during compilation.
+    /// This is equivalent to the -l flag to cc.
+    pub fn link<P: AsRef<str>>(&mut self, link: P) -> &mut Config {
+        self.links.push(link.as_ref().to_owned());
+        self
+    }
+
 
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
@@ -343,6 +352,10 @@ impl Config {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
         }
+        for lib in self.links.iter() {
+            self.print(&format!("cargo:rustc-link-lib={}", lib));
+        }
+
     }
 
     fn compile_object(&self, file: &Path, dst: &Path) {
@@ -482,6 +495,7 @@ impl Config {
                 cmd.args.push(format!("{}D{}", lead, key).into());
             }
         }
+
         cmd
     }
 
@@ -527,7 +541,7 @@ impl Config {
                    .args(&self.objects), "lib.exe");
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
-            // MSVC linker will also be passed foo.lib, so be sure that both
+            // MSVC linker will also be passed foo.lib, so be sure that botn
             // exist for now.
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
