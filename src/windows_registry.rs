@@ -45,7 +45,6 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     use std::env;
     use std::ffi::OsString;
     use std::io;
-    use std::fs;
     use std::path::{Path, PathBuf};
     use registry::{RegistryKey, LOCAL_MACHINE};
 
@@ -85,7 +84,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         p.push("bin");
         p.push(extra);
         let tool = p.join(tool);
-        if fs::metadata(&tool).is_ok() {
+        if tool.exists() {
             path_to_add = Some(p);
             Some(tool)
         } else {
@@ -94,7 +93,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     }).or_else(|| {
         env::var_os("PATH").and_then(|path| {
             env::split_paths(&path).map(|p| p.join(tool)).find(|path| {
-                fs::metadata(path).is_ok()
+                path.exists()
             })
         })
     }).or_else(|| {
@@ -102,7 +101,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
             let mut p = p.join("VC/bin");
             p.push(extra);
             let tool = p.join(tool);
-            if fs::metadata(&tool).is_ok() {
+            if tool.exists() {
                 path_to_add = Some(p);
                 Some(tool)
             } else {
@@ -292,7 +291,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
                 None => return None,
             };
             ["winv6.3", "win8", "win7"].iter().map(|p| root.join(p)).find(|part| {
-                fs::metadata(part).is_ok()
+                part.exists()
             }).map(|path| {
                 path.join("um").join(extra)
             })
@@ -312,7 +311,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
                 Some(extra) => extra,
                 None => return None,
             });
-            if fs::metadata(&root).is_ok() {Some(root)} else {None}
+            if root.exists() {Some(root)} else {None}
         }
     }
 
@@ -346,7 +345,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         (move || -> io::Result<_> {
             let mut max = None;
             let mut max_s = None;
-            for entry in try!(fs::read_dir(&sdk_dir.join("Lib"))) {
+            for entry in try!(sdk_dir.join("Lib").read_dir()) {
                 let entry = try!(entry);
                 if let Ok(s) = entry.file_name().into_string() {
                     if let Ok(u) = s.replace(".", "").parse::<usize>() {
