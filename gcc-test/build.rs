@@ -46,6 +46,7 @@ fn main() {
     if target.contains("msvc") {
         let out = out.join("tmp");
         fs::create_dir(&out).unwrap();
+        println!("nmake 1");
         let status = gcc::windows_registry::find(&target, "nmake.exe").unwrap()
                             .arg("/fsrc/NMakefile")
                             .env("OUT_DIR", &out)
@@ -60,6 +61,7 @@ fn main() {
         env::remove_var("VCINSTALLDIR");
         env::remove_var("INCLUDE");
         env::remove_var("LIB");
+        println!("nmake 2");
         let status = gcc::windows_registry::find(&target, "nmake.exe").unwrap()
                             .arg("/fsrc/NMakefile")
                             .env("OUT_DIR", &out)
