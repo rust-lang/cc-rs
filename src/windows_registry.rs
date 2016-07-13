@@ -338,7 +338,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     }
 
     #[allow(bad_style)]
-    pub fn host_arch() -> u16 {
+    fn host_arch() -> u16 {
         type DWORD = u32;
         type WORD = u16;
         type LPVOID = *mut u8;
