@@ -2,6 +2,7 @@ all: $(OUT_DIR)/msvc.lib $(OUT_DIR)/msvc.exe
 
 $(OUT_DIR)/msvc.lib: $(OUT_DIR)/msvc.o
 	lib -nologo -out:$(OUT_DIR)/msvc.lib $(OUT_DIR)/msvc.o
+	rc -h
 
 $(OUT_DIR)/msvc.o: src/msvc.c
 	$(CC) -nologo -c -Fo:$@ src/msvc.c -MD
