@@ -457,6 +457,9 @@ impl Config {
             if target.starts_with("i586-unknown-linux-") {
                 cmd.args.push("-march=pentium".into());
             }
+            if target.starts_with("i686-unknown-linux-") {
+                cmd.args.push("-march=i686".into());
+            }
         }
 
         if self.cpp && !msvc {
