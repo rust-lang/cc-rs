@@ -327,6 +327,11 @@ impl Config {
         let mut objects = Vec::new();
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
+            let obj = if !obj.starts_with(&dst) {
+                dst.join(obj.file_name().unwrap())
+            } else {
+                obj
+            };
             self.compile_object(file, &obj);
             objects.push(obj);
         }
