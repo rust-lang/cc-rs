@@ -128,21 +128,28 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         let sub = otry!(lib_subdir(target));
         let (ucrt, ucrt_version) = otry!(get_ucrt_dir());
 
-        let ucrt_include = ucrt.join("Include").join(&ucrt_version);
+        let ucrt_include = ucrt.join("include").join(&ucrt_version);
         tool.include.push(ucrt_include.join("ucrt"));
-        tool.include.push(ucrt_include.join("um"));
-        tool.include.push(ucrt_include.join("winrt"));
-        tool.include.push(ucrt_include.join("shared"));
 
-        let ucrt_lib = ucrt.join("Lib").join(&ucrt_version);
+        let ucrt_lib = ucrt.join("lib").join(&ucrt_version);
         tool.libs.push(ucrt_lib.join("ucrt").join(sub));
 
-        tool.path.push(ucrt.join("bin").join(sub));
-
-        if let Some(dir) = get_sdk10_dir() {
-            tool.libs.push(dir.join("um").join(sub));
-        } else if let Some(dir) = get_sdk81_dir() {
-            tool.libs.push(dir.join("um").join(sub));
+        if let Some((sdk, version)) = get_sdk10_dir() {
+            tool.path.push(sdk.join("bin").join(sub));
+            let sdk_lib = sdk.join("lib").join(&version);
+            tool.libs.push(sdk_lib.join("um").join(sub));
+            let sdk_include = sdk.join("include").join(&version);
+            tool.include.push(sdk_include.join("um"));
+            tool.include.push(sdk_include.join("winrt"));
+            tool.include.push(sdk_include.join("shared"));
+        } else if let Some(sdk) = get_sdk81_dir() {
+            tool.path.push(sdk.join("bin").join(sub));
+            let sdk_lib = sdk.join("lib").join("winv6.3");
+            tool.libs.push(sdk_lib.join("um").join(sub));
+            let sdk_include = sdk.join("include");
+            tool.include.push(sdk_include.join("um"));
+            tool.include.push(sdk_include.join("winrt"));
+            tool.include.push(sdk_include.join("shared"));
         } else {
             return None
         }
@@ -155,11 +162,13 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         let mut tool = otry!(get_tool(tool, &vcdir, target));
         let sub = otry!(lib_subdir(target));
         let sdk81 = otry!(get_sdk81_dir());
-        tool.libs.push(sdk81.join("um").join(sub));
         tool.path.push(sdk81.join("bin").join(sub));
-        tool.include.push(sdk81.join("include/shared"));
-        tool.include.push(sdk81.join("include/um"));
-        tool.include.push(sdk81.join("include/winrt"));
+        let sdk_lib = sdk81.join("lib").join("winv6.3");
+        tool.libs.push(sdk_lib.join("um").join(sub));
+        let sdk_include = sdk81.join("include");
+        tool.include.push(sdk_include.join("shared"));
+        tool.include.push(sdk_include.join("um"));
+        tool.include.push(sdk_include.join("winrt"));
         Some(tool.into_tool())
     }
 
@@ -169,11 +178,13 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         let mut tool = otry!(get_tool(tool, &vcdir, target));
         let sub = otry!(lib_subdir(target));
         let sdk8 = otry!(get_sdk8_dir());
-        tool.libs.push(sdk8.join("um").join(sub));
         tool.path.push(sdk8.join("bin").join(sub));
-        tool.include.push(sdk8.join("include/shared"));
-        tool.include.push(sdk8.join("include/um"));
-        tool.include.push(sdk8.join("include/winrt"));
+        let sdk_lib = sdk8.join("lib").join("win8");
+        tool.libs.push(sdk_lib.join("um").join(sub));
+        let sdk_include = sdk8.join("include");
+        tool.include.push(sdk_include.join("shared"));
+        tool.include.push(sdk_include.join("um"));
+        tool.include.push(sdk_include.join("winrt"));
         Some(tool.into_tool())
     }
 
@@ -248,7 +259,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // only need to bother checking x64, making this code a tiny bit simpler.
     // Like we do for the Universal CRT, we sort the possibilities
     // asciibetically to find the newest one as that is what vcvars does.
-    fn get_sdk10_dir() -> Option<PathBuf> {
+    fn get_sdk10_dir() -> Option<(PathBuf, String)> {
         let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v10.0";
         let key = otry!(LOCAL_MACHINE.open(key.as_ref()).ok());
         let root = otry!(key.query_str("InstallationFolder").ok());
@@ -257,9 +268,12 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
                               .map(|dir| dir.path())
                               .collect::<Vec<_>>();
         dirs.sort();
-        dirs.into_iter().rev().filter(|dir| {
+        let dir = otry!(dirs.into_iter().rev().filter(|dir| {
             dir.join("um").join("x64").join("kernel32.lib").is_file()
-        }).next()
+        }).next());
+        let version = dir.components().last().unwrap();
+        let version = version.as_os_str().to_str().unwrap().to_string();
+        Some((root.into(), version))
     }
 
     // Interestingly there are several subdirectories, `win7` `win8` and
@@ -270,14 +284,14 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v8.1";
         let key = otry!(LOCAL_MACHINE.open(key.as_ref()).ok());
         let root = otry!(key.query_str("InstallationFolder").ok());
-        Some(Path::new(&root).join("lib").join("winv6.3"))
+        Some(root.into())
     }
 
     fn get_sdk8_dir() -> Option<PathBuf> {
         let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v8.0";
         let key = otry!(LOCAL_MACHINE.open(key.as_ref()).ok());
         let root = otry!(key.query_str("InstallationFolder").ok());
-        Some(Path::new(&root).join("lib").join("win8"))
+        Some(root.into())
     }
 
     const PROCESSOR_ARCHITECTURE_INTEL: u16 = 0;
