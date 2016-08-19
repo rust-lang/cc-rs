@@ -52,6 +52,7 @@ use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
+use std::io::{BufReader, BufRead};
 
 #[cfg(windows)]
 mod registry;
@@ -823,7 +824,23 @@ impl Tool {
 
 fn run(cmd: &mut Command, program: &str) {
     println!("running: {:?}", cmd);
-    let status = match cmd.status() {
+    // Capture the standard error coming from these programs, and write it out
+    // with cargo:warning= prefixes.
+    let spawn_result = match cmd.stderr(Stdio::piped()).spawn() {
+        Ok(mut child) => {
+            {
+                let stderr = BufReader::new(child.stderr.as_mut().unwrap());
+                for line in stderr.lines() {
+                    if let Ok(w) = line {
+                        println!("cargo:warning={}", w);
+                    }
+                }
+            }
+            child.wait()
+        }
+        Err(e) => Err(e),
+    };
+    let status = match spawn_result {
         Ok(status) => status,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
