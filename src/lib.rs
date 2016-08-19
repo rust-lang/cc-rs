@@ -329,6 +329,14 @@ impl Config {
         let lib_name = &output[3..output.len() - 2];
         let dst = self.get_out_dir();
 
+        let mut cfg = rayon::Configuration::new();
+        if let Ok(amt) = env::var("NUM_JOBS") {
+            if let Ok(amt) = amt.parse() {
+                cfg = cfg.set_num_threads(amt);
+            }
+        }
+        drop(rayon::initialize(cfg));
+
         let mut objects = Vec::new();
         self.files.par_iter().map(|file| {
             let obj = dst.join(file).with_extension("o");
