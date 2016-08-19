@@ -52,7 +52,7 @@ use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
-use std::io::{BufReader, BufRead};
+use std::io::{BufReader, BufRead, Write};
 
 #[cfg(windows)]
 mod registry;
@@ -825,16 +825,16 @@ impl Tool {
 fn run(cmd: &mut Command, program: &str) {
     println!("running: {:?}", cmd);
     // Capture the standard error coming from these programs, and write it out
-    // with cargo:warning= prefixes.
+    // with cargo:warning= prefixes. Note that this is a bit wonky to avoid
+    // requiring the output to be UTF-8, we instead just ship bytes from one
+    // location to another.
     let spawn_result = match cmd.stderr(Stdio::piped()).spawn() {
         Ok(mut child) => {
-            {
-                let stderr = BufReader::new(child.stderr.as_mut().unwrap());
-                for line in stderr.lines() {
-                    if let Ok(w) = line {
-                        println!("cargo:warning={}", w);
-                    }
-                }
+            let stderr = BufReader::new(child.stderr.take().unwrap());
+            for line in stderr.split(b'\n').filter_map(|l| l.ok()) {
+                print!("cargo:warning=");
+                std::io::stdout().write_all(&line).unwrap();
+                println!("");
             }
             child.wait()
         }
