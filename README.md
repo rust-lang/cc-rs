@@ -91,6 +91,20 @@ and `HOST` variables.
 
 [cargo]: http://doc.crates.io/build-script.html#inputs-to-the-build-script
 
+## Optional features
+
+Currently gcc-rs supports parallel compilation (think `make -jN`) but this
+feature is turned off by default. To enable gcc-rs to compile C/C++ in parallel,
+you can change your dependency to:
+
+```toml
+[build-dependencies]
+gcc = { version = "0.3", features = ["parallel"] }
+```
+
+By default gcc-rs will limit parallelism to `$NUM_JOBS`, or if not present it
+will limit it to the number of cpus on the machine.
+
 ## Compile-time Requirements
 
 To work properly this crate needs access to a C compiler when the build script
