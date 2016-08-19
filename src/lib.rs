@@ -522,6 +522,10 @@ impl Config {
     }
 
     fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) {
+        // Delete the destination if it exists as the `ar` tool at least on Unix
+        // appends to it, which we don't want.
+        let _ = fs::remove_file(&dst);
+
         let target = self.get_target();
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
