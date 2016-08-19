@@ -46,6 +46,7 @@
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
+#[cfg(feature = "parallel")]
 extern crate rayon;
 
 use std::env;
@@ -55,8 +56,6 @@ use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
 use std::io::{BufReader, BufRead, Write};
-
-use rayon::prelude::*;
 
 #[cfg(windows)]
 mod registry;
@@ -329,26 +328,19 @@ impl Config {
         let lib_name = &output[3..output.len() - 2];
         let dst = self.get_out_dir();
 
-        let mut cfg = rayon::Configuration::new();
-        if let Ok(amt) = env::var("NUM_JOBS") {
-            if let Ok(amt) = amt.parse() {
-                cfg = cfg.set_num_threads(amt);
-            }
-        }
-        drop(rayon::initialize(cfg));
-
         let mut objects = Vec::new();
-        self.files.par_iter().map(|file| {
+        let mut src_dst = Vec::new();
+        for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
                 dst.join(obj.file_name().unwrap())
             } else {
                 obj
             };
-            self.compile_object(file, &obj);
-            obj
-        }).collect_into(&mut objects);
-
+            src_dst.push((file.to_path_buf(), obj.clone()));
+            objects.push(obj);
+        }
+        self.compile_objects(&src_dst);
         self.assemble(lib_name, &dst.join(output), &objects);
 
         self.print(&format!("cargo:rustc-link-lib=static={}",
@@ -360,6 +352,30 @@ impl Config {
             if let Some(stdlib) = self.get_cpp_link_stdlib() {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
+        }
+    }
+
+    #[cfg(feature = "parallel")]
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+        use self::rayon::prelude::*;
+
+        let mut cfg = rayon::Configuration::new();
+        if let Ok(amt) = env::var("NUM_JOBS") {
+            if let Ok(amt) = amt.parse() {
+                cfg = cfg.set_num_threads(amt);
+            }
+        }
+        drop(rayon::initialize(cfg));
+
+        objs.par_iter().for_each(|&(ref src, ref dst)| {
+            self.compile_object(src, dst)
+        })
+    }
+
+    #[cfg(not(feature = "parallel"))]
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+        for &(ref src, ref dst) in objs {
+            self.compile_object(src, dst);
         }
     }
 

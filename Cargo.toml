@@ -14,7 +14,10 @@ code.
 keywords = ["build-dependencies"]
 
 [dependencies]
-rayon = "0.4"
+rayon = { version = "0.4", optional = true }
+
+[features]
+parallel = ["rayon"]
 
 [dev-dependencies]
 tempdir = "0.3"
