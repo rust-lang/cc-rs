@@ -46,12 +46,16 @@
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
+extern crate rayon;
+
 use std::env;
 use std::ffi::{OsString, OsStr};
 use std::fs;
 use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
+
+use rayon::prelude::*;
 
 #[cfg(windows)]
 mod registry;
@@ -325,7 +329,7 @@ impl Config {
         let dst = self.get_out_dir();
 
         let mut objects = Vec::new();
-        for file in self.files.iter() {
+        self.files.par_iter().map(|file| {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
                 dst.join(obj.file_name().unwrap())
@@ -333,8 +337,8 @@ impl Config {
                 obj
             };
             self.compile_object(file, &obj);
-            objects.push(obj);
-        }
+            obj
+        }).collect_into(&mut objects);
 
         self.assemble(lib_name, &dst.join(output), &objects);
 

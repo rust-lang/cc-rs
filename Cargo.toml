@@ -13,5 +13,8 @@ code.
 """
 keywords = ["build-dependencies"]
 
+[dependencies]
+rayon = "0.4"
+
 [dev-dependencies]
 tempdir = "0.3"
