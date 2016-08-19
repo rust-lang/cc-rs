@@ -11,3 +11,6 @@ test = false
 
 [build-dependencies]
 gcc = { path = ".." }
+
+[features]
+parallel = ["gcc/parallel"]

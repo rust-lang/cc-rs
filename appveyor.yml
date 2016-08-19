@@ -29,5 +29,7 @@ build: false
 
 test_script:
   - cargo test
+  - cargo test --features parallel
   - cargo test --manifest-path gcc-test/Cargo.toml
+  - cargo test --manifest-path gcc-test/Cargo.toml --features parallel
   - cargo test --manifest-path gcc-test/Cargo.toml --release
