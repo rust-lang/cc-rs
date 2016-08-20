@@ -367,7 +367,7 @@ impl Config {
         }
         drop(rayon::initialize(cfg));
 
-        objs.par_iter().for_each(|&(ref src, ref dst)| {
+        objs.par_iter().weight_max().for_each(|&(ref src, ref dst)| {
             self.compile_object(src, dst)
         })
     }
