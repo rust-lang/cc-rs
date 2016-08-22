@@ -337,6 +337,7 @@ impl Config {
             } else {
                 obj
             };
+            fs::create_dir_all(&obj.parent().unwrap()).unwrap();
             src_dst.push((file.to_path_buf(), obj.clone()));
             objects.push(obj);
         }
@@ -393,7 +394,6 @@ impl Config {
             (cmd, compiler.path.file_name().unwrap()
                           .to_string_lossy().into_owned())
         };
-        fs::create_dir_all(&dst.parent().unwrap()).unwrap();
         if msvc && is_asm {
             cmd.arg("/Fo").arg(dst);
         } else if msvc {
