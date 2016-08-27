@@ -683,6 +683,7 @@ impl Config {
                     "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
                     "armv7-unknown-netbsdelf-eabihf" => Some("armv7--netbsdelf-eabihf"),
                     "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
+                    "i686-unknown-linux-musl" => Some("musl"),
                     "i686-unknown-netbsdelf" => Some("i486--netbsdelf"),
                     "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
                     "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
