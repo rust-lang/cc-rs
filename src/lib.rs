@@ -438,8 +438,11 @@ impl Config {
         if msvc {
             cmd.args.push("/nologo".into());
             cmd.args.push("/MD".into()); // link against msvcrt.dll for now
-            if opt_level != 0 {
-                cmd.args.push("/O2".into());
+            match &opt_level[..] {
+                "z" | "s" => cmd.args.push("/Os".into()),
+                "2" => cmd.args.push("/O2".into()),
+                "1" => cmd.args.push("/O1".into()),
+                _ => {}
             }
             if target.contains("i686") {
                 cmd.args.push("/SAFESEH".into());
@@ -779,9 +782,9 @@ impl Config {
         self.host.clone().unwrap_or_else(|| self.getenv_unwrap("HOST"))
     }
 
-    fn get_opt_level(&self) -> u32 {
-        self.opt_level.unwrap_or_else(|| {
-            self.getenv_unwrap("OPT_LEVEL").parse().unwrap()
+    fn get_opt_level(&self) -> String {
+        self.opt_level.map(|s| s.to_string()).unwrap_or_else(|| {
+            self.getenv_unwrap("OPT_LEVEL")
         })
     }
 
