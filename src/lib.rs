@@ -662,6 +662,16 @@ impl Config {
             }
             return t
         }).or_else(|| {
+            if target.contains("emscripten") {
+                if self.cpp {
+                    Some(Tool::new(PathBuf::from("em++")))
+                } else {
+                    Some(Tool::new(PathBuf::from("emcc")))
+                }
+            } else {
+                None
+            }
+        }).or_else(|| {
             windows_registry::find_tool(&target, "cl.exe")
         }).unwrap_or_else(|| {
             let compiler = if host.contains("windows") &&
