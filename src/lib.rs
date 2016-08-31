@@ -778,6 +778,8 @@ impl Config {
         }).unwrap_or_else(|| {
             if self.get_target().contains("android") {
                 PathBuf::from(format!("{}-ar", self.get_target()))
+            } else if self.get_target().contains("emscripten") {
+                PathBuf::from("emar")
             } else {
                 PathBuf::from("ar")
             }
