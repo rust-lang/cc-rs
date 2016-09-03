@@ -704,6 +704,7 @@ impl Config {
                     "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
                     "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
+                    "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
                     "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
                     "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
                     "x86_64-unknown-linux-musl" => Some("musl"),
