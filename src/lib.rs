@@ -74,7 +74,7 @@ pub struct Config {
     target: Option<String>,
     host: Option<String>,
     out_dir: Option<PathBuf>,
-    opt_level: Option<u32>,
+    opt_level: Option<String>,
     debug: Option<bool>,
     env: Vec<(OsString, OsString)>,
     compiler: Option<PathBuf>,
@@ -250,7 +250,16 @@ impl Config {
     /// This option is automatically scraped from the `OPT_LEVEL` environment
     /// variable by build scripts, so it's not required to call this function.
     pub fn opt_level(&mut self, opt_level: u32) -> &mut Config {
-        self.opt_level = Some(opt_level);
+        self.opt_level = Some(opt_level.to_string());
+        self
+    }
+
+    /// Configures the optimization level of the generated object files.
+    ///
+    /// This option is automatically scraped from the `OPT_LEVEL` environment
+    /// variable by build scripts, so it's not required to call this function.
+    pub fn opt_level_str(&mut self, opt_level: &str) -> &mut Config {
+        self.opt_level = Some(opt_level.to_string());
         self
     }
 
@@ -796,7 +805,7 @@ impl Config {
     }
 
     fn get_opt_level(&self) -> String {
-        self.opt_level.map(|s| s.to_string()).unwrap_or_else(|| {
+        self.opt_level.as_ref().cloned().unwrap_or_else(|| {
             self.getenv_unwrap("OPT_LEVEL")
         })
     }
