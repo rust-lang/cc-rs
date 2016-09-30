@@ -506,6 +506,22 @@ impl Config {
             if target.starts_with("i686-unknown-linux-") {
                 cmd.args.push("-march=i686".into());
             }
+            if target.starts_with("thumb") {
+                cmd.args.push("-mthumb".into());
+
+                if target.ends_with("eabihf") {
+                    cmd.args.push("-mfloat-abi=hard".into())
+                }
+            }
+            if target.starts_with("thumbv6m") {
+                cmd.args.push("-march=armv6-m".into());
+            }
+            if target.starts_with("thumbv7em") {
+                cmd.args.push("-march=armv7e-m".into());
+            }
+            if target.starts_with("thumbv7m") {
+                cmd.args.push("-march=armv7-m".into());
+            }
         }
 
         if self.cpp && !msvc {
@@ -714,6 +730,10 @@ impl Config {
                     "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
                     "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
+                    "thumbv6m-none-eabi" => Some("arm-none-eabi"),
+                    "thumbv7em-none-eabi" => Some("arm-none-eabi"),
+                    "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
+                    "thumbv7m-none-eabi" => Some("arm-none-eabi"),
                     "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
                     "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
                     "x86_64-unknown-linux-musl" => Some("musl"),
