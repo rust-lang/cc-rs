@@ -709,6 +709,7 @@ impl Config {
             } else if target.contains("android") {
                 format!("{}-{}", target, gnu)
             } else if self.get_host() != target {
+                let cross_compile = self.getenv("CROSS_COMPILE");
                 let prefix = match &target[..] {
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
@@ -738,7 +739,7 @@ impl Config {
                     "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
                     "x86_64-unknown-linux-musl" => Some("musl"),
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-                    _ => None,
+                    _ => cross_compile.as_ref().map(String::as_str),
                 };
                 match prefix {
                     Some(prefix) => format!("{}-{}", prefix, gnu),
