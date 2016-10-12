@@ -710,7 +710,7 @@ impl Config {
                 format!("{}-{}", target, gnu)
             } else if self.get_host() != target {
                 let cross_compile = self.getenv("CROSS_COMPILE");
-                let prefix = match &target[..] {
+                let prefix = cross_compile.as_ref().map(String::as_str).or(match &target[..] {
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "arm-unknown-linux-gnueabihf"  => Some("arm-linux-gnueabihf"),
@@ -739,8 +739,8 @@ impl Config {
                     "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
                     "x86_64-unknown-linux-musl" => Some("musl"),
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-                    _ => cross_compile.as_ref().map(String::as_str),
-                };
+                    _ => None,
+                });
                 match prefix {
                     Some(prefix) => format!("{}-{}", prefix, gnu),
                     None => default.to_string(),
