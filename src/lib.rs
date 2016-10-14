@@ -726,6 +726,8 @@ impl Config {
                     "i686-unknown-netbsdelf" => Some("i486--netbsdelf"),
                     "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
                     "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
+                    "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
+                    "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
                     "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
                     "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
