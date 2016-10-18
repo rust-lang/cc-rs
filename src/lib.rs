@@ -496,6 +496,10 @@ impl Config {
             if target.starts_with("armv7-unknown-linux-") {
                 cmd.args.push("-march=armv7-a".into());
             }
+            if target.starts_with("armv7-linux-androideabi") {
+                cmd.args.push("-march=armv7-a".into());
+                cmd.args.push("-mfpu=vfpv3-d16".into());
+            }
             if target.starts_with("arm-unknown-linux-") {
                 cmd.args.push("-march=armv6".into());
                 cmd.args.push("-marm".into());
