@@ -713,8 +713,10 @@ impl Config {
             } else if target.contains("android") {
                 format!("{}-{}", target, gnu)
             } else if self.get_host() != target {
-                let cross_compile = self.getenv("CROSS_COMPILE");
-                let prefix = cross_compile.as_ref().map(String::as_str).or(match &target[..] {
+                // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
+                let cc_env = self.getenv("CROSS_COMPILE");
+                let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
+                let prefix = cross_compile.or(match &target[..] {
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "arm-unknown-linux-gnueabihf"  => Some("arm-linux-gnueabihf"),
