@@ -611,7 +611,7 @@ impl Config {
         } else {
             let ar = self.get_ar();
             let cmd = ar.file_name().unwrap().to_string_lossy();
-            run(self.cmd(&ar).arg("crus")
+            run(self.cmd(&ar).arg("crs")
                                  .arg(dst)
                                  .args(objects)
                                  .args(&self.objects), &cmd);
