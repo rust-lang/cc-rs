@@ -41,10 +41,14 @@
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
+extern crate filetime;
+
 #[cfg(feature = "parallel")]
 extern crate rayon;
 
+use filetime::FileTime;
 use std::env;
+use std::collections::HashMap;
 use std::ffi::{OsString, OsStr};
 use std::fs;
 use std::path::{PathBuf, Path};
@@ -699,9 +703,12 @@ impl Build {
                 (output, gnu)
             };
         let dst = self.get_out_dir()?;
+        let msvc = self.get_target()?.contains("msvc");
+        let compiler = self.try_get_compiler()?;
 
         let mut objects = Vec::new();
         let mut src_dst = Vec::new();
+        let mut dependencies = HashMap::new();
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
@@ -710,16 +717,85 @@ impl Build {
                 obj
             };
 
-            match obj.parent() {
-                Some(s) => fs::create_dir_all(s)?,
-                None => return Err(Error::new(ErrorKind::IOError, "Getting object file details failed.")),
+            let mut input_mtime = get_mtime(&file);
+            let output_mtime = get_mtime(&obj);
+
+            let mut cmd = compiler.to_command();
+            if msvc {
+                cmd.arg("/showIncludes").arg("/E");
+            } else {
+                cmd.arg("-M").arg("-MG");
+            }
+            cmd.arg(&file);
+            println!("running: {:?}", cmd);
+
+            let cpp_output = match cmd.output() {
+                Ok(ref out) if out.status.success() => {
+                    String::from_utf8(if msvc {
+                        out.stderr.clone()
+                    } else {
+                        out.stdout.clone()
+                    }).ok()
+                },
+                _ => {
+                    println!("warning: dependency check failed, building anyway: {:?}", file);
+                    input_mtime = output_mtime;
+                    None
+                }
             };
 
-            src_dst.push((file.to_path_buf(), obj.clone()));
+            if let Some(cpp) = cpp_output {
+                let files = if msvc {
+                    // Output is indented dependency per line, with "Note: ..." prefix
+                    cpp
+                        .replace("Note: including file:", "")
+                } else {
+                    // Output is make rule with line continuations and multiple files per line
+                    cpp
+                        .replace("\\\n", "") // remove line continuations
+                        .replace("\\ ", "\0") // protect escaped spaces
+                        .replace(" ", "\n") // spaces to new lines
+                        .replace("\0", "\\ ") // bring escaped spaces back
+                };
+
+                input_mtime = files
+                    .lines().skip(1)
+                    .chain(vec![file.to_str().unwrap_or("")])
+                    .filter_map(|s| PathBuf::from(s.trim()).canonicalize().ok())
+                    .map(|f| dependencies
+                        .entry(f.clone())
+                        .or_insert(get_mtime(f))
+                        .clone())
+                    .max()
+                    .unwrap_or(FileTime::zero());
+            }
+
+            // build if a dependency is fresher than the output object
+            if input_mtime >= output_mtime {
+                println!("{:?} or one of its dependencies is {}s fresher than {:?}",
+                    file,
+                    input_mtime.seconds() - output_mtime.seconds(),
+                    obj);
+                src_dst.push((file.to_path_buf(), obj.clone()));
+                if let Some(s) = obj.parent() {
+                    let _ = fs::create_dir_all(s)?;
+                } else {
+                    return Err(Error::new(ErrorKind::IOError, "Getting object file details failed."));
+                }
+            }
+
             objects.push(obj);
         }
-        self.compile_objects(&src_dst)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+
+        // if objects are queued to build, or output doesn't exist
+        if src_dst.len() > 0 || !&dst.join(output).exists() {
+            self.compile_objects(&src_dst)?;
+            self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+        }
+
+        for file in dependencies.keys() {
+            self.print(&format!("cargo:rerun-if-changed={}", file.display()));
+        }
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -1573,6 +1649,12 @@ impl Tool {
     pub fn env(&self) -> &[(OsString, OsString)] {
         &self.env
     }
+}
+
+fn get_mtime<P: AsRef<Path>>(file: P) -> FileTime {
+    fs::metadata(file)
+        .map(|mtime| FileTime::from_last_modification_time(&mtime))
+        .unwrap_or(FileTime::zero())
 }
 
 fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
