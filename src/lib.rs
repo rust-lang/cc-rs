@@ -453,10 +453,7 @@ impl Config {
                 "1" => cmd.args.push("/O1".into()),
                 _ => {}
             }
-            if target.contains("i686") {
-                cmd.args.push("/SAFESEH".into());
-            } else if target.contains("i586") {
-                cmd.args.push("/SAFESEH".into());
+            if target.contains("i586") {
                 cmd.args.push("/ARCH:IA32".into());
             }
         } else if nvcc {
