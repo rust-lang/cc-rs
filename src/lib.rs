@@ -802,6 +802,8 @@ impl Config {
                 None
             } else if target.contains("darwin") {
                 Some("c++".to_string())
+            } else if target.contains("freebsd") {
+                Some("c++".to_string())
             } else {
                 Some("stdc++".to_string())
             }
