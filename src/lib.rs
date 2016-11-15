@@ -420,16 +420,14 @@ impl Config {
             objects.push(obj);
         }
 
-        // if objects are queued to build
-        if src_dst.len() > 0 {
+        // if objects are queued to build, or output doesn't exist
+        if src_dst.len() > 0 || !&dst.join(output).exists() {
             self.compile_objects(&src_dst);
             self.assemble(lib_name, &dst.join(output), &objects);
         }
 
-        for key in dependencies.keys() {
-            if let Some(file) = key.to_str() {
-                println!("cargo:rerun-if-changed={}", file);
-            }
+        for file in dependencies.keys() {
+            println!("cargo:rerun-if-changed={}", file.display());
         }
 
         self.print(&format!("cargo:rustc-link-lib=static={}",
