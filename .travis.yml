@@ -19,6 +19,7 @@ script:
   - cargo test --manifest-path gcc-test/Cargo.toml --target $TARGET --features parallel
   - cargo test --manifest-path gcc-test/Cargo.toml --target $TARGET --release
   - cargo doc
+  - cargo clean && cargo build
   - rustdoc --test README.md -L target/debug -L target/debug/deps
 after_success:
   - travis-cargo --only nightly doc-upload
