@@ -515,7 +515,7 @@ impl Config {
                 }
             }
             if target.starts_with("thumbv6m") {
-                cmd.args.push("-march=armv6-m".into());
+                cmd.args.push("-march=armv6s-m".into());
             }
             if target.starts_with("thumbv7em") {
                 cmd.args.push("-march=armv7e-m".into());
