@@ -515,10 +515,14 @@ impl Config {
                 }
             }
             if target.starts_with("thumbv6m") {
-                cmd.args.push("-march=armv6-m".into());
+                cmd.args.push("-march=armv6s-m".into());
             }
             if target.starts_with("thumbv7em") {
                 cmd.args.push("-march=armv7e-m".into());
+
+                if target.ends_with("eabihf") {
+                    cmd.args.push("-mfpu=fpv4-sp-d16".into())
+                }
             }
             if target.starts_with("thumbv7m") {
                 cmd.args.push("-march=armv7-m".into());
