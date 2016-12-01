@@ -365,7 +365,6 @@ impl Config {
             });
 
             if let Some(atlmfc_lib) = atlmfc_lib {
-                self.print("cargo:rustc-link-lib=static=atls");
                 self.print(&format!("cargo:rustc-link-search=native={}",
                                     atlmfc_lib.display()));
             }
