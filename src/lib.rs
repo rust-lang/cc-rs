@@ -353,6 +353,24 @@ impl Config {
         self.compile_objects(&src_dst);
         self.assemble(lib_name, &dst.join(output), &objects);
 
+        if self.get_target().contains("msvc") {
+            let compiler = self.get_base_compiler();
+            let atlmfc_lib = compiler.env().iter().find(|&&(ref var, _)| {
+                var == OsStr::new("LIB")
+            }).and_then(|&(_, ref lib_paths)| {
+                env::split_paths(lib_paths).find(|path| {
+                    let sub = Path::new("atlmfc/lib");
+                    path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
+                })
+            });
+
+            if let Some(atlmfc_lib) = atlmfc_lib {
+                self.print("cargo:rustc-link-lib=static=atls");
+                self.print(&format!("cargo:rustc-link-search=native={}",
+                                    atlmfc_lib.display()));
+            }
+        }
+
         self.print(&format!("cargo:rustc-link-lib=static={}",
                             &output[3..output.len() - 2]));
         self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
