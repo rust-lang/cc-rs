@@ -463,7 +463,13 @@ impl Config {
 
         if msvc {
             cmd.args.push("/nologo".into());
-            cmd.args.push("/MD".into()); // link against msvcrt.dll for now
+            let features = env::var("CARGO_CFG_TARGET_FEATURE")
+                              .unwrap_or(String::new());
+            if features.contains("crt-static") {
+                cmd.args.push("/MT".into());
+            } else {
+                cmd.args.push("/MD".into());
+            }
             match &opt_level[..] {
                 "z" | "s" => cmd.args.push("/Os".into()),
                 "2" => cmd.args.push("/O2".into()),
