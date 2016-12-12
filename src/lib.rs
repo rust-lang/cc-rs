@@ -509,27 +509,48 @@ impl Config {
                 cmd.args.push("-Xcompiler".into());
                 cmd.args.push("\'-fPIC\'".into());
             }
+
             if target.contains("musl") {
                 cmd.args.push("-static".into());
             }
 
+            // armv7 targets get to use armv7 instructions
             if target.starts_with("armv7-unknown-linux-") {
                 cmd.args.push("-march=armv7-a".into());
             }
+
+            // On android we can guarantee some extra float instructions
+            // (specified in the android spec online)
             if target.starts_with("armv7-linux-androideabi") {
                 cmd.args.push("-march=armv7-a".into());
                 cmd.args.push("-mfpu=vfpv3-d16".into());
             }
+
+            // For us arm == armv6 by default
             if target.starts_with("arm-unknown-linux-") {
                 cmd.args.push("-march=armv6".into());
                 cmd.args.push("-marm".into());
             }
+
+            // Turn codegen down on i586 to avoid some instructions.
             if target.starts_with("i586-unknown-linux-") {
                 cmd.args.push("-march=pentium".into());
             }
+
+            // Set codegen level for i686 correctly
             if target.starts_with("i686-unknown-linux-") {
                 cmd.args.push("-march=i686".into());
             }
+
+            // Looks like `musl-gcc` makes is hard for `-m32` to make its way
+            // all the way to the linker, so we need to actually instruct the
+            // linker that we're generating 32-bit executables as well. This'll
+            // typically only be used for build scripts which transitively use
+            // these flags that try to compile executables.
+            if target == "i686-unknown-linux-musl" {
+                cmd.args.push("-Wl,-melf_i386".into());
+            }
+
             if target.starts_with("thumb") {
                 cmd.args.push("-mthumb".into());
 
