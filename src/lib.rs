@@ -356,7 +356,7 @@ impl Config {
         if self.get_target().contains("msvc") {
             let compiler = self.get_base_compiler();
             let atlmfc_lib = compiler.env().iter().find(|&&(ref var, _)| {
-                var == OsStr::new("LIB")
+                var.as_os_str() == OsStr::new("LIB")
             }).and_then(|&(_, ref lib_paths)| {
                 env::split_paths(lib_paths).find(|path| {
                     let sub = Path::new("atlmfc/lib");
