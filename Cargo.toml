@@ -14,7 +14,7 @@ code.
 keywords = ["build-dependencies"]
 
 [dependencies]
-rayon = { version = "0.4", optional = true }
+rayon = { version = "0.5", optional = true }
 
 [features]
 parallel = ["rayon"]
