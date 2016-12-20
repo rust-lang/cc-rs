@@ -114,7 +114,7 @@ pub fn compile_library(output: &str, files: &[&str]) {
     for f in files.iter() {
         c.file(*f);
     }
-    c.compile(output)
+    c.compile(output);
 }
 
 impl Config {
@@ -194,8 +194,7 @@ impl Config {
     /// otherwise cargo will link against the specified library.
     ///
     /// The given library name must not contain the `lib` prefix.
-    pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>)
-                           -> &mut Config {
+    pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>) -> &mut Config {
         self.cpp_link_stdlib = Some(cpp_link_stdlib.map(|s| s.into()));
         self
     }
@@ -220,8 +219,7 @@ impl Config {
     /// be used, otherwise `-stdlib` is added to the compile invocation.
     ///
     /// The given library name must not contain the `lib` prefix.
-    pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>)
-                          -> &mut Config {
+    pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>) -> &mut Config {
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
         self.cpp_link_stdlib(cpp_set_stdlib);
         self
@@ -322,7 +320,8 @@ impl Config {
 
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
-        where A: AsRef<OsStr>, B: AsRef<OsStr>
+        where A: AsRef<OsStr>,
+              B: AsRef<OsStr>
     {
         self.env.push((a.as_ref().to_owned(), b.as_ref().to_owned()));
         self
@@ -355,18 +354,18 @@ impl Config {
 
         if self.get_target().contains("msvc") {
             let compiler = self.get_base_compiler();
-            let atlmfc_lib = compiler.env().iter().find(|&&(ref var, _)| {
-                var.as_os_str() == OsStr::new("LIB")
-            }).and_then(|&(_, ref lib_paths)| {
-                env::split_paths(lib_paths).find(|path| {
-                    let sub = Path::new("atlmfc/lib");
-                    path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
-                })
-            });
+            let atlmfc_lib = compiler.env()
+                .iter()
+                .find(|&&(ref var, _)| var.as_os_str() == OsStr::new("LIB"))
+                .and_then(|&(_, ref lib_paths)| {
+                    env::split_paths(lib_paths).find(|path| {
+                        let sub = Path::new("atlmfc/lib");
+                        path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
+                    })
+                });
 
             if let Some(atlmfc_lib) = atlmfc_lib {
-                self.print(&format!("cargo:rustc-link-search=native={}",
-                                    atlmfc_lib.display()));
+                self.print(&format!("cargo:rustc-link-search=native={}", atlmfc_lib.display()));
             }
         }
 
@@ -394,9 +393,7 @@ impl Config {
         }
         drop(rayon::initialize(cfg));
 
-        objs.par_iter().weight_max().for_each(|&(ref src, ref dst)| {
-            self.compile_object(src, dst)
-        })
+        objs.par_iter().weight_max().for_each(|&(ref src, ref dst)| self.compile_object(src, dst));
     }
 
     #[cfg(not(feature = "parallel"))]
@@ -417,8 +414,12 @@ impl Config {
             for &(ref a, ref b) in self.env.iter() {
                 cmd.env(a, b);
             }
-            (cmd, compiler.path.file_name().unwrap()
-                          .to_string_lossy().into_owned())
+            (cmd,
+             compiler.path
+                 .file_name()
+                 .unwrap()
+                 .to_string_lossy()
+                 .into_owned())
         };
         if msvc && is_asm {
             cmd.arg("/Fo").arg(dst);
@@ -429,7 +430,7 @@ impl Config {
         } else {
             cmd.arg("-o").arg(&dst);
         }
-        cmd.arg(if msvc {"/c"} else {"-c"});
+        cmd.arg(if msvc { "/c" } else { "-c" });
         cmd.arg(file);
 
         run(&mut cmd, &name);
@@ -457,14 +458,14 @@ impl Config {
         self.print(&format!("debug={} opt-level={}", debug, opt_level));
 
         let mut cmd = self.get_base_compiler();
-        let nvcc = cmd.path.to_str()
+        let nvcc = cmd.path
+            .to_str()
             .map(|path| path.contains("nvcc"))
             .unwrap_or(false);
 
         if msvc {
             cmd.args.push("/nologo".into());
-            let features = env::var("CARGO_CFG_TARGET_FEATURE")
-                              .unwrap_or(String::new());
+            let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
             if features.contains("crt-static") {
                 cmd.args.push("/MT".into());
             } else {
@@ -486,12 +487,12 @@ impl Config {
             cmd.args.push("-ffunction-sections".into());
             cmd.args.push("-fdata-sections".into());
         }
-        for arg in self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}) {
+        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
             cmd.args.push(arg.into());
         }
 
         if debug {
-            cmd.args.push(if msvc {"/Z7"} else {"-g"}.into());
+            cmd.args.push(if msvc { "/Z7" } else { "-g" }.into());
         }
 
         if target.contains("-ios") {
@@ -503,7 +504,8 @@ impl Config {
                 cmd.args.push("-m64".into());
             }
 
-            if !nvcc && self.pic.unwrap_or(!target.contains("i686") && !target.contains("windows-gnu")) {
+            if !nvcc &&
+               self.pic.unwrap_or(!target.contains("i686") && !target.contains("windows-gnu")) {
                 cmd.args.push("-fPIC".into());
             } else if nvcc && self.pic.unwrap_or(false) {
                 cmd.args.push("-Xcompiler".into());
@@ -580,7 +582,7 @@ impl Config {
         }
 
         for directory in self.include_directories.iter() {
-            cmd.args.push(if msvc {"/I"} else {"-I"}.into());
+            cmd.args.push(if msvc { "/I" } else { "-I" }.into());
             cmd.args.push(directory.into());
         }
 
@@ -589,7 +591,7 @@ impl Config {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
-            let lead = if msvc {"/"} else {"-"};
+            let lead = if msvc { "/" } else { "-" };
             if let &Some(ref value) = value {
                 cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
@@ -601,10 +603,12 @@ impl Config {
 
     fn msvc_macro_assembler(&self) -> (Command, String) {
         let target = self.get_target();
-        let tool = if target.contains("x86_64") {"ml64.exe"} else {"ml.exe"};
-        let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| {
-            self.cmd(tool)
-        });
+        let tool = if target.contains("x86_64") {
+            "ml64.exe"
+        } else {
+            "ml.exe"
+        };
+        let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| self.cmd(tool));
         for directory in self.include_directories.iter() {
             cmd.arg("/I").arg(directory);
         }
@@ -635,31 +639,37 @@ impl Config {
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
                 Some(ref s) => self.cmd(s),
-                None => windows_registry::find(&target, "lib.exe")
-                                         .unwrap_or(self.cmd("lib.exe")),
+                None => windows_registry::find(&target, "lib.exe").unwrap_or(self.cmd("lib.exe")),
             };
             let mut out = OsString::from("/OUT:");
             out.push(dst);
-            run(cmd.arg(out).arg("/nologo")
-                   .args(objects)
-                   .args(&self.objects), "lib.exe");
+            run(cmd.arg(out)
+                    .arg("/nologo")
+                    .args(objects)
+                    .args(&self.objects),
+                "lib.exe");
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            fs::hard_link(&dst, &lib_dst).or_else(|_| {
-                //if hard-link fails, just copy (ignoring the number of bytes written)
-                fs::copy(&dst, &lib_dst).map(|_| ())
-            }).ok().expect("Copying from {:?} to {:?} failed.");;
+            fs::hard_link(&dst, &lib_dst)
+                .or_else(|_| {
+                    // if hard-link fails, just copy (ignoring the number of bytes written)
+                    fs::copy(&dst, &lib_dst).map(|_| ())
+                })
+                .ok()
+                .expect("Copying from {:?} to {:?} failed.");;
         } else {
             let ar = self.get_ar();
             let cmd = ar.file_name().unwrap().to_string_lossy();
-            run(self.cmd(&ar).arg("crs")
-                                 .arg(dst)
-                                 .args(objects)
-                                 .args(&self.objects), &cmd);
+            run(self.cmd(&ar)
+                    .arg("crs")
+                    .arg(dst)
+                    .args(objects)
+                    .args(&self.objects),
+                &cmd);
         }
     }
 
@@ -677,7 +687,7 @@ impl Config {
             "arm64" | "aarch64" => ArchSpec::Device("arm64"),
             "i386" | "i686" => ArchSpec::Simulator("-m32"),
             "x86_64" => ArchSpec::Simulator("-m64"),
-            _ => fail("Unknown arch for iOS target")
+            _ => fail("Unknown arch for iOS target"),
         };
 
         let sdk = match arch {
@@ -686,7 +696,7 @@ impl Config {
                 cmd.args.push(arch.into());
                 cmd.args.push("-miphoneos-version-min=7.0".into());
                 "iphoneos"
-            },
+            }
             ArchSpec::Simulator(arch) => {
                 cmd.args.push(arch.into());
                 cmd.args.push("-mios-simulator-version-min=7.0".into());
@@ -715,12 +725,12 @@ impl Config {
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
         }
-        return cmd
+        return cmd;
     }
 
     fn get_base_compiler(&self) -> Tool {
         if let Some(ref c) = self.compiler {
-            return Tool::new(c.clone())
+            return Tool::new(c.clone());
         }
         let host = self.get_host();
         let target = self.get_target();
@@ -729,87 +739,88 @@ impl Config {
         } else {
             ("CC", "cl.exe", "gcc", "cc")
         };
-        self.env_tool(env).map(|(tool, args)| {
-            let mut t = Tool::new(PathBuf::from(tool));
-            for arg in args {
-                t.args.push(arg.into());
-            }
-            return t
-        }).or_else(|| {
-            if target.contains("emscripten") {
-                if self.cpp {
-                    Some(Tool::new(PathBuf::from("em++")))
+        self.env_tool(env)
+            .map(|(tool, args)| {
+                let mut t = Tool::new(PathBuf::from(tool));
+                for arg in args {
+                    t.args.push(arg.into());
+                }
+                return t;
+            })
+            .or_else(|| {
+                if target.contains("emscripten") {
+                    if self.cpp {
+                        Some(Tool::new(PathBuf::from("em++")))
+                    } else {
+                        Some(Tool::new(PathBuf::from("emcc")))
+                    }
                 } else {
-                    Some(Tool::new(PathBuf::from("emcc")))
+                    None
                 }
-            } else {
-                None
-            }
-        }).or_else(|| {
-            windows_registry::find_tool(&target, "cl.exe")
-        }).unwrap_or_else(|| {
-            let compiler = if host.contains("windows") &&
-                              target.contains("windows") {
-                if target.contains("msvc") {
-                    msvc.to_string()
+            })
+            .or_else(|| windows_registry::find_tool(&target, "cl.exe"))
+            .unwrap_or_else(|| {
+                let compiler = if host.contains("windows") && target.contains("windows") {
+                    if target.contains("msvc") {
+                        msvc.to_string()
+                    } else {
+                        format!("{}.exe", gnu)
+                    }
+                } else if target.contains("android") {
+                    format!("{}-{}", target, gnu)
+                } else if self.get_host() != target {
+                    // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
+                    let cc_env = self.getenv("CROSS_COMPILE");
+                    let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
+                    let prefix = cross_compile.or(match &target[..] {
+                        "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
+                        "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                        "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                        "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
+                        "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                        "arm-unknown-netbsdelf-eabi" => Some("arm--netbsdelf-eabi"),
+                        "armv6-unknown-netbsdelf-eabihf" => Some("armv6--netbsdelf-eabihf"),
+                        "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                        "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                        "armv7-unknown-netbsdelf-eabihf" => Some("armv7--netbsdelf-eabihf"),
+                        "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
+                        "i686-unknown-linux-musl" => Some("musl"),
+                        "i686-unknown-netbsdelf" => Some("i486--netbsdelf"),
+                        "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
+                        "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
+                        "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
+                        "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
+                        "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                        "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
+                        "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                        "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
+                        "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
+                        "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
+                        "thumbv6m-none-eabi" => Some("arm-none-eabi"),
+                        "thumbv7em-none-eabi" => Some("arm-none-eabi"),
+                        "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
+                        "thumbv7m-none-eabi" => Some("arm-none-eabi"),
+                        "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
+                        "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
+                        "x86_64-unknown-linux-musl" => Some("musl"),
+                        "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
+                        _ => None,
+                    });
+                    match prefix {
+                        Some(prefix) => format!("{}-{}", prefix, gnu),
+                        None => default.to_string(),
+                    }
                 } else {
-                    format!("{}.exe", gnu)
-                }
-            } else if target.contains("android") {
-                format!("{}-{}", target, gnu)
-            } else if self.get_host() != target {
-                // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
-                let cc_env = self.getenv("CROSS_COMPILE");
-                let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
-                let prefix = cross_compile.or(match &target[..] {
-                    "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
-                    "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                    "arm-unknown-linux-gnueabihf"  => Some("arm-linux-gnueabihf"),
-                    "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
-                    "arm-unknown-linux-musleabihf"  => Some("arm-linux-musleabihf"),
-                    "arm-unknown-netbsdelf-eabi" => Some("arm--netbsdelf-eabi"),
-                    "armv6-unknown-netbsdelf-eabihf" => Some("armv6--netbsdelf-eabihf"),
-                    "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                    "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                    "armv7-unknown-netbsdelf-eabihf" => Some("armv7--netbsdelf-eabihf"),
-                    "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
-                    "i686-unknown-linux-musl" => Some("musl"),
-                    "i686-unknown-netbsdelf" => Some("i486--netbsdelf"),
-                    "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
-                    "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
-                    "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
-                    "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
-                    "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-                    "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
-                    "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-                    "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
-                    "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
-                    "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
-                    "thumbv6m-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7em-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
-                    "thumbv7m-none-eabi" => Some("arm-none-eabi"),
-                    "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
-                    "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
-                    "x86_64-unknown-linux-musl" => Some("musl"),
-                    "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-                    _ => None,
-                });
-                match prefix {
-                    Some(prefix) => format!("{}-{}", prefix, gnu),
-                    None => default.to_string(),
-                }
-            } else {
-                default.to_string()
-            };
-            Tool::new(PathBuf::from(compiler))
-        })
+                    default.to_string()
+                };
+                Tool::new(PathBuf::from(compiler))
+            })
     }
 
     fn get_var(&self, var_base: &str) -> Result<String, String> {
         let target = self.get_target();
         let host = self.get_host();
-        let kind = if host == target {"HOST"} else {"TARGET"};
+        let kind = if host == target { "HOST" } else { "TARGET" };
         let target_u = target.replace("-", "_");
         let res = self.getenv(&format!("{}_{}", var_base, target))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
@@ -823,8 +834,10 @@ impl Config {
     }
 
     fn envflags(&self, name: &str) -> Vec<String> {
-        self.get_var(name).unwrap_or(String::new())
-            .split(|c: char| c.is_whitespace()).filter(|s| !s.is_empty())
+        self.get_var(name)
+            .unwrap_or(String::new())
+            .split(|c: char| c.is_whitespace())
+            .filter(|s| !s.is_empty())
             .map(|s| s.to_string())
             .collect()
     }
@@ -834,8 +847,7 @@ impl Config {
             let whitelist = ["ccache", "distcc"];
             for t in whitelist.iter() {
                 if tool.starts_with(t) && tool[t.len()..].starts_with(" ") {
-                    return (t.to_string(),
-                            vec![tool[t.len()..].trim_left().to_string()])
+                    return (t.to_string(), vec![tool[t.len()..].trim_left().to_string()]);
                 }
             }
             (tool, Vec::new())
@@ -860,17 +872,18 @@ impl Config {
     }
 
     fn get_ar(&self) -> PathBuf {
-        self.archiver.clone().or_else(|| {
-            self.get_var("AR").map(PathBuf::from).ok()
-        }).unwrap_or_else(|| {
-            if self.get_target().contains("android") {
-                PathBuf::from(format!("{}-ar", self.get_target()))
-            } else if self.get_target().contains("emscripten") {
-                PathBuf::from("emar")
-            } else {
-                PathBuf::from("ar")
-            }
-        })
+        self.archiver
+            .clone()
+            .or_else(|| self.get_var("AR").map(PathBuf::from).ok())
+            .unwrap_or_else(|| {
+                if self.get_target().contains("android") {
+                    PathBuf::from(format!("{}-ar", self.get_target()))
+                } else if self.get_target().contains("emscripten") {
+                    PathBuf::from("emar")
+                } else {
+                    PathBuf::from("ar")
+                }
+            })
     }
 
     fn get_target(&self) -> String {
@@ -882,9 +895,7 @@ impl Config {
     }
 
     fn get_opt_level(&self) -> String {
-        self.opt_level.as_ref().cloned().unwrap_or_else(|| {
-            self.getenv_unwrap("OPT_LEVEL")
-        })
+        self.opt_level.as_ref().cloned().unwrap_or_else(|| self.getenv_unwrap("OPT_LEVEL"))
     }
 
     fn get_debug(&self) -> bool {
@@ -892,9 +903,7 @@ impl Config {
     }
 
     fn get_out_dir(&self) -> PathBuf {
-        self.out_dir.clone().unwrap_or_else(|| {
-            env::var_os("OUT_DIR").map(PathBuf::from).unwrap()
-        })
+        self.out_dir.clone().unwrap_or_else(|| env::var_os("OUT_DIR").map(PathBuf::from).unwrap())
     }
 
     fn getenv(&self, v: &str) -> Option<String> {
@@ -937,7 +946,7 @@ impl Tool {
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
         }
-        return cmd
+        cmd
     }
 
     /// Returns the path for this compiler.
@@ -991,7 +1000,10 @@ fn run(cmd: &mut Command, program: &str) {
                 ""
             };
             fail(&format!("failed to execute command: {}\nIs `{}` \
-                           not installed?{}", e, program, extra));
+                           not installed?{}",
+                          e,
+                          program,
+                          extra));
         }
         Err(e) => fail(&format!("failed to execute command: {}", e)),
     };

@@ -1,4 +1,4 @@
-extern {
+extern "C" {
     pub fn foo() -> i32;
 
     pub fn bar1() -> i32;

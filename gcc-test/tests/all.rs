@@ -3,7 +3,7 @@ extern crate gcc_test;
 use gcc_test::*;
 
 #[link(name = "OptLinkage", kind = "static")]
-extern {
+extern "C" {
     fn answer() -> i32;
 }
 
@@ -54,7 +54,7 @@ fn msvc_here() {
 
 #[test]
 fn opt_linkage() {
-   unsafe {
-       assert_eq!(answer(), 42);
-   }
+    unsafe {
+        assert_eq!(answer(), 42);
+    }
 }
