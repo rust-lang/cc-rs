@@ -767,7 +767,7 @@ impl Config {
                         format!("{}.exe", gnu)
                     }
                 } else if target.contains("android") {
-                    format!("{}-{}", target, gnu)
+                    format!("{}-{}", target.replace("armv7", "arm"), gnu)
                 } else if self.get_host() != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
@@ -877,7 +877,7 @@ impl Config {
             .or_else(|| self.get_var("AR").map(PathBuf::from).ok())
             .unwrap_or_else(|| {
                 if self.get_target().contains("android") {
-                    PathBuf::from(format!("{}-ar", self.get_target()))
+                    PathBuf::from(format!("{}-ar", self.get_target().replace("armv7", "arm")))
                 } else if self.get_target().contains("emscripten") {
                     PathBuf::from("emar")
                 } else {
