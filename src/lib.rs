@@ -102,8 +102,8 @@ pub struct Tool {
 /// Each family of tools differs in how and what arguments they accept.
 ///
 /// Detection of a family is done on best-effort basis and may not accurately reflect the tool.
-#[derive(Copy, Clone)]
-pub enum ToolFamily {
+#[derive(Copy, Clone, Debug)]
+enum ToolFamily {
     /// Tool is GNU Compiler Collection-like.
     Gnu,
     /// Tool is Clang-like. It differs from the GCC in a sense that it accepts superset of flags
@@ -492,10 +492,8 @@ impl Config {
         let target = self.get_target();
 
         let mut cmd = self.get_base_compiler();
-        // FIXME: this may detect nvcc if compiler happens to be in a directory containing nvcc but
-        // otherwise unrelated to nvcc, whatever it is.
-        let nvcc = cmd.path.to_str()
-            .map(|path| path.contains("nvcc"))
+        let nvcc = cmd.path.file_name()
+            .and_then(|p| p.to_str()).map(|p| p.contains("nvcc"))
             .unwrap_or(false);
 
         // Non-target flags
@@ -512,13 +510,9 @@ impl Config {
                 }
                 match &opt_level[..] {
                     "z" | "s" => cmd.args.push("/Os".into()),
-                    "2" => cmd.args.push("/O2".into()),
-                    // FIXME: -O1 does not exactly match the meaning of /O1 in MSVC. Rather than
-                    // being a flag for “generate sufficiently fast code but also compile fast”,
-                    // /O1 is instead “generate the smallest code in majority of cases”.
                     "1" => cmd.args.push("/O1".into()),
-                    // FIXME: this behaves badly if opt_level is set to 3 (which is an option on
-                    // Gnu and Clang-family tools) or more. Consider using /Ox or /O2 instead.
+                    // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
+                    "2" | "3" => cmd.args.push("/O2".into()),
                     _ => {}
                 }
             }
@@ -640,7 +634,8 @@ impl Config {
                     cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    // FIXME: perhaps a warning?
+                    println!("cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
+                              does not support this option, ignored", cmd.family);
                 }
             }
         }
