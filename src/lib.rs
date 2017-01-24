@@ -94,6 +94,43 @@ pub struct Tool {
     path: PathBuf,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
+    family: ToolFamily
+}
+
+/// Represents the family of tools this tool belongs to.
+///
+/// Each family of tools differs in how and what arguments they accept.
+///
+/// Detection of a family is done on best-effort basis and may not accurately reflect the tool.
+#[derive(Copy, Clone, Debug)]
+enum ToolFamily {
+    /// Tool is GNU Compiler Collection-like.
+    Gnu,
+    /// Tool is Clang-like. It differs from the GCC in a sense that it accepts superset of flags
+    /// and its cross-compilation approach is different.
+    Clang,
+    /// Tool is the MSVC cl.exe.
+    Msvc,
+}
+
+impl ToolFamily {
+    /// What the flag to request debug info for this family of tools look like
+    fn debug_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => "/Z7",
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-g",
+        }
+    }
+
+    /// What the flag to include directories into header search path looks like
+    fn include_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => "/I",
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-I",
+        }
+    }
 }
 
 /// Compile a library from the given set of input C files.
@@ -452,137 +489,159 @@ impl Config {
     /// falling back to the default configuration.
     pub fn get_compiler(&self) -> Tool {
         let opt_level = self.get_opt_level();
-        let debug = self.get_debug();
         let target = self.get_target();
-        let msvc = target.contains("msvc");
-        self.print(&format!("debug={} opt-level={}", debug, opt_level));
 
         let mut cmd = self.get_base_compiler();
-        let nvcc = cmd.path
-            .to_str()
-            .map(|path| path.contains("nvcc"))
+        let nvcc = cmd.path.file_name()
+            .and_then(|p| p.to_str()).map(|p| p.contains("nvcc"))
             .unwrap_or(false);
 
-        if msvc {
-            cmd.args.push("/nologo".into());
-            let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
-            if features.contains("crt-static") {
-                cmd.args.push("/MT".into());
-            } else {
-                cmd.args.push("/MD".into());
+        // Non-target flags
+        // If the flag is not conditioned on target variable, it belongs here :)
+        match cmd.family {
+            ToolFamily::Msvc => {
+                cmd.args.push("/nologo".into());
+                let features = env::var("CARGO_CFG_TARGET_FEATURE")
+                                  .unwrap_or(String::new());
+                if features.contains("crt-static") {
+                    cmd.args.push("/MT".into());
+                } else {
+                    cmd.args.push("/MD".into());
+                }
+                match &opt_level[..] {
+                    "z" | "s" => cmd.args.push("/Os".into()),
+                    "1" => cmd.args.push("/O1".into()),
+                    // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
+                    "2" | "3" => cmd.args.push("/O2".into()),
+                    _ => {}
+                }
             }
-            match &opt_level[..] {
-                "z" | "s" => cmd.args.push("/Os".into()),
-                "2" => cmd.args.push("/O2".into()),
-                "1" => cmd.args.push("/O1".into()),
-                _ => {}
+            ToolFamily::Gnu |
+            ToolFamily::Clang => {
+                cmd.args.push(format!("-O{}", opt_level).into());
+                if !nvcc {
+                    cmd.args.push("-ffunction-sections".into());
+                    cmd.args.push("-fdata-sections".into());
+                    if self.pic.unwrap_or(!target.contains("i686") &&
+                                          !target.contains("windows-gnu")) {
+                        cmd.args.push("-fPIC".into());
+                    }
+                } else if self.pic.unwrap_or(false) {
+                    cmd.args.push("-Xcompiler".into());
+                    cmd.args.push("\'-fPIC\'".into());
+                }
             }
-            if target.contains("i586") {
-                cmd.args.push("/ARCH:IA32".into());
-            }
-        } else if nvcc {
-            cmd.args.push(format!("-O{}", opt_level).into());
-        } else {
-            cmd.args.push(format!("-O{}", opt_level).into());
-            cmd.args.push("-ffunction-sections".into());
-            cmd.args.push("-fdata-sections".into());
         }
-        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
+        for arg in self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}) {
             cmd.args.push(arg.into());
         }
 
-        if debug {
-            cmd.args.push(if msvc { "/Z7" } else { "-g" }.into());
+        if self.get_debug() {
+            cmd.args.push(cmd.family.debug_flag().into());
+        }
+
+        // Target flags
+        match cmd.family {
+            ToolFamily::Clang => {
+                cmd.args.push(format!("--target={}", target).into());
+            }
+            ToolFamily::Msvc => {
+                if target.contains("i586") {
+                    cmd.args.push("/ARCH:IA32".into());
+                }
+            }
+            ToolFamily::Gnu => {
+                if target.contains("i686") || target.contains("i586") {
+                    cmd.args.push("-m32".into());
+                } else if target.contains("x86_64") || target.contains("powerpc64") {
+                    cmd.args.push("-m64".into());
+                }
+
+                if target.contains("musl") {
+                    cmd.args.push("-static".into());
+                }
+
+                // armv7 targets get to use armv7 instructions
+                if target.starts_with("armv7-unknown-linux-") {
+                    cmd.args.push("-march=armv7-a".into());
+                }
+
+                // On android we can guarantee some extra float instructions
+                // (specified in the android spec online)
+                if target.starts_with("armv7-linux-androideabi") {
+                    cmd.args.push("-march=armv7-a".into());
+                    cmd.args.push("-mfpu=vfpv3-d16".into());
+                }
+
+                // For us arm == armv6 by default
+                if target.starts_with("arm-unknown-linux-") {
+                    cmd.args.push("-march=armv6".into());
+                    cmd.args.push("-marm".into());
+                }
+
+                // Turn codegen down on i586 to avoid some instructions.
+                if target.starts_with("i586-unknown-linux-") {
+                    cmd.args.push("-march=pentium".into());
+                }
+
+                // Set codegen level for i686 correctly
+                if target.starts_with("i686-unknown-linux-") {
+                    cmd.args.push("-march=i686".into());
+                }
+
+                // Looks like `musl-gcc` makes is hard for `-m32` to make its way
+                // all the way to the linker, so we need to actually instruct the
+                // linker that we're generating 32-bit executables as well. This'll
+                // typically only be used for build scripts which transitively use
+                // these flags that try to compile executables.
+                if target == "i686-unknown-linux-musl" {
+                    cmd.args.push("-Wl,-melf_i386".into());
+                }
+
+                if target.starts_with("thumb") {
+                    cmd.args.push("-mthumb".into());
+
+                    if target.ends_with("eabihf") {
+                        cmd.args.push("-mfloat-abi=hard".into())
+                    }
+                }
+                if target.starts_with("thumbv6m") {
+                    cmd.args.push("-march=armv6s-m".into());
+                }
+                if target.starts_with("thumbv7em") {
+                    cmd.args.push("-march=armv7e-m".into());
+
+                    if target.ends_with("eabihf") {
+                        cmd.args.push("-mfpu=fpv4-sp-d16".into())
+                    }
+                }
+                if target.starts_with("thumbv7m") {
+                    cmd.args.push("-march=armv7-m".into());
+                }
+            }
         }
 
         if target.contains("-ios") {
+            // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
+            // detected instead.
             self.ios_flags(&mut cmd);
-        } else if !msvc {
-            if target.contains("i686") || target.contains("i586") {
-                cmd.args.push("-m32".into());
-            } else if target.contains("x86_64") || target.contains("powerpc64") {
-                cmd.args.push("-m64".into());
-            }
-
-            if !nvcc &&
-               self.pic.unwrap_or(!target.contains("i686") && !target.contains("windows-gnu")) {
-                cmd.args.push("-fPIC".into());
-            } else if nvcc && self.pic.unwrap_or(false) {
-                cmd.args.push("-Xcompiler".into());
-                cmd.args.push("\'-fPIC\'".into());
-            }
-
-            if target.contains("musl") {
-                cmd.args.push("-static".into());
-            }
-
-            // armv7 targets get to use armv7 instructions
-            if target.starts_with("armv7-unknown-linux-") {
-                cmd.args.push("-march=armv7-a".into());
-            }
-
-            // On android we can guarantee some extra float instructions
-            // (specified in the android spec online)
-            if target.starts_with("armv7-linux-androideabi") {
-                cmd.args.push("-march=armv7-a".into());
-                cmd.args.push("-mfpu=vfpv3-d16".into());
-            }
-
-            // For us arm == armv6 by default
-            if target.starts_with("arm-unknown-linux-") {
-                cmd.args.push("-march=armv6".into());
-                cmd.args.push("-marm".into());
-            }
-
-            // Turn codegen down on i586 to avoid some instructions.
-            if target.starts_with("i586-unknown-linux-") {
-                cmd.args.push("-march=pentium".into());
-            }
-
-            // Set codegen level for i686 correctly
-            if target.starts_with("i686-unknown-linux-") {
-                cmd.args.push("-march=i686".into());
-            }
-
-            // Looks like `musl-gcc` makes is hard for `-m32` to make its way
-            // all the way to the linker, so we need to actually instruct the
-            // linker that we're generating 32-bit executables as well. This'll
-            // typically only be used for build scripts which transitively use
-            // these flags that try to compile executables.
-            if target == "i686-unknown-linux-musl" {
-                cmd.args.push("-Wl,-melf_i386".into());
-            }
-
-            if target.starts_with("thumb") {
-                cmd.args.push("-mthumb".into());
-
-                if target.ends_with("eabihf") {
-                    cmd.args.push("-mfloat-abi=hard".into())
-                }
-            }
-            if target.starts_with("thumbv6m") {
-                cmd.args.push("-march=armv6s-m".into());
-            }
-            if target.starts_with("thumbv7em") {
-                cmd.args.push("-march=armv7e-m".into());
-
-                if target.ends_with("eabihf") {
-                    cmd.args.push("-mfpu=fpv4-sp-d16".into())
-                }
-            }
-            if target.starts_with("thumbv7m") {
-                cmd.args.push("-march=armv7-m".into());
-            }
         }
 
-        if self.cpp && !msvc {
-            if let Some(ref stdlib) = self.cpp_set_stdlib {
-                cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
+        if self.cpp {
+            match (self.cpp_set_stdlib.as_ref(), cmd.family) {
+                (Some(stdlib), ToolFamily::Gnu) |
+                (Some(stdlib), ToolFamily::Clang) => {
+                    cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
+                }
+                _ => {
+                    println!("cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
+                              does not support this option, ignored", cmd.family);
+                }
             }
         }
 
         for directory in self.include_directories.iter() {
-            cmd.args.push(if msvc { "/I" } else { "-I" }.into());
+            cmd.args.push(cmd.family.include_flag().into());
             cmd.args.push(directory.into());
         }
 
@@ -591,7 +650,7 @@ impl Config {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
-            let lead = if msvc { "/" } else { "-" };
+            let lead = if let ToolFamily::Msvc = cmd.family {"/"} else {"-"};
             if let &Some(ref value) = value {
                 cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
@@ -928,10 +987,23 @@ impl Config {
 
 impl Tool {
     fn new(path: PathBuf) -> Tool {
+        // Try to detect family of the tool from its name, falling back to Gnu.
+        let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
+            if fname.contains("clang") {
+                ToolFamily::Clang
+            } else if fname.contains("cl") {
+                ToolFamily::Msvc
+            } else {
+                ToolFamily::Gnu
+            }
+        } else {
+            ToolFamily::Gnu
+        };
         Tool {
             path: path,
             args: Vec::new(),
             env: Vec::new(),
+            family: family
         }
     }
 
