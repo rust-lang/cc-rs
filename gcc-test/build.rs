@@ -81,4 +81,10 @@ fn main() {
         .cargo_metadata(false)
         .file("src/opt_linkage.c")
         .compile("libOptLinkage.a");
+
+    let out = gcc::Config::new()
+        .file("src/expand.c")
+        .expand();
+    let out = String::from_utf8(out).unwrap();
+    assert!(out.contains("hello world"));
 }

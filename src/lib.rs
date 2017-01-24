@@ -52,10 +52,10 @@ extern crate rayon;
 use std::env;
 use std::ffi::{OsString, OsStr};
 use std::fs;
-use std::io;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio};
-use std::io::{BufReader, BufRead, Write};
+use std::io::{self, BufReader, BufRead, Read, Write};
+use std::thread;
 
 #[cfg(windows)]
 mod registry;
@@ -129,6 +129,15 @@ impl ToolFamily {
             ToolFamily::Msvc => "/I",
             ToolFamily::Gnu |
             ToolFamily::Clang => "-I",
+        }
+    }
+
+    /// What the flag to request macro-expanded source output looks like
+    fn expand_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => "/E",
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-E",
         }
     }
 }
@@ -471,6 +480,29 @@ impl Config {
         cmd.arg(file);
 
         run(&mut cmd, &name);
+    }
+
+    /// Run the compiler, returning the macro-expanded version of the input files.
+    ///
+    /// This is only relevant for C and C++ files.
+    pub fn expand(&self) -> Vec<u8> {
+        let compiler = self.get_compiler();
+        let mut cmd = compiler.to_command();
+        for &(ref a, ref b) in self.env.iter() {
+            cmd.env(a, b);
+        }
+        cmd.arg(compiler.family.expand_flag());
+        for file in self.files.iter() {
+            cmd.arg(file);
+        }
+
+        let name = compiler.path
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .into_owned();
+
+        run(&mut cmd, &name)
     }
 
     /// Get the compiler that's in use for this configuration.
@@ -1044,23 +1076,27 @@ impl Tool {
     }
 }
 
-fn run(cmd: &mut Command, program: &str) {
+fn run(cmd: &mut Command, program: &str) -> Vec<u8> {
     println!("running: {:?}", cmd);
     // Capture the standard error coming from these programs, and write it out
     // with cargo:warning= prefixes. Note that this is a bit wonky to avoid
     // requiring the output to be UTF-8, we instead just ship bytes from one
     // location to another.
-    let spawn_result = match cmd.stderr(Stdio::piped()).spawn() {
+    let (spawn_result, stdout) = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
         Ok(mut child) => {
             let stderr = BufReader::new(child.stderr.take().unwrap());
-            for line in stderr.split(b'\n').filter_map(|l| l.ok()) {
-                print!("cargo:warning=");
-                std::io::stdout().write_all(&line).unwrap();
-                println!("");
-            }
-            child.wait()
+            thread::spawn(move || {
+                for line in stderr.split(b'\n').filter_map(|l| l.ok()) {
+                    print!("cargo:warning=");
+                    std::io::stdout().write_all(&line).unwrap();
+                    println!("");
+                }
+            });
+            let mut stdout = vec![];
+            child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
+            (child.wait(), stdout)
         }
-        Err(e) => Err(e),
+        Err(e) => (Err(e), vec![]),
     };
     let status = match spawn_result {
         Ok(status) => status,
@@ -1083,6 +1119,7 @@ fn run(cmd: &mut Command, program: &str) {
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }
+    stdout
 }
 
 fn fail(s: &str) -> ! {
