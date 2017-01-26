@@ -42,7 +42,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "http://alexcrichton.com/gcc-rs")]
+#![doc(html_root_url = "https://docs.rs/gcc/0.3")]
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
