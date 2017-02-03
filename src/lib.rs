@@ -661,6 +661,7 @@ impl Config {
 
         if self.cpp {
             match (self.cpp_set_stdlib.as_ref(), cmd.family) {
+                (None, _) => { }
                 (Some(stdlib), ToolFamily::Gnu) |
                 (Some(stdlib), ToolFamily::Clang) => {
                     cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
