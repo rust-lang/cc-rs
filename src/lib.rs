@@ -554,8 +554,7 @@ impl Config {
                 if !nvcc {
                     cmd.args.push("-ffunction-sections".into());
                     cmd.args.push("-fdata-sections".into());
-                    if self.pic.unwrap_or(!target.contains("i686") &&
-                                          !target.contains("windows-gnu")) {
+                    if self.pic.unwrap_or(!target.contains("windows-gnu")) {
                         cmd.args.push("-fPIC".into());
                     }
                 } else if self.pic.unwrap_or(false) {
