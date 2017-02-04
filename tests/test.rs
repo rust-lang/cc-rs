@@ -106,7 +106,6 @@ fn gnu_i686() {
             .compile("libfoo.a");
 
         test.cmd(0)
-            .must_not_have("-fPIC")
             .must_have("-m32");
     }
 }
