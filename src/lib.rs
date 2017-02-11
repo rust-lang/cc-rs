@@ -356,8 +356,8 @@ impl Config {
 
     /// Configures whether the compiler will emit position independent code.
     ///
-    /// This option defaults to `false` for `i686` and `windows-gnu` targets and to `true` for all
-    /// other targets.
+    /// This option defaults to `false` for `windows-gnu` targets and
+    /// to `true` for all other targets.
     pub fn pic(&mut self, pic: bool) -> &mut Config {
         self.pic = Some(pic);
         self
