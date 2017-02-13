@@ -825,11 +825,21 @@ impl Config {
         }
         let host = self.get_host();
         let target = self.get_target();
-        let (env, msvc, gnu, default) = if self.cpp {
-            ("CXX", "cl.exe", "g++", "c++")
+        let (env, msvc, gnu) = if self.cpp {
+            ("CXX", "cl.exe", "g++")
         } else {
-            ("CC", "cl.exe", "gcc", "cc")
+            ("CC", "cl.exe", "gcc")
         };
+
+        let default = if host.contains("solaris") {
+            // In this case, c++/cc unlikely to exist or be correct.
+            gnu
+        } else if self.cpp {
+            "c++"
+        } else {
+            "cc"
+        };
+
         self.env_tool(env)
             .map(|(tool, args)| {
                 let mut t = Tool::new(PathBuf::from(tool));
