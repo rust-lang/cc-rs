@@ -897,6 +897,7 @@ impl Config {
                         "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
                         "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
                         "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
+                        "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
                         "thumbv6m-none-eabi" => Some("arm-none-eabi"),
                         "thumbv7em-none-eabi" => Some("arm-none-eabi"),
                         "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
