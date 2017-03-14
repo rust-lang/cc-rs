@@ -1096,7 +1096,7 @@ fn run(cmd: &mut Command, program: &str) -> Vec<u8> {
     let (spawn_result, stdout) = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
         Ok(mut child) => {
             let stderr = BufReader::new(child.stderr.take().unwrap());
-            thread::spawn(move || {
+            let print = thread::spawn(move || {
                 for line in stderr.split(b'\n').filter_map(|l| l.ok()) {
                     print!("cargo:warning=");
                     std::io::stdout().write_all(&line).unwrap();
@@ -1105,7 +1105,9 @@ fn run(cmd: &mut Command, program: &str) -> Vec<u8> {
             });
             let mut stdout = vec![];
             child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
-            (child.wait(), stdout)
+            let ret = (child.wait(), stdout);
+            print.join().unwrap();
+            ret
         }
         Err(e) => (Err(e), vec![]),
     };
