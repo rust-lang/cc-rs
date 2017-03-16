@@ -53,9 +53,9 @@ use std::env;
 use std::ffi::{OsString, OsStr};
 use std::fs;
 use std::path::{PathBuf, Path};
-use std::process::{Command, Stdio};
+use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
-use std::thread;
+use std::thread::{self, JoinHandle};
 
 #[cfg(windows)]
 mod registry;
@@ -502,7 +502,7 @@ impl Config {
             .to_string_lossy()
             .into_owned();
 
-        run(&mut cmd, &name)
+        run_output(&mut cmd, &name)
     }
 
     /// Get the compiler that's in use for this configuration.
@@ -1087,13 +1087,38 @@ impl Tool {
     }
 }
 
-fn run(cmd: &mut Command, program: &str) -> Vec<u8> {
+fn run(cmd: &mut Command, program: &str) {
+    let (mut child, print) = spawn(cmd, program);
+    let status = child.wait().expect("failed to wait on child process");
+    print.join().unwrap();
+    println!("{:?}", status);
+    if !status.success() {
+        fail(&format!("command did not execute successfully, got: {}", status));
+    }
+}
+
+fn run_output(cmd: &mut Command, program: &str) -> Vec<u8> {
+    cmd.stdout(Stdio::piped());
+    let (mut child, print) = spawn(cmd, program);
+    let mut stdout = vec![];
+    child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
+    let status = child.wait().expect("failed to wait on child process");
+    print.join().unwrap();
+    println!("{:?}", status);
+    if !status.success() {
+        fail(&format!("command did not execute successfully, got: {}", status));
+    }
+    return stdout
+}
+
+fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
     println!("running: {:?}", cmd);
+
     // Capture the standard error coming from these programs, and write it out
     // with cargo:warning= prefixes. Note that this is a bit wonky to avoid
     // requiring the output to be UTF-8, we instead just ship bytes from one
     // location to another.
-    let (spawn_result, stdout) = match cmd.stdout(Stdio::piped()).stderr(Stdio::piped()).spawn() {
+    match cmd.stderr(Stdio::piped()).spawn() {
         Ok(mut child) => {
             let stderr = BufReader::new(child.stderr.take().unwrap());
             let print = thread::spawn(move || {
@@ -1103,16 +1128,8 @@ fn run(cmd: &mut Command, program: &str) -> Vec<u8> {
                     println!("");
                 }
             });
-            let mut stdout = vec![];
-            child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
-            let ret = (child.wait(), stdout);
-            print.join().unwrap();
-            ret
+            (child, print)
         }
-        Err(e) => (Err(e), vec![]),
-    };
-    let status = match spawn_result {
-        Ok(status) => status,
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
                 " (see https://github.com/alexcrichton/gcc-rs#compile-time-requirements \
@@ -1127,12 +1144,7 @@ fn run(cmd: &mut Command, program: &str) -> Vec<u8> {
                           extra));
         }
         Err(e) => fail(&format!("failed to execute command: {}", e)),
-    };
-    println!("{:?}", status);
-    if !status.success() {
-        fail(&format!("command did not execute successfully, got: {}", status));
     }
-    stdout
 }
 
 fn fail(s: &str) -> ! {
