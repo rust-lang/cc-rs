@@ -818,7 +818,7 @@ impl Config {
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
         }
-        return cmd;
+        cmd
     }
 
     fn get_base_compiler(&self) -> Tool {
@@ -848,7 +848,7 @@ impl Config {
                 for arg in args {
                     t.args.push(arg.into());
                 }
-                return t;
+                t
             })
             .or_else(|| {
                 if target.contains("emscripten") {
@@ -1110,7 +1110,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Vec<u8> {
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }
-    return stdout
+    stdout
 }
 
 fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
