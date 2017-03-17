@@ -685,7 +685,7 @@ impl Config {
 
         for &(ref key, ref value) in self.definitions.iter() {
             let lead = if let ToolFamily::Msvc = cmd.family {"/"} else {"-"};
-            if let &Some(ref value) = value {
+            if let Some(ref value) = *value {
                 cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
                 cmd.args.push(format!("{}D{}", lead, key).into());
@@ -706,7 +706,7 @@ impl Config {
             cmd.arg("/I").arg(directory);
         }
         for &(ref key, ref value) in self.definitions.iter() {
-            if let &Some(ref value) = value {
+            if let Some(ref value) = *value {
                 cmd.arg(&format!("/D{}={}", key, value));
             } else {
                 cmd.arg(&format!("/D{}", key));
