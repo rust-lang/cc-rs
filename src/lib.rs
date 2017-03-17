@@ -752,7 +752,6 @@ impl Config {
                     // if hard-link fails, just copy (ignoring the number of bytes written)
                     fs::copy(&dst, &lib_dst).map(|_| ())
                 })
-                .ok()
                 .expect("Copying from {:?} to {:?} failed.");;
         } else {
             let ar = self.get_ar();
