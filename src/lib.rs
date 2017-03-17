@@ -950,7 +950,7 @@ impl Config {
         self.get_var(name).ok().map(|tool| {
             let whitelist = ["ccache", "distcc"];
             for t in whitelist.iter() {
-                if tool.starts_with(t) && tool[t.len()..].starts_with(" ") {
+                if tool.starts_with(t) && tool[t.len()..].starts_with(' ') {
                     return (t.to_string(), vec![tool[t.len()..].trim_left().to_string()]);
                 }
             }
