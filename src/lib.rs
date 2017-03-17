@@ -732,7 +732,7 @@ impl Config {
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
                 Some(ref s) => self.cmd(s),
-                None => windows_registry::find(&target, "lib.exe").unwrap_or(self.cmd("lib.exe")),
+                None => windows_registry::find(&target, "lib.exe").unwrap_or_else(|| self.cmd("lib.exe")),
             };
             let mut out = OsString::from("/OUT:");
             out.push(dst);
