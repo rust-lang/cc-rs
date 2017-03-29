@@ -602,6 +602,7 @@ impl Config {
                 if target.starts_with("armv7-linux-androideabi") {
                     cmd.args.push("-march=armv7-a".into());
                     cmd.args.push("-mfpu=vfpv3-d16".into());
+                    cmd.args.push("-mfloat-abi=softfp".into());
                 }
 
                 // For us arm == armv6 by default
