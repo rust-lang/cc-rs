@@ -607,7 +607,7 @@ impl Config {
 
                 // For us arm == armv6 by default
                 if target.starts_with("arm-unknown-linux-") {
-                    cmd.args.push("-march=armv6".into());
+                    cmd.args.push("-march=armv6t2".into());
                     cmd.args.push("-marm".into());
                 }
 
