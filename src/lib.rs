@@ -434,12 +434,13 @@ impl Config {
         let mut cfg = rayon::Configuration::new();
         if let Ok(amt) = env::var("NUM_JOBS") {
             if let Ok(amt) = amt.parse() {
-                cfg = cfg.set_num_threads(amt);
+                cfg = cfg.num_threads(amt);
             }
         }
         drop(rayon::initialize(cfg));
 
-        objs.par_iter().weight_max().for_each(|&(ref src, ref dst)| self.compile_object(src, dst));
+        objs.par_iter().with_max_len(1)
+            .for_each(|&(ref src, ref dst)| self.compile_object(src, dst));
     }
 
     #[cfg(not(feature = "parallel"))]
