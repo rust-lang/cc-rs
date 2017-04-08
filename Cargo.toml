@@ -18,7 +18,7 @@ travis-ci = { repository = "alexcrichton/gcc-rs" }
 appveyor = { repository = "alexcrichton/gcc-rs" }
 
 [dependencies]
-rayon = { version = "0.6", optional = true }
+rayon = { version = "0.7", optional = true }
 
 [features]
 parallel = ["rayon"]
