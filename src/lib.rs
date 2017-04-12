@@ -594,7 +594,7 @@ impl Config {
                 }
 
                 // armv7 targets get to use armv7 instructions
-                if target.starts_with("armv7-unknown-linux-") {
+                if target.starts_with("armv7-") && target.contains("-linux-") {
                     cmd.args.push("-march=armv7-a".into());
                 }
 
