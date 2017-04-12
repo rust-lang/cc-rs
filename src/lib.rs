@@ -685,7 +685,7 @@ impl Config {
 
         for &(ref key, ref value) in self.definitions.iter() {
             let lead = if let ToolFamily::Msvc = cmd.family {"/"} else {"-"};
-            if let &Some(ref value) = value {
+            if let Some(ref value) = *value {
                 cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
                 cmd.args.push(format!("{}D{}", lead, key).into());
@@ -706,7 +706,7 @@ impl Config {
             cmd.arg("/I").arg(directory);
         }
         for &(ref key, ref value) in self.definitions.iter() {
-            if let &Some(ref value) = value {
+            if let Some(ref value) = *value {
                 cmd.arg(&format!("/D{}={}", key, value));
             } else {
                 cmd.arg(&format!("/D{}", key));
@@ -732,7 +732,7 @@ impl Config {
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
                 Some(ref s) => self.cmd(s),
-                None => windows_registry::find(&target, "lib.exe").unwrap_or(self.cmd("lib.exe")),
+                None => windows_registry::find(&target, "lib.exe").unwrap_or_else(|| self.cmd("lib.exe")),
             };
             let mut out = OsString::from("/OUT:");
             out.push(dst);
@@ -752,7 +752,6 @@ impl Config {
                     // if hard-link fails, just copy (ignoring the number of bytes written)
                     fs::copy(&dst, &lib_dst).map(|_| ())
                 })
-                .ok()
                 .expect("Copying from {:?} to {:?} failed.");;
         } else {
             let ar = self.get_ar();
@@ -818,7 +817,7 @@ impl Config {
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
         }
-        return cmd;
+        cmd
     }
 
     fn get_base_compiler(&self) -> Tool {
@@ -848,7 +847,7 @@ impl Config {
                 for arg in args {
                     t.args.push(arg.into());
                 }
-                return t;
+                t
             })
             .or_else(|| {
                 if target.contains("emscripten") {
@@ -950,7 +949,7 @@ impl Config {
         self.get_var(name).ok().map(|tool| {
             let whitelist = ["ccache", "distcc"];
             for t in whitelist.iter() {
-                if tool.starts_with(t) && tool[t.len()..].starts_with(" ") {
+                if tool.starts_with(t) && tool[t.len()..].starts_with(' ') {
                     return (t.to_string(), vec![tool[t.len()..].trim_left().to_string()]);
                 }
             }
@@ -1110,7 +1109,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Vec<u8> {
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }
-    return stdout
+    stdout
 }
 
 fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
