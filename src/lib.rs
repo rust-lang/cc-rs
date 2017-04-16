@@ -612,6 +612,15 @@ impl Config {
                     cmd.args.push("-marm".into());
                 }
 
+                // We can guarantee some settings for FRC
+                if target.starts_with("arm-frc-") {
+                    cmd.args.push("-march=armv7-a".into());
+                    cmd.args.push("-mcpu=cortex-a9".into());
+                    cmd.args.push("-mfpu=vfpv3".into());
+                    cmd.args.push("-mfloat-abi=softfp".into());
+                    cmd.args.push("-marm".into());
+                }
+
                 // Turn codegen down on i586 to avoid some instructions.
                 if target.starts_with("i586-unknown-linux-") {
                     cmd.args.push("-march=pentium".into());
@@ -877,6 +886,7 @@ impl Config {
                     let prefix = cross_compile.or(match &target[..] {
                         "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                         "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                        "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
                         "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                         "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
                         "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
