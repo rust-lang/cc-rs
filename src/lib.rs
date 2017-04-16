@@ -1102,7 +1102,7 @@ fn run(cmd: &mut Command, program: &str) {
     let (mut child, print) = spawn(cmd, program);
     let status = child.wait().expect("failed to wait on child process");
     print.join().unwrap();
-    println!("{:?}", status);
+    println!("{}", status);
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }
@@ -1115,7 +1115,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Vec<u8> {
     child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
     let status = child.wait().expect("failed to wait on child process");
     print.join().unwrap();
-    println!("{:?}", status);
+    println!("{}", status);
     if !status.success() {
         fail(&format!("command did not execute successfully, got: {}", status));
     }
