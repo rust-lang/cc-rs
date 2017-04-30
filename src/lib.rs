@@ -192,6 +192,11 @@ impl Config {
 
     /// Add a directory to the `-I` or include path for headers
     pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Config {
+        if let Some(path_str) = dir.as_ref().to_str() {
+            if path_str.trim().is_empty() {
+                return self
+            }
+        }
         self.include_directories.push(dir.as_ref().to_path_buf());
         self
     }
