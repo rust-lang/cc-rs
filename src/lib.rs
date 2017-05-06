@@ -860,11 +860,22 @@ impl Config {
             })
             .or_else(|| {
                 if target.contains("emscripten") {
-                    if self.cpp {
-                        Some(Tool::new(PathBuf::from("em++")))
+                    //Windows uses bat file so we have to be a bit more specific
+                    let tool = if self.cpp {
+                        if cfg!(windows) {
+                            "em++.bat"
+                        } else {
+                            "em++"
+                        }
                     } else {
-                        Some(Tool::new(PathBuf::from("emcc")))
-                    }
+                        if cfg!(windows) {
+                            "emcc.bat"
+                        } else {
+                            "emcc"
+                        }
+                    };
+
+                    Some(Tool::new(PathBuf::from(tool)))
                 } else {
                     None
                 }
@@ -992,7 +1003,14 @@ impl Config {
                 if self.get_target().contains("android") {
                     PathBuf::from(format!("{}-ar", self.get_target().replace("armv7", "arm")))
                 } else if self.get_target().contains("emscripten") {
-                    PathBuf::from("emar")
+                    //Windows use bat files so we have to be a bit more specific
+                    let tool = if cfg!(windows) {
+                        "emar.bat"
+                    } else {
+                        "emar"
+                    };
+
+                    PathBuf::from(tool)
                 } else {
                     PathBuf::from("ar")
                 }
