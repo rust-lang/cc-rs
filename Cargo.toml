@@ -19,6 +19,7 @@ appveyor = { repository = "alexcrichton/gcc-rs" }
 
 [dependencies]
 rayon = { version = "0.7", optional = true }
+serde_json = "1.0"
 
 [features]
 parallel = ["rayon"]
