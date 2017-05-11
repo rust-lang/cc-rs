@@ -180,7 +180,8 @@ fn msvc_smoke() {
         .must_have("/O2")
         .must_have("foo.c")
         .must_not_have("/Z7")
-        .must_have("/c");
+        .must_have("/c")
+        .must_have("/MD");
     test.cmd(1).must_have(test.td.path().join("foo.o"));
 }
 
@@ -226,4 +227,26 @@ fn msvc_define() {
         .compile("libfoo.a");
 
     test.cmd(0).must_have("/DFOO=bar").must_have("/DBAR");
+}
+
+#[test]
+fn msvc_static_crt() {
+    let test = Test::msvc();
+    test.gcc()
+        .static_crt(true)
+        .file("foo.c")
+        .compile("libfoo.a");
+
+    test.cmd(0).must_have("/MT");
+}
+
+#[test]
+fn msvc_no_static_crt() {
+    let test = Test::msvc();
+    test.gcc()
+        .static_crt(false)
+        .file("foo.c")
+        .compile("libfoo.a");
+
+    test.cmd(0).must_have("/MD");
 }
