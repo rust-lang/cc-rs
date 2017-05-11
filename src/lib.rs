@@ -81,6 +81,7 @@ pub struct Config {
     archiver: Option<PathBuf>,
     cargo_metadata: bool,
     pic: Option<bool>,
+    static_crt: Option<bool>,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -187,6 +188,7 @@ impl Config {
             archiver: None,
             cargo_metadata: true,
             pic: None,
+            static_crt: None,
         }
     }
 
@@ -363,6 +365,14 @@ impl Config {
         self
     }
 
+    /// Configures whether the /MT flag or the /MD flag will be passed to msvc build tools.
+    ///
+    /// This option defaults to `false`, and affect only msvc targets.
+    pub fn static_crt(&mut self, static_crt: bool) -> &mut Config {
+        self.static_crt = Some(static_crt);
+        self
+    }
+
 
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
@@ -534,13 +544,22 @@ impl Config {
         match cmd.family {
             ToolFamily::Msvc => {
                 cmd.args.push("/nologo".into());
-                let features = env::var("CARGO_CFG_TARGET_FEATURE")
+
+                let crt_flag = match self.static_crt {
+                    Some(true) => "/MT",
+                    Some(false) => "/MD",
+                    None => {
+                        let features = env::var("CARGO_CFG_TARGET_FEATURE")
                                   .unwrap_or(String::new());
-                if features.contains("crt-static") {
-                    cmd.args.push("/MT".into());
-                } else {
-                    cmd.args.push("/MD".into());
-                }
+                        if features.contains("crt-static") {
+                            "/MT"
+                        } else {
+                            "/MD"
+                        }
+                    },
+                };
+                cmd.args.push(crt_flag.into());
+
                 match &opt_level[..] {
                     "z" | "s" => cmd.args.push("/Os".into()),
                     "1" => cmd.args.push("/O1".into()),
