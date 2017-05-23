@@ -15,6 +15,7 @@ use std::process::Command;
 
 use Tool;
 
+#[cfg(windows)]
 macro_rules! otry {
     ($expr:expr) => (match $expr {
         Some(val) => val,
@@ -53,7 +54,11 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     use std::ffi::OsString;
     use std::mem;
     use std::path::{Path, PathBuf};
+    use std::fs::File;
+    use std::io::Read;
     use registry::{RegistryKey, LOCAL_MACHINE};
+    use com;
+    use setup_config::{SetupConfiguration, SetupInstance};
 
     struct MsvcTool {
         tool: PathBuf,
@@ -110,18 +115,95 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
     // the tool is actually usable.
 
-    return find_msvc_latest(tool, target, "15.0")
-        .or_else(|| find_msvc_latest(tool, target, "14.0"))
+    return find_msvc_17(tool, target)
+        .or_else(|| find_msvc_14_or_15(tool, target, "15.0"))
+        .or_else(|| find_msvc_14_or_15(tool, target, "14.0"))
         .or_else(|| find_msvc_12(tool, target))
         .or_else(|| find_msvc_11(tool, target));
 
-    // For MSVC 14 or newer we need to find the Universal CRT as well as either
+    // In MSVC 17 MS once again changed the scheme for locating the tooling.
+    // Now we must go through some COM interfaces, which is super fun for Rust.
+    fn find_msvc_17(tool: &str, target: &str) -> Option<Tool> {
+        otry!(com::initialize().ok());
+
+        let config = otry!(SetupConfiguration::new().ok());
+        let iter = otry!(config.enum_all_instances().ok());
+        for instance in iter {
+            let instance = otry!(instance.ok());
+            let tool = tool_from_vs17_instance(tool, target, &instance);
+            if tool.is_some() {
+                return tool;
+            }
+        }
+
+        None
+    }
+
+    fn tool_from_vs17_instance(tool: &str, target: &str,
+                               instance: &SetupInstance) -> Option<Tool> {
+        let (bin_path, lib_path, include_path) = otry!(vs17_vc_paths(target, instance));
+        let tool_path = bin_path.join(tool);
+        if !tool_path.exists() { return None };
+
+        let mut tool = MsvcTool::new(tool_path);
+        tool.path.push(bin_path.clone());
+        tool.libs.push(lib_path);
+        tool.include.push(include_path);
+
+        if let Some((atl_lib_path, atl_include_path)) = atl_paths(target, &bin_path) {
+            tool.libs.push(atl_lib_path);
+            tool.include.push(atl_include_path);
+        }
+
+        otry!(add_sdks(&mut tool, target));
+
+        Some(tool.into_tool())
+    }
+
+    fn vs17_vc_paths(target: &str, instance: &SetupInstance) -> Option<(PathBuf, PathBuf, PathBuf)> {
+        let instance_path: PathBuf = otry!(instance.installation_path().ok()).into();
+        let version_path = instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
+        let mut version_file = otry!(File::open(version_path).ok());
+        let mut version = String::new();
+        otry!(version_file.read_to_string(&mut version).ok());
+        let version = version.trim();
+        let host = match host_arch() {
+            X86 => "X86",
+            X86_64 => "X64",
+            _ => return None,
+        };
+        let target = otry!(lib_subdir(target));
+        let path = instance_path.join(r"VC\Tools\MSVC").join(version);
+        let bin_path = path.join("bin").join(&format!("Host{}", host)).join(&target);
+        let lib_path = path.join("lib").join(&target);
+        let include_path = path.join("include");
+        Some((bin_path, lib_path, include_path))
+    }
+
+    fn atl_paths(target: &str, path: &Path) -> Option<(PathBuf, PathBuf)> {
+        let atl_path = path.join("atlfmc");
+        let sub = otry!(lib_subdir(target));
+        if atl_path.exists() {
+            Some((atl_path.join("lib").join(sub), atl_path.join("include")))
+        } else {
+            None
+        }
+    }
+
+    // For MSVC 14 and 15 we need to find the Universal CRT as well as either
     // the Windows 10 SDK or Windows 8.1 SDK.
-    fn find_msvc_latest(tool: &str, target: &str, ver: &str) -> Option<Tool> {
+    fn find_msvc_14_or_15(tool: &str, target: &str, ver: &str) -> Option<Tool> {
         let vcdir = otry!(get_vc_dir(ver));
         let mut tool = otry!(get_tool(tool, &vcdir, target));
+        otry!(add_sdks(&mut tool, target));
+        Some(tool.into_tool())
+    }
+
+    fn add_sdks(tool: &mut MsvcTool, target: &str) -> Option<()> {
         let sub = otry!(lib_subdir(target));
         let (ucrt, ucrt_version) = otry!(get_ucrt_dir());
+
+        tool.path.push(ucrt.join("bin").join(&ucrt_version).join(sub));
 
         let ucrt_include = ucrt.join("include").join(&ucrt_version);
         tool.include.push(ucrt_include.join("ucrt"));
@@ -145,10 +227,9 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
             tool.include.push(sdk_include.join("um"));
             tool.include.push(sdk_include.join("winrt"));
             tool.include.push(sdk_include.join("shared"));
-        } else {
-            return None;
         }
-        Some(tool.into_tool())
+
+        Some(())
     }
 
     // For MSVC 12 we need to find the Windows 8.1 SDK.
