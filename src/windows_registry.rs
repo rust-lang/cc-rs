@@ -115,22 +115,22 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
     // the tool is actually usable.
 
-    return find_msvc_17(tool, target)
-        .or_else(|| find_msvc_14_or_15(tool, target, "15.0"))
-        .or_else(|| find_msvc_14_or_15(tool, target, "14.0"))
+    return find_msvc_15(tool, target)
+        .or_else(|| find_msvc_14(tool, target))
         .or_else(|| find_msvc_12(tool, target))
         .or_else(|| find_msvc_11(tool, target));
 
-    // In MSVC 17 MS once again changed the scheme for locating the tooling.
-    // Now we must go through some COM interfaces, which is super fun for Rust.
-    fn find_msvc_17(tool: &str, target: &str) -> Option<Tool> {
+    // In MSVC 15 (2017) MS once again changed the scheme for locating
+    // the tooling.  Now we must go through some COM interfaces, which
+    // is super fun for Rust.
+    fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
         otry!(com::initialize().ok());
 
         let config = otry!(SetupConfiguration::new().ok());
         let iter = otry!(config.enum_all_instances().ok());
         for instance in iter {
             let instance = otry!(instance.ok());
-            let tool = tool_from_vs17_instance(tool, target, &instance);
+            let tool = tool_from_vs15_instance(tool, target, &instance);
             if tool.is_some() {
                 return tool;
             }
@@ -139,9 +139,9 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         None
     }
 
-    fn tool_from_vs17_instance(tool: &str, target: &str,
+    fn tool_from_vs15_instance(tool: &str, target: &str,
                                instance: &SetupInstance) -> Option<Tool> {
-        let (bin_path, lib_path, include_path) = otry!(vs17_vc_paths(target, instance));
+        let (bin_path, lib_path, include_path) = otry!(vs15_vc_paths(target, instance));
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() { return None };
 
@@ -160,7 +160,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         Some(tool.into_tool())
     }
 
-    fn vs17_vc_paths(target: &str, instance: &SetupInstance) -> Option<(PathBuf, PathBuf, PathBuf)> {
+    fn vs15_vc_paths(target: &str, instance: &SetupInstance) -> Option<(PathBuf, PathBuf, PathBuf)> {
         let instance_path: PathBuf = otry!(instance.installation_path().ok()).into();
         let version_path = instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
         let mut version_file = otry!(File::open(version_path).ok());
@@ -190,10 +190,10 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         }
     }
 
-    // For MSVC 14 and 15 we need to find the Universal CRT as well as either
+    // For MSVC 14 we need to find the Universal CRT as well as either
     // the Windows 10 SDK or Windows 8.1 SDK.
-    fn find_msvc_14_or_15(tool: &str, target: &str, ver: &str) -> Option<Tool> {
-        let vcdir = otry!(get_vc_dir(ver));
+    fn find_msvc_14(tool: &str, target: &str) -> Option<Tool> {
+        let vcdir = otry!(get_vc_dir("14.0"));
         let mut tool = otry!(get_tool(tool, &vcdir, target));
         otry!(add_sdks(&mut tool, target));
         Some(tool.into_tool())
