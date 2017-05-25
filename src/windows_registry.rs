@@ -93,7 +93,13 @@ pub enum VsVers {
     /// Visual Studio 14 (2015)
     Vs14,
     /// Visual Studio 15 (2017)
-    Vs15
+    Vs15,
+
+    /// Hidden variant that should not be matched on. Callers that want to
+    /// handle an enumeration of `VsVers` instances should always have a default
+    /// case meaning that it's a VS version they don't understand.
+    #[doc(hidden)]
+    __Nonexhaustive_do_not_match_this_or_your_code_will_break,
 }
 
 /// Find the most recent installed version of Visual Studio
@@ -109,7 +115,7 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 #[cfg(windows)]
 pub fn find_vs_version() -> Result<VsVers, String> {
     use std::env;
-    
+
     match env::var("VisualStudioVersion") {
         Ok(version) => {
             match &version[..] {
