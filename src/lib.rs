@@ -57,8 +57,18 @@ use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
 
+// These modules are all glue to support reading the MSVC version from
+// the registry and from COM interfaces
 #[cfg(windows)]
 mod registry;
+#[cfg(windows)]
+#[macro_use]
+mod winapi;
+#[cfg(windows)]
+mod com;
+#[cfg(windows)]
+mod setup_config;
+
 pub mod windows_registry;
 
 /// Extra configuration to pass to gcc.
