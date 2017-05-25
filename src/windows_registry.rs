@@ -51,6 +51,103 @@ pub fn find_tool(_target: &str, _tool: &str) -> Option<Tool> {
 #[cfg(windows)]
 pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     use std::env;
+
+    // This logic is all tailored for MSVC, if we're not that then bail out
+    // early.
+    if !target.contains("msvc") {
+        return None;
+    }
+
+    // Looks like msbuild isn't located in the same location as other tools like
+    // cl.exe and lib.exe. To handle this we probe for it manually with
+    // dedicated registry keys.
+    if tool.contains("msbuild") {
+        return impl_::find_msbuild(target);
+    }
+
+    // If VCINSTALLDIR is set, then someone's probably already run vcvars and we
+    // should just find whatever that indicates.
+    if env::var_os("VCINSTALLDIR").is_some() {
+        return env::var_os("PATH")
+            .and_then(|path| env::split_paths(&path).map(|p| p.join(tool)).find(|p| p.exists()))
+            .map(|path| Tool::new(path.into()));
+    }
+
+    // Ok, if we're here, now comes the fun part of the probing. Default shells
+    // or shells like MSYS aren't really configured to execute `cl.exe` and the
+    // various compiler tools shipped as part of Visual Studio. Here we try to
+    // first find the relevant tool, then we also have to be sure to fill in
+    // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
+    // the tool is actually usable.
+
+    return impl_::find_msvc_15(tool, target)
+        .or_else(|| impl_::find_msvc_14(tool, target))
+        .or_else(|| impl_::find_msvc_12(tool, target))
+        .or_else(|| impl_::find_msvc_11(tool, target));
+}
+
+/// A version of Visual Studio
+pub enum VsVers {
+    /// Visual Studio 12 (2013)
+    Vs12,
+    /// Visual Studio 14 (2015)
+    Vs14,
+    /// Visual Studio 15 (2017)
+    Vs15
+}
+
+/// Find the most recent installed version of Visual Studio
+///
+/// This is used by the cmake crate to figure out the correct
+/// generator.
+#[cfg(not(windows))]
+pub fn find_vs_version() -> Result<VsVers, String> {
+    Err(format!("not windows"))
+}
+
+/// Documented above
+#[cfg(windows)]
+pub fn find_vs_version() -> Result<VsVers, String> {
+    use std::env;
+    
+    match env::var("VisualStudioVersion") {
+        Ok(version) => {
+            match &version[..] {
+                "15.0" => Ok(VsVers::Vs15),
+                "14.0" => Ok(VsVers::Vs14),
+                "12.0" => Ok(VsVers::Vs12),
+                vers => Err(format!("\n\n\
+                                     unsupported or unknown VisualStudio version: {}\n\
+                                     if another version is installed consider running \
+                                     the appropriate vcvars script before building this \
+                                     crate\n\
+                                     ", vers)),
+            }
+        }
+        _ => {
+            // Check for the presense of a specific registry key
+            // that indicates visual studio is installed.
+            if impl_::has_msbuild_version("15.0") {
+                Ok(VsVers::Vs15)
+            } else if impl_::has_msbuild_version("14.0") {
+                Ok(VsVers::Vs14)
+            } else if impl_::has_msbuild_version("12.0") {
+                Ok(VsVers::Vs12)
+            } else {
+                Err(format!("\n\n\
+                             couldn't determine visual studio generator\n\
+                             if VisualStudio is installed, however, consider \
+                             running the appropriate vcvars script before building \
+                             this crate\n\
+                             "))
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+mod impl_ {
+    use std::env;
     use std::ffi::OsString;
     use std::mem;
     use std::path::{Path, PathBuf};
@@ -59,6 +156,8 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     use registry::{RegistryKey, LOCAL_MACHINE};
     use com;
     use setup_config::{SetupConfiguration, SetupInstance};
+
+    use Tool;
 
     struct MsvcTool {
         tool: PathBuf,
@@ -87,43 +186,10 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         }
     }
 
-    // This logic is all tailored for MSVC, if we're not that then bail out
-    // early.
-    if !target.contains("msvc") {
-        return None;
-    }
-
-    // Looks like msbuild isn't located in the same location as other tools like
-    // cl.exe and lib.exe. To handle this we probe for it manually with
-    // dedicated registry keys.
-    if tool.contains("msbuild") {
-        return find_msbuild(target);
-    }
-
-    // If VCINSTALLDIR is set, then someone's probably already run vcvars and we
-    // should just find whatever that indicates.
-    if env::var_os("VCINSTALLDIR").is_some() {
-        return env::var_os("PATH")
-            .and_then(|path| env::split_paths(&path).map(|p| p.join(tool)).find(|p| p.exists()))
-            .map(|path| Tool::new(path.into()));
-    }
-
-    // Ok, if we're here, now comes the fun part of the probing. Default shells
-    // or shells like MSYS aren't really configured to execute `cl.exe` and the
-    // various compiler tools shipped as part of Visual Studio. Here we try to
-    // first find the relevant tool, then we also have to be sure to fill in
-    // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
-    // the tool is actually usable.
-
-    return find_msvc_15(tool, target)
-        .or_else(|| find_msvc_14(tool, target))
-        .or_else(|| find_msvc_12(tool, target))
-        .or_else(|| find_msvc_11(tool, target));
-
     // In MSVC 15 (2017) MS once again changed the scheme for locating
     // the tooling.  Now we must go through some COM interfaces, which
     // is super fun for Rust.
-    fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
+    pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
         otry!(com::initialize().ok());
 
         let config = otry!(SetupConfiguration::new().ok());
@@ -192,7 +258,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
 
     // For MSVC 14 we need to find the Universal CRT as well as either
     // the Windows 10 SDK or Windows 8.1 SDK.
-    fn find_msvc_14(tool: &str, target: &str) -> Option<Tool> {
+    pub fn find_msvc_14(tool: &str, target: &str) -> Option<Tool> {
         let vcdir = otry!(get_vc_dir("14.0"));
         let mut tool = otry!(get_tool(tool, &vcdir, target));
         otry!(add_sdks(&mut tool, target));
@@ -233,7 +299,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     }
 
     // For MSVC 12 we need to find the Windows 8.1 SDK.
-    fn find_msvc_12(tool: &str, target: &str) -> Option<Tool> {
+    pub fn find_msvc_12(tool: &str, target: &str) -> Option<Tool> {
         let vcdir = otry!(get_vc_dir("12.0"));
         let mut tool = otry!(get_tool(tool, &vcdir, target));
         let sub = otry!(lib_subdir(target));
@@ -249,7 +315,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     }
 
     // For MSVC 11 we need to find the Windows 8 SDK.
-    fn find_msvc_11(tool: &str, target: &str) -> Option<Tool> {
+    pub fn find_msvc_11(tool: &str, target: &str) -> Option<Tool> {
         let vcdir = otry!(get_vc_dir("11.0"));
         let mut tool = otry!(get_tool(tool, &vcdir, target));
         let sub = otry!(lib_subdir(target));
@@ -484,8 +550,52 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         max_key
     }
 
+    pub fn has_msbuild_version(version: &str) -> bool {
+        match version {
+            "15.0" => {
+                find_msbuild_vs15("x86_64-pc-windows-msvc").is_some() ||
+                    find_msbuild_vs15("i686-pc-windows-msvc").is_some()
+            }
+            "12.0" | "14.0" => {
+                LOCAL_MACHINE.open(
+                    &OsString::from(format!("SOFTWARE\\Microsoft\\MSBuild\\ToolsVersions\\{}",
+                                            version))).is_ok()
+            }
+            _ => false
+        }
+    }
+
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
-    fn find_msbuild(target: &str) -> Option<Tool> {
+    pub fn find_msbuild(target: &str) -> Option<Tool> {
+        // VS 15 (2017) changed how to locate msbuild
+        if let Some(r) = find_msbuild_vs15(target) {
+            return Some(r);
+        } else {
+            find_old_msbuild(target)
+        }
+    }
+
+    fn find_msbuild_vs15(target: &str) -> Option<Tool> {
+        // Seems like this could also go through SetupConfiguration,
+        // or that find_msvc_15 could just use this registry key
+        // instead of the COM interface.
+        let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
+        LOCAL_MACHINE.open(key.as_ref())
+            .ok()
+            .and_then(|key| {
+                key.query_str("15.0").ok()
+            })
+            .map(|path| {
+                let path = PathBuf::from(path).join(r"MSBuild\15.0\Bin\MSBuild.exe");
+                let mut tool = Tool::new(path);
+                if target.contains("x86_64") {
+                    tool.env.push(("Platform".into(), "X64".into()));
+                }
+                tool
+            })
+    }
+
+    fn find_old_msbuild(target: &str) -> Option<Tool> {
         let key = r"SOFTWARE\Microsoft\MSBuild\ToolsVersions";
         LOCAL_MACHINE.open(key.as_ref())
             .ok()
