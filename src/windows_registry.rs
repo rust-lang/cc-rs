@@ -213,12 +213,13 @@ mod impl_ {
 
     fn tool_from_vs15_instance(tool: &str, target: &str,
                                instance: &SetupInstance) -> Option<Tool> {
-        let (bin_path, lib_path, include_path) = otry!(vs15_vc_paths(target, instance));
+        let (bin_path, host_bin_path, lib_path, include_path) = otry!(vs15_vc_paths(target, instance));
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() { return None };
 
         let mut tool = MsvcTool::new(tool_path);
         tool.path.push(bin_path.clone());
+        tool.path.push(host_bin_path);
         tool.libs.push(lib_path);
         tool.include.push(include_path);
 
@@ -232,7 +233,7 @@ mod impl_ {
         Some(tool.into_tool())
     }
 
-    fn vs15_vc_paths(target: &str, instance: &SetupInstance) -> Option<(PathBuf, PathBuf, PathBuf)> {
+    fn vs15_vc_paths(target: &str, instance: &SetupInstance) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf)> {
         let instance_path: PathBuf = otry!(instance.installation_path().ok()).into();
         let version_path = instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
         let mut version_file = otry!(File::open(version_path).ok());
@@ -245,11 +246,18 @@ mod impl_ {
             _ => return None,
         };
         let target = otry!(lib_subdir(target));
+        // The directory layout here is MSVC/bin/Host$host/$target/
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
+        // This is the path to the toolchain for a particular target, running
+        // on a given host
         let bin_path = path.join("bin").join(&format!("Host{}", host)).join(&target);
+        // But! we also need PATH to contain the target directory for the host
+        // architecture, because it contains dlls like mspdb140.dll compiled for
+        // the host architecture.
+        let host_bin_path = path.join("bin").join(&format!("Host{}", host)).join(&host.to_lowercase());
         let lib_path = path.join("lib").join(&target);
         let include_path = path.join("include");
-        Some((bin_path, lib_path, include_path))
+        Some((bin_path, host_bin_path, lib_path, include_path))
     }
 
     fn atl_paths(target: &str, path: &Path) -> Option<(PathBuf, PathBuf)> {
