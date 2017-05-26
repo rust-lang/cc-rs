@@ -99,6 +99,7 @@ pub enum VsVers {
     /// handle an enumeration of `VsVers` instances should always have a default
     /// case meaning that it's a VS version they don't understand.
     #[doc(hidden)]
+    #[allow(bad_style)]
     __Nonexhaustive_do_not_match_this_or_your_code_will_break,
 }
 
