@@ -196,6 +196,10 @@ mod impl_ {
     // In MSVC 15 (2017) MS once again changed the scheme for locating
     // the tooling.  Now we must go through some COM interfaces, which
     // is super fun for Rust.
+    //
+    // Note that much of this logic can be found [online] wrt paths, COM, etc.
+    //
+    // [online]: https://blogs.msdn.microsoft.com/vcblog/2017/03/06/finding-the-visual-c-compiler-tools-in-visual-studio-2017/
     pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
         otry!(com::initialize().ok());
 
