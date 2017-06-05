@@ -48,6 +48,7 @@
 
 #[cfg(feature = "parallel")]
 extern crate rayon;
+extern crate serde_json;
 
 use std::env;
 use std::ffi::{OsString, OsStr};
@@ -174,6 +175,42 @@ pub fn compile_library(output: &str, files: &[&str]) {
     c.compile(output);
 }
 
+fn get_possibly_custom_target() -> Option<String> {
+    // Try to open this as a file (custom target), if it fails then
+    // assume it's a built in target and just return that
+    env::var("TARGET").ok().map_or(None, |env| {
+        // XXX This is a puzzle for later:
+        let pwd = env::var("PWD").unwrap();
+        println!("here, env is {}", env);
+        println!("and PWD is {}", pwd);
+        println!("yet this will fail: {:?}", fs::File::open(&env));
+        let fullpath = Path::new(&pwd).join(&env);
+        println!("and this will work: {:?}", fs::File::open(&fullpath));
+
+        // Working around the above
+        match fs::File::open(&fullpath) {
+            Ok(file) => {
+                let work_around_carrier_trait: Result<serde_json::Value, serde_json::Error> = serde_json::from_reader(file);
+                match work_around_carrier_trait {
+                    Ok(specs) => {
+                        let llvm_target = specs["llvm-target"].clone();
+                        match llvm_target {
+                            serde_json::Value::String(s) => Some(s),
+                            _ => None,
+                        }
+                    }
+                    Err(_) => None
+                }
+            }
+            Err(e) => {
+                println!("Err: {}", e);
+                None
+            }
+        }
+    })
+}
+
+
 impl Config {
     /// Construct a new instance of a blank set of configuration.
     ///
@@ -188,7 +225,7 @@ impl Config {
             cpp: false,
             cpp_link_stdlib: None,
             cpp_set_stdlib: None,
-            target: None,
+            target: get_possibly_custom_target(),
             host: None,
             out_dir: None,
             opt_level: None,
