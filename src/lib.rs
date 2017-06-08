@@ -92,6 +92,8 @@ pub struct Config {
     cargo_metadata: bool,
     pic: Option<bool>,
     static_crt: Option<bool>,
+    shared_flag: Option<bool>,
+    static_flag: Option<bool>,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -185,6 +187,8 @@ impl Config {
             objects: Vec::new(),
             flags: Vec::new(),
             files: Vec::new(),
+            shared_flag: None,
+            static_flag: None,
             cpp: false,
             cpp_link_stdlib: None,
             cpp_set_stdlib: None,
@@ -223,6 +227,24 @@ impl Config {
     /// Add an arbitrary flag to the invocation of the compiler
     pub fn flag(&mut self, flag: &str) -> &mut Config {
         self.flags.push(flag.to_string());
+        self
+    }
+
+    /// Set the `-shared` flag.
+    ///
+    /// When enabled, the compiler will produce a shared object which can
+    /// then be linked with other objects to form an executable.
+    pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Config {
+        self.shared_flag = Some(shared_flag);
+        self
+    }
+
+    /// Set the `-static` flag.
+    ///
+    /// When enabled on systems that support dynamic linking, this prevents
+    /// linking with the shared libraries.
+    pub fn static_flag(&mut self, static_flag: bool) -> &mut Config {
+        self.static_flag = Some(static_flag);
         self
     }
 
@@ -618,7 +640,7 @@ impl Config {
                     cmd.args.push("-m64".into());
                 }
 
-                if target.contains("musl") {
+                if self.static_flag.is_none() && target.contains("musl") {
                     cmd.args.push("-static".into());
                 }
 
@@ -696,6 +718,13 @@ impl Config {
             // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
             // detected instead.
             self.ios_flags(&mut cmd);
+        }
+
+        if self.static_flag.unwrap_or(false) {
+            cmd.args.push("-static".into());
+        }
+        if self.shared_flag.unwrap_or(false) {
+            cmd.args.push("-shared".into());
         }
 
         if self.cpp {
