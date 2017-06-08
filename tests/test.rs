@@ -170,6 +170,34 @@ fn gnu_compile_assembly() {
 }
 
 #[test]
+fn gnu_shared() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("foo.c")
+        .shared_flag(true)
+        .static_flag(false)
+        .compile("libfoo.a");
+
+    test.cmd(0)
+        .must_have("-shared")
+        .must_not_have("-static");
+}
+
+#[test]
+fn gnu_static() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("foo.c")
+        .shared_flag(false)
+        .static_flag(true)
+        .compile("libfoo.a");
+
+    test.cmd(0)
+        .must_have("-static")
+        .must_not_have("-shared");
+}
+
+#[test]
 fn msvc_smoke() {
     let test = Test::msvc();
     test.gcc()
