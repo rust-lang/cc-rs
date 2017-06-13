@@ -50,6 +50,7 @@ fn main() {
         println!("nmake 1");
         let status = gcc::windows_registry::find(&target, "nmake.exe")
             .unwrap()
+            .env_remove("MAKEFLAGS")
             .arg("/fsrc/NMakefile")
             .env("OUT_DIR", &out)
             .status()
@@ -66,6 +67,7 @@ fn main() {
         println!("nmake 2");
         let status = gcc::windows_registry::find(&target, "nmake.exe")
             .unwrap()
+            .env_remove("MAKEFLAGS")
             .arg("/fsrc/NMakefile")
             .env("OUT_DIR", &out)
             .status()
