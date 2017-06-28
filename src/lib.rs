@@ -602,7 +602,13 @@ impl Config {
             }
             ToolFamily::Gnu |
             ToolFamily::Clang => {
-                cmd.args.push(format!("-O{}", opt_level).into());
+                // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does not support '-Oz'
+                if target.contains("android") && &opt_level[..] == "z" {
+                    cmd.args.push("-Os".into());;
+                } else {
+                    cmd.args.push(format!("-O{}", opt_level).into());
+                }
+
                 if !nvcc {
                     cmd.args.push("-ffunction-sections".into());
                     cmd.args.push("-fdata-sections".into());
