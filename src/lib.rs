@@ -602,9 +602,10 @@ impl Config {
             }
             ToolFamily::Gnu |
             ToolFamily::Clang => {
-                // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does not support '-Oz'
-                if target.contains("android") && &opt_level[..] == "z" {
-                    cmd.args.push("-Os".into());;
+                // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
+                // not support '-Oz'
+                if target.contains("android") && opt_level == "z" {
+                    cmd.args.push("-Os".into());
                 } else {
                     cmd.args.push(format!("-O{}", opt_level).into());
                 }
