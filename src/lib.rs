@@ -268,6 +268,16 @@ impl Config {
     ///
     /// When enabled, the compiler will produce a shared object which can
     /// then be linked with other objects to form an executable.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .shared_flag(true)
+    ///             .compile("libfoo.so");
+    /// ```
+
     pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Config {
         self.shared_flag = Some(shared_flag);
         self
@@ -277,6 +287,16 @@ impl Config {
     ///
     /// When enabled on systems that support dynamic linking, this prevents
     /// linking with the shared libraries.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .shared_flag(true)
+    ///             .static_flag(true)
+    ///             .compile("libfoo.so");
+    /// ```
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Config {
         self.static_flag = Some(static_flag);
         self
