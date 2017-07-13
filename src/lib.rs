@@ -237,10 +237,12 @@ impl Config {
     ///
     /// # Example
     ///
+    /// ```no_run
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .shared_flag(true)
     ///             .compile("libfoo.so");
+    /// ```
 
     pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Config {
         self.shared_flag = Some(shared_flag);
@@ -254,11 +256,13 @@ impl Config {
     ///
     /// # Example
     ///
+    /// ```no_run
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .shared_flag(true)
     ///             .static_flag(true)
     ///             .compile("libfoo.so");
+    /// ```
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Config {
         self.static_flag = Some(static_flag);
         self
