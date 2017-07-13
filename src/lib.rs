@@ -208,12 +208,36 @@ impl Config {
     }
 
     /// Add a directory to the `-I` or include path for headers
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::path::Path;
+    ///
+    /// let library_path = Path::new("/path/to/library");
+    ///
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .include(library_path)
+    ///             .include("src")
+    ///             .compile("libfoo.a");
+    /// ```
     pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Config {
         self.include_directories.push(dir.as_ref().to_path_buf());
         self
     }
 
     /// Specify a `-D` variable with an optional value.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .define("FOO", Some("BAR"))
+    ///             .define("BAZ", None)
+    ///             .compile("libfoo.a");
+    /// ```
     pub fn define(&mut self, var: &str, val: Option<&str>) -> &mut Config {
         self.definitions.push((var.to_string(), val.map(|s| s.to_string())));
         self
@@ -226,6 +250,15 @@ impl Config {
     }
 
     /// Add an arbitrary flag to the invocation of the compiler
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .flag("-ffunction-sections")
+    ///             .compile("libfoo.a");
+    /// ```
     pub fn flag(&mut self, flag: &str) -> &mut Config {
         self.flags.push(flag.to_string());
         self
