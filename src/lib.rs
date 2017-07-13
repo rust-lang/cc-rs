@@ -72,6 +72,7 @@ mod setup_config;
 pub mod windows_registry;
 
 /// Extra configuration to pass to gcc.
+#[derive(Clone, Debug, Default)]
 pub struct Config {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
