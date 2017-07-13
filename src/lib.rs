@@ -211,6 +211,8 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
+    /// use std::path::Path;
+    ///
     /// let library_path = Path::new("/path/to/library");
     ///
     /// gcc::Config::new()
@@ -249,8 +251,8 @@ impl Config {
     /// Add an arbitrary flag to the invocation of the compiler
     ///
     /// # Example
-    /// ```no_run
     ///
+    /// ```no_run
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .flag("-ffunction-sections")
