@@ -104,6 +104,7 @@ pub struct Config {
 /// This can be used to further configure other build systems (e.g. forward
 /// along CC and/or CFLAGS) or the `to_command` method can be used to run the
 /// compiler itself.
+#[derive(Clone, Debug)]
 pub struct Tool {
     path: PathBuf,
     args: Vec<OsString>,
