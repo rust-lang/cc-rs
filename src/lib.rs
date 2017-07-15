@@ -364,6 +364,15 @@ impl Config {
     ///
     /// This option is automatically scraped from the `TARGET` environment
     /// variable by build scripts, so it's not required to call this function.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .target("aarch64-linux-android")
+    ///             .compile("libfoo.so");
+    /// ```
     pub fn target(&mut self, target: &str) -> &mut Config {
         self.target = Some(target.to_string());
         self
@@ -373,6 +382,15 @@ impl Config {
     ///
     /// This option is automatically scraped from the `HOST` environment
     /// variable by build scripts, so it's not required to call this function.
+    /// 
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .host("arm-linux-gnueabihf")
+    ///             .compile("libfoo.so");
+    /// ```
     pub fn host(&mut self, host: &str) -> &mut Config {
         self.host = Some(host.to_string());
         self
