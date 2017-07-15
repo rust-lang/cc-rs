@@ -329,6 +329,16 @@ impl Config {
     /// otherwise cargo will link against the specified library.
     ///
     /// The given library name must not contain the `lib` prefix.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .shared_flag(true)
+    ///             .cpp_set_stdlib(Some("stdc++"))
+    ///             .compile("libfoo.so");
+    /// ```
     pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>) -> &mut Config {
         self.cpp_link_stdlib = Some(cpp_link_stdlib.map(|s| s.into()));
         self
@@ -354,6 +364,16 @@ impl Config {
     /// be used, otherwise `-stdlib` is added to the compile invocation.
     ///
     /// The given library name must not contain the `lib` prefix.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .shared_flag(true)
+    ///             .cpp_set_stdlib(Some("c++"))
+    ///             .compile("libfoo.so");
+    /// ```
     pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>) -> &mut Config {
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
         self.cpp_link_stdlib(cpp_set_stdlib);
