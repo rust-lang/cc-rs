@@ -309,6 +309,16 @@ impl Config {
         self
     }
 
+    /// Add files which will be compiled
+    pub fn files<P>(&mut self, p: P) -> &mut Config
+        where P: IntoIterator,
+              P::Item: AsRef<Path> {
+        for file in p.into_iter() {
+            self.file(file);
+        }
+        self
+    }
+
     /// Set C++ support.
     ///
     /// The other `cpp_*` options will only become active if this is set to
