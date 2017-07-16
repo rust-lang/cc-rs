@@ -72,7 +72,7 @@ mod setup_config;
 pub mod windows_registry;
 
 /// Extra configuration to pass to gcc.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct Config {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
@@ -1184,6 +1184,12 @@ impl Config {
         if self.cargo_metadata {
             println!("{}", s);
         }
+    }
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config::new()
     }
 }
 
