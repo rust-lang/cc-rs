@@ -48,12 +48,13 @@ extern crate rayon;
 
 use filetime::FileTime;
 use std::env;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::ffi::{OsString, OsStr};
-use std::fs;
+use std::fs::{self, OpenOptions};
+use std::hash::Hash;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio, Child};
-use std::io::{self, BufReader, BufRead, Read, Write};
+use std::io::{self, BufReader, BufRead, BufWriter, Read, Write};
 use std::thread::{self, JoinHandle};
 
 #[doc(hidden)]
@@ -142,6 +143,43 @@ impl From<io::Error> for Error {
     }
 }
 
+#[derive(Clone, Debug)]
+/// Cached build information.
+///
+/// A build cache contains information about a build that may affect its output, including:
+///
+/// * The compiler and any flags passed to it, including preprocessor definitions;
+/// * A *dependency map* containing a list of derived dependencies for each input file.
+///
+/// The build cache is a key component in incremental compilation, i.e. compiling only those files
+/// that, since the last build, have been modified or depend on other files that have been
+/// modified. When a build is requested, it is executed in a three-stage process as follows:
+///
+/// 1. If compiler information has changed, all files are compiled.
+/// 2. Otherwise, each file is evaluated to determine if it is modified. All modified files (if
+///    any) are compiled. A file is considered to be modified if:
+///    1. The associated object file does not exist, or;
+///    2. The file's last modification date is more recent than that of the associated object
+///       file, or;
+///    3. The file does not have an entry in the dependency map, or;
+///    4. The file's last modification date is more recent than that of the build cache file,
+///       or;
+///    5. Any of the file's cached dependencies have a last modification date that is more recent
+///       than that of the associated object file, or;
+///    6. Any of the file's cached dependencies have a last modification date that is more recent
+///       than that of the build cache file.
+/// 3. All object files are linked.
+///
+/// After a build, the updated build cache is written to a file for use in subsequent builds.
+struct BuildCache {
+    /// The last modification date of the build cache directory.
+    mtime: FileTime,
+    /// Cached compiler information.
+    compiler: Tool,
+    /// The dependency map.
+    dependencies: HashMap<PathBuf, Vec<PathBuf>>,
+}
+
 /// Configuration used to represent an invocation of a C compiler.
 ///
 /// This can be used to figure out what compiler is in use, what the arguments
@@ -149,7 +187,7 @@ impl From<io::Error> for Error {
 /// This can be used to further configure other build systems (e.g. forward
 /// along CC and/or CFLAGS) or the `to_command` method can be used to run the
 /// compiler itself.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Tool {
     path: PathBuf,
     args: Vec<OsString>,
@@ -162,7 +200,7 @@ pub struct Tool {
 /// Each family of tools differs in how and what arguments they accept.
 ///
 /// Detection of a family is done on best-effort basis and may not accurately reflect the tool.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 enum ToolFamily {
     /// Tool is GNU Compiler Collection-like.
     Gnu,
@@ -171,6 +209,18 @@ enum ToolFamily {
     Clang,
     /// Tool is the MSVC cl.exe.
     Msvc,
+}
+
+/// A trait shared by types that are read from a cache file.
+trait FromCacheFile: Sized {
+    /// Reads an item from a cache file.
+    fn from_cache_file<R: Read>(r: R) -> io::Result<Self>;
+}
+
+/// A trait shared by types that are written to a cache file.
+trait ToCacheFile: Sized {
+    /// Writes an item to a cache file.
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()>;
 }
 
 impl ToolFamily {
@@ -703,79 +753,118 @@ impl Build {
                 (output, gnu)
             };
         let dst = self.get_out_dir()?;
+        let build_cache_path = self.build_cache_path(Path::new(&lib_name))?;
         let msvc = self.get_target()?.contains("msvc");
         let compiler = self.try_get_compiler()?;
 
         let mut objects = Vec::new();
         let mut src_dst = Vec::new();
-        let mut dependencies = HashMap::new();
+        let mut dependencies: HashSet<PathBuf> = HashSet::new();
+
+        println!("reading previous build cache from {}", build_cache_path.display());
+        let (compiler_changed, mut build_cache) = match BuildCache::from_file(&build_cache_path) {
+            Ok(cache) => (compiler != cache.compiler, cache),
+            Err(e) => {
+                if e.kind() == io::ErrorKind::NotFound {
+                    println!("note: build cache not found; a new one will be created");
+                } else {
+                    println!("warning: could not read build cache: {}", e);
+                }
+                (true, BuildCache::new(compiler.clone()))
+            }
+        };
+
         for file in self.files.iter() {
+            self.print(&format!("cargo:rerun-if-changed={}", file.display()));
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
                 dst.join(obj.file_name().ok_or_else(|| Error::new(ErrorKind::IOError, "Getting object file details failed."))?)
             } else {
                 obj
             };
-
-            let mut input_mtime = get_mtime(&file);
-            let output_mtime = get_mtime(&obj);
-
-            let mut cmd = compiler.to_command();
-            if msvc {
-                cmd.arg("/showIncludes").arg("/E");
-            } else {
-                cmd.arg("-M").arg("-MG");
-            }
-            cmd.arg(&file);
-            println!("running: {:?}", cmd);
-
-            let cpp_output = match cmd.output() {
-                Ok(ref out) if out.status.success() => {
-                    String::from_utf8(if msvc {
-                        out.stderr.clone()
-                    } else {
-                        out.stdout.clone()
-                    }).ok()
-                },
-                _ => {
-                    println!("warning: dependency check failed, building anyway: {:?}", file);
-                    input_mtime = output_mtime;
-                    None
+            let mut dependency_check = true;
+            if !compiler_changed {
+                if let Ok(input_mtime) = get_mtime(&file) {
+                    let output_mtime = get_mtime_unwrapped(&obj);
+                    if input_mtime < output_mtime &&
+                    build_cache.dependencies.contains_key(file.as_path()) &&
+                    input_mtime < build_cache.mtime {
+                        for dep in &build_cache.dependencies[file.as_path()] {
+                            match get_mtime(dep) {
+                                Ok(dep_mtime) => {
+                                    let _ = dependencies.insert(dep.clone());
+                                    if dep_mtime >= output_mtime ||
+                                    dep_mtime >= build_cache.mtime {
+                                        break;
+                                    }
+                                }
+                                _ => {
+                                    break;
+                                }
+                            }
+                        }
+                        dependency_check = false;
+                    }
                 }
-            };
-
-            if let Some(cpp) = cpp_output {
-                let files = if msvc {
-                    // Output is indented dependency per line, with "Note: ..." prefix
-                    cpp
-                        .replace("Note: including file:", "")
+            }
+            if dependency_check {
+                let mut cmd = compiler.to_command();
+                if msvc {
+                    cmd.arg("/showIncludes").arg("/E");
                 } else {
-                    // Output is make rule with line continuations and multiple files per line
-                    cpp
-                        .replace("\\\n", "") // remove line continuations
-                        .replace("\\ ", "\0") // protect escaped spaces
-                        .replace(" ", "\n") // spaces to new lines
-                        .replace("\0", "\\ ") // bring escaped spaces back
+                    cmd.arg("-M").arg("-MG");
+                }
+                cmd.arg(&file);
+                println!("running: {:?}", cmd);
+
+                let cpp_output = match cmd.output() {
+                    Ok(ref out) if out.status.success() => {
+                        String::from_utf8(if msvc {
+                            out.stderr.clone()
+                        } else {
+                            out.stdout.clone()
+                        }).ok()
+                    },
+                    Ok(out) => {
+                        println!(
+                            "warning: dependency check failed: command returned exit code {}",
+                            out.status.code().unwrap()
+                        );
+                        None
+                    }
+                    Err(e) => {
+                        println!("warning: dependency check failed: {}", e);
+                        None
+                    }
                 };
 
-                input_mtime = files
-                    .lines().skip(1)
-                    .chain(vec![file.to_str().unwrap_or("")])
-                    .filter_map(|s| PathBuf::from(s.trim()).canonicalize().ok())
-                    .map(|f| dependencies
-                        .entry(f.clone())
-                        .or_insert(get_mtime(f))
-                        .clone())
-                    .max()
-                    .unwrap_or(FileTime::zero());
-            }
+                if let Some(cpp) = cpp_output {
+                    let files = if msvc {
+                        // Output is indented dependency per line, with "Note: ..." prefix
+                        cpp
+                            .replace("Note: including file:", "")
+                    } else {
+                        // Output is make rule with line continuations and multiple files per line
+                        cpp
+                            .replace("\\\n", "") // remove line continuations
+                            .replace("\\ ", "\0") // protect escaped spaces
+                            .replace(" ", "\n") // spaces to new lines
+                            .replace("\0", "\\ ") // bring escaped spaces back
+                    };
 
-            // build if a dependency is fresher than the output object
-            if input_mtime >= output_mtime {
-                println!("{:?} or one of its dependencies is {}s fresher than {:?}",
-                    file,
-                    input_mtime.seconds() - output_mtime.seconds(),
-                    obj);
+                    let deps = files.lines()
+                        .skip(1)
+                        .filter_map(|s| PathBuf::from(s.trim()).canonicalize().ok())
+                        .map(|f| {
+                            let _ = dependencies.insert(f.clone());
+                            f
+                        })
+                        .collect();
+                    let _ = build_cache.dependencies.insert(file.clone(), deps);
+                }
+            }
+            if dependency_check || compiler_changed {
+                println!("compiling {}", file.display());
                 src_dst.push((file.to_path_buf(), obj.clone()));
                 if let Some(s) = obj.parent() {
                     let _ = fs::create_dir_all(s)?;
@@ -783,17 +872,10 @@ impl Build {
                     return Err(Error::new(ErrorKind::IOError, "Getting object file details failed."));
                 }
             }
-
             objects.push(obj);
         }
 
-        // if objects are queued to build, or output doesn't exist
-        if src_dst.len() > 0 || !&dst.join(output).exists() {
-            self.compile_objects(&src_dst)?;
-            self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
-        }
-
-        for file in dependencies.keys() {
+        for file in dependencies.iter() {
             self.print(&format!("cargo:rerun-if-changed={}", file.display()));
         }
 
@@ -821,6 +903,17 @@ impl Build {
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
+            }
+        }
+
+        // if objects are queued to build, or output doesn't exist
+        if src_dst.len() > 0 || !&dst.join(&gnu_lib_name).exists() {
+            self.compile_objects(&src_dst)?;
+            self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+
+            println!("writing build cache to {}", build_cache_path.display());
+            if let Err(e) = build_cache.to_file(build_cache_path) {
+                println!("warning: could not write build cache: {}", e);
             }
         }
 
@@ -1566,6 +1659,10 @@ impl Build {
         }
     }
 
+    fn build_cache_path<P: AsRef<Path>>(&self, output: P) -> Result<PathBuf, Error> {
+        self.get_out_dir().map(|p| p.join(output).with_extension("cc-cache"))
+    }
+
     fn getenv(&self, v: &str) -> Option<String> {
         let r = env::var(v).ok();
         self.print(&format!("{} = {:?}", v, r));
@@ -1589,6 +1686,57 @@ impl Build {
 impl Default for Build {
     fn default() -> Build {
         Build::new()
+    }
+}
+
+impl BuildCache {
+    /// Creates a new build cache with the given compiler and an empty dependency map.
+    pub fn new(compiler: Tool) -> BuildCache {
+        BuildCache {
+            mtime: FileTime::zero(),
+            compiler: compiler,
+            dependencies: HashMap::new(),
+        }
+    }
+
+    /// Loads a previously saved build cache from a file.
+    pub fn from_file<P: AsRef<Path>>(path: P) -> io::Result<BuildCache> {
+        get_mtime(&path)
+            .and_then(|mtime| {
+                OpenOptions::new()
+                    .read(true)
+                    .open(path)
+                    .map(|file| (BufReader::new(file), mtime))
+            })
+            .and_then(|(mut file, mtime)| {
+                Tool::from_cache_file(&mut file)
+                    .map(|compiler| (file, mtime, compiler))
+            })
+            .and_then(|(mut file, mtime, compiler)| {
+                HashMap::from_cache_file(&mut file)
+                    .map(|deps| BuildCache {
+                        mtime: mtime,
+                        compiler: compiler,
+                        dependencies: deps,
+                    })
+            })
+    }
+
+    /// Consumes a build cache and writes it to a file.
+    pub fn to_file<P: AsRef<Path>>(self, path: P) -> io::Result<()> {
+        fs::create_dir_all(path.as_ref().parent().unwrap())
+            .and_then(|_| {
+                OpenOptions::new()
+                    .write(true)
+                    .truncate(true)
+                    .create(true)
+                    .open(path)
+                    .map(|file| BufWriter::new(file))
+                    .and_then(|mut file| {
+                        self.compiler.to_cache_file(&mut file)
+                            .and_then(|_| self.dependencies.to_cache_file(file))
+                    })
+            })
     }
 }
 
@@ -1651,10 +1799,212 @@ impl Tool {
     }
 }
 
-fn get_mtime<P: AsRef<Path>>(file: P) -> FileTime {
-    fs::metadata(file)
-        .map(|mtime| FileTime::from_last_modification_time(&mtime))
-        .unwrap_or(FileTime::zero())
+impl<'a, T: ToCacheFile> ToCacheFile for &'a T {
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()> {
+        (*self).to_cache_file(w)
+    }
+}
+
+impl FromCacheFile for usize {
+    fn from_cache_file<R: Read>(mut r: R) -> io::Result<Self> {
+        let mut len_buf = [0; 4];
+        r.read_exact(&mut len_buf)
+            .map(|_| {
+                (len_buf[0] as usize) |
+                ((len_buf[1] as usize) << 8) |
+                ((len_buf[2] as usize) << 16) |
+                ((len_buf[3] as usize) << 24)
+            })
+    }
+}
+
+impl ToCacheFile for usize {
+    fn to_cache_file<W: Write>(&self, mut w: W) -> io::Result<()> {
+        assert!(*self <= (u32::max_value() as usize));
+        let len_buf = [
+            (*self & 0xFF) as u8,
+            ((*self & 0xFF00) >> 8) as u8,
+            ((*self & 0xFF0000) >> 16) as u8,
+            ((*self & 0xFF000000) >> 24) as u8,
+        ];
+        w.write_all(&len_buf)
+    }
+}
+
+impl<'a> ToCacheFile for &'a str {
+    fn to_cache_file<W: Write>(&self, mut w: W) -> io::Result<()> {
+        self.len().to_cache_file(&mut w)
+            .and_then(|_| w.write_all(self.as_bytes()))
+    }
+}
+
+impl FromCacheFile for String {
+    fn from_cache_file<R: Read>(mut r: R) -> io::Result<Self> {
+        usize::from_cache_file(&mut r)
+            .and_then(|len| {
+                let mut buf = vec![0; len];
+                r.read_exact(&mut buf).map(|_| buf)
+            })
+            .and_then(|buf| {
+                String::from_utf8(buf)
+                    .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))
+            })
+    }
+}
+
+impl ToCacheFile for String {
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()> {
+        self.as_str().to_cache_file(w)
+    }
+}
+
+impl FromCacheFile for OsString {
+    fn from_cache_file<R: Read>(r: R) -> io::Result<Self> {
+        String::from_cache_file(r).map(|s| OsString::from(s))
+    }
+}
+
+impl ToCacheFile for OsString {
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()> {
+        (&*self.to_string_lossy()).to_cache_file(w)
+    }
+}
+
+impl FromCacheFile for PathBuf {
+    fn from_cache_file<R: Read>(r: R) -> io::Result<Self> {
+        String::from_cache_file(r).map(|s| PathBuf::from(s))
+    }
+}
+
+impl ToCacheFile for PathBuf {
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()> {
+        (&*self.to_string_lossy()).to_cache_file(w)
+    }
+}
+
+impl<A: FromCacheFile, B: FromCacheFile> FromCacheFile for (A, B) {
+    fn from_cache_file<R: Read>(mut r: R) -> io::Result<Self> {
+        A::from_cache_file(&mut r)
+            .and_then(|a| B::from_cache_file(r).map(|b| (a, b)))
+    }
+}
+
+impl<A: ToCacheFile, B: ToCacheFile> ToCacheFile for (A, B) {
+    fn to_cache_file<W: Write>(&self, mut w: W) -> io::Result<()> {
+        self.0.to_cache_file(&mut w).and_then(|_| self.1.to_cache_file(w))
+    }
+}
+
+impl<T: FromCacheFile> FromCacheFile for Vec<T> {
+    fn from_cache_file<R: Read>(mut r: R) -> io::Result<Self> {
+        usize::from_cache_file(&mut r)
+            .and_then(|len| {
+                let mut acc = Vec::with_capacity(len);
+                for _ in 0..len {
+                    match T::from_cache_file(&mut r) {
+                        Ok(t) => acc.push(t),
+                        Err(e) => return Err(e),
+                    }
+                }
+                Ok(acc)
+            })
+    }
+}
+
+impl<T: ToCacheFile> ToCacheFile for Vec<T> {
+    fn to_cache_file<W: Write>(&self, mut w: W) -> io::Result<()> {
+        self.len().to_cache_file(&mut w)
+            .and_then(|_| {
+                for item in self.iter() {
+                    if let Err(e) = item.to_cache_file(&mut w) {
+                        return Err(e);
+                    }
+                }
+                Ok(())
+            })
+    }
+}
+
+impl<A: Eq + FromCacheFile + Hash, B: FromCacheFile> FromCacheFile for HashMap<A, B> {
+    fn from_cache_file<R: Read>(r: R) -> io::Result<Self> {
+        let res: io::Result<Vec<(A, B)>> = Vec::from_cache_file(r);
+        res.map(|v| v.into_iter().collect())
+    }
+}
+
+impl<A: Eq + Hash + ToCacheFile, B: ToCacheFile> ToCacheFile for HashMap<A, B> {
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()> {
+        self.iter().collect::<Vec<_>>().to_cache_file(w)
+    }
+}
+
+impl FromCacheFile for Tool {
+    fn from_cache_file<R: Read>(mut r: R) -> io::Result<Self> {
+        PathBuf::from_cache_file(&mut r)
+            .and_then(|path| Vec::from_cache_file(&mut r).map(|args| (path, args)))
+            .and_then(|(path, args)| Vec::from_cache_file(&mut r).map(|env| (path, args, env)))
+            .and_then(|(path, args, env)| {
+                ToolFamily::from_cache_file(r).map(|family| Tool {
+                    path: path,
+                    args: args,
+                    env: env,
+                    family: family,
+                })
+            })
+    }
+}
+
+impl ToCacheFile for Tool {
+    fn to_cache_file<W: Write>(&self, mut w: W) -> io::Result<()> {
+        self.path.to_cache_file(&mut w)
+            .and_then(|_| self.args.to_cache_file(&mut w))
+            .and_then(|_| self.env.to_cache_file(&mut w))
+            .and_then(|_| self.family.to_cache_file(w))
+    }
+}
+
+impl FromCacheFile for ToolFamily {
+    fn from_cache_file<R: Read>(r: R) -> io::Result<Self> {
+        String::from_cache_file(r).and_then(|s| {
+            match s.as_str() {
+                "clang" => Ok(ToolFamily::Clang),
+                "gnu" => Ok(ToolFamily::Gnu),
+                "msvc" => Ok(ToolFamily::Msvc),
+                _ => Err(io::Error::new(io::ErrorKind::Other, format!("unknown toolchain: {}", s))),
+            }
+        })
+    }
+}
+
+impl ToCacheFile for ToolFamily {
+    fn to_cache_file<W: Write>(&self, w: W) -> io::Result<()> {
+        let s = match *self {
+            ToolFamily::Clang => "clang",
+            ToolFamily::Gnu => "gnu",
+            ToolFamily::Msvc => "msvc",
+        };
+        s.to_cache_file(w)
+    }
+}
+
+fn get_mtime<P: AsRef<Path>>(file: P) -> io::Result<FileTime> {
+    match fs::metadata(&file) {
+        Ok(mtime) => Ok(FileTime::from_last_modification_time(&mtime)),
+        Err(e) => {
+            if e.kind() != io::ErrorKind::NotFound {
+                println!(
+                    "warning: could not determine last modification date for {}: {}",
+                    file.as_ref().display(),
+                    e
+                );
+            }
+            Err(e)
+        }
+    }
+}
+
+fn get_mtime_unwrapped<P: AsRef<Path>>(file: P) -> FileTime {
+    get_mtime(file).unwrap_or(FileTime::zero())
 }
 
 fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
@@ -1738,5 +2088,22 @@ fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bo
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(&dst);
+    }
+}
+
+#[doc(hidden)]
+impl Build {
+    /// Returns the last modification date for the build cache file.
+    pub fn build_cache_mtime(&self, lib_name: &str) -> FileTime {
+        get_mtime(self.build_cache_path(lib_name).unwrap()).unwrap()
+    }
+
+    /// Updates the last modification date for each source file, without modifying the files
+    /// themselves.
+    pub fn touch_sources(&self, lib_name: &str) {
+        for file in self.files.iter() {
+            let new_mtime = self.build_cache_mtime(lib_name);
+            filetime::set_file_times(file, new_mtime, new_mtime).unwrap()
+        }
     }
 }

@@ -1,21 +1,33 @@
 extern crate gcc;
 
+use std::time::Duration;
 use std::env;
 use std::fs;
 use std::path::PathBuf;
+use std::thread;
 
 fn main() {
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     fs::remove_dir_all(&out).unwrap();
     fs::create_dir(&out).unwrap();
 
-    gcc::Build::new()
-        .file("src/foo.c")
-        .flag_if_supported("-Wall")
-        .flag_if_supported("-Wfoo-bar-this-flag-does-not-exist")
-        .define("FOO", None)
-        .define("BAR", "1")
-        .compile("foo");
+    let mut foo = gcc::Build::new();
+    foo.file("src/foo.c");
+    foo.flag_if_supported("-Wall");
+    foo.flag_if_supported("-Wfoo-bar-this-flag-does-not-exist");
+    foo.define("FOO", None);
+    foo.define("BAR", "1");
+
+    foo.compile("foo");
+    let mtime = foo.build_cache_mtime("foo");
+    foo.compile("foo");
+    assert_eq!(mtime, foo.build_cache_mtime("foo"));
+
+    thread::sleep(Duration::from_secs(1));
+    foo.touch_sources("foo");
+    thread::sleep(Duration::from_secs(1));
+    foo.compile("foo");
+    assert!(mtime < foo.build_cache_mtime("foo"));
 
     gcc::Build::new()
         .file("src/bar1.c")
