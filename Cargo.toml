@@ -12,6 +12,8 @@ C compiler to compile native C code into a static archive to be linked into Rust
 code.
 """
 keywords = ["build-dependencies"]
+readme = "README.md"
+categories = ["development-tools"]
 
 [badges]
 travis-ci = { repository = "alexcrichton/gcc-rs" }
