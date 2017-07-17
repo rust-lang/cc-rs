@@ -10,11 +10,14 @@
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
 //! compile C code into a static archive which is then linked into a Rust crate.
-//! The top-level `compile_library` function serves as a convenience and more
-//! advanced configuration is available through the `Config` builder.
+//! The top-level [`compile_library`] function serves as a convenience.  More
+//! advanced configuration is available through the [`Config`] builder.
 //!
 //! This crate will automatically detect situations such as cross compilation or
 //! other environment variables set by Cargo and will build code appropriately.
+//!
+//! [`compile_library`]: fn.compile_library.html
+//! [`Config`]: struct.Config.html
 //!
 //! # Examples
 //!
@@ -181,7 +184,9 @@ pub fn compile_library(output: &str, files: &[&str]) {
 impl Config {
     /// Construct a new instance of a blank set of configuration.
     ///
-    /// This builder is finished with the `compile` function.
+    /// This builder is finished with the [`compile`] function.
+    ///
+    /// [`compile`]: struct.Config.html#method.compile
     pub fn new() -> Config {
         Config {
             include_directories: Vec::new(),
@@ -392,7 +397,7 @@ impl Config {
     ///
     /// This option is automatically scraped from the `HOST` environment
     /// variable by build scripts, so it's not required to call this function.
-    /// 
+    ///
     /// # Example
     ///
     /// ```no_run
