@@ -501,6 +501,12 @@ impl Config {
     /// Run the compiler, generating the file `output`
     ///
     /// The name `output` must begin with `lib` and end with `.a`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `output` is not formatted correctly or if one of the underlying 
+    /// compiler commands fails. It can also panic if it fails reading file names
+    /// or creating directories.
     pub fn compile(&self, output: &str) {
         assert!(output.starts_with("lib"));
         assert!(output.ends_with(".a"));
@@ -611,6 +617,10 @@ impl Config {
     /// Run the compiler, returning the macro-expanded version of the input files.
     ///
     /// This is only relevant for C and C++ files.
+    ///
+    /// # Panics
+    ///
+    /// Panics if compiler path has an invalid file name.
     pub fn expand(&self) -> Vec<u8> {
         let compiler = self.get_compiler();
         let mut cmd = compiler.to_command();
