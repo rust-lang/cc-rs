@@ -35,7 +35,9 @@ Next up, you'll want to write a build script like so:
 extern crate gcc;
 
 fn main() {
-    gcc::compile_library("libfoo.a", &["foo.c", "bar.c"]);
+    gcc::Config::new()
+        .files(["foo.c", "bar.c"])
+        .compile("libfoo.a");
 }
 ```
 

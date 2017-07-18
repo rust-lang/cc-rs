@@ -10,25 +10,14 @@
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
 //! compile C code into a static archive which is then linked into a Rust crate.
-//! The top-level `compile_library` function serves as a convenience and more
-//! advanced configuration is available through the `Config` builder.
+//! Configuration is available through the `Config` builder.
 //!
 //! This crate will automatically detect situations such as cross compilation or
 //! other environment variables set by Cargo and will build code appropriately.
 //!
 //! # Examples
 //!
-//! Use the default configuration:
-//!
-//! ```no_run
-//! extern crate gcc;
-//!
-//! fn main() {
-//!     gcc::compile_library("libfoo.a", &["src/foo.c"]);
-//! }
-//! ```
-//!
-//! Use more advanced configuration:
+//! Use the `Config` builder to compile `src/foo.c`:
 //!
 //! ```no_run
 //! extern crate gcc;
@@ -170,6 +159,8 @@ impl ToolFamily {
 /// ```no_run
 /// gcc::compile_library("libfoo.a", &["foo.c", "bar.c"]);
 /// ```
+#[deprecated]
+#[doc(hidden)]
 pub fn compile_library(output: &str, files: &[&str]) {
     let mut c = Config::new();
     for f in files.iter() {
