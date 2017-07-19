@@ -19,7 +19,7 @@ fn hello_works() {
     let output = child.wait_with_output().expect("Failed to wait on hello.").stdout;
     let output = String::from_utf8(output).unwrap();
 
-    assert_eq!(output, "Hello World!\n");
+    assert_eq!(output, "Hello World!");
 }
 
 #[test]
