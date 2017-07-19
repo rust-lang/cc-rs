@@ -502,13 +502,15 @@ impl Config {
     ///
     /// # Panics
     ///
-    /// Panics if `output` is not formatted correctly or if one of the underlying 
+    /// Panics if `output` is not formatted correctly or if one of the underlying
     /// compiler commands fails. It can also panic if it fails reading file names
     /// or creating directories.
     pub fn compile(&self, output: &str) {
-        let name_start = if output.starts_with("lib") { 3 } else { 0 };
-        let name_end = if output.ends_with(".a") { output.len() - 2 } else { output.len() };
-        let lib_name = &output[name_start..name_end];
+        let lib_name = if output.starts_with("lib") && output.ends_with(".a") {
+                &output[3..output.len() - 2]
+            } else {
+                &output
+            };
         let dst = self.get_out_dir();
 
         let mut objects = Vec::new();
