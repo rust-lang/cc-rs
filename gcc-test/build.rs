@@ -91,4 +91,9 @@ fn main() {
         .expand();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains("hello world"));
+
+    // Tests that we can build a binary.
+    gcc::Config::new()
+        .file("src/hello.c")
+        .compile_binary("hello");
 }

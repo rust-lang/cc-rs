@@ -12,6 +12,9 @@
 //! compile C code into a static archive which is then linked into a Rust crate.
 //! Configuration is available through the `Config` builder.
 //!
+//! This crate can also create executables from C code, which can be useful if
+//! you need the output of a C program in your build script, for example.
+//!
 //! This crate will automatically detect situations such as cross compilation or
 //! other environment variables set by Cargo and will build code appropriately.
 //!
@@ -30,6 +33,20 @@
 //!                 .define("FOO", Some("bar"))
 //!                 .include("src")
 //!                 .compile("foo");
+//! }
+//! ```
+//!
+//! Use the `Config` builder to compile the program `src/foo.c`:
+//!
+//! ```no_run
+//! extern crate gcc;
+//!
+//! fn main() {
+//!     gcc::Config::new()
+//!                 .file("src/foo.c")
+//!                 .define("FOO", Some("bar"))
+//!                 .include("src")
+//!                 .compile_binary("foo");
 //! }
 //! ```
 
@@ -281,7 +298,7 @@ impl Config {
            .cpp(self.cpp);
         let compiler = cfg.get_compiler();
         let mut cmd = compiler.to_command();
-        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
+        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false, false);
         cmd.arg(&src);
 
         let output = cmd.output()?;
@@ -573,7 +590,7 @@ impl Config {
             src_dst.push((file.to_path_buf(), obj.clone()));
             objects.push(obj);
         }
-        self.compile_objects(&src_dst);
+        self.compile_objects(&src_dst, true);
         self.assemble(lib_name, &dst.join(output), &objects);
 
         if self.get_target().contains("msvc") {
@@ -605,8 +622,30 @@ impl Config {
         }
     }
 
+    /// Run the compiler, generating the executable file `output`
+    ///
+    /// The name `output` should be the name of the binary. There are no
+    /// restrictions on this name.
+    ///
+    /// Only one source file may be provided.
+    ///
+    /// # Panics
+    ///
+    /// Panics if one of the underlying compiler commands fails. It can
+    /// also panic if it fails reading file names or creating directories.
+    /// Also panics if any more than one or zero source files are provided.
+    pub fn compile_binary(&self, output: &str) {
+        let dst = self.get_out_dir().join(output);
+
+        if self.files.len() > 1 {
+            panic!("Too many source files provided.");
+        }
+        let file = self.files.get(0).expect("No source file provided.");
+        self.compile_object(file, &dst, false);
+    }
+
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)], is_lib: bool) {
         use self::rayon::prelude::*;
 
         let mut cfg = rayon::Configuration::new();
@@ -618,17 +657,17 @@ impl Config {
         drop(rayon::initialize(cfg));
 
         objs.par_iter().with_max_len(1)
-            .for_each(|&(ref src, ref dst)| self.compile_object(src, dst));
+            .for_each(|&(ref src, ref dst)| self.compile_object(src, dst, is_lib));
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)], is_lib: bool) {
         for &(ref src, ref dst) in objs {
-            self.compile_object(src, dst);
+            self.compile_object(src, dst, is_lib);
         }
     }
 
-    fn compile_object(&self, file: &Path, dst: &Path) {
+    fn compile_object(&self, file: &Path, dst: &Path, is_lib: bool) {
         let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
         let msvc = self.get_target().contains("msvc");
         let (mut cmd, name) = if msvc && is_asm {
@@ -646,8 +685,10 @@ impl Config {
                  .to_string_lossy()
                  .into_owned())
         };
-        command_add_output_file(&mut cmd, dst, msvc, is_asm);
-        cmd.arg(if msvc { "/c" } else { "-c" });
+        command_add_output_file(&mut cmd, dst, msvc, is_asm, is_lib);
+        if is_lib {
+            cmd.arg(if msvc { "/c" } else { "-c" });
+        }
         cmd.arg(file);
 
         run(&mut cmd, &name);
@@ -1385,11 +1426,11 @@ fn fail(s: &str) -> ! {
 }
 
 
-fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool) {
+fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool, is_lib: bool) {
     if msvc && is_asm {
-        cmd.arg("/Fo").arg(dst);
+        cmd.arg(if is_lib { "/Fo" } else { "/Fe" }).arg(dst);
     } else if msvc {
-        let mut s = OsString::from("/Fo");
+        let mut s = OsString::from(if is_lib { "/Fo" } else { "/Fe" });
         s.push(&dst);
         cmd.arg(s);
     } else {
