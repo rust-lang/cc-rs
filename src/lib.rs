@@ -10,25 +10,16 @@
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
 //! compile C code into a static archive which is then linked into a Rust crate.
-//! The top-level `compile_library` function serves as a convenience and more
-//! advanced configuration is available through the `Config` builder.
+//! Configuration is available through the `Config` builder.
 //!
 //! This crate will automatically detect situations such as cross compilation or
 //! other environment variables set by Cargo and will build code appropriately.
 //!
+//! [`Config`]: struct.Config.html
+//!
 //! # Examples
 //!
-//! Use the default configuration:
-//!
-//! ```no_run
-//! extern crate gcc;
-//!
-//! fn main() {
-//!     gcc::compile_library("libfoo.a", &["src/foo.c"]);
-//! }
-//! ```
-//!
-//! Use more advanced configuration:
+//! Use the `Config` builder to compile `src/foo.c`:
 //!
 //! ```no_run
 //! extern crate gcc;
@@ -38,7 +29,7 @@
 //!                 .file("src/foo.c")
 //!                 .define("FOO", Some("bar"))
 //!                 .include("src")
-//!                 .compile("libfoo.a");
+//!                 .compile("foo");
 //! }
 //! ```
 
@@ -168,8 +159,10 @@ impl ToolFamily {
 /// # Example
 ///
 /// ```no_run
-/// gcc::compile_library("libfoo.a", &["foo.c", "bar.c"]);
+/// gcc::compile_library("foo", &["foo.c", "bar.c"]);
 /// ```
+#[deprecated]
+#[doc(hidden)]
 pub fn compile_library(output: &str, files: &[&str]) {
     let mut c = Config::new();
     for f in files.iter() {
@@ -181,7 +174,9 @@ pub fn compile_library(output: &str, files: &[&str]) {
 impl Config {
     /// Construct a new instance of a blank set of configuration.
     ///
-    /// This builder is finished with the `compile` function.
+    /// This builder is finished with the [`compile`] function.
+    ///
+    /// [`compile`]: struct.Config.html#method.compile
     pub fn new() -> Config {
         Config {
             include_directories: Vec::new(),
@@ -221,7 +216,7 @@ impl Config {
     ///             .file("src/foo.c")
     ///             .include(library_path)
     ///             .include("src")
-    ///             .compile("libfoo.a");
+    ///             .compile("foo");
     /// ```
     pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Config {
         self.include_directories.push(dir.as_ref().to_path_buf());
@@ -237,7 +232,7 @@ impl Config {
     ///             .file("src/foo.c")
     ///             .define("FOO", Some("BAR"))
     ///             .define("BAZ", None)
-    ///             .compile("libfoo.a");
+    ///             .compile("foo");
     /// ```
     pub fn define(&mut self, var: &str, val: Option<&str>) -> &mut Config {
         self.definitions.push((var.to_string(), val.map(|s| s.to_string())));
@@ -258,7 +253,7 @@ impl Config {
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .flag("-ffunction-sections")
-    ///             .compile("libfoo.a");
+    ///             .compile("foo");
     /// ```
     pub fn flag(&mut self, flag: &str) -> &mut Config {
         self.flags.push(flag.to_string());
@@ -296,7 +291,7 @@ impl Config {
     ///             .file("src/foo.c")
     ///             .shared_flag(true)
     ///             .static_flag(true)
-    ///             .compile("libfoo.so");
+    ///             .compile("foo");
     /// ```
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Config {
         self.static_flag = Some(static_flag);
@@ -381,7 +376,7 @@ impl Config {
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .target("aarch64-linux-android")
-    ///             .compile("libfoo.so");
+    ///             .compile("foo");
     /// ```
     pub fn target(&mut self, target: &str) -> &mut Config {
         self.target = Some(target.to_string());
@@ -392,14 +387,14 @@ impl Config {
     ///
     /// This option is automatically scraped from the `HOST` environment
     /// variable by build scripts, so it's not required to call this function.
-    /// 
+    ///
     /// # Example
     ///
     /// ```no_run
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .host("arm-linux-gnueabihf")
-    ///             .compile("libfoo.so");
+    ///             .compile("foo");
     /// ```
     pub fn host(&mut self, host: &str) -> &mut Config {
         self.host = Some(host.to_string());
@@ -500,7 +495,10 @@ impl Config {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// The name `output` must begin with `lib` and end with `.a`
+    /// The name `output` should be the name of the library.  For backwards compatibility,
+    /// the `output` may start with `lib` and end with `.a`.  The Rust compilier will create
+    /// the assembly with the lib prefix and .a extension.  MSVC will create a file without prefix,
+    /// ending with `.lib`.
     ///
     /// # Panics
     ///
@@ -508,9 +506,9 @@ impl Config {
     /// compiler commands fails. It can also panic if it fails reading file names
     /// or creating directories.
     pub fn compile(&self, output: &str) {
-        assert!(output.starts_with("lib"));
-        assert!(output.ends_with(".a"));
-        let lib_name = &output[3..output.len() - 2];
+        let name_start = if output.starts_with("lib") { 3 } else { 0 };
+        let name_end = if output.ends_with(".a") { output.len() - 2 } else { output.len() };
+        let lib_name = &output[name_start..name_end];
         let dst = self.get_out_dir();
 
         let mut objects = Vec::new();
