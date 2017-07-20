@@ -86,6 +86,7 @@ pub struct Config {
     static_crt: Option<bool>,
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
+    check_file_created: bool,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -200,6 +201,7 @@ impl Config {
             cargo_metadata: true,
             pic: None,
             static_crt: None,
+            check_file_created: false,
         }
     }
 
@@ -258,6 +260,51 @@ impl Config {
     pub fn flag(&mut self, flag: &str) -> &mut Config {
         self.flags.push(flag.to_string());
         self
+    }
+
+    fn is_flag_supported(&mut self, flag: &str) -> io::Result<bool> {
+        let out_dir = self.get_out_dir();
+        let src = out_dir.join("flag_check.c");
+        if !self.check_file_created {
+            write!(fs::File::create(&src)?, "int main(void) {{ return 0; }}")?;
+            self.check_file_created = true;
+        }
+
+        let obj = out_dir.join("flag_check");
+        let target = self.get_target();
+        let mut cfg = Config::new();
+        cfg.flag(flag)
+           .target(&target)
+           .opt_level(0)
+           .host(&target)
+           .debug(false)
+           .cpp(self.cpp);
+        let compiler = cfg.get_compiler();
+        let mut cmd = compiler.to_command();
+        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
+        cmd.arg(&src);
+
+        let output = cmd.output()?;
+        Ok(output.stderr.is_empty())
+    }
+
+    /// Add an arbitrary flag to the invocation of the compiler if it supports it
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .flag_if_supported("-Wlogical-op") // only supported by GCC
+    ///             .flag_if_supported("-Wunreachable-code") // only supported by clang
+    ///             .compile("foo");
+    /// ```
+    pub fn flag_if_supported(&mut self, flag: &str) -> &mut Config {
+        if self.is_flag_supported(flag).unwrap_or(false) {
+            self.flag(flag)
+        } else {
+            self
+        }
     }
 
     /// Set the `-shared` flag.
@@ -599,15 +646,7 @@ impl Config {
                  .to_string_lossy()
                  .into_owned())
         };
-        if msvc && is_asm {
-            cmd.arg("/Fo").arg(dst);
-        } else if msvc {
-            let mut s = OsString::from("/Fo");
-            s.push(&dst);
-            cmd.arg(s);
-        } else {
-            cmd.arg("-o").arg(&dst);
-        }
+        command_add_output_file(&mut cmd, dst, msvc, is_asm);
         cmd.arg(if msvc { "/c" } else { "-c" });
         cmd.arg(file);
 
@@ -1343,4 +1382,17 @@ fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
 fn fail(s: &str) -> ! {
     println!("\n\n{}\n\n", s);
     panic!()
+}
+
+
+fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool) {
+    if msvc && is_asm {
+        cmd.arg("/Fo").arg(dst);
+    } else if msvc {
+        let mut s = OsString::from("/Fo");
+        s.push(&dst);
+        cmd.arg(s);
+    } else {
+        cmd.arg("-o").arg(&dst);
+    }
 }
