@@ -266,7 +266,7 @@ impl Config {
         let out_dir = self.get_out_dir();
         let src = out_dir.join("flag_check.c");
         if !self.check_file_created {
-            write!(fs::File::create(&src)?, "int main(void) {{ return 0; }}")?;
+            try!(write!(try!(fs::File::create(&src)), "int main(void) {{ return 0; }}"));
             self.check_file_created = true;
         }
 
@@ -284,7 +284,7 @@ impl Config {
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
         cmd.arg(&src);
 
-        let output = cmd.output()?;
+        let output = try!(cmd.output());
         Ok(output.stderr.is_empty())
     }
 
