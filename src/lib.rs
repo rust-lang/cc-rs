@@ -616,9 +616,9 @@ impl Config {
     ///
     /// # Example
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .expand()
+    /// let out = gcc::Config::new()
+    ///                    .file("src/foo.c")
+    ///                    .expand();
     /// ```
     pub fn expand(&self) -> Vec<u8> {
         let compiler = self.get_compiler();
