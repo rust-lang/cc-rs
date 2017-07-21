@@ -611,14 +611,13 @@ impl Config {
     /// This is only relevant for C and C++ files.
     ///
     /// # Panics
-    /// Panics if more than one file is present in the config, as macro
-    /// expansion only makes sense for a single file.
+    /// Panics if more than one file is present in the config.
     ///
     /// # Example
     /// ```no_run
     /// let out = gcc::Config::new()
-    ///                    .file("src/foo.c")
-    ///                    .expand();
+    ///                       .file("src/foo.c")
+    ///                       .expand();
     /// ```
     pub fn expand(&self) -> Vec<u8> {
         let compiler = self.get_compiler();
@@ -628,8 +627,8 @@ impl Config {
         }
         cmd.arg(compiler.family.expand_flag());
 
-        assert_eq!(self.files.len(), 1,
-                  "Expand may only be called for a single file");
+        assert!(self.files.len() <= 1,
+                "Expand may only be called for a single file");
 
         for file in self.files.iter() {
             cmd.arg(file);
