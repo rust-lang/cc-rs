@@ -11,6 +11,8 @@ fn main() {
 
     gcc::Config::new()
         .file("src/foo.c")
+        .flag_if_supported("-Wall")
+        .flag_if_supported("-Wfoo-bar-this-flag-does-not-exist")
         .define("FOO", None)
         .define("BAR", Some("1"))
         .compile("libfoo.a");

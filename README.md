@@ -36,7 +36,8 @@ extern crate gcc;
 
 fn main() {
     gcc::Config::new()
-        .files(["foo.c", "bar.c"])
+        .file("foo.c")
+        .file("bar.c")
         .compile("foo");
 }
 ```

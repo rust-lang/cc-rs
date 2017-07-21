@@ -184,6 +184,20 @@ fn gnu_shared() {
 }
 
 #[test]
+fn gnu_flag_if_supported() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("foo.c")
+        .flag_if_supported("-Wall")
+        .flag_if_supported("-Wflag-does-not-exist")
+        .compile("libfoo.a");
+
+    test.cmd(0)
+        .must_have("-Wall")
+        .must_not_have("-Wflag-does-not-exist");
+}
+
+#[test]
 fn gnu_static() {
     let test = Test::gnu();
     test.gcc()
