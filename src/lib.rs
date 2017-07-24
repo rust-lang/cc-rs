@@ -15,6 +15,10 @@
 //! This crate will automatically detect situations such as cross compilation or
 //! other environment variables set by Cargo and will build code appropriately.
 //!
+//! The crate is not limited to C code, it can accept any source code that can
+//! be passed to a C or C++ compiler. As such, assembly files with extensions
+//! `.s` (gcc/clang) and `.asm` (MSVC) can also be compiled.
+//!
 //! [`Config`]: struct.Config.html
 //!
 //! # Examples

@@ -185,6 +185,9 @@ fn gnu_shared() {
 
 #[test]
 fn gnu_flag_if_supported() {
+    if cfg!(windows) {
+        return
+    }
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
