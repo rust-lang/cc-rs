@@ -2,9 +2,24 @@ extern crate gcc_test;
 
 use gcc_test::*;
 
+use std::path::Path;
+use std::process::{Command, Stdio};
+
 #[link(name = "OptLinkage", kind = "static")]
 extern "C" {
     fn answer() -> i32;
+}
+
+#[test]
+fn hello_works() {
+    let child = Command::new(Path::new(env!("OUT_DIR")).join("hello"))
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("Failed to execute hello.");
+    let output = child.wait_with_output().expect("Failed to wait on hello.").stdout;
+    let output = String::from_utf8(output).unwrap();
+
+    assert_eq!(output, "Hello World!");
 }
 
 #[test]

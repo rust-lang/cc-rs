@@ -6,6 +6,29 @@ use support::Test;
 mod support;
 
 #[test]
+fn gnu_binary() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("hello.c")
+        .compile_binary("hello");
+
+    test.cmd(0)
+        .must_have("-o")
+        .must_not_have("-c")
+        .must_have(test.td.path().join("hello"));
+}
+
+#[test]
+#[should_panic]
+fn gnu_binary_multifile() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("hello.c")
+        .file("foo.c")
+        .compile_binary("hello");
+}
+
+#[test]
 fn gnu_smoke() {
     let test = Test::gnu();
     test.gcc()
@@ -212,6 +235,28 @@ fn gnu_static() {
     test.cmd(0)
         .must_have("-static")
         .must_not_have("-shared");
+}
+
+#[test]
+fn msvc_binary() {
+    let test = Test::msvc();
+    test.gcc()
+        .file("hello.c")
+        .compile_binary("hello.exe");
+
+    test.cmd(0)
+        .must_not_have("/c")
+        .must_have(&format!("/Fe{}", test.td.path().join("hello.exe").display()));
+}
+
+#[test]
+#[should_panic]
+fn msvc_binary_multifile() {
+    let test = Test::msvc();
+    test.gcc()
+        .file("hello.c")
+        .file("foo.c")
+        .compile_binary("hello");
 }
 
 #[test]
