@@ -93,6 +93,30 @@ pub struct Config {
     check_file_created: bool,
 }
 
+/// Represents the types of errors that may occur while using gcc-rs.
+#[derive(Clone, Debug)]
+pub enum ErrorKind {
+    /// Error occurred while performing I/O.
+    IOError,
+    /// Invalid architecture supplied.
+    ArchitectureInvalid,
+    /// Environment variable not found, with the var in question as extra info.
+    EnvVarNotFound,
+    /// Error occurred while using external tools (ie: invocation of compiler).
+    ToolExecError,
+    /// Error occurred due to missing external tools.
+    ToolNotFound,
+}
+
+/// Represents an internal error that occurred, with an explaination.
+#[derive(Clone, Debug)]
+pub struct Error {
+    /// Describes the kind of error that occurred.
+    pub kind: ErrorKind,
+    /// More explaination of error that occurred.
+    pub message: String,
+}
+
 /// Configuration used to represent an invocation of a C compiler.
 ///
 /// This can be used to figure out what compiler is in use, what the arguments
@@ -266,16 +290,28 @@ impl Config {
         self
     }
 
-    fn is_flag_supported(&mut self, flag: &str) -> io::Result<bool> {
+    fn is_flag_supported(&mut self, flag: &str) -> Result<bool, Error> {
         let out_dir = self.get_out_dir();
         let src = out_dir.join("flag_check.c");
         if !self.check_file_created {
-            try!(write!(try!(fs::File::create(&src)), "int main(void) {{ return 0; }}"));
+            match fs::File::create(&src) {
+                Err(_) => return Err(Error {
+                    kind: ErrorKind::IOError,
+                    message: "Flag check failed to create temp file.".to_string(),
+                }),
+                Ok(mut f) => match write!(f, "int main(void) {{ return 0; }}") {
+                    Err(_) => return Err(Error {
+                        kind: ErrorKind::IOError,
+                        message: "Flag check failed to write to temp file.".to_string(),
+                    }),
+                    Ok(_) => (),
+                },
+            }
             self.check_file_created = true;
         }
 
         let obj = out_dir.join("flag_check");
-        let target = self.get_target();
+        let target = self.get_target()?;
         let mut cfg = Config::new();
         cfg.flag(flag)
            .target(&target)
@@ -283,12 +319,18 @@ impl Config {
            .host(&target)
            .debug(false)
            .cpp(self.cpp);
-        let compiler = cfg.get_compiler();
+        let compiler = cfg.get_compiler()?;
         let mut cmd = compiler.to_command();
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
         cmd.arg(&src);
 
-        let output = try!(cmd.output());
+        let output = match cmd.output() {
+            Err(_) => return Err(Error {
+                kind: ErrorKind::ToolExecError,
+                message: "Flag check failed to obtain output.".to_string(),
+            }),
+            Ok(o) => o,
+        };
         Ok(output.stderr.is_empty())
     }
 
@@ -546,17 +588,8 @@ impl Config {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// The name `output` should be the name of the library.  For backwards compatibility,
-    /// the `output` may start with `lib` and end with `.a`.  The Rust compilier will create
-    /// the assembly with the lib prefix and .a extension.  MSVC will create a file without prefix,
-    /// ending with `.lib`.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `output` is not formatted correctly or if one of the underlying
-    /// compiler commands fails. It can also panic if it fails reading file names
-    /// or creating directories.
-    pub fn compile(&self, output: &str) {
+    /// This will return a result instead of panicing; see compile() for the complete description.
+    pub fn try_compile(&self, output: &str) -> Result<(), Error> {
         let lib_name = if output.starts_with("lib") && output.ends_with(".a") {
                 &output[3..output.len() - 2]
             } else {
@@ -569,19 +602,39 @@ impl Config {
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
-                dst.join(obj.file_name().unwrap())
+                dst.join(match obj.file_name() {
+                    Some(s) => s,
+                    None => return Err(Error {
+                        kind: ErrorKind::IOError,
+                        message: "Getting object file details failed.".to_string(),
+                    }),
+                })
             } else {
                 obj
             };
-            fs::create_dir_all(&obj.parent().unwrap()).unwrap();
+
+            match obj.parent() {
+                Some(s) => match fs::create_dir_all(s) {
+                    Ok(_) => (),
+                    Err(_) => return Err(Error {
+                        kind: ErrorKind::IOError,
+                        message: "Creating one or more object file directories failed.".to_string(),
+                    }),
+                },
+                None => return Err(Error {
+                    kind: ErrorKind::IOError,
+                    message: "Getting object file details failed".to_string(),
+                }),
+            };        
+
             src_dst.push((file.to_path_buf(), obj.clone()));
             objects.push(obj);
         }
-        self.compile_objects(&src_dst);
-        self.assemble(lib_name, &dst.join(output), &objects);
+        self.compile_objects(&src_dst)?;
+        self.assemble(lib_name, &dst.join(output), &objects)?;
 
-        if self.get_target().contains("msvc") {
-            let compiler = self.get_base_compiler();
+        if self.get_target()?.contains("msvc") {
+            let compiler = self.get_base_compiler()?;
             let atlmfc_lib = compiler.env()
                 .iter()
                 .find(|&&(ref var, _)| var.as_os_str() == OsStr::new("LIB"))
@@ -603,9 +656,29 @@ impl Config {
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
-            if let Some(stdlib) = self.get_cpp_link_stdlib() {
+            if let Some(stdlib) = self.get_cpp_link_stdlib()? {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
+        }
+
+        Ok(())
+    }
+
+    /// Run the compiler, generating the file `output`
+    ///
+    /// The name `output` should be the name of the library.  For backwards compatibility,
+    /// the `output` may start with `lib` and end with `.a`.  The Rust compilier will create
+    /// the assembly with the lib prefix and .a extension.  MSVC will create a file without prefix,
+    /// ending with `.lib`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `output` is not formatted correctly or if one of the underlying
+    /// compiler commands fails. It can also panic if it fails reading file names
+    /// or creating directories.
+    pub fn compile(&self, output: &str) {
+        if let Err(e) = self.try_compile(output) {
+            fail(&e.message);
         }
     }
 
@@ -626,19 +699,20 @@ impl Config {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
         for &(ref src, ref dst) in objs {
-            self.compile_object(src, dst);
+            self.compile_object(src, dst)?;
         }
+        Ok(())
     }
 
-    fn compile_object(&self, file: &Path, dst: &Path) {
+    fn compile_object(&self, file: &Path, dst: &Path) -> Result<(), Error> {
         let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
-        let msvc = self.get_target().contains("msvc");
+        let msvc = self.get_target()?.contains("msvc");
         let (mut cmd, name) = if msvc && is_asm {
-            self.msvc_macro_assembler()
+            self.msvc_macro_assembler()?
         } else {
-            let compiler = self.get_compiler();
+            let compiler = self.get_compiler()?;
             let mut cmd = compiler.to_command();
             for &(ref a, ref b) in self.env.iter() {
                 cmd.env(a, b);
@@ -654,25 +728,15 @@ impl Config {
         cmd.arg(if msvc { "/c" } else { "-c" });
         cmd.arg(file);
 
-        run(&mut cmd, &name);
+        run(&mut cmd, &name)?;
+        Ok(())
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
     ///
-    /// This is only relevant for C and C++ files.
-    ///
-    /// # Panics
-    /// Panics if more than one file is present in the config, or if compiler
-    /// path has an invalid file name.
-    ///
-    /// # Example
-    /// ```no_run
-    /// let out = gcc::Config::new()
-    ///                       .file("src/foo.c")
-    ///                       .expand();
-    /// ```
-    pub fn expand(&self) -> Vec<u8> {
-        let compiler = self.get_compiler();
+    /// This will return a result instead of panicing; see expand() for the complete description.
+    pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
+        let compiler = self.get_compiler()?;
         let mut cmd = compiler.to_command();
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
@@ -692,7 +756,27 @@ impl Config {
             .to_string_lossy()
             .into_owned();
 
-        run_output(&mut cmd, &name)
+        Ok(run_output(&mut cmd, &name)?)
+    }
+
+    /// Run the compiler, returning the macro-expanded version of the input files.
+    ///
+    /// This is only relevant for C and C++ files.
+    ///
+    /// # Panics
+    /// Panics if more than one file is present in the config, or if compiler
+    /// path has an invalid file name.
+    ///
+    /// # Example
+    /// ```no_run
+    /// let out = gcc::Config::new()
+    ///                       .file("src/foo.c")
+    ///                       .expand();
+    /// ```
+    pub fn expand(&self) {
+        if let Err(e) = self.try_expand() {
+            fail(&e.message);
+        }
     }
 
     /// Get the compiler that's in use for this configuration.
@@ -709,11 +793,13 @@ impl Config {
     /// conventions for this path, e.g. looking at the explicitly set compiler,
     /// environment variables (a number of which are inspected here), and then
     /// falling back to the default configuration.
-    pub fn get_compiler(&self) -> Tool {
-        let opt_level = self.get_opt_level();
-        let target = self.get_target();
+    ///
+    /// An error may occur while determining the architecture.
+    pub fn get_compiler(&self) -> Result<Tool, Error> {
+        let opt_level = self.get_opt_level()?;
+        let target = self.get_target()?;
 
-        let mut cmd = self.get_base_compiler();
+        let mut cmd = self.get_base_compiler()?;
         let nvcc = cmd.path.file_name()
             .and_then(|p| p.to_str()).map(|p| p.contains("nvcc"))
             .unwrap_or(false);
@@ -773,7 +859,7 @@ impl Config {
             cmd.args.push(arg.into());
         }
 
-        if self.get_debug() {
+        if self.get_debug()? {
             cmd.args.push(cmd.family.debug_flag().into());
         }
 
@@ -871,7 +957,7 @@ impl Config {
         if target.contains("-ios") {
             // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
             // detected instead.
-            self.ios_flags(&mut cmd);
+            self.ios_flags(&mut cmd)?;
         }
 
         if self.static_flag.unwrap_or(false) {
@@ -912,11 +998,12 @@ impl Config {
                 cmd.args.push(format!("{}D{}", lead, key).into());
             }
         }
-        cmd
+
+        Ok(cmd)
     }
 
-    fn msvc_macro_assembler(&self) -> (Command, String) {
-        let target = self.get_target();
+    fn msvc_macro_assembler(&self) -> Result<(Command, String), Error> {
+        let target = self.get_target()?;
         let tool = if target.contains("x86_64") {
             "ml64.exe"
         } else {
@@ -941,15 +1028,15 @@ impl Config {
             cmd.arg(flag);
         }
 
-        (cmd, tool.to_string())
+        Ok((cmd, tool.to_string()))
     }
 
-    fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) {
+    fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) -> Result<(), Error> {
         // Delete the destination if it exists as the `ar` tool at least on Unix
         // appends to it, which we don't want.
         let _ = fs::remove_file(&dst);
 
-        let target = self.get_target();
+        let target = self.get_target()?;
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
                 Some(ref s) => self.cmd(s),
@@ -961,38 +1048,45 @@ impl Config {
                     .arg("/nologo")
                     .args(objects)
                     .args(&self.objects),
-                "lib.exe");
+                "lib.exe")?;
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            fs::hard_link(&dst, &lib_dst)
+            match fs::hard_link(&dst, &lib_dst)
                 .or_else(|_| {
                     // if hard-link fails, just copy (ignoring the number of bytes written)
                     fs::copy(&dst, &lib_dst).map(|_| ())
-                })
-                .expect("Copying from {:?} to {:?} failed.");;
+                }) {
+                Ok(_) => (),
+                Err(_) => return Err(Error {
+                    kind: ErrorKind::IOError,
+                    message: "Could not copy or create a hard-link to the generated lib file.".to_string(),
+                }),
+            };
         } else {
-            let ar = self.get_ar();
+            let ar = self.get_ar()?;
             let cmd = ar.file_name().unwrap().to_string_lossy();
             run(self.cmd(&ar)
                     .arg("crs")
                     .arg(dst)
                     .args(objects)
                     .args(&self.objects),
-                &cmd);
+                &cmd)?;
         }
+
+        Ok(())
     }
 
-    fn ios_flags(&self, cmd: &mut Tool) {
+    fn ios_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
         }
 
-        let target = self.get_target();
+        let target = self.get_target()?;
         let arch = target.split('-').nth(0).unwrap();
         let arch = match arch {
             "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
@@ -1000,7 +1094,10 @@ impl Config {
             "arm64" | "aarch64" => ArchSpec::Device("arm64"),
             "i386" | "i686" => ArchSpec::Simulator("-m32"),
             "x86_64" => ArchSpec::Simulator("-m64"),
-            _ => fail("Unknown arch for iOS target"),
+            _ => return Err(Error {
+                    kind: ErrorKind::ArchitectureInvalid,
+                    message: "Unknown architecture for iOS target.".to_string(),
+                }),
         };
 
         let sdk = match arch {
@@ -1031,6 +1128,8 @@ impl Config {
 
         cmd.args.push("-isysroot".into());
         cmd.args.push(sdk_path.trim().into());
+
+        Ok(())
     }
 
     fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
@@ -1041,12 +1140,12 @@ impl Config {
         cmd
     }
 
-    fn get_base_compiler(&self) -> Tool {
+    fn get_base_compiler(&self) -> Result<Tool, Error> {
         if let Some(ref c) = self.compiler {
-            return Tool::new(c.clone());
+            return Ok(Tool::new(c.clone()));
         }
-        let host = self.get_host();
-        let target = self.get_target();
+        let host = self.get_host()?;
+        let target = self.get_target()?;
         let (env, msvc, gnu) = if self.cpp {
             ("CXX", "cl.exe", "g++")
         } else {
@@ -1061,8 +1160,8 @@ impl Config {
         } else {
             "cc"
         };
-
-        self.env_tool(env)
+        
+        let tool_opt: Option<Tool> = self.env_tool(env)
             .map(|(tool, args)| {
                 let mut t = Tool::new(PathBuf::from(tool));
                 for arg in args {
@@ -1092,8 +1191,11 @@ impl Config {
                     None
                 }
             })
-            .or_else(|| windows_registry::find_tool(&target, "cl.exe"))
-            .unwrap_or_else(|| {
+            .or_else(|| windows_registry::find_tool(&target, "cl.exe"));
+            
+        let tool = match tool_opt {
+            Some(t) => t,
+            None => {
                 let compiler = if host.contains("windows") && target.contains("windows") {
                     if target.contains("msvc") {
                         msvc.to_string()
@@ -1102,7 +1204,7 @@ impl Config {
                     }
                 } else if target.contains("android") {
                     format!("{}-{}", target.replace("armv7", "arm"), gnu)
-                } else if self.get_host() != target {
+                } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
                     let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
@@ -1150,12 +1252,15 @@ impl Config {
                     default.to_string()
                 };
                 Tool::new(PathBuf::from(compiler))
-            })
+            }
+        };
+        
+        Ok(tool)
     }
 
-    fn get_var(&self, var_base: &str) -> Result<String, String> {
-        let target = self.get_target();
-        let host = self.get_host();
+    fn get_var(&self, var_base: &str) -> Result<String, Error> {
+        let target = self.get_target()?;
+        let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
         let target_u = target.replace("-", "_");
         let res = self.getenv(&format!("{}_{}", var_base, target))
@@ -1165,7 +1270,10 @@ impl Config {
 
         match res {
             Some(res) => Ok(res),
-            None => Err("could not get environment variable".to_string()),
+            None => Err(Error {
+                kind: ErrorKind::EnvVarNotFound,
+                message: format!("Could not find environment variable {}.", var_base.to_string()).to_string(),
+            }),
         }
     }
 
@@ -1192,57 +1300,74 @@ impl Config {
 
     /// Returns the default C++ standard library for the current target: `libc++`
     /// for OS X and `libstdc++` for anything else.
-    fn get_cpp_link_stdlib(&self) -> Option<String> {
-        self.cpp_link_stdlib.clone().unwrap_or_else(|| {
-            let target = self.get_target();
-            if target.contains("msvc") {
-                None
-            } else if target.contains("darwin") {
-                Some("c++".to_string())
-            } else if target.contains("freebsd") {
-                Some("c++".to_string())
-            } else {
-                Some("stdc++".to_string())
-            }
-        })
-    }
-
-    fn get_ar(&self) -> PathBuf {
-        self.archiver
-            .clone()
-            .or_else(|| self.get_var("AR").map(PathBuf::from).ok())
-            .unwrap_or_else(|| {
-                if self.get_target().contains("android") {
-                    PathBuf::from(format!("{}-ar", self.get_target().replace("armv7", "arm")))
-                } else if self.get_target().contains("emscripten") {
-                    //Windows use bat files so we have to be a bit more specific
-                    let tool = if cfg!(windows) {
-                        "emar.bat"
-                    } else {
-                        "emar"
-                    };
-
-                    PathBuf::from(tool)
+    fn get_cpp_link_stdlib(&self) -> Result<Option<String>, Error> {
+        match self.cpp_link_stdlib.clone() {
+            Some(s) => Ok(s),
+            None => {
+                let target = self.get_target()?;
+                if target.contains("msvc") {
+                    Ok(None)
+                } else if target.contains("darwin") {
+                    Ok(Some("c++".to_string()))
+                } else if target.contains("freebsd") {
+                    Ok(Some("c++".to_string()))
                 } else {
-                    PathBuf::from("ar")
+                    Ok(Some("stdc++".to_string()))
                 }
-            })
+            },
+        }
     }
 
-    fn get_target(&self) -> String {
-        self.target.clone().unwrap_or_else(|| self.getenv_unwrap("TARGET"))
+    fn get_ar(&self) -> Result<PathBuf, Error> {
+        match self.archiver
+            .clone()
+            .or_else(|| self.get_var("AR").map(PathBuf::from).ok()) {
+                Some(p) => Ok(p),
+                None => {
+                    if self.get_target()?.contains("android") {
+                        Ok(PathBuf::from(format!("{}-ar", self.get_target()?.replace("armv7", "arm"))))
+                    } else if self.get_target()?.contains("emscripten") {
+                        //Windows use bat files so we have to be a bit more specific
+                        let tool = if cfg!(windows) {
+                            "emar.bat"
+                        } else {
+                            "emar"
+                        };
+
+                        Ok(PathBuf::from(tool))
+                    } else {
+                        Ok(PathBuf::from("ar"))
+                    }
+                }
+            }
     }
 
-    fn get_host(&self) -> String {
-        self.host.clone().unwrap_or_else(|| self.getenv_unwrap("HOST"))
+    fn get_target(&self) -> Result<String, Error> {
+        match self.target.clone() {
+            Some(t) => Ok(t),
+            None => Ok(self.getenv_unwrap("TARGET")?),
+        }
     }
 
-    fn get_opt_level(&self) -> String {
-        self.opt_level.as_ref().cloned().unwrap_or_else(|| self.getenv_unwrap("OPT_LEVEL"))
+    fn get_host(&self) -> Result<String, Error> {
+        match self.host.clone() {
+            Some(h) => Ok(h),
+            None => Ok(self.getenv_unwrap("HOST")?),
+        }
     }
 
-    fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| self.getenv_unwrap("PROFILE") == "debug")
+    fn get_opt_level(&self) -> Result<String, Error> {
+        match self.opt_level.as_ref().cloned() {
+            Some(ol) => Ok(ol),
+            None => Ok(self.getenv_unwrap("OPT_LEVEL")?),
+        }
+    }
+
+    fn get_debug(&self) -> Result<bool, Error> {
+        match self.debug {
+            Some(d) => Ok(d),
+            None => Ok(self.getenv_unwrap("PROFILE")? == "debug"),
+        }
     }
 
     fn get_out_dir(&self) -> PathBuf {
@@ -1255,10 +1380,13 @@ impl Config {
         r
     }
 
-    fn getenv_unwrap(&self, v: &str) -> String {
+    fn getenv_unwrap(&self, v: &str) -> Result<String, Error> {
         match self.getenv(v) {
-            Some(s) => s,
-            None => fail(&format!("environment variable `{}` not defined", v)),
+            Some(s) => Ok(s),
+            None => Err(Error {
+                    kind: ErrorKind::EnvVarNotFound, 
+                    message: format!("Environment variable {} not defined.", v.to_string()),
+            }),
         }
     }
 
@@ -1334,31 +1462,54 @@ impl Tool {
     }
 }
 
-fn run(cmd: &mut Command, program: &str) {
-    let (mut child, print) = spawn(cmd, program);
-    let status = child.wait().expect("failed to wait on child process");
+fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
+    let (mut child, print) = spawn(cmd, program)?;
+    let status = match child.wait() {
+        Ok(s) => s,
+        Err(_) => return Err(Error {
+                kind: ErrorKind::ToolExecError,
+                message: format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program),
+            })
+    };
     print.join().unwrap();
     println!("{}", status);
-    if !status.success() {
-        fail(&format!("command did not execute successfully, got: {}", status));
+
+    if status.success() {
+        Ok(())
+    } else {
+        Err(Error {
+            kind: ErrorKind::ToolExecError,
+            message: format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status),
+        })
     }
 }
 
-fn run_output(cmd: &mut Command, program: &str) -> Vec<u8> {
+fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     cmd.stdout(Stdio::piped());
-    let (mut child, print) = spawn(cmd, program);
+    let (mut child, print) = spawn(cmd, program)?;
     let mut stdout = vec![];
     child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
-    let status = child.wait().expect("failed to wait on child process");
+    let status = match child.wait() {
+        Ok(s) => s,
+        Err(_) => return Err(Error {
+                kind: ErrorKind::ToolExecError,
+                message: format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program),
+            })
+    };
     print.join().unwrap();
     println!("{}", status);
-    if !status.success() {
-        fail(&format!("command did not execute successfully, got: {}", status));
+
+    if status.success() {
+        Ok(stdout)
+    } else {
+        Err(Error {
+            kind: ErrorKind::ToolExecError,
+            message: format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status),
+        })
     }
-    stdout
 }
 
-fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
+fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Error> {
     println!("running: {:?}", cmd);
 
     // Capture the standard error coming from these programs, and write it out
@@ -1375,7 +1526,7 @@ fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
                     println!("");
                 }
             });
-            (child, print)
+            Ok((child, print))
         }
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
@@ -1384,19 +1535,20 @@ fn spawn(cmd: &mut Command, program: &str) -> (Child, JoinHandle<()>) {
             } else {
                 ""
             };
-            fail(&format!("failed to execute command: {}\nIs `{}` \
-                           not installed?{}",
-                          e,
-                          program,
-                          extra));
+            Err(Error {
+                kind: ErrorKind::ToolNotFound,
+                message: format!("Failed to find tool. Is `{}` installed? {}", program, extra),
+            })
         }
-        Err(e) => fail(&format!("failed to execute command: {}", e)),
+        Err(_) => Err(Error {
+                kind: ErrorKind::ToolExecError,
+                message: format!("Command {:?} with args {:?} failed to start.", cmd, program),
+            })
     }
 }
 
 fn fail(s: &str) -> ! {
-    println!("\n\n{}\n\n", s);
-    panic!()
+    panic!("\n\nInternal error occurred: {}\n\n", s)
 }
 
 
