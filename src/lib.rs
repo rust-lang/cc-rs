@@ -319,7 +319,7 @@ impl Config {
            .host(&target)
            .debug(false)
            .cpp(self.cpp);
-        let compiler = cfg.get_compiler()?;
+        let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
         cmd.arg(&src);
@@ -712,7 +712,7 @@ impl Config {
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
-            let compiler = self.get_compiler()?;
+            let compiler = self.try_get_compiler()?;
             let mut cmd = compiler.to_command();
             for &(ref a, ref b) in self.env.iter() {
                 cmd.env(a, b);
@@ -736,7 +736,7 @@ impl Config {
     ///
     /// This will return a result instead of panicing; see expand() for the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
-        let compiler = self.get_compiler()?;
+        let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
@@ -794,8 +794,20 @@ impl Config {
     /// environment variables (a number of which are inspected here), and then
     /// falling back to the default configuration.
     ///
-    /// An error may occur while determining the architecture.
-    pub fn get_compiler(&self) -> Result<Tool, Error> {
+    /// # Panics
+    ///
+    /// Panics if an error occurred while determining the architecture.
+    pub fn get_compiler(&self) -> Tool {
+        match self.try_get_compiler() {
+            Ok(tool) => tool,
+            Err(e) => fail(&e.message),
+        }
+    }
+
+    /// Get the compiler that's in use for this configuration.
+    ///
+    /// This will return a result instead of panicing; see get_compiler() for the complete description.
+    pub fn try_get_compiler(&self) -> Result<Tool, Error> {
         let opt_level = self.get_opt_level()?;
         let target = self.get_target()?;
 
