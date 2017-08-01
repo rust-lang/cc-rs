@@ -52,6 +52,9 @@ use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
 
+#[cfg(feature = "parallel")]
+use std::sync::Mutex;
+
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
@@ -683,7 +686,7 @@ impl Config {
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
         let mut cfg = rayon::Configuration::new();
@@ -694,8 +697,19 @@ impl Config {
         }
         drop(rayon::initialize(cfg));
 
+        let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
+
         objs.par_iter().with_max_len(1)
-            .for_each(|&(ref src, ref dst)| self.compile_object(src, dst));
+            .for_each(|&(ref src, ref dst)| results.lock().unwrap().push(self.compile_object(src, dst)));
+
+        // Check for any errors and return the first one found.
+        for result in results.into_inner().unwrap().iter() {
+            if result.is_err() {
+                return result.clone();
+            }
+        }
+
+        Ok(())
     }
 
     #[cfg(not(feature = "parallel"))]
