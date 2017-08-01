@@ -787,9 +787,10 @@ impl Config {
     ///                       .file("src/foo.c")
     ///                       .expand();
     /// ```
-    pub fn expand(&self) {
-        if let Err(e) = self.try_expand() {
-            fail(&e.message);
+    pub fn expand(&self) -> Vec<u8> {
+        match self.try_expand() {
+            Err(e) => fail(&e.message),
+            Ok(v) => v,
         }
     }
 
