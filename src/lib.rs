@@ -98,7 +98,7 @@ pub struct Config {
 
 /// Represents the types of errors that may occur while using gcc-rs.
 #[derive(Clone, Debug)]
-pub enum ErrorKind {
+enum ErrorKind {
     /// Error occurred while performing I/O.
     IOError,
     /// Invalid architecture supplied.
@@ -115,9 +115,9 @@ pub enum ErrorKind {
 #[derive(Clone, Debug)]
 pub struct Error {
     /// Describes the kind of error that occurred.
-    pub kind: ErrorKind,
+    kind: ErrorKind,
     /// More explaination of error that occurred.
-    pub message: String,
+    message: String,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
