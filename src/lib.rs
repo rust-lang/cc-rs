@@ -120,6 +120,15 @@ pub struct Error {
     message: String,
 }
 
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Error {
+        Error {
+            kind: ErrorKind::IOError,
+            message: format!("{}", e).to_string(),
+        }
+    }
+}
+
 /// Configuration used to represent an invocation of a C compiler.
 ///
 /// This can be used to figure out what compiler is in use, what the arguments
@@ -297,19 +306,8 @@ impl Config {
         let out_dir = self.get_out_dir();
         let src = out_dir.join("flag_check.c");
         if !self.check_file_created {
-            match fs::File::create(&src) {
-                Err(_) => return Err(Error {
-                    kind: ErrorKind::IOError,
-                    message: "Flag check failed to create temp file.".to_string(),
-                }),
-                Ok(mut f) => match write!(f, "int main(void) {{ return 0; }}") {
-                    Err(_) => return Err(Error {
-                        kind: ErrorKind::IOError,
-                        message: "Flag check failed to write to temp file.".to_string(),
-                    }),
-                    Ok(_) => (),
-                },
-            }
+            let mut f = fs::File::create(&src)?;
+            write!(f, "int main(void) {{ return 0; }}")?;
             self.check_file_created = true;
         }
 
@@ -327,13 +325,7 @@ impl Config {
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
         cmd.arg(&src);
 
-        let output = match cmd.output() {
-            Err(_) => return Err(Error {
-                kind: ErrorKind::ToolExecError,
-                message: "Flag check failed to obtain output.".to_string(),
-            }),
-            Ok(o) => o,
-        };
+        let output = cmd.output()?;
         Ok(output.stderr.is_empty())
     }
 
@@ -617,13 +609,7 @@ impl Config {
             };
 
             match obj.parent() {
-                Some(s) => match fs::create_dir_all(s) {
-                    Ok(_) => (),
-                    Err(_) => return Err(Error {
-                        kind: ErrorKind::IOError,
-                        message: "Creating one or more object file directories failed.".to_string(),
-                    }),
-                },
+                Some(s) => fs::create_dir_all(s)?,
                 None => return Err(Error {
                     kind: ErrorKind::IOError,
                     message: "Getting object file details failed".to_string(),
@@ -1135,8 +1121,7 @@ impl Config {
             .arg("--sdk")
             .arg(sdk)
             .stderr(Stdio::inherit())
-            .output()
-            .unwrap()
+            .output()?
             .stdout;
 
         let sdk_path = String::from_utf8(sdk_path).unwrap();
@@ -1552,7 +1537,7 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
             };
             Err(Error {
                 kind: ErrorKind::ToolNotFound,
-                message: format!("Failed to find tool. Is `{}` installed? {}", program, extra),
+                message: format!("Failed to find tool. Is `{}` installed?{}", program, extra),
             })
         }
         Err(_) => Err(Error {
