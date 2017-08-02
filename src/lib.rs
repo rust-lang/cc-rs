@@ -52,6 +52,9 @@ use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
 
+#[cfg(feature = "parallel")]
+use std::sync::Mutex;
+
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
@@ -95,7 +98,7 @@ pub struct Config {
 
 /// Represents the types of errors that may occur while using gcc-rs.
 #[derive(Clone, Debug)]
-pub enum ErrorKind {
+enum ErrorKind {
     /// Error occurred while performing I/O.
     IOError,
     /// Invalid architecture supplied.
@@ -112,9 +115,18 @@ pub enum ErrorKind {
 #[derive(Clone, Debug)]
 pub struct Error {
     /// Describes the kind of error that occurred.
-    pub kind: ErrorKind,
+    kind: ErrorKind,
     /// More explaination of error that occurred.
-    pub message: String,
+    message: String,
+}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Error {
+        Error {
+            kind: ErrorKind::IOError,
+            message: format!("{}", e).to_string(),
+        }
+    }
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -294,19 +306,8 @@ impl Config {
         let out_dir = self.get_out_dir();
         let src = out_dir.join("flag_check.c");
         if !self.check_file_created {
-            match fs::File::create(&src) {
-                Err(_) => return Err(Error {
-                    kind: ErrorKind::IOError,
-                    message: "Flag check failed to create temp file.".to_string(),
-                }),
-                Ok(mut f) => match write!(f, "int main(void) {{ return 0; }}") {
-                    Err(_) => return Err(Error {
-                        kind: ErrorKind::IOError,
-                        message: "Flag check failed to write to temp file.".to_string(),
-                    }),
-                    Ok(_) => (),
-                },
-            }
+            let mut f = fs::File::create(&src)?;
+            write!(f, "int main(void) {{ return 0; }}")?;
             self.check_file_created = true;
         }
 
@@ -324,13 +325,7 @@ impl Config {
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
         cmd.arg(&src);
 
-        let output = match cmd.output() {
-            Err(_) => return Err(Error {
-                kind: ErrorKind::ToolExecError,
-                message: "Flag check failed to obtain output.".to_string(),
-            }),
-            Ok(o) => o,
-        };
+        let output = cmd.output()?;
         Ok(output.stderr.is_empty())
     }
 
@@ -614,13 +609,7 @@ impl Config {
             };
 
             match obj.parent() {
-                Some(s) => match fs::create_dir_all(s) {
-                    Ok(_) => (),
-                    Err(_) => return Err(Error {
-                        kind: ErrorKind::IOError,
-                        message: "Creating one or more object file directories failed.".to_string(),
-                    }),
-                },
+                Some(s) => fs::create_dir_all(s)?,
                 None => return Err(Error {
                     kind: ErrorKind::IOError,
                     message: "Getting object file details failed".to_string(),
@@ -683,7 +672,7 @@ impl Config {
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) {
+    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
         let mut cfg = rayon::Configuration::new();
@@ -694,8 +683,19 @@ impl Config {
         }
         drop(rayon::initialize(cfg));
 
+        let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
+
         objs.par_iter().with_max_len(1)
-            .for_each(|&(ref src, ref dst)| self.compile_object(src, dst));
+            .for_each(|&(ref src, ref dst)| results.lock().unwrap().push(self.compile_object(src, dst)));
+
+        // Check for any errors and return the first one found.
+        for result in results.into_inner().unwrap().iter() {
+            if result.is_err() {
+                return result.clone();
+            }
+        }
+
+        Ok(())
     }
 
     #[cfg(not(feature = "parallel"))]
@@ -773,9 +773,10 @@ impl Config {
     ///                       .file("src/foo.c")
     ///                       .expand();
     /// ```
-    pub fn expand(&self) {
-        if let Err(e) = self.try_expand() {
-            fail(&e.message);
+    pub fn expand(&self) -> Vec<u8> {
+        match self.try_expand() {
+            Err(e) => fail(&e.message),
+            Ok(v) => v,
         }
     }
 
@@ -1132,8 +1133,7 @@ impl Config {
             .arg("--sdk")
             .arg(sdk)
             .stderr(Stdio::inherit())
-            .output()
-            .unwrap()
+            .output()?
             .stdout;
 
         let sdk_path = String::from_utf8(sdk_path).unwrap();
@@ -1549,7 +1549,7 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
             };
             Err(Error {
                 kind: ErrorKind::ToolNotFound,
-                message: format!("Failed to find tool. Is `{}` installed? {}", program, extra),
+                message: format!("Failed to find tool. Is `{}` installed?{}", program, extra),
             })
         }
         Err(_) => Err(Error {
