@@ -120,12 +120,15 @@ pub struct Error {
     message: String,
 }
 
+impl Error {
+    fn new(kind: ErrorKind, message: &str) -> Error {
+        Error { kind, message: message.to_owned() }
+    }
+}
+
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
-        Error {
-            kind: ErrorKind::IOError,
-            message: format!("{}", e).to_string(),
-        }
+        Error::new(ErrorKind::IOError, &format!("{}", e))
     }
 }
 
@@ -303,7 +306,7 @@ impl Config {
     }
 
     fn is_flag_supported(&mut self, flag: &str) -> Result<bool, Error> {
-        let out_dir = self.get_out_dir();
+        let out_dir = self.get_out_dir()?;
         let src = out_dir.join("flag_check.c");
         if !self.check_file_created {
             let mut f = fs::File::create(&src)?;
@@ -590,30 +593,21 @@ impl Config {
             } else {
                 &output
             };
-        let dst = self.get_out_dir();
+        let dst = self.get_out_dir()?;
 
         let mut objects = Vec::new();
         let mut src_dst = Vec::new();
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
-                dst.join(match obj.file_name() {
-                    Some(s) => s,
-                    None => return Err(Error {
-                        kind: ErrorKind::IOError,
-                        message: "Getting object file details failed.".to_string(),
-                    }),
-                })
+                dst.join(obj.file_name().ok_or_else(|| Error::new(ErrorKind::IOError, "Getting object file details failed."))?)
             } else {
                 obj
             };
 
             match obj.parent() {
                 Some(s) => fs::create_dir_all(s)?,
-                None => return Err(Error {
-                    kind: ErrorKind::IOError,
-                    message: "Getting object file details failed".to_string(),
-                }),
+                None => return Err(Error::new(ErrorKind::IOError, "Getting object file details failed.")),
             };        
 
             src_dst.push((file.to_path_buf(), obj.clone()));
@@ -720,7 +714,7 @@ impl Config {
             (cmd,
              compiler.path
                  .file_name()
-                 .unwrap()
+                 .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
                  .to_string_lossy()
                  .into_owned())
         };
@@ -752,7 +746,7 @@ impl Config {
 
         let name = compiler.path
             .file_name()
-            .unwrap()
+            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
             .to_string_lossy()
             .into_owned();
 
@@ -1074,14 +1068,13 @@ impl Config {
                     fs::copy(&dst, &lib_dst).map(|_| ())
                 }) {
                 Ok(_) => (),
-                Err(_) => return Err(Error {
-                    kind: ErrorKind::IOError,
-                    message: "Could not copy or create a hard-link to the generated lib file.".to_string(),
-                }),
+                Err(_) => return Err(Error::new(ErrorKind::IOError, "Could not copy or create a hard-link to the generated lib file.")),
             };
         } else {
             let ar = self.get_ar()?;
-            let cmd = ar.file_name().unwrap().to_string_lossy();
+            let cmd = ar.file_name()
+                .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get archiver (ar) path."))?
+                .to_string_lossy();
             run(self.cmd(&ar)
                     .arg("crs")
                     .arg(dst)
@@ -1100,17 +1093,14 @@ impl Config {
         }
 
         let target = self.get_target()?;
-        let arch = target.split('-').nth(0).unwrap();
+        let arch = target.split('-').nth(0).ok_or_else(|| Error::new(ErrorKind::ArchitectureInvalid, "Unknown architecture for iOS target."))?;
         let arch = match arch {
             "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
             "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
             "arm64" | "aarch64" => ArchSpec::Device("arm64"),
             "i386" | "i686" => ArchSpec::Simulator("-m32"),
             "x86_64" => ArchSpec::Simulator("-m64"),
-            _ => return Err(Error {
-                    kind: ErrorKind::ArchitectureInvalid,
-                    message: "Unknown architecture for iOS target.".to_string(),
-                }),
+            _ => return Err(Error::new(ErrorKind::ArchitectureInvalid, "Unknown architecture for iOS target.")),
         };
 
         let sdk = match arch {
@@ -1136,7 +1126,10 @@ impl Config {
             .output()?
             .stdout;
 
-        let sdk_path = String::from_utf8(sdk_path).unwrap();
+        let sdk_path = match String::from_utf8(sdk_path) {
+            Ok(p) => p,
+            Err(_) => return Err(Error::new(ErrorKind::IOError, "Unable to determine iOS SDK path.")),
+        };
 
         cmd.args.push("-isysroot".into());
         cmd.args.push(sdk_path.trim().into());
@@ -1282,10 +1275,7 @@ impl Config {
 
         match res {
             Some(res) => Ok(res),
-            None => Err(Error {
-                kind: ErrorKind::EnvVarNotFound,
-                message: format!("Could not find environment variable {}.", var_base.to_string()).to_string(),
-            }),
+            None => Err(Error::new(ErrorKind::EnvVarNotFound, &format!("Could not find environment variable {}.", var_base))),
         }
     }
 
@@ -1382,8 +1372,13 @@ impl Config {
         }
     }
 
-    fn get_out_dir(&self) -> PathBuf {
-        self.out_dir.clone().unwrap_or_else(|| env::var_os("OUT_DIR").map(PathBuf::from).unwrap())
+    fn get_out_dir(&self) -> Result<PathBuf, Error> {
+        match self.out_dir.clone() {
+            Some(p) => Ok(p),
+            None => Ok(env::var_os("OUT_DIR")
+                .map(PathBuf::from)
+                .ok_or_else(|| Error::new(ErrorKind::EnvVarNotFound, "Environment variable OUT_DIR not defined."))?),
+        }
     }
 
     fn getenv(&self, v: &str) -> Option<String> {
@@ -1395,10 +1390,7 @@ impl Config {
     fn getenv_unwrap(&self, v: &str) -> Result<String, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
-            None => Err(Error {
-                    kind: ErrorKind::EnvVarNotFound, 
-                    message: format!("Environment variable {} not defined.", v.to_string()),
-            }),
+            None => Err(Error::new(ErrorKind::EnvVarNotFound, &format!("Environment variable {} not defined.", v.to_string()))),
         }
     }
 
@@ -1478,10 +1470,7 @@ fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
     let (mut child, print) = spawn(cmd, program)?;
     let status = match child.wait() {
         Ok(s) => s,
-        Err(_) => return Err(Error {
-                kind: ErrorKind::ToolExecError,
-                message: format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program),
-            })
+        Err(_) => return Err(Error::new(ErrorKind::ToolExecError, &format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program))),
     };
     print.join().unwrap();
     println!("{}", status);
@@ -1489,10 +1478,7 @@ fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
     if status.success() {
         Ok(())
     } else {
-        Err(Error {
-            kind: ErrorKind::ToolExecError,
-            message: format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status),
-        })
+        Err(Error::new(ErrorKind::ToolExecError, &format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status)))
     }
 }
 
@@ -1503,10 +1489,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
     let status = match child.wait() {
         Ok(s) => s,
-        Err(_) => return Err(Error {
-                kind: ErrorKind::ToolExecError,
-                message: format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program),
-            })
+        Err(_) => return Err(Error::new(ErrorKind::ToolExecError, &format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program))),
     };
     print.join().unwrap();
     println!("{}", status);
@@ -1514,10 +1497,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     if status.success() {
         Ok(stdout)
     } else {
-        Err(Error {
-            kind: ErrorKind::ToolExecError,
-            message: format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status),
-        })
+        Err(Error::new(ErrorKind::ToolExecError, &format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status)))
     }
 }
 
@@ -1547,15 +1527,9 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
             } else {
                 ""
             };
-            Err(Error {
-                kind: ErrorKind::ToolNotFound,
-                message: format!("Failed to find tool. Is `{}` installed?{}", program, extra),
-            })
+            Err(Error::new(ErrorKind::ToolNotFound, &format!("Failed to find tool. Is `{}` installed?{}", program, extra)))
         }
-        Err(_) => Err(Error {
-                kind: ErrorKind::ToolExecError,
-                message: format!("Command {:?} with args {:?} failed to start.", cmd, program),
-            })
+        Err(_) => Err(Error::new(ErrorKind::ToolExecError, &format!("Command {:?} with args {:?} failed to start.", cmd, program))),
     }
 }
 
