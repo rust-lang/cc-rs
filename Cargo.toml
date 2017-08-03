@@ -20,6 +20,7 @@ travis-ci = { repository = "alexcrichton/gcc-rs" }
 appveyor = { repository = "alexcrichton/gcc-rs" }
 
 [dependencies]
+ar = "0.3"
 rayon = { version = "0.8", optional = true }
 
 [features]
