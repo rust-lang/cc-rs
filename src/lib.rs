@@ -122,7 +122,7 @@ pub struct Error {
 
 impl Error {
     fn new(kind: ErrorKind, message: &str) -> Error {
-        Error { kind, message: message.to_owned() }
+        Error { kind: kind, message: message.to_owned() }
     }
 }
 
