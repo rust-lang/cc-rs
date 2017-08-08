@@ -152,7 +152,7 @@ fn gnu_include() {
 fn gnu_define() {
     let test = Test::gnu();
     test.gcc()
-        .define("FOO", Some("bar"))
+        .define("FOO", "bar")
         .define("BAR", None)
         .file("foo.c")
         .compile("libfoo.a");
@@ -266,7 +266,7 @@ fn msvc_include() {
 fn msvc_define() {
     let test = Test::msvc();
     test.gcc()
-        .define("FOO", Some("bar"))
+        .define("FOO", "bar")
         .define("BAR", None)
         .file("foo.c")
         .compile("libfoo.a");
