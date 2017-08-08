@@ -35,7 +35,7 @@ Next up, you'll want to write a build script like so:
 extern crate gcc;
 
 fn main() {
-    gcc::Config::new()
+    gcc::Build::new()
         .file("foo.c")
         .file("bar.c")
         .compile("foo");
@@ -141,13 +141,13 @@ required varies per platform, but there are three broad categories:
 ## C++ support
 
 `gcc-rs` supports C++ libraries compilation by using the `cpp` method on
-`Config`:
+`Build`:
 
 ```rust,no_run
 extern crate gcc;
 
 fn main() {
-    gcc::Config::new()
+    gcc::Build::new()
         .cpp(true) // Switch to C++ library compilation.
         .file("foo.cpp")
         .compile("libfoo.a");

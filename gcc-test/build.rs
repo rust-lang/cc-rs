@@ -9,7 +9,7 @@ fn main() {
     fs::remove_dir_all(&out).unwrap();
     fs::create_dir(&out).unwrap();
 
-    gcc::Config::new()
+    gcc::Build::new()
         .file("src/foo.c")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wfoo-bar-this-flag-does-not-exist")
@@ -17,7 +17,7 @@ fn main() {
         .define("BAR", "1")
         .compile("libfoo.a");
 
-    gcc::Config::new()
+    gcc::Build::new()
         .file("src/bar1.c")
         .file("src/bar2.c")
         .include("src/include")
@@ -28,17 +28,17 @@ fn main() {
     let file = format!("src/{}.{}",
                        file,
                        if target.contains("msvc") { "asm" } else { "S" });
-    gcc::Config::new()
+    gcc::Build::new()
         .file(file)
         .compile("libasm.a");
 
-    gcc::Config::new()
+    gcc::Build::new()
         .file("src/baz.cpp")
         .cpp(true)
         .compile("libbaz.a");
 
     if target.contains("windows") {
-        gcc::Config::new()
+        gcc::Build::new()
             .file("src/windows.c")
             .compile("libwindows.a");
     }
@@ -81,12 +81,12 @@ fn main() {
 
     // This tests whether we  can build a library but not link it to the main
     // crate.  The test module will do its own linking.
-    gcc::Config::new()
+    gcc::Build::new()
         .cargo_metadata(false)
         .file("src/opt_linkage.c")
         .compile("libOptLinkage.a");
 
-    let out = gcc::Config::new()
+    let out = gcc::Build::new()
         .file("src/expand.c")
         .expand();
     let out = String::from_utf8(out).unwrap();
