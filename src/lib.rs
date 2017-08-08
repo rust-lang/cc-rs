@@ -1242,7 +1242,7 @@ impl Config {
     }
 
     fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| self.getenv_unwrap("PROFILE") == "debug")
+        self.debug.unwrap_or_else(|| self.getenv("DEBUG").is_some())
     }
 
     fn get_out_dir(&self) -> PathBuf {
