@@ -402,6 +402,13 @@ impl Config {
     /// Set warnings into errors flag.
     ///
     /// Disabled by default.
+    /// 
+    /// Warning: turning warnings into errors only make sense 
+    /// if you are a developer of the crate using gcc-rs.
+    /// Some warnings only appear on some architecture or
+    /// specific version of the compiler. Any user of this crate, 
+    /// or any other crate depending on it, could fail during 
+    /// compile time.
     ///
     /// # Example
     ///
