@@ -157,13 +157,12 @@ impl ToolFamily {
     /// What the flags to enable all warnings
     fn warnings_flags(&self) -> &'static [&'static str] {
         static MSVC_FLAGS: &'static [&'static str] = &["/Wall"];
-        static GNU_FLAGS: &'static [&'static str] = &["-Wall", "-Wpedantic", "-Wextra"];
-        static CLANG_FLAGS: &'static [&'static str] = &["-Weverything"];
+        static GNU_CLANG_FLAGS: &'static [&'static str] = &["-Wall", "-Wextra"];
 
         match *self {
             ToolFamily::Msvc => &MSVC_FLAGS,
-            ToolFamily::Gnu => &GNU_FLAGS,
-            ToolFamily::Clang => &CLANG_FLAGS,
+            ToolFamily::Gnu |
+            ToolFamily::Clang => &GNU_CLANG_FLAGS,
         }
     }
 
@@ -421,8 +420,7 @@ impl Config {
     ///
     /// Adds some flags:
     /// - "/Wall" for MSVC.
-    /// - "-Wall", "-Wpedantic", "-Wextra" for GNU.
-    /// - "-Weverything" for Clang.
+    /// - "-Wall", "-Wextra" for GNU and Clang.
     ///
     /// Enabled by default.
     ///
