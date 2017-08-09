@@ -91,6 +91,8 @@ pub struct Config {
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
     check_file_created: bool,
+    warnings_into_errors: bool,
+    warnings: bool,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -151,6 +153,27 @@ impl ToolFamily {
             ToolFamily::Clang => "-E",
         }
     }
+
+    /// What the flags to enable all warnings
+    fn warnings_flags(&self) -> &'static [&'static str] {
+        static MSVC_FLAGS: &'static [&'static str] = &["/Wall"];
+        static GNU_CLANG_FLAGS: &'static [&'static str] = &["-Wall", "-Wextra"];
+
+        match *self {
+            ToolFamily::Msvc => &MSVC_FLAGS,
+            ToolFamily::Gnu |
+            ToolFamily::Clang => &GNU_CLANG_FLAGS,
+        }
+    }
+
+    /// What the flag to turn warning into errors
+    fn warnings_to_errors_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => "/WX",
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-Werror"
+        }
+    }
 }
 
 /// Compile a library from the given set of input C files.
@@ -206,6 +229,8 @@ impl Config {
             pic: None,
             static_crt: None,
             check_file_created: false,
+            warnings: true,
+            warnings_into_errors: false,
         }
     }
 
@@ -371,6 +396,51 @@ impl Config {
     /// `true`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Config {
         self.cpp = cpp;
+        self
+    }
+
+    /// Set warnings into errors flag.
+    ///
+    /// Disabled by default.
+    /// 
+    /// Warning: turning warnings into errors only make sense 
+    /// if you are a developer of the crate using gcc-rs.
+    /// Some warnings only appear on some architecture or
+    /// specific version of the compiler. Any user of this crate, 
+    /// or any other crate depending on it, could fail during 
+    /// compile time.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .warnings_into_errors(true)
+    ///             .compile("libfoo.a");
+    /// ```
+    pub fn warnings_into_errors(&mut self, warnings_into_errors: bool) -> &mut Config {
+        self.warnings_into_errors = warnings_into_errors;
+        self
+    }
+
+    /// Set warnings flags.
+    ///
+    /// Adds some flags:
+    /// - "/Wall" for MSVC.
+    /// - "-Wall", "-Wextra" for GNU and Clang.
+    ///
+    /// Enabled by default.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// gcc::Config::new()
+    ///             .file("src/foo.c")
+    ///             .warnings(false)
+    ///             .compile("libfoo.a");
+    /// ```
+    pub fn warnings(&mut self, warnings: bool) -> &mut Config {
+        self.warnings = warnings;
         self
     }
 
@@ -552,7 +622,6 @@ impl Config {
         self.static_crt = Some(static_crt);
         self
     }
-
 
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
@@ -931,6 +1000,17 @@ impl Config {
                 cmd.args.push(format!("{}D{}", lead, key).into());
             }
         }
+
+        if self.warnings {
+            for flag in cmd.family.warnings_flags().iter() {
+                cmd.args.push(flag.into());
+            }
+        }
+
+        if self.warnings_into_errors {
+            cmd.args.push(cmd.family.warnings_to_errors_flag().into());
+        }
+
         cmd
     }
 

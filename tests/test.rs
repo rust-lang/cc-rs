@@ -62,6 +62,29 @@ fn gnu_debug() {
 }
 
 #[test]
+fn gnu_warnings_into_errors() {
+    let test = Test::gnu();
+    test.gcc()
+        .warnings_into_errors(true)
+        .file("foo.c")
+        .compile("libfoo.a");
+
+    test.cmd(0).must_have("-Werror");
+}
+
+#[test]
+fn gnu_warnings() {
+    let test = Test::gnu();
+    test.gcc()
+        .warnings(true)
+        .file("foo.c")
+        .compile("libfoo.a");
+
+    test.cmd(0).must_have("-Wall")
+               .must_have("-Wextra");
+}
+
+#[test]
 fn gnu_x86_64() {
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("x86_64-{}", vendor);
