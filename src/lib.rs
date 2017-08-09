@@ -261,12 +261,12 @@ impl Config {
     /// ```no_run
     /// gcc::Config::new()
     ///             .file("src/foo.c")
-    ///             .define("FOO", Some("BAR"))
+    ///             .define("FOO", "BAR")
     ///             .define("BAZ", None)
     ///             .compile("foo");
     /// ```
-    pub fn define(&mut self, var: &str, val: Option<&str>) -> &mut Config {
-        self.definitions.push((var.to_string(), val.map(|s| s.to_string())));
+    pub fn define<'a, V: Into<Option<&'a str>>>(&mut self, var: &str, val: V) -> &mut Config {
+        self.definitions.push((var.to_string(), val.into().map(|s| s.to_string())));
         self
     }
 
@@ -402,12 +402,12 @@ impl Config {
     /// Set warnings into errors flag.
     ///
     /// Disabled by default.
-    /// 
-    /// Warning: turning warnings into errors only make sense 
+    ///
+    /// Warning: turning warnings into errors only make sense
     /// if you are a developer of the crate using gcc-rs.
     /// Some warnings only appear on some architecture or
-    /// specific version of the compiler. Any user of this crate, 
-    /// or any other crate depending on it, could fail during 
+    /// specific version of the compiler. Any user of this crate,
+    /// or any other crate depending on it, could fail during
     /// compile time.
     ///
     /// # Example
@@ -466,11 +466,11 @@ impl Config {
     /// gcc::Config::new()
     ///             .file("src/foo.c")
     ///             .shared_flag(true)
-    ///             .cpp_link_stdlib(Some("stdc++"))
+    ///             .cpp_link_stdlib("stdc++")
     ///             .compile("libfoo.so");
     /// ```
-    pub fn cpp_link_stdlib(&mut self, cpp_link_stdlib: Option<&str>) -> &mut Config {
-        self.cpp_link_stdlib = Some(cpp_link_stdlib.map(|s| s.into()));
+    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_link_stdlib: V) -> &mut Config {
+        self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(|s| s.into()));
         self
     }
 
@@ -504,10 +504,11 @@ impl Config {
     /// ```no_run
     /// gcc::Config::new()
     ///             .file("src/foo.c")
-    ///             .cpp_set_stdlib(Some("c++"))
+    ///             .cpp_set_stdlib("c++")
     ///             .compile("libfoo.a");
     /// ```
-    pub fn cpp_set_stdlib(&mut self, cpp_set_stdlib: Option<&str>) -> &mut Config {
+    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_set_stdlib: V) -> &mut Config {
+        let cpp_set_stdlib = cpp_set_stdlib.into();
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
         self.cpp_link_stdlib(cpp_set_stdlib);
         self
