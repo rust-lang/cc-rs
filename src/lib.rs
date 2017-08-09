@@ -52,6 +52,10 @@ use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
 
+#[doc(hidden)]
+#[deprecated(since="0.3.51", note="gcc::Config has been renamed to gcc::Build")]
+pub type Config = Build;
+
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
