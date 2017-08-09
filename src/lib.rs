@@ -456,6 +456,10 @@ impl Config {
     ///
     /// The given library name must not contain the `lib` prefix.
     ///
+    /// Common values:
+    /// - `stdc++` for GNU
+    /// - `c++` for Clang
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -490,6 +494,10 @@ impl Config {
     /// be used, otherwise `-stdlib` is added to the compile invocation.
     ///
     /// The given library name must not contain the `lib` prefix.
+    ///
+    /// Common values:
+    /// - `stdc++` for GNU
+    /// - `c++` for Clang
     ///
     /// # Example
     ///
