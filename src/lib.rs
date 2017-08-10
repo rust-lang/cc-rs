@@ -10,7 +10,7 @@
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
 //! compile C code into a static archive which is then linked into a Rust crate.
-//! Configuration is available through the `Config` builder.
+//! Configuration is available through the `Build` struct.
 //!
 //! This crate will automatically detect situations such as cross compilation or
 //! other environment variables set by Cargo and will build code appropriately.
@@ -19,21 +19,21 @@
 //! be passed to a C or C++ compiler. As such, assembly files with extensions
 //! `.s` (gcc/clang) and `.asm` (MSVC) can also be compiled.
 //!
-//! [`Config`]: struct.Config.html
+//! [`Build`]: struct.Build.html
 //!
 //! # Examples
 //!
-//! Use the `Config` builder to compile `src/foo.c`:
+//! Use the `Build` struct to compile `src/foo.c`:
 //!
 //! ```no_run
 //! extern crate gcc;
 //!
 //! fn main() {
-//!     gcc::Config::new()
-//!                 .file("src/foo.c")
-//!                 .define("FOO", Some("bar"))
-//!                 .include("src")
-//!                 .compile("foo");
+//!     gcc::Build::new()
+//!                .file("src/foo.c")
+//!                .define("FOO", Some("bar"))
+//!                .include("src")
+//!                .compile("foo");
 //! }
 //! ```
 
@@ -52,6 +52,10 @@ use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
 
+#[doc(hidden)]
+#[deprecated(since="0.3.51", note="gcc::Config has been renamed to gcc::Build")]
+pub type Config = Build;
+
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
@@ -68,7 +72,7 @@ pub mod windows_registry;
 
 /// Extra configuration to pass to gcc.
 #[derive(Clone, Debug)]
-pub struct Config {
+pub struct Build {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
     objects: Vec<PathBuf>,
@@ -192,21 +196,21 @@ impl ToolFamily {
 #[deprecated]
 #[doc(hidden)]
 pub fn compile_library(output: &str, files: &[&str]) {
-    let mut c = Config::new();
+    let mut c = Build::new();
     for f in files.iter() {
         c.file(*f);
     }
     c.compile(output);
 }
 
-impl Config {
+impl Build {
     /// Construct a new instance of a blank set of configuration.
     ///
     /// This builder is finished with the [`compile`] function.
     ///
-    /// [`compile`]: struct.Config.html#method.compile
-    pub fn new() -> Config {
-        Config {
+    /// [`compile`]: struct.Build.html#method.compile
+    pub fn new() -> Build {
+        Build {
             include_directories: Vec::new(),
             definitions: Vec::new(),
             objects: Vec::new(),
@@ -243,13 +247,13 @@ impl Config {
     ///
     /// let library_path = Path::new("/path/to/library");
     ///
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .include(library_path)
-    ///             .include("src")
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .include(library_path)
+    ///            .include("src")
+    ///            .compile("foo");
     /// ```
-    pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Config {
+    pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Build {
         self.include_directories.push(dir.as_ref().to_path_buf());
         self
     }
@@ -259,19 +263,19 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .define("FOO", "BAR")
-    ///             .define("BAZ", None)
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .define("FOO", "BAR")
+    ///            .define("BAZ", None)
+    ///            .compile("foo");
     /// ```
-    pub fn define<'a, V: Into<Option<&'a str>>>(&mut self, var: &str, val: V) -> &mut Config {
+    pub fn define<'a, V: Into<Option<&'a str>>>(&mut self, var: &str, val: V) -> &mut Build {
         self.definitions.push((var.to_string(), val.into().map(|s| s.to_string())));
         self
     }
 
     /// Add an arbitrary object file to link in
-    pub fn object<P: AsRef<Path>>(&mut self, obj: P) -> &mut Config {
+    pub fn object<P: AsRef<Path>>(&mut self, obj: P) -> &mut Build {
         self.objects.push(obj.as_ref().to_path_buf());
         self
     }
@@ -281,12 +285,12 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .flag("-ffunction-sections")
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .flag("-ffunction-sections")
+    ///            .compile("foo");
     /// ```
-    pub fn flag(&mut self, flag: &str) -> &mut Config {
+    pub fn flag(&mut self, flag: &str) -> &mut Build {
         self.flags.push(flag.to_string());
         self
     }
@@ -301,7 +305,7 @@ impl Config {
 
         let obj = out_dir.join("flag_check");
         let target = self.get_target();
-        let mut cfg = Config::new();
+        let mut cfg = Build::new();
         cfg.flag(flag)
            .target(&target)
            .opt_level(0)
@@ -322,13 +326,13 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .flag_if_supported("-Wlogical-op") // only supported by GCC
-    ///             .flag_if_supported("-Wunreachable-code") // only supported by clang
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .flag_if_supported("-Wlogical-op") // only supported by GCC
+    ///            .flag_if_supported("-Wunreachable-code") // only supported by clang
+    ///            .compile("foo");
     /// ```
-    pub fn flag_if_supported(&mut self, flag: &str) -> &mut Config {
+    pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
         if self.is_flag_supported(flag).unwrap_or(false) {
             self.flag(flag)
         } else {
@@ -344,13 +348,13 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .shared_flag(true)
-    ///             .compile("libfoo.so");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .shared_flag(true)
+    ///            .compile("libfoo.so");
     /// ```
 
-    pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Config {
+    pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Build {
         self.shared_flag = Some(shared_flag);
         self
     }
@@ -363,25 +367,25 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .shared_flag(true)
-    ///             .static_flag(true)
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .shared_flag(true)
+    ///            .static_flag(true)
+    ///            .compile("foo");
     /// ```
-    pub fn static_flag(&mut self, static_flag: bool) -> &mut Config {
+    pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
         self.static_flag = Some(static_flag);
         self
     }
 
     /// Add a file which will be compiled
-    pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Config {
+    pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Build {
         self.files.push(p.as_ref().to_path_buf());
         self
     }
 
     /// Add files which will be compiled
-    pub fn files<P>(&mut self, p: P) -> &mut Config
+    pub fn files<P>(&mut self, p: P) -> &mut Build
         where P: IntoIterator,
               P::Item: AsRef<Path> {
         for file in p.into_iter() {
@@ -394,7 +398,7 @@ impl Config {
     ///
     /// The other `cpp_*` options will only become active if this is set to
     /// `true`.
-    pub fn cpp(&mut self, cpp: bool) -> &mut Config {
+    pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
         self
     }
@@ -413,12 +417,12 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .warnings_into_errors(true)
-    ///             .compile("libfoo.a");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .warnings_into_errors(true)
+    ///            .compile("libfoo.a");
     /// ```
-    pub fn warnings_into_errors(&mut self, warnings_into_errors: bool) -> &mut Config {
+    pub fn warnings_into_errors(&mut self, warnings_into_errors: bool) -> &mut Build {
         self.warnings_into_errors = warnings_into_errors;
         self
     }
@@ -434,12 +438,12 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .warnings(false)
-    ///             .compile("libfoo.a");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .warnings(false)
+    ///            .compile("libfoo.a");
     /// ```
-    pub fn warnings(&mut self, warnings: bool) -> &mut Config {
+    pub fn warnings(&mut self, warnings: bool) -> &mut Build {
         self.warnings = warnings;
         self
     }
@@ -463,13 +467,13 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .shared_flag(true)
-    ///             .cpp_link_stdlib("stdc++")
-    ///             .compile("libfoo.so");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .shared_flag(true)
+    ///            .cpp_link_stdlib("stdc++")
+    ///            .compile("libfoo.so");
     /// ```
-    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_link_stdlib: V) -> &mut Config {
+    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_link_stdlib: V) -> &mut Build {
         self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(|s| s.into()));
         self
     }
@@ -502,12 +506,12 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .cpp_set_stdlib("c++")
-    ///             .compile("libfoo.a");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .cpp_set_stdlib("c++")
+    ///            .compile("libfoo.a");
     /// ```
-    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_set_stdlib: V) -> &mut Config {
+    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_set_stdlib: V) -> &mut Build {
         let cpp_set_stdlib = cpp_set_stdlib.into();
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
         self.cpp_link_stdlib(cpp_set_stdlib);
@@ -522,12 +526,12 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .target("aarch64-linux-android")
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .target("aarch64-linux-android")
+    ///            .compile("foo");
     /// ```
-    pub fn target(&mut self, target: &str) -> &mut Config {
+    pub fn target(&mut self, target: &str) -> &mut Build {
         self.target = Some(target.to_string());
         self
     }
@@ -540,12 +544,12 @@ impl Config {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Config::new()
-    ///             .file("src/foo.c")
-    ///             .host("arm-linux-gnueabihf")
-    ///             .compile("foo");
+    /// gcc::Build::new()
+    ///            .file("src/foo.c")
+    ///            .host("arm-linux-gnueabihf")
+    ///            .compile("foo");
     /// ```
-    pub fn host(&mut self, host: &str) -> &mut Config {
+    pub fn host(&mut self, host: &str) -> &mut Build {
         self.host = Some(host.to_string());
         self
     }
@@ -554,7 +558,7 @@ impl Config {
     ///
     /// This option is automatically scraped from the `OPT_LEVEL` environment
     /// variable by build scripts, so it's not required to call this function.
-    pub fn opt_level(&mut self, opt_level: u32) -> &mut Config {
+    pub fn opt_level(&mut self, opt_level: u32) -> &mut Build {
         self.opt_level = Some(opt_level.to_string());
         self
     }
@@ -563,7 +567,7 @@ impl Config {
     ///
     /// This option is automatically scraped from the `OPT_LEVEL` environment
     /// variable by build scripts, so it's not required to call this function.
-    pub fn opt_level_str(&mut self, opt_level: &str) -> &mut Config {
+    pub fn opt_level_str(&mut self, opt_level: &str) -> &mut Build {
         self.opt_level = Some(opt_level.to_string());
         self
     }
@@ -574,7 +578,7 @@ impl Config {
     /// This option is automatically scraped from the `PROFILE` environment
     /// variable by build scripts (only enabled when the profile is "debug"), so
     /// it's not required to call this function.
-    pub fn debug(&mut self, debug: bool) -> &mut Config {
+    pub fn debug(&mut self, debug: bool) -> &mut Build {
         self.debug = Some(debug);
         self
     }
@@ -584,7 +588,7 @@ impl Config {
     ///
     /// This option is automatically scraped from the `OUT_DIR` environment
     /// variable by build scripts, so it's not required to call this function.
-    pub fn out_dir<P: AsRef<Path>>(&mut self, out_dir: P) -> &mut Config {
+    pub fn out_dir<P: AsRef<Path>>(&mut self, out_dir: P) -> &mut Build {
         self.out_dir = Some(out_dir.as_ref().to_owned());
         self
     }
@@ -594,7 +598,7 @@ impl Config {
     /// This option is automatically determined from the target platform or a
     /// number of environment variables, so it's not required to call this
     /// function.
-    pub fn compiler<P: AsRef<Path>>(&mut self, compiler: P) -> &mut Config {
+    pub fn compiler<P: AsRef<Path>>(&mut self, compiler: P) -> &mut Build {
         self.compiler = Some(compiler.as_ref().to_owned());
         self
     }
@@ -604,13 +608,13 @@ impl Config {
     /// This option is automatically determined from the target platform or a
     /// number of environment variables, so it's not required to call this
     /// function.
-    pub fn archiver<P: AsRef<Path>>(&mut self, archiver: P) -> &mut Config {
+    pub fn archiver<P: AsRef<Path>>(&mut self, archiver: P) -> &mut Build {
         self.archiver = Some(archiver.as_ref().to_owned());
         self
     }
     /// Define whether metadata should be emitted for cargo allowing it to
     /// automatically link the binary. Defaults to `true`.
-    pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Config {
+    pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
         self.cargo_metadata = cargo_metadata;
         self
     }
@@ -619,7 +623,7 @@ impl Config {
     ///
     /// This option defaults to `false` for `windows-gnu` targets and
     /// to `true` for all other targets.
-    pub fn pic(&mut self, pic: bool) -> &mut Config {
+    pub fn pic(&mut self, pic: bool) -> &mut Build {
         self.pic = Some(pic);
         self
     }
@@ -627,13 +631,13 @@ impl Config {
     /// Configures whether the /MT flag or the /MD flag will be passed to msvc build tools.
     ///
     /// This option defaults to `false`, and affect only msvc targets.
-    pub fn static_crt(&mut self, static_crt: bool) -> &mut Config {
+    pub fn static_crt(&mut self, static_crt: bool) -> &mut Build {
         self.static_crt = Some(static_crt);
         self
     }
 
     #[doc(hidden)]
-    pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Config
+    pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
         where A: AsRef<OsStr>,
               B: AsRef<OsStr>
     {
@@ -764,9 +768,9 @@ impl Config {
     ///
     /// # Example
     /// ```no_run
-    /// let out = gcc::Config::new()
-    ///                       .file("src/foo.c")
-    ///                       .expand();
+    /// let out = gcc::Build::new()
+    ///                      .file("src/foo.c")
+    ///                      .expand();
     /// ```
     pub fn expand(&self) -> Vec<u8> {
         let compiler = self.get_compiler();
@@ -1377,9 +1381,9 @@ impl Config {
     }
 }
 
-impl Default for Config {
-    fn default() -> Config {
-        Config::new()
+impl Default for Build {
+    fn default() -> Build {
+        Build::new()
     }
 }
 
