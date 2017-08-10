@@ -41,6 +41,7 @@
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
+extern crate ar;
 #[cfg(feature = "parallel")]
 extern crate rayon;
 
@@ -50,6 +51,7 @@ use std::fs;
 use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
+use std::str;
 use std::thread::{self, JoinHandle};
 
 #[doc(hidden)]
@@ -1087,14 +1089,16 @@ impl Build {
                 })
                 .expect("Copying from {:?} to {:?} failed.");;
         } else {
+            let ar_dst = dst.with_file_name(format!("lib{}.a.tmp", lib_name));
             let ar = self.get_ar();
             let cmd = ar.file_name().unwrap().to_string_lossy();
             run(self.cmd(&ar)
                     .arg("crs")
-                    .arg(dst)
+                    .arg(&ar_dst)
                     .args(objects)
                     .args(&self.objects),
                 &cmd);
+            make_ar_deterministic(&ar_dst, dst).expect("Making static lib deterministic failed.");
         }
     }
 
@@ -1522,4 +1526,37 @@ fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bo
     } else {
         cmd.arg("-o").arg(&dst);
     }
+}
+
+fn make_ar_deterministic(src: &Path, dst: &Path) -> io::Result<()> {
+    // ar adds a timestamp in the header which makes its output
+    // non-deterministic. In order to have deterministic builds, we'll
+    // overwrite this timestamp, user, and group with zeroes.
+    if !src.exists() { return Ok(()) }
+    {
+        let infile = fs::File::open(src)?;
+        let outfile = fs::File::create(dst)?;
+
+        let mut in_archive = ar::Archive::new(infile);
+        let mut out_archive = ar::Builder::new(outfile);
+
+        while let Some(entry) = in_archive.next_entry() {
+            let entry = entry?;
+            let mut header;
+            let mode;
+            {
+                let old_header = entry.header();
+                header = ar::Header::new(old_header.identifier().to_string(), old_header.size());
+                mode = old_header.mode();
+            }
+            header.set_mtime(0);
+            header.set_uid(0);
+            header.set_gid(0);
+            header.set_mode(mode);
+            out_archive.append(&header, entry)?;
+        }
+    }
+    fs::remove_file(src)?;
+
+    Ok(())
 }
