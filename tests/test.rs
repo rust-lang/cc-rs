@@ -10,7 +10,7 @@ fn gnu_smoke() {
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("-O2")
@@ -28,7 +28,7 @@ fn gnu_opt_level_1() {
     test.gcc()
         .opt_level(1)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("-O1")
@@ -41,7 +41,7 @@ fn gnu_opt_level_s() {
     test.gcc()
         .opt_level_str("s")
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("-Os")
@@ -57,7 +57,7 @@ fn gnu_debug() {
     test.gcc()
         .debug(true)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
     test.cmd(0).must_have("-g");
 }
 
@@ -67,7 +67,7 @@ fn gnu_warnings_into_errors() {
     test.gcc()
         .warnings_into_errors(true)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("-Werror");
 }
@@ -78,7 +78,7 @@ fn gnu_warnings() {
     test.gcc()
         .warnings(true)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("-Wall")
                .must_have("-Wextra");
@@ -93,7 +93,7 @@ fn gnu_x86_64() {
             .target(&target)
             .host(&target)
             .file("foo.c")
-            .compile("libfoo.a");
+            .compile("foo");
 
         test.cmd(0)
             .must_have("-fPIC")
@@ -111,7 +111,7 @@ fn gnu_x86_64_no_pic() {
             .target(&target)
             .host(&target)
             .file("foo.c")
-            .compile("libfoo.a");
+            .compile("foo");
 
         test.cmd(0).must_not_have("-fPIC");
     }
@@ -126,7 +126,7 @@ fn gnu_i686() {
             .target(&target)
             .host(&target)
             .file("foo.c")
-            .compile("libfoo.a");
+            .compile("foo");
 
         test.cmd(0)
             .must_have("-m32");
@@ -143,7 +143,7 @@ fn gnu_i686_pic() {
             .target(&target)
             .host(&target)
             .file("foo.c")
-            .compile("libfoo.a");
+            .compile("foo");
 
         test.cmd(0).must_have("-fPIC");
     }
@@ -155,7 +155,7 @@ fn gnu_set_stdlib() {
     test.gcc()
         .cpp_set_stdlib(Some("foo"))
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_not_have("-stdlib=foo");
 }
@@ -166,7 +166,7 @@ fn gnu_include() {
     test.gcc()
         .include("foo/bar")
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("-I").must_have("foo/bar");
 }
@@ -178,7 +178,7 @@ fn gnu_define() {
         .define("FOO", "bar")
         .define("BAR", None)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("-DFOO=bar").must_have("-DBAR");
 }
@@ -188,7 +188,7 @@ fn gnu_compile_assembly() {
     let test = Test::gnu();
     test.gcc()
         .file("foo.S")
-        .compile("libfoo.a");
+        .compile("foo");
     test.cmd(0).must_have("foo.S");
 }
 
@@ -199,7 +199,7 @@ fn gnu_shared() {
         .file("foo.c")
         .shared_flag(true)
         .static_flag(false)
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("-shared")
@@ -216,7 +216,7 @@ fn gnu_flag_if_supported() {
         .file("foo.c")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wflag-does-not-exist")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("-Wall")
@@ -230,7 +230,7 @@ fn gnu_static() {
         .file("foo.c")
         .shared_flag(false)
         .static_flag(true)
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("-static")
@@ -242,7 +242,7 @@ fn msvc_smoke() {
     let test = Test::msvc();
     test.gcc()
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0)
         .must_have("/O2")
@@ -259,7 +259,7 @@ fn msvc_opt_level_0() {
     test.gcc()
         .opt_level(0)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_not_have("/O2");
 }
@@ -270,7 +270,7 @@ fn msvc_debug() {
     test.gcc()
         .debug(true)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
     test.cmd(0).must_have("/Z7");
 }
 
@@ -280,7 +280,7 @@ fn msvc_include() {
     test.gcc()
         .include("foo/bar")
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("/I").must_have("foo/bar");
 }
@@ -292,7 +292,7 @@ fn msvc_define() {
         .define("FOO", "bar")
         .define("BAR", None)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("/DFOO=bar").must_have("/DBAR");
 }
@@ -303,7 +303,7 @@ fn msvc_static_crt() {
     test.gcc()
         .static_crt(true)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("/MT");
 }
@@ -314,7 +314,7 @@ fn msvc_no_static_crt() {
     test.gcc()
         .static_crt(false)
         .file("foo.c")
-        .compile("libfoo.a");
+        .compile("foo");
 
     test.cmd(0).must_have("/MD");
 }
