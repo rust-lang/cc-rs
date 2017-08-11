@@ -689,10 +689,14 @@ impl Build {
     ///
     /// This will return a result instead of panicing; see compile() for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
-        let lib_name = if output.starts_with("lib") && output.ends_with(".a") {
-                &output[3..output.len() - 2]
+        let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
+                (&output[3..output.len() - 2], output.to_owned())
             } else {
-                &output
+                let mut gnu = String::with_capacity(5 + output.len());
+                gnu.push_str("lib");
+                gnu.push_str(&output);
+                gnu.push_str(".a");
+                (output, gnu)
             };
         let dst = self.get_out_dir()?;
 
@@ -715,7 +719,7 @@ impl Build {
             objects.push(obj);
         }
         self.compile_objects(&src_dst)?;
-        self.assemble(lib_name, &dst.join(output), &objects)?;
+        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -734,8 +738,7 @@ impl Build {
             }
         }
 
-        self.print(&format!("cargo:rustc-link-lib=static={}",
-                            &output[3..output.len() - 2]));
+        self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
         self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
 
         // Add specific C++ libraries, if enabled.

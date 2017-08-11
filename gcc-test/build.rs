@@ -15,13 +15,13 @@ fn main() {
         .flag_if_supported("-Wfoo-bar-this-flag-does-not-exist")
         .define("FOO", None)
         .define("BAR", "1")
-        .compile("libfoo.a");
+        .compile("foo");
 
     gcc::Build::new()
         .file("src/bar1.c")
         .file("src/bar2.c")
         .include("src/include")
-        .compile("libbar.a");
+        .compile("bar");
 
     let target = std::env::var("TARGET").unwrap();
     let file = target.split("-").next().unwrap();
@@ -30,17 +30,17 @@ fn main() {
                        if target.contains("msvc") { "asm" } else { "S" });
     gcc::Build::new()
         .file(file)
-        .compile("libasm.a");
+        .compile("asm");
 
     gcc::Build::new()
         .file("src/baz.cpp")
         .cpp(true)
-        .compile("libbaz.a");
+        .compile("baz");
 
     if target.contains("windows") {
         gcc::Build::new()
             .file("src/windows.c")
-            .compile("libwindows.a");
+            .compile("windows");
     }
 
     // Test that the `windows_registry` module will set PATH by looking for
@@ -84,7 +84,7 @@ fn main() {
     gcc::Build::new()
         .cargo_metadata(false)
         .file("src/opt_linkage.c")
-        .compile("libOptLinkage.a");
+        .compile("OptLinkage");
 
     let out = gcc::Build::new()
         .file("src/expand.c")
