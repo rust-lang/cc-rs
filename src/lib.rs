@@ -654,6 +654,14 @@ impl Build {
     }
     /// Define whether metadata should be emitted for cargo allowing it to
     /// automatically link the binary. Defaults to `true`.
+    ///
+    /// The emitted metadata is:
+    ///
+    ///  - `rustc-link-lib=static=`*compiled lib*
+    ///  - `rustc-link-search=native=`*target folder*
+    ///  - When target is MSVC, the ATL-MFC libs are added via `rustc-link-search=native=`
+    ///  - When C++ is enabled, the C++ stdlib is added via `rustc-link-lib`
+    ///
     pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
         self.cargo_metadata = cargo_metadata;
         self
