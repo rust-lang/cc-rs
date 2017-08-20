@@ -1486,7 +1486,12 @@ impl Build {
     }
 
     fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| self.getenv("DEBUG").is_some())
+        self.debug.unwrap_or_else(|| {
+            match self.getenv("DEBUG") {
+                Some(s) => s != "false",
+                None => false,
+            }
+        })
     }
 
     fn get_out_dir(&self) -> Result<PathBuf, Error> {
