@@ -199,7 +199,7 @@ impl ToolFamily {
 
     /// What the flags to enable all warnings
     fn warnings_flags(&self) -> &'static [&'static str] {
-        static MSVC_FLAGS: &'static [&'static str] = &["/Wall"];
+        static MSVC_FLAGS: &'static [&'static str] = &["/W4"];
         static GNU_CLANG_FLAGS: &'static [&'static str] = &["-Wall", "-Wextra"];
 
         match *self {
