@@ -98,7 +98,6 @@ pub struct Build {
     static_crt: Option<bool>,
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
-    check_file_created: bool,
     warnings_into_errors: bool,
     warnings: bool,
 }
@@ -273,7 +272,6 @@ impl Build {
             cargo_metadata: true,
             pic: None,
             static_crt: None,
-            check_file_created: false,
             warnings: true,
             warnings_into_errors: false,
         }
@@ -336,15 +334,25 @@ impl Build {
         self
     }
 
-    fn is_flag_supported(&mut self, flag: &str) -> Result<bool, Error> {
+    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
         let out_dir = self.get_out_dir()?;
-        let src = out_dir.join("flag_check.c");
-        if !self.check_file_created {
+        let src = if self.cpp {
+            out_dir.join("flag_check.cpp")
+        } else {
+            out_dir.join("flag_check.c")
+        };
+
+        if !src.exists() {
             let mut f = fs::File::create(&src)?;
             write!(f, "int main(void) {{ return 0; }}")?;
-            self.check_file_created = true;
         }
 
+        Ok(src)
+    }
+
+    fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
+        let out_dir = self.get_out_dir()?;
+        let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
         let mut cfg = Build::new();
