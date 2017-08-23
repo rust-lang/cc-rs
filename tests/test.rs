@@ -216,11 +216,29 @@ fn gnu_flag_if_supported() {
         .file("foo.c")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wflag-does-not-exist")
+        .flag_if_supported("-std=c++11")
         .compile("foo");
 
     test.cmd(0)
         .must_have("-Wall")
-        .must_not_have("-Wflag-does-not-exist");
+        .must_not_have("-Wflag-does-not-exist")
+        .must_not_have("-std=c++11");
+}
+
+#[test]
+fn gnu_flag_if_supported_cpp() {
+    if cfg!(windows) {
+        return
+    }
+    let test = Test::gnu();
+    test.gcc()
+        .cpp(true)
+        .file("foo.cpp")
+        .flag_if_supported("-std=c++11")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have("-std=c++11");
 }
 
 #[test]

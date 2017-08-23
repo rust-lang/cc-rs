@@ -36,7 +36,7 @@ impl Test {
 
     pub fn gnu() -> Test {
         let t = Test::new();
-        t.shim("cc").shim("ar");
+        t.shim("cc").shim("c++").shim("ar");
         t
     }
 
