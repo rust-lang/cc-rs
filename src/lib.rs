@@ -80,6 +80,7 @@ pub struct Build {
     definitions: Vec<(String, Option<String>)>,
     objects: Vec<PathBuf>,
     flags: Vec<String>,
+    flags_supported: Vec<String>,
     files: Vec<PathBuf>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
@@ -97,7 +98,6 @@ pub struct Build {
     static_crt: Option<bool>,
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
-    check_file_created: bool,
     warnings_into_errors: bool,
     warnings: bool,
 }
@@ -254,6 +254,7 @@ impl Build {
             definitions: Vec::new(),
             objects: Vec::new(),
             flags: Vec::new(),
+            flags_supported: Vec::new(),
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
@@ -271,7 +272,6 @@ impl Build {
             cargo_metadata: true,
             pic: None,
             static_crt: None,
-            check_file_created: false,
             warnings: true,
             warnings_into_errors: false,
         }
@@ -334,15 +334,25 @@ impl Build {
         self
     }
 
-    fn is_flag_supported(&mut self, flag: &str) -> Result<bool, Error> {
+    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
         let out_dir = self.get_out_dir()?;
-        let src = out_dir.join("flag_check.c");
-        if !self.check_file_created {
+        let src = if self.cpp {
+            out_dir.join("flag_check.cpp")
+        } else {
+            out_dir.join("flag_check.c")
+        };
+
+        if !src.exists() {
             let mut f = fs::File::create(&src)?;
             write!(f, "int main(void) {{ return 0; }}")?;
-            self.check_file_created = true;
         }
 
+        Ok(src)
+    }
+
+    fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
+        let out_dir = self.get_out_dir()?;
+        let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
         let mut cfg = Build::new();
@@ -373,11 +383,8 @@ impl Build {
     ///            .compile("foo");
     /// ```
     pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
-        if self.is_flag_supported(flag).unwrap_or(false) {
-            self.flag(flag)
-        } else {
-            self
-        }
+        self.flags_supported.push(flag.to_string());
+        self
     }
 
     /// Set the `-shared` flag.
@@ -1105,6 +1112,12 @@ impl Build {
 
         for flag in self.flags.iter() {
             cmd.args.push(flag.into());
+        }
+
+        for flag in self.flags_supported.iter() {
+            if self.is_flag_supported(flag).unwrap_or(false) {
+                cmd.args.push(flag.into());
+            }
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
