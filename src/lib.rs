@@ -80,6 +80,7 @@ pub struct Build {
     definitions: Vec<(String, Option<String>)>,
     objects: Vec<PathBuf>,
     flags: Vec<String>,
+    flags_supported: Vec<String>,
     files: Vec<PathBuf>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
@@ -254,6 +255,7 @@ impl Build {
             definitions: Vec::new(),
             objects: Vec::new(),
             flags: Vec::new(),
+            flags_supported: Vec::new(),
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
@@ -373,11 +375,8 @@ impl Build {
     ///            .compile("foo");
     /// ```
     pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
-        if self.is_flag_supported(flag).unwrap_or(false) {
-            self.flag(flag)
-        } else {
-            self
-        }
+        self.flags_supported.push(flag.to_string());
+        self
     }
 
     /// Set the `-shared` flag.
@@ -1105,6 +1104,12 @@ impl Build {
 
         for flag in self.flags.iter() {
             cmd.args.push(flag.into());
+        }
+
+        for flag in self.flags_supported.iter() {
+            if self.is_flag_supported(flag).unwrap_or(false) {
+                cmd.args.push(flag.into());
+            }
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
