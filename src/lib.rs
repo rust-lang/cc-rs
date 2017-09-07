@@ -1309,22 +1309,20 @@ impl Build {
             })
             .or_else(|| {
                 if target.contains("emscripten") {
-                    //Windows uses bat file so we have to be a bit more specific
                     let tool = if self.cpp {
-                        if cfg!(windows) {
-                            "em++.bat"
-                        } else {
-                            "em++"
-                        }
+                        "em++"
                     } else {
-                        if cfg!(windows) {
-                            "emcc.bat"
-                        } else {
-                            "emcc"
-                        }
+                        "emcc"
                     };
-
-                    Some(Tool::new(PathBuf::from(tool)))
+                    // Windows uses bat file so we have to be a bit more specific
+                    if cfg!(windows) {
+                        let mut t = Tool::new(PathBuf::from("cmd"));
+                        t.args.push("/c".into());
+                        t.args.push(format!("{}.bat", tool).into());
+                        Some(t)
+                    } else {
+                        Some(Tool::new(PathBuf::from(tool)))
+                    }
                 } else {
                     None
                 }
