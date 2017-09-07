@@ -1423,7 +1423,7 @@ impl Build {
 
     fn env_tool(&self, name: &str) -> Option<(String, Vec<String>)> {
         self.get_var(name).ok().map(|tool| {
-            let whitelist = ["ccache", "distcc"];
+            let whitelist = ["ccache", "distcc", "sccache"];
             for t in whitelist.iter() {
                 if tool.starts_with(t) && tool[t.len()..].starts_with(' ') {
                     return (t.to_string(), vec![tool[t.len()..].trim_left().to_string()]);
