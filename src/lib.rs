@@ -158,7 +158,7 @@ pub struct Tool {
 /// Each family of tools differs in how and what arguments they accept.
 ///
 /// Detection of a family is done on best-effort basis and may not accurately reflect the tool.
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum ToolFamily {
     /// Tool is GNU Compiler Collection-like.
     Gnu,
@@ -961,7 +961,7 @@ impl Build {
             ToolFamily::Clang => {
                 // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
                 // not support '-Oz'
-                if target.contains("android") && opt_level == "z" {
+                if opt_level == "z" && cmd.family != ToolFamily::Clang {
                     cmd.args.push("-Os".into());
                 } else {
                     cmd.args.push(format!("-O{}", opt_level).into());
