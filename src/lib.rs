@@ -1017,6 +1017,7 @@ impl Build {
                 // (specified in the android spec online)
                 if target.starts_with("armv7-linux-androideabi") {
                     cmd.args.push("-march=armv7-a".into());
+                    cmd.args.push("-mthumb".into());
                     cmd.args.push("-mfpu=vfpv3-d16".into());
                     cmd.args.push("-mfloat-abi=softfp".into());
                 }
