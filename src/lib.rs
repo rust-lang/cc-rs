@@ -85,6 +85,7 @@ pub struct Build {
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
     cpp_set_stdlib: Option<String>,
+    cuda: bool,
     target: Option<String>,
     host: Option<String>,
     out_dir: Option<PathBuf>,
@@ -217,6 +218,26 @@ impl ToolFamily {
             ToolFamily::Clang => "-Werror"
         }
     }
+
+    /// NVCC-specific. Device code debug info flag. This is separate from the
+    /// debug info flag passed to the C++ compiler.
+    fn nvcc_debug_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => unimplemented!(),
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-G",
+        }
+    }
+
+    /// NVCC-specific. Redirect the following flag to the underlying C++
+    /// compiler.
+    fn nvcc_redirect_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => unimplemented!(),
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-Xcompiler",
+        }
+    }
 }
 
 /// Compile a library from the given set of input C files.
@@ -261,6 +282,7 @@ impl Build {
             cpp: false,
             cpp_link_stdlib: None,
             cpp_set_stdlib: None,
+            cuda: false,
             target: None,
             host: None,
             out_dir: None,
@@ -336,7 +358,10 @@ impl Build {
 
     fn ensure_check_file(&self) -> Result<PathBuf, Error> {
         let out_dir = self.get_out_dir()?;
-        let src = if self.cpp {
+        let src = if self.cuda {
+            assert!(self.cpp);
+            out_dir.join("flag_check.cu")
+        } else if self.cpp {
             out_dir.join("flag_check.cpp")
         } else {
             out_dir.join("flag_check.c")
@@ -361,7 +386,8 @@ impl Build {
            .opt_level(0)
            .host(&target)
            .debug(false)
-           .cpp(self.cpp);
+           .cpp(self.cpp)
+           .cuda(self.cuda);
         let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
@@ -447,6 +473,22 @@ impl Build {
     /// `true`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
+        self
+    }
+
+    /// Set CUDA C++ support.
+    ///
+    /// Enabling CUDA will pass the detected C/C++ toolchain as an argument to
+    /// the CUDA compiler, NVCC. NVCC itself accepts some limited GNU-like args;
+    /// any other arguments for the C/C++ toolchain will be redirected using
+    /// "-Xcompiler" flags.
+    ///
+    /// If enabled, this also implicitly enables C++ support.
+    pub fn cuda(&mut self, cuda: bool) -> &mut Build {
+        self.cuda = cuda;
+        if cuda {
+            self.cpp(true);
+        }
         self
     }
 
@@ -924,14 +966,14 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
-        let nvcc = cmd.path.file_name()
-            .and_then(|p| p.to_str()).map(|p| p.contains("nvcc"))
-            .unwrap_or(false);
 
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc => {
+                assert!(!self.cuda,
+                    "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
+
                 cmd.args.push("/nologo".into());
 
                 let crt_flag = match self.static_crt {
@@ -967,15 +1009,13 @@ impl Build {
                     cmd.args.push(format!("-O{}", opt_level).into());
                 }
 
-                if !nvcc {
-                    cmd.args.push("-ffunction-sections".into());
-                    cmd.args.push("-fdata-sections".into());
-                    if self.pic.unwrap_or(!target.contains("windows-gnu")) {
-                        cmd.args.push("-fPIC".into());
-                    }
-                } else if self.pic.unwrap_or(false) {
-                    cmd.args.push("-Xcompiler".into());
-                    cmd.args.push("\'-fPIC\'".into());
+                cmd.nvcc_wrap_arg(self.cuda);
+                cmd.args.push("-ffunction-sections".into());
+                cmd.nvcc_wrap_arg(self.cuda);
+                cmd.args.push("-fdata-sections".into());
+                if self.pic.unwrap_or(!target.contains("windows-gnu")) {
+                    cmd.nvcc_wrap_arg(self.cuda);
+                    cmd.args.push("-fPIC".into());
                 }
             }
         }
@@ -984,6 +1024,11 @@ impl Build {
         }
 
         if self.get_debug() {
+            if self.cuda {
+                let nvcc_debug_arg = cmd.family.nvcc_debug_flag().into();
+                cmd.args.push(nvcc_debug_arg);
+            }
+            cmd.nvcc_wrap_arg(self.cuda);
             cmd.args.push(cmd.family.debug_flag().into());
         }
 
@@ -1096,6 +1141,7 @@ impl Build {
                 (None, _) => { }
                 (Some(stdlib), ToolFamily::Gnu) |
                 (Some(stdlib), ToolFamily::Clang) => {
+                    cmd.nvcc_wrap_arg(self.cuda);
                     cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
@@ -1116,6 +1162,7 @@ impl Build {
 
         for flag in self.flags_supported.iter() {
             if self.is_flag_supported(flag).unwrap_or(false) {
+                cmd.nvcc_wrap_arg(self.cuda);
                 cmd.args.push(flag.into());
             }
         }
@@ -1131,11 +1178,13 @@ impl Build {
 
         if self.warnings {
             for flag in cmd.family.warnings_flags().iter() {
+                cmd.nvcc_wrap_arg(self.cuda);
                 cmd.args.push(flag.into());
             }
         }
 
         if self.warnings_into_errors {
+            cmd.nvcc_wrap_arg(self.cuda);
             cmd.args.push(cmd.family.warnings_to_errors_flag().into());
         }
 
@@ -1391,6 +1440,20 @@ impl Build {
             }
         };
 
+        let tool = if self.cuda {
+            assert!(tool.args.is_empty(),
+                "CUDA compilation currently assumes empty pre-existing args");
+            let nvcc = match self.get_var("NVCC") {
+                Err(_) => "nvcc".into(),
+                Ok(nvcc) => nvcc,
+            };
+            let mut nvcc_tool = Tool::new(PathBuf::from(nvcc));
+            nvcc_tool.args.push(format!("-ccbin={}", tool.path.display()).into());
+            nvcc_tool
+        } else {
+            tool
+        };
+
         Ok(tool)
     }
 
@@ -1559,6 +1622,17 @@ impl Tool {
             args: Vec::new(),
             env: Vec::new(),
             family: family
+        }
+    }
+
+    /// Optionally appends the NVCC wrapper flag "-Xcompiler".
+    ///
+    /// Currently this is only used for compiling CUDA sources, since NVCC only
+    /// accepts a limited set of GNU-like flags, and the rest must be prefixed
+    /// with a "-Xcompiler" flag to get passed to the underlying C++ compiler.
+    fn nvcc_wrap_arg(&mut self, cuda: bool) {
+        if cuda {
+            self.args.push(self.family.nvcc_redirect_flag().into());
         }
     }
 

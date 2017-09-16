@@ -158,6 +158,25 @@ When using C++ library compilation switch, the `CXX` and `CXXFLAGS` env
 variables are used instead of `CC` and `CFLAGS` and the C++ standard library is
 linked to the crate target.
 
+## CUDA C++ support
+
+`gcc-rs` also supports compiling CUDA C++ libraries by using the `cuda` method
+on `Build` (currently for GNU/Clang toolchains only):
+
+```rust,no_run
+extern crate gcc;
+
+fn main() {
+    gcc::Build::new()
+        // Switch to CUDA C++ library compilation using NVCC.
+        .cuda(true)
+        // Generate code for Maxwell architecture.
+        .flag("-gencode").flag("arch=compute_52,code=sm_52")
+        .file("bar.cu")
+        .compile("libbar.a");
+}
+```
+
 ## License
 
 `gcc-rs` is primarily distributed under the terms of both the MIT license and
