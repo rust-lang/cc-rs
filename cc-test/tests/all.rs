@@ -1,6 +1,6 @@
-extern crate gcc_test;
+extern crate cc_test;
 
-use gcc_test::*;
+use cc_test::*;
 
 #[link(name = "OptLinkage", kind = "static")]
 extern "C" {

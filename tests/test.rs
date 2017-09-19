@@ -1,4 +1,4 @@
-extern crate gcc;
+extern crate cc;
 extern crate tempdir;
 
 use support::Test;

@@ -1,16 +1,15 @@
 [package]
-name = "gcc-test"
+name = "cc-test"
 version = "0.1.0"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
-build = "build.rs"
 
 [lib]
-name = "gcc_test"
+name = "cc_test"
 doctest = false
 test = false
 
 [build-dependencies]
-gcc = { path = ".." }
+cc = { path = ".." }
 
 [features]
-parallel = ["gcc/parallel"]
+parallel = ["cc/parallel"]

@@ -1,5 +1,5 @@
 extern crate tempdir;
-extern crate gcc;
+extern crate cc;
 
 use std::env;
 
