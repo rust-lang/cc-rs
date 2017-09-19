@@ -18,7 +18,7 @@ also add this crate to your `Cargo.toml` via:
 
 ```toml
 [build-dependencies]
-cc = "0.3"
+cc = "1.0"
 ```
 
 Next up, you'll want to write a build script like so:
@@ -100,7 +100,7 @@ you can change your dependency to:
 
 ```toml
 [build-dependencies]
-cc = { version = "0.3", features = ["parallel"] }
+cc = { version = "1.0", features = ["parallel"] }
 ```
 
 By default cc-rs will limit parallelism to `$NUM_JOBS`, or if not present it

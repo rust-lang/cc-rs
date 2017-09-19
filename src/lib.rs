@@ -5,7 +5,7 @@
 //!
 //! ```toml
 //! [build-dependencies]
-//! cc = "0.3"
+//! cc = "1.0"
 //! ```
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
@@ -37,7 +37,7 @@
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/cc/0.3")]
+#![doc(html_root_url = "https://docs.rs/cc/1.0")]
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
