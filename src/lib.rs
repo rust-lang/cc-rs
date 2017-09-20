@@ -240,6 +240,58 @@ impl ToolFamily {
     }
 }
 
+/// Represents different C-like dialects.
+///
+/// Each dialect may require different compilers and compiler invocations.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub enum Dialect {
+    /// Language dialect is C.
+    C,
+    /// Language dialect is C++.
+    Cpp,
+    /// Language dialect is CUDA C++ (currently a superset of C++11).
+    Cuda,
+}
+
+/// Detect the language dialect based on source file extension.
+pub fn autodetect_ext(src: &Path) -> Dialect {
+    if let Some(ext) = src.extension().and_then(|e| e.to_str()) {
+        match ext {
+            "c"     => Dialect::C,
+            "cc"    |
+            "cpp"   |
+            "cxx"   => Dialect::Cpp,
+            "cu"    => Dialect::Cuda,
+            _       => panic!("unknown source extension: {:?}", src),
+        }
+    } else {
+        panic!("source is missing an extension: {:?}", src);
+    }
+}
+
+/// Represents an object.
+///
+/// This is a source file -> object file pair, with an associated language
+/// dialect.
+#[derive(Clone, Debug)]
+pub struct Object {
+    dialect: Dialect,
+    src: PathBuf,
+    dst: PathBuf,
+}
+
+impl Object {
+    /// Create a new source file -> object file pair, while autodetecting the
+    /// dialect from the source file extension.
+    pub fn new(src: PathBuf, dst: PathBuf) -> Object {
+        Object {
+            dialect: autodetect_ext(&src),
+            src: src,
+            dst: dst,
+        }
+    }
+}
+
 /// Compile a library from the given set of input C files.
 ///
 /// This will simply compile all files into object files and then assemble them
@@ -758,7 +810,6 @@ impl Build {
         let dst = self.get_out_dir()?;
 
         let mut objects = Vec::new();
-        let mut src_dst = Vec::new();
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
@@ -772,10 +823,9 @@ impl Build {
                 None => return Err(Error::new(ErrorKind::IOError, "Getting object file details failed.")),
             };
 
-            src_dst.push((file.to_path_buf(), obj.clone()));
-            objects.push(obj);
+            objects.push(Object::new(file.to_path_buf(), obj));
         }
-        self.compile_objects(&src_dst)?;
+        self.compile_objects(&objects)?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
@@ -827,7 +877,7 @@ impl Build {
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
         let mut cfg = rayon::Configuration::new();
@@ -841,7 +891,7 @@ impl Build {
         let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
 
         objs.par_iter().with_max_len(1)
-            .for_each(|&(ref src, ref dst)| results.lock().unwrap().push(self.compile_object(src, dst)));
+            .for_each(|obj| results.lock().unwrap().push(self.compile_object(obj)));
 
         // Check for any errors and return the first one found.
         for result in results.into_inner().unwrap().iter() {
@@ -854,15 +904,15 @@ impl Build {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
-        for &(ref src, ref dst) in objs {
-            self.compile_object(src, dst)?;
+    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+        for obj in objs {
+            self.compile_object(obj)?;
         }
         Ok(())
     }
 
-    fn compile_object(&self, file: &Path, dst: &Path) -> Result<(), Error> {
-        let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
+    fn compile_object(&self, obj: &Object) -> Result<(), Error> {
+        let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let msvc = self.get_target()?.contains("msvc");
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
@@ -879,9 +929,9 @@ impl Build {
                  .to_string_lossy()
                  .into_owned())
         };
-        command_add_output_file(&mut cmd, dst, msvc, is_asm);
+        command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm);
         cmd.arg(if msvc { "/c" } else { "-c" });
-        cmd.arg(file);
+        cmd.arg(&obj.src);
 
         run(&mut cmd, &name)?;
         Ok(())
@@ -1220,11 +1270,12 @@ impl Build {
         Ok((cmd, tool.to_string()))
     }
 
-    fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) -> Result<(), Error> {
+    fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
         // Delete the destination if it exists as the `ar` tool at least on Unix
         // appends to it, which we don't want.
         let _ = fs::remove_file(&dst);
 
+        let objects: Vec<_> = objs.iter().map(|obj| obj.dst.clone()).collect();
         let target = self.get_target()?;
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
@@ -1235,7 +1286,7 @@ impl Build {
             out.push(dst);
             run(cmd.arg(out)
                     .arg("/nologo")
-                    .args(objects)
+                    .args(&objects)
                     .args(&self.objects),
                 "lib.exe")?;
 
@@ -1260,7 +1311,7 @@ impl Build {
             run(self.cmd(&ar)
                     .arg("crs")
                     .arg(dst)
-                    .args(objects)
+                    .args(&objects)
                     .args(&self.objects),
                 &cmd)?;
         }
