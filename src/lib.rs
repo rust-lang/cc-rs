@@ -5,7 +5,7 @@
 //!
 //! ```toml
 //! [build-dependencies]
-//! gcc = "0.3"
+//! cc = "1.0"
 //! ```
 //!
 //! The purpose of this crate is to provide the utility functions necessary to
@@ -26,18 +26,18 @@
 //! Use the `Build` struct to compile `src/foo.c`:
 //!
 //! ```no_run
-//! extern crate gcc;
+//! extern crate cc;
 //!
 //! fn main() {
-//!     gcc::Build::new()
-//!                .file("src/foo.c")
-//!                .define("FOO", Some("bar"))
-//!                .include("src")
-//!                .compile("foo");
+//!     cc::Build::new()
+//!         .file("src/foo.c")
+//!         .define("FOO", Some("bar"))
+//!         .include("src")
+//!         .compile("foo");
 //! }
 //! ```
 
-#![doc(html_root_url = "https://docs.rs/gcc/0.3")]
+#![doc(html_root_url = "https://docs.rs/cc/1.0")]
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
 
@@ -51,10 +51,6 @@ use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
-
-#[doc(hidden)]
-#[deprecated(since="0.3.51", note="gcc::Config has been renamed to gcc::Build")]
-pub type Config = Build;
 
 #[cfg(feature = "parallel")]
 use std::sync::Mutex;
@@ -73,7 +69,11 @@ mod setup_config;
 
 pub mod windows_registry;
 
-/// Extra configuration to pass to gcc.
+/// A builder for compilation of a native static library.
+///
+/// A `Build` is the main type of the `cc` crate and is used to control all the
+/// various configuration options and such of a compile. You'll find more
+/// documentation on each method itself.
 #[derive(Clone, Debug)]
 pub struct Build {
     include_directories: Vec<PathBuf>,
@@ -103,7 +103,7 @@ pub struct Build {
     warnings: bool,
 }
 
-/// Represents the types of errors that may occur while using gcc-rs.
+/// Represents the types of errors that may occur while using cc-rs.
 #[derive(Clone, Debug)]
 enum ErrorKind {
     /// Error occurred while performing I/O.
@@ -292,29 +292,6 @@ impl Object {
     }
 }
 
-/// Compile a library from the given set of input C files.
-///
-/// This will simply compile all files into object files and then assemble them
-/// into the output. This will read the standard environment variables to detect
-/// cross compilations and such.
-///
-/// This function will also print all metadata on standard output for Cargo.
-///
-/// # Example
-///
-/// ```no_run
-/// gcc::compile_library("foo", &["foo.c", "bar.c"]);
-/// ```
-#[deprecated]
-#[doc(hidden)]
-pub fn compile_library(output: &str, files: &[&str]) {
-    let mut c = Build::new();
-    for f in files.iter() {
-        c.file(*f);
-    }
-    c.compile(output);
-}
-
 impl Build {
     /// Construct a new instance of a blank set of configuration.
     ///
@@ -360,11 +337,11 @@ impl Build {
     ///
     /// let library_path = Path::new("/path/to/library");
     ///
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .include(library_path)
-    ///            .include("src")
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .include(library_path)
+    ///     .include("src")
+    ///     .compile("foo");
     /// ```
     pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Build {
         self.include_directories.push(dir.as_ref().to_path_buf());
@@ -376,11 +353,11 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .define("FOO", "BAR")
-    ///            .define("BAZ", None)
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .define("FOO", "BAR")
+    ///     .define("BAZ", None)
+    ///     .compile("foo");
     /// ```
     pub fn define<'a, V: Into<Option<&'a str>>>(&mut self, var: &str, val: V) -> &mut Build {
         self.definitions.push((var.to_string(), val.into().map(|s| s.to_string())));
@@ -398,10 +375,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .flag("-ffunction-sections")
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .flag("-ffunction-sections")
+    ///     .compile("foo");
     /// ```
     pub fn flag(&mut self, flag: &str) -> &mut Build {
         self.flags.push(flag.to_string());
@@ -454,11 +431,11 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .flag_if_supported("-Wlogical-op") // only supported by GCC
-    ///            .flag_if_supported("-Wunreachable-code") // only supported by clang
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .flag_if_supported("-Wlogical-op") // only supported by GCC
+    ///     .flag_if_supported("-Wunreachable-code") // only supported by clang
+    ///     .compile("foo");
     /// ```
     pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
         self.flags_supported.push(flag.to_string());
@@ -473,10 +450,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .shared_flag(true)
-    ///            .compile("libfoo.so");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .shared_flag(true)
+    ///     .compile("libfoo.so");
     /// ```
 
     pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Build {
@@ -492,11 +469,11 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .shared_flag(true)
-    ///            .static_flag(true)
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .shared_flag(true)
+    ///     .static_flag(true)
+    ///     .compile("foo");
     /// ```
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
         self.static_flag = Some(static_flag);
@@ -549,7 +526,7 @@ impl Build {
     /// Disabled by default.
     ///
     /// Warning: turning warnings into errors only make sense
-    /// if you are a developer of the crate using gcc-rs.
+    /// if you are a developer of the crate using cc-rs.
     /// Some warnings only appear on some architecture or
     /// specific version of the compiler. Any user of this crate,
     /// or any other crate depending on it, could fail during
@@ -558,10 +535,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .warnings_into_errors(true)
-    ///            .compile("libfoo.a");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .warnings_into_errors(true)
+    ///     .compile("libfoo.a");
     /// ```
     pub fn warnings_into_errors(&mut self, warnings_into_errors: bool) -> &mut Build {
         self.warnings_into_errors = warnings_into_errors;
@@ -579,10 +556,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .warnings(false)
-    ///            .compile("libfoo.a");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .warnings(false)
+    ///     .compile("libfoo.a");
     /// ```
     pub fn warnings(&mut self, warnings: bool) -> &mut Build {
         self.warnings = warnings;
@@ -608,11 +585,11 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .shared_flag(true)
-    ///            .cpp_link_stdlib("stdc++")
-    ///            .compile("libfoo.so");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .shared_flag(true)
+    ///     .cpp_link_stdlib("stdc++")
+    ///     .compile("libfoo.so");
     /// ```
     pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_link_stdlib: V) -> &mut Build {
         self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(|s| s.into()));
@@ -647,10 +624,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .cpp_set_stdlib("c++")
-    ///            .compile("libfoo.a");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .cpp_set_stdlib("c++")
+    ///     .compile("libfoo.a");
     /// ```
     pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_set_stdlib: V) -> &mut Build {
         let cpp_set_stdlib = cpp_set_stdlib.into();
@@ -667,10 +644,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .target("aarch64-linux-android")
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .target("aarch64-linux-android")
+    ///     .compile("foo");
     /// ```
     pub fn target(&mut self, target: &str) -> &mut Build {
         self.target = Some(target.to_string());
@@ -685,10 +662,10 @@ impl Build {
     /// # Example
     ///
     /// ```no_run
-    /// gcc::Build::new()
-    ///            .file("src/foo.c")
-    ///            .host("arm-linux-gnueabihf")
-    ///            .compile("foo");
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .host("arm-linux-gnueabihf")
+    ///     .compile("foo");
     /// ```
     pub fn host(&mut self, host: &str) -> &mut Build {
         self.host = Some(host.to_string());
@@ -972,9 +949,7 @@ impl Build {
     ///
     /// # Example
     /// ```no_run
-    /// let out = gcc::Build::new()
-    ///                       .file("src/foo.c")
-    ///                       .expand();
+    /// let out = cc::Build::new().file("src/foo.c").expand();
     /// ```
     pub fn expand(&self) -> Vec<u8> {
         match self.try_expand() {
@@ -1112,6 +1087,7 @@ impl Build {
                 // (specified in the android spec online)
                 if target.starts_with("armv7-linux-androideabi") {
                     cmd.args.push("-march=armv7-a".into());
+                    cmd.args.push("-mthumb".into());
                     cmd.args.push("-mfpu=vfpv3-d16".into());
                     cmd.args.push("-mfloat-abi=softfp".into());
                 }
@@ -1304,11 +1280,8 @@ impl Build {
                 Err(_) => return Err(Error::new(ErrorKind::IOError, "Could not copy or create a hard-link to the generated lib file.")),
             };
         } else {
-            let ar = self.get_ar()?;
-            let cmd = ar.file_name()
-                .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get archiver (ar) path."))?
-                .to_string_lossy();
-            run(self.cmd(&ar)
+            let (mut ar, cmd) = self.get_ar()?;
+            run(ar
                     .arg("crs")
                     .arg(dst)
                     .args(&objects)
@@ -1565,28 +1538,29 @@ impl Build {
         }
     }
 
-    fn get_ar(&self) -> Result<PathBuf, Error> {
-        match self.archiver
-            .clone()
-            .or_else(|| self.get_var("AR").map(PathBuf::from).ok()) {
-                Some(p) => Ok(p),
-                None => {
-                    if self.get_target()?.contains("android") {
-                        Ok(PathBuf::from(format!("{}-ar", self.get_target()?.replace("armv7", "arm"))))
-                    } else if self.get_target()?.contains("emscripten") {
-                        //Windows use bat files so we have to be a bit more specific
-                        let tool = if cfg!(windows) {
-                            "emar.bat"
-                        } else {
-                            "emar"
-                        };
-
-                        Ok(PathBuf::from(tool))
-                    } else {
-                        Ok(PathBuf::from("ar"))
-                    }
-                }
+    fn get_ar(&self) -> Result<(Command, String), Error> {
+        if let Some(ref p) = self.archiver {
+            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("ar");
+            return Ok((self.cmd(p), name.to_string()))
+        }
+        if let Ok(p) = self.get_var("AR") {
+            return Ok((self.cmd(&p), p))
+        }
+        let program = if self.get_target()?.contains("android") {
+            format!("{}-ar", self.get_target()?.replace("armv7", "arm"))
+        } else if self.get_target()?.contains("emscripten") {
+            // Windows use bat files so we have to be a bit more specific
+            if cfg!(windows) {
+                let mut cmd = self.cmd("cmd");
+                cmd.arg("/c").arg("emar.bat");
+                return Ok((cmd, "emar.bat".to_string()))
             }
+
+            "emar".to_string()
+        } else {
+            "ar".to_string()
+        };
+        Ok((self.cmd(&program), program))
     }
 
     fn get_target(&self) -> Result<String, Error> {
@@ -1780,7 +1754,7 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
         }
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
-                " (see https://github.com/alexcrichton/gcc-rs#compile-time-requirements \
+                " (see https://github.com/alexcrichton/cc-rs#compile-time-requirements \
                    for help)"
             } else {
                 ""

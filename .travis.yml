@@ -21,9 +21,9 @@ script:
   - cargo build --verbose
   - cargo test --verbose
   - cargo test --verbose --features parallel
-  - cargo test --manifest-path gcc-test/Cargo.toml --target $TARGET
-  - cargo test --manifest-path gcc-test/Cargo.toml --target $TARGET --features parallel
-  - cargo test --manifest-path gcc-test/Cargo.toml --target $TARGET --release
+  - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET
+  - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET --features parallel
+  - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET --release
   - cargo doc
   - cargo clean && cargo build
   - rustdoc --test README.md -L target/debug -L target/debug/deps

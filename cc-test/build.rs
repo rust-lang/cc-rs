@@ -1,4 +1,4 @@
-extern crate gcc;
+extern crate cc;
 
 use std::env;
 use std::fs;
@@ -9,7 +9,7 @@ fn main() {
     fs::remove_dir_all(&out).unwrap();
     fs::create_dir(&out).unwrap();
 
-    gcc::Build::new()
+    cc::Build::new()
         .file("src/foo.c")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wfoo-bar-this-flag-does-not-exist")
@@ -17,7 +17,7 @@ fn main() {
         .define("BAR", "1")
         .compile("foo");
 
-    gcc::Build::new()
+    cc::Build::new()
         .file("src/bar1.c")
         .file("src/bar2.c")
         .include("src/include")
@@ -28,17 +28,17 @@ fn main() {
     let file = format!("src/{}.{}",
                        file,
                        if target.contains("msvc") { "asm" } else { "S" });
-    gcc::Build::new()
+    cc::Build::new()
         .file(file)
         .compile("asm");
 
-    gcc::Build::new()
+    cc::Build::new()
         .file("src/baz.cpp")
         .cpp(true)
         .compile("baz");
 
     if target.contains("windows") {
-        gcc::Build::new()
+        cc::Build::new()
             .file("src/windows.c")
             .compile("windows");
     }
@@ -50,7 +50,7 @@ fn main() {
         let out = out.join("tmp");
         fs::create_dir(&out).unwrap();
         println!("nmake 1");
-        let status = gcc::windows_registry::find(&target, "nmake.exe")
+        let status = cc::windows_registry::find(&target, "nmake.exe")
             .unwrap()
             .env_remove("MAKEFLAGS")
             .arg("/fsrc/NMakefile")
@@ -67,7 +67,7 @@ fn main() {
         env::remove_var("INCLUDE");
         env::remove_var("LIB");
         println!("nmake 2");
-        let status = gcc::windows_registry::find(&target, "nmake.exe")
+        let status = cc::windows_registry::find(&target, "nmake.exe")
             .unwrap()
             .env_remove("MAKEFLAGS")
             .arg("/fsrc/NMakefile")
@@ -81,12 +81,12 @@ fn main() {
 
     // This tests whether we  can build a library but not link it to the main
     // crate.  The test module will do its own linking.
-    gcc::Build::new()
+    cc::Build::new()
         .cargo_metadata(false)
         .file("src/opt_linkage.c")
         .compile("OptLinkage");
 
-    let out = gcc::Build::new()
+    let out = cc::Build::new()
         .file("src/expand.c")
         .expand();
     let out = String::from_utf8(out).unwrap();

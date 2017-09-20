@@ -50,6 +50,6 @@ build: false
 test_script:
   - cargo test --target %TARGET%
   - cargo test --features parallel --target %TARGET%
-  - cargo test --manifest-path gcc-test/Cargo.toml --target %TARGET%
-  - cargo test --manifest-path gcc-test/Cargo.toml --features parallel --target %TARGET%
-  - cargo test --manifest-path gcc-test/Cargo.toml --release --target %TARGET%
+  - cargo test --manifest-path cc-test/Cargo.toml --target %TARGET%
+  - cargo test --manifest-path cc-test/Cargo.toml --features parallel --target %TARGET%
+  - cargo test --manifest-path cc-test/Cargo.toml --release --target %TARGET%

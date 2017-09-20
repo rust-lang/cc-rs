@@ -1,30 +1,27 @@
-# gcc-rs
+# cc-rs
 
-A library to compile C/C++ code into a Rust library/application.
+A library to compile C/C++/assembly into a Rust library/application.
 
-[![Build Status](https://travis-ci.org/alexcrichton/gcc-rs.svg?branch=master)](https://travis-ci.org/alexcrichton/gcc-rs)
-[![Build status](https://ci.appveyor.com/api/projects/status/onu270iw98h81nwv?svg=true)](https://ci.appveyor.com/project/alexcrichton/gcc-rs)
+[![Build Status](https://travis-ci.org/alexcrichton/cc-rs.svg?branch=master)](https://travis-ci.org/alexcrichton/cc-rs)
+[![Build status](https://ci.appveyor.com/api/projects/status/onu270iw98h81nwv?svg=true)](https://ci.appveyor.com/project/alexcrichton/cc-rs)
 
-[Documentation](https://docs.rs/gcc)
+[Documentation](https://docs.rs/cc)
 
 A simple library meant to be used as a build dependency with Cargo packages in
-order to build a set of C/C++ files into a static archive. Note that while this
-crate is called "gcc", it actually calls out to the most relevant compile for
-a platform, for example using `cl` on MSVC. That is, this crate does indeed work
-on MSVC!
+order to build a set of C/C++ files into a static archive. This crate calls out
+to the most relevant compiler for a platform, for example using `cl` on MSVC.
 
-## Using gcc-rs
+> **Note**: this crate was recently renamed from the `gcc` crate, so if you're
+> looking for the `gcc` crate you're in the right spot!
+
+## Using cc-rs
 
 First, you'll want to both add a build script for your crate (`build.rs`) and
 also add this crate to your `Cargo.toml` via:
 
 ```toml
-[package]
-# ...
-build = "build.rs"
-
 [build-dependencies]
-gcc = "0.3"
+cc = "1.0"
 ```
 
 Next up, you'll want to write a build script like so:
@@ -32,10 +29,10 @@ Next up, you'll want to write a build script like so:
 ```rust,no_run
 // build.rs
 
-extern crate gcc;
+extern crate cc;
 
 fn main() {
-    gcc::Build::new()
+    cc::Build::new()
         .file("foo.c")
         .file("bar.c")
         .compile("foo");
@@ -70,7 +67,7 @@ fn main() {
 To control the programs and flags used for building, the builder can set a
 number of different environment variables.
 
-* `CFLAGS` - a series of space separated flags passed to "gcc". Note that
+* `CFLAGS` - a series of space separated flags passed to compilers. Note that
              individual flags cannot currently contain spaces, so doing
              something like: "-L=foo\ bar" is not possible.
 * `CC` - the actual C compiler used. Note that this is used as an exact
@@ -89,9 +86,9 @@ in the following prioritized order:
 3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
 4. `<var>` - a plain `CC`, `AR` as above.
 
-If none of these variables exist, gcc-rs uses built-in defaults
+If none of these variables exist, cc-rs uses built-in defaults
 
-In addition to the the above optional environment variables, `gcc-rs` has some
+In addition to the the above optional environment variables, `cc-rs` has some
 functions with hard requirements on some variables supplied by [cargo's
 build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
 and `HOST` variables.
@@ -100,16 +97,16 @@ and `HOST` variables.
 
 ## Optional features
 
-Currently gcc-rs supports parallel compilation (think `make -jN`) but this
-feature is turned off by default. To enable gcc-rs to compile C/C++ in parallel,
+Currently cc-rs supports parallel compilation (think `make -jN`) but this
+feature is turned off by default. To enable cc-rs to compile C/C++ in parallel,
 you can change your dependency to:
 
 ```toml
 [build-dependencies]
-gcc = { version = "0.3", features = ["parallel"] }
+cc = { version = "1.0", features = ["parallel"] }
 ```
 
-By default gcc-rs will limit parallelism to `$NUM_JOBS`, or if not present it
+By default cc-rs will limit parallelism to `$NUM_JOBS`, or if not present it
 will limit it to the number of cpus on the machine. If you are using cargo,
 use `-jN` option of `build`, `test` and `run` commands as `$NUM_JOBS`
 is supplied by cargo.
@@ -121,13 +118,13 @@ is being run. This crate does not ship a C compiler with it. The compiler
 required varies per platform, but there are three broad categories:
 
 * Unix platforms require `cc` to be the C compiler. This can be found by
-  installing gcc/clang on Linux distributions and Xcode on OSX, for example.
+  installing cc/clang on Linux distributions and Xcode on OSX, for example.
 * Windows platforms targeting MSVC (e.g. your target triple ends in `-msvc`)
   require `cl.exe` to be available and in `PATH`. This is typically found in
   standard Visual Studio installations and the `PATH` can be set up by running
   the appropriate developer tools shell.
 * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
-  require `gcc` to be available in `PATH`. We recommend the
+  require `cc` to be available in `PATH`. We recommend the
   [MinGW-w64](http://mingw-w64.org) distribution, which is using the
   [Win-builds](http://win-builds.org) installation system.
   You may also acquire it via
@@ -140,14 +137,14 @@ required varies per platform, but there are three broad categories:
 
 ## C++ support
 
-`gcc-rs` supports C++ libraries compilation by using the `cpp` method on
+`cc-rs` supports C++ libraries compilation by using the `cpp` method on
 `Build`:
 
 ```rust,no_run
-extern crate gcc;
+extern crate cc;
 
 fn main() {
-    gcc::Build::new()
+    cc::Build::new()
         .cpp(true) // Switch to C++ library compilation.
         .file("foo.cpp")
         .compile("libfoo.a");
@@ -179,7 +176,7 @@ fn main() {
 
 ## License
 
-`gcc-rs` is primarily distributed under the terms of both the MIT license and
+`cc-rs` is primarily distributed under the terms of both the MIT license and
 the Apache License (Version 2.0), with portions covered by various BSD-like
 licenses.
 
