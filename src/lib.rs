@@ -82,6 +82,7 @@ pub struct Build {
     flags: Vec<String>,
     flags_supported: Vec<String>,
     files: Vec<PathBuf>,
+    dialect: Dialect,
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
     cpp_set_stdlib: Option<String>,
@@ -308,6 +309,7 @@ impl Build {
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
+            dialect: Dialect::C,
             cpp: false,
             cpp_link_stdlib: None,
             cpp_set_stdlib: None,
@@ -483,6 +485,13 @@ impl Build {
     /// Add a file which will be compiled
     pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Build {
         self.files.push(p.as_ref().to_path_buf());
+        match (self.dialect, autodetect_ext(p.as_ref())) {
+            (_,             Dialect::C)     => {}
+            (Dialect::C,    Dialect::Cpp)   |
+            (Dialect::Cpp,  Dialect::Cpp)   => { self.cpp(true); }
+            (Dialect::Cuda, Dialect::Cpp)   => {}
+            (_,             Dialect::Cuda)  => { self.cuda(true); }
+        }
         self
     }
 
@@ -502,6 +511,9 @@ impl Build {
     /// `true`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
+        if cpp {
+            self.dialect = Dialect::Cpp;
+        }
         self
     }
 
@@ -516,7 +528,8 @@ impl Build {
     pub fn cuda(&mut self, cuda: bool) -> &mut Build {
         self.cuda = cuda;
         if cuda {
-            self.cpp(true);
+            self.dialect = Dialect::Cuda;
+            self.cpp = true;
         }
         self
     }
