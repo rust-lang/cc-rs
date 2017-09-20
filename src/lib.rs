@@ -1180,11 +1180,8 @@ impl Build {
                 Err(_) => return Err(Error::new(ErrorKind::IOError, "Could not copy or create a hard-link to the generated lib file.")),
             };
         } else {
-            let ar = self.get_ar()?;
-            let cmd = ar.file_name()
-                .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get archiver (ar) path."))?
-                .to_string_lossy();
-            run(self.cmd(&ar)
+            let (mut ar, cmd) = self.get_ar()?;
+            run(ar
                     .arg("crs")
                     .arg(dst)
                     .args(objects)
@@ -1427,28 +1424,29 @@ impl Build {
         }
     }
 
-    fn get_ar(&self) -> Result<PathBuf, Error> {
-        match self.archiver
-            .clone()
-            .or_else(|| self.get_var("AR").map(PathBuf::from).ok()) {
-                Some(p) => Ok(p),
-                None => {
-                    if self.get_target()?.contains("android") {
-                        Ok(PathBuf::from(format!("{}-ar", self.get_target()?.replace("armv7", "arm"))))
-                    } else if self.get_target()?.contains("emscripten") {
-                        //Windows use bat files so we have to be a bit more specific
-                        let tool = if cfg!(windows) {
-                            "emar.bat"
-                        } else {
-                            "emar"
-                        };
-
-                        Ok(PathBuf::from(tool))
-                    } else {
-                        Ok(PathBuf::from("ar"))
-                    }
-                }
+    fn get_ar(&self) -> Result<(Command, String), Error> {
+        if let Some(ref p) = self.archiver {
+            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("ar");
+            return Ok((self.cmd(p), name.to_string()))
+        }
+        if let Ok(p) = self.get_var("AR") {
+            return Ok((self.cmd(&p), p))
+        }
+        let program = if self.get_target()?.contains("android") {
+            format!("{}-ar", self.get_target()?.replace("armv7", "arm"))
+        } else if self.get_target()?.contains("emscripten") {
+            // Windows use bat files so we have to be a bit more specific
+            if cfg!(windows) {
+                let mut cmd = self.cmd("cmd");
+                cmd.arg("/c").arg("emar.bat");
+                return Ok((cmd, "emar.bat".to_string()))
             }
+
+            "emar".to_string()
+        } else {
+            "ar".to_string()
+        };
+        Ok((self.cmd(&program), program))
     }
 
     fn get_target(&self) -> Result<String, Error> {
