@@ -342,6 +342,13 @@ impl Build {
         let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
+
+        // We need to explicitly tell msvc not to link and create an exe
+        // in the root directory of the crate
+        if target.contains("msvc") {
+            cmd.arg("/c");
+        }
+
         cmd.arg(&src);
 
         let output = cmd.output()?;
