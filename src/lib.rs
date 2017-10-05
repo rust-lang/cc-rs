@@ -1093,6 +1093,12 @@ impl Build {
             cmd.args.push(directory.into());
         }
 
+        if self.warnings {
+            for flag in cmd.family.warnings_flags().iter() {
+                cmd.args.push(flag.into());
+            }
+        }
+
         for flag in self.flags.iter() {
             cmd.args.push(flag.into());
         }
@@ -1109,12 +1115,6 @@ impl Build {
                 cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
                 cmd.args.push(format!("{}D{}", lead, key).into());
-            }
-        }
-
-        if self.warnings {
-            for flag in cmd.family.warnings_flags().iter() {
-                cmd.args.push(flag.into());
             }
         }
 
