@@ -16,8 +16,8 @@ readme = "README.md"
 categories = ["development-tools"]
 
 [badges]
-travis-ci = { repository = "alexcrichton/gcc-rs" }
-appveyor = { repository = "alexcrichton/gcc-rs" }
+travis-ci = { repository = "alexcrichton/cc-rs" }
+appveyor = { repository = "alexcrichton/cc-rs" }
 
 [dependencies]
 rayon = { version = "0.8", optional = true }
