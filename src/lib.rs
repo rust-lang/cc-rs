@@ -982,6 +982,8 @@ impl Build {
             ToolFamily::Gnu => {
                 if target.contains("i686") || target.contains("i586") {
                     cmd.args.push("-m32".into());
+                } else if target == "x86_64-unknown-linux-gnux32" {
+                    cmd.args.push("-mx32".into());
                 } else if target.contains("x86_64") || target.contains("powerpc64") {
                     cmd.args.push("-m64".into());
                 }
