@@ -148,6 +148,7 @@ impl From<io::Error> for Error {
 #[derive(Clone, Debug)]
 pub struct Tool {
     path: PathBuf,
+    path_args: Vec<OsString>,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
     family: ToolFamily
@@ -1285,7 +1286,7 @@ impl Build {
             .map(|(tool, args)| {
                 let mut t = Tool::new(PathBuf::from(tool));
                 for arg in args {
-                    t.args.push(arg.into());
+                    t.path_args.push(arg.into());
                 }
                 t
             })
@@ -1400,6 +1401,7 @@ impl Build {
             .map(|s| s.to_string())
             .collect()
     }
+
 
     fn env_tool(&self, name: &str) -> Option<(String, Vec<String>)> {
         self.get_var(name).ok().map(|tool| {
@@ -1539,6 +1541,7 @@ impl Tool {
         };
         Tool {
             path: path,
+            path_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
             family: family
@@ -1552,6 +1555,7 @@ impl Tool {
     /// variables configured.
     pub fn to_command(&self) -> Command {
         let mut cmd = Command::new(&self.path);
+        cmd.args(&self.path_args);
         cmd.args(&self.args);
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
@@ -1579,6 +1583,32 @@ impl Tool {
     /// This is typically only used for MSVC compilers currently.
     pub fn env(&self) -> &[(OsString, OsString)] {
         &self.env
+    }
+
+    /// Returns the compiler command in format of CC environment variable.
+    /// 
+    /// This is typically used by configure script 
+    pub fn cc_env(&self) -> OsString {
+        let mut cc = self.path.as_os_str().to_owned();        
+        for arg in self.path_args.iter() {
+            cc.push(" ");
+            cc.push(arg);
+        }
+        cc
+    }
+
+    /// Returns the compiler flags in format of CFLAGS environment variable.
+    /// 
+    /// This is typically used by configure script 
+    pub fn cflags_env(&self) -> OsString {
+        let mut flags = OsString::new();
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                flags.push(" ");
+            }
+            flags.push(arg);
+        }
+        flags
     }
 }
 
