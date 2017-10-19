@@ -21,6 +21,22 @@
 //!
 //! [`Build`]: struct.Build.html
 //!
+//! # Parallelism
+//!
+//! To parallelize computation, enable the `parallel` feature for the crate.
+//!
+//! ```toml
+//! [build-dependencies]
+//! cc = { version = "1.0", features = ["parallel"] }
+//! ```
+//! To specify the max number of concurrent compilation jobs, set the `NUM_JOBS`
+//! environment variable to the desired amount.
+//!
+//! Cargo will also set this environment variable when executed with the `-jN` flag.
+//!
+//! If `NUM_JOBS` is not set, the `RAYON_NUM_THREADS` environment variable can
+//! also specify the build paralellism.
+//!
 //! # Examples
 //!
 //! Use the `Build` struct to compile `src/foo.c`:
@@ -128,7 +144,10 @@ pub struct Error {
 
 impl Error {
     fn new(kind: ErrorKind, message: &str) -> Error {
-        Error { kind: kind, message: message.to_owned() }
+        Error {
+            kind: kind,
+            message: message.to_owned(),
+        }
     }
 }
 
@@ -150,7 +169,7 @@ pub struct Tool {
     path: PathBuf,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
-    family: ToolFamily
+    family: ToolFamily,
 }
 
 /// Represents the family of tools this tool belongs to.
@@ -174,8 +193,7 @@ impl ToolFamily {
     fn debug_flag(&self) -> &'static str {
         match *self {
             ToolFamily::Msvc => "/Z7",
-            ToolFamily::Gnu |
-            ToolFamily::Clang => "-g",
+            ToolFamily::Gnu | ToolFamily::Clang => "-g",
         }
     }
 
@@ -183,8 +201,7 @@ impl ToolFamily {
     fn include_flag(&self) -> &'static str {
         match *self {
             ToolFamily::Msvc => "/I",
-            ToolFamily::Gnu |
-            ToolFamily::Clang => "-I",
+            ToolFamily::Gnu | ToolFamily::Clang => "-I",
         }
     }
 
@@ -192,8 +209,7 @@ impl ToolFamily {
     fn expand_flag(&self) -> &'static str {
         match *self {
             ToolFamily::Msvc => "/E",
-            ToolFamily::Gnu |
-            ToolFamily::Clang => "-E",
+            ToolFamily::Gnu | ToolFamily::Clang => "-E",
         }
     }
 
@@ -204,8 +220,7 @@ impl ToolFamily {
 
         match *self {
             ToolFamily::Msvc => &MSVC_FLAGS,
-            ToolFamily::Gnu |
-            ToolFamily::Clang => &GNU_CLANG_FLAGS,
+            ToolFamily::Gnu | ToolFamily::Clang => &GNU_CLANG_FLAGS,
         }
     }
 
@@ -213,8 +228,7 @@ impl ToolFamily {
     fn warnings_to_errors_flag(&self) -> &'static str {
         match *self {
             ToolFamily::Msvc => "/WX",
-            ToolFamily::Gnu |
-            ToolFamily::Clang => "-Werror"
+            ToolFamily::Gnu | ToolFamily::Clang => "-Werror",
         }
     }
 }
@@ -286,7 +300,10 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn define<'a, V: Into<Option<&'a str>>>(&mut self, var: &str, val: V) -> &mut Build {
-        self.definitions.push((var.to_string(), val.into().map(|s| s.to_string())));
+        self.definitions.push((
+            var.to_string(),
+            val.into().map(|s| s.to_string()),
+        ));
         self
     }
 
@@ -334,11 +351,11 @@ impl Build {
         let target = self.get_target()?;
         let mut cfg = Build::new();
         cfg.flag(flag)
-           .target(&target)
-           .opt_level(0)
-           .host(&target)
-           .debug(false)
-           .cpp(self.cpp);
+            .target(&target)
+            .opt_level(0)
+            .host(&target)
+            .debug(false)
+            .cpp(self.cpp);
         let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
@@ -417,8 +434,10 @@ impl Build {
 
     /// Add files which will be compiled
     pub fn files<P>(&mut self, p: P) -> &mut Build
-        where P: IntoIterator,
-              P::Item: AsRef<Path> {
+    where
+        P: IntoIterator,
+        P::Item: AsRef<Path>,
+    {
         for file in p.into_iter() {
             self.file(file);
         }
@@ -504,7 +523,10 @@ impl Build {
     ///     .cpp_link_stdlib("stdc++")
     ///     .compile("libfoo.so");
     /// ```
-    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_link_stdlib: V) -> &mut Build {
+    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
+        &mut self,
+        cpp_link_stdlib: V,
+    ) -> &mut Build {
         self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(|s| s.into()));
         self
     }
@@ -542,7 +564,10 @@ impl Build {
     ///     .cpp_set_stdlib("c++")
     ///     .compile("libfoo.a");
     /// ```
-    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(&mut self, cpp_set_stdlib: V) -> &mut Build {
+    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(
+        &mut self,
+        cpp_set_stdlib: V,
+    ) -> &mut Build {
         let cpp_set_stdlib = cpp_set_stdlib.into();
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
         self.cpp_link_stdlib(cpp_set_stdlib);
@@ -677,10 +702,13 @@ impl Build {
 
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
-        where A: AsRef<OsStr>,
-              B: AsRef<OsStr>
+    where
+        A: AsRef<OsStr>,
+        B: AsRef<OsStr>,
     {
-        self.env.push((a.as_ref().to_owned(), b.as_ref().to_owned()));
+        self.env.push(
+            (a.as_ref().to_owned(), b.as_ref().to_owned()),
+        );
         self
     }
 
@@ -689,14 +717,14 @@ impl Build {
     /// This will return a result instead of panicing; see compile() for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
         let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
-                (&output[3..output.len() - 2], output.to_owned())
-            } else {
-                let mut gnu = String::with_capacity(5 + output.len());
-                gnu.push_str("lib");
-                gnu.push_str(&output);
-                gnu.push_str(".a");
-                (output, gnu)
-            };
+            (&output[3..output.len() - 2], output.to_owned())
+        } else {
+            let mut gnu = String::with_capacity(5 + output.len());
+            gnu.push_str("lib");
+            gnu.push_str(&output);
+            gnu.push_str(".a");
+            (output, gnu)
+        };
         let dst = self.get_out_dir()?;
 
         let mut objects = Vec::new();
@@ -704,14 +732,21 @@ impl Build {
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
-                dst.join(obj.file_name().ok_or_else(|| Error::new(ErrorKind::IOError, "Getting object file details failed."))?)
+                dst.join(obj.file_name().ok_or_else(|| {
+                    Error::new(ErrorKind::IOError, "Getting object file details failed.")
+                })?)
             } else {
                 obj
             };
 
             match obj.parent() {
                 Some(s) => fs::create_dir_all(s)?,
-                None => return Err(Error::new(ErrorKind::IOError, "Getting object file details failed.")),
+                None => {
+                    return Err(Error::new(
+                        ErrorKind::IOError,
+                        "Getting object file details failed.",
+                    ))
+                }
             };
 
             src_dst.push((file.to_path_buf(), obj.clone()));
@@ -722,7 +757,8 @@ impl Build {
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
-            let atlmfc_lib = compiler.env()
+            let atlmfc_lib = compiler
+                .env()
                 .iter()
                 .find(|&&(ref var, _)| var.as_os_str() == OsStr::new("LIB"))
                 .and_then(|&(_, ref lib_paths)| {
@@ -733,7 +769,10 @@ impl Build {
                 });
 
             if let Some(atlmfc_lib) = atlmfc_lib {
-                self.print(&format!("cargo:rustc-link-search=native={}", atlmfc_lib.display()));
+                self.print(&format!(
+                    "cargo:rustc-link-search=native={}",
+                    atlmfc_lib.display()
+                ));
             }
         }
 
@@ -782,8 +821,11 @@ impl Build {
 
         let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
 
-        objs.par_iter().with_max_len(1)
-            .for_each(|&(ref src, ref dst)| results.lock().unwrap().push(self.compile_object(src, dst)));
+        objs.par_iter().with_max_len(1).for_each(
+            |&(ref src, ref dst)| {
+                results.lock().unwrap().push(self.compile_object(src, dst))
+            },
+        );
 
         // Check for any errors and return the first one found.
         for result in results.into_inner().unwrap().iter() {
@@ -814,12 +856,17 @@ impl Build {
             for &(ref a, ref b) in self.env.iter() {
                 cmd.env(a, b);
             }
-            (cmd,
-             compiler.path
-                 .file_name()
-                 .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
-                 .to_string_lossy()
-                 .into_owned())
+            (
+                cmd,
+                compiler
+                    .path
+                    .file_name()
+                    .ok_or_else(|| {
+                        Error::new(ErrorKind::IOError, "Failed to get compiler path.")
+                    })?
+                    .to_string_lossy()
+                    .into_owned(),
+            )
         };
         command_add_output_file(&mut cmd, dst, msvc, is_asm);
         cmd.arg(if msvc { "/c" } else { "-c" });
@@ -838,16 +885,21 @@ impl Build {
         }
         cmd.arg(compiler.family.expand_flag());
 
-        assert!(self.files.len() <= 1,
-                "Expand may only be called for a single file");
+        assert!(
+            self.files.len() <= 1,
+            "Expand may only be called for a single file"
+        );
 
         for file in self.files.iter() {
             cmd.arg(file);
         }
 
-        let name = compiler.path
+        let name = compiler
+            .path
             .file_name()
-            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
+            .ok_or_else(|| {
+                Error::new(ErrorKind::IOError, "Failed to get compiler path.")
+            })?
             .to_string_lossy()
             .into_owned();
 
@@ -906,8 +958,10 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
-        let nvcc = cmd.path.file_name()
-            .and_then(|p| p.to_str()).map(|p| p.contains("nvcc"))
+        let nvcc = cmd.path
+            .file_name()
+            .and_then(|p| p.to_str())
+            .map(|p| p.contains("nvcc"))
             .unwrap_or(false);
 
         // Non-target flags
@@ -920,14 +974,14 @@ impl Build {
                     Some(true) => "/MT",
                     Some(false) => "/MD",
                     None => {
-                        let features = env::var("CARGO_CFG_TARGET_FEATURE")
-                                  .unwrap_or(String::new());
+                        let features =
+                            env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
                         if features.contains("crt-static") {
                             "/MT"
                         } else {
                             "/MD"
                         }
-                    },
+                    }
                 };
                 cmd.args.push(crt_flag.into());
 
@@ -939,8 +993,7 @@ impl Build {
                     _ => {}
                 }
             }
-            ToolFamily::Gnu |
-            ToolFamily::Clang => {
+            ToolFamily::Gnu | ToolFamily::Clang => {
                 // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
                 // not support '-Oz'
                 if opt_level == "z" && cmd.family != ToolFamily::Clang {
@@ -961,7 +1014,7 @@ impl Build {
                 }
             }
         }
-        for arg in self.envflags(if self.cpp {"CXXFLAGS"} else {"CFLAGS"}) {
+        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
             cmd.args.push(arg.into());
         }
 
@@ -1078,14 +1131,17 @@ impl Build {
 
         if self.cpp {
             match (self.cpp_set_stdlib.as_ref(), cmd.family) {
-                (None, _) => { }
+                (None, _) => {}
                 (Some(stdlib), ToolFamily::Gnu) |
                 (Some(stdlib), ToolFamily::Clang) => {
                     cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    println!("cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
-                              does not support this option, ignored", cmd.family);
+                    println!(
+                        "cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
+                              does not support this option, ignored",
+                        cmd.family
+                    );
                 }
             }
         }
@@ -1112,7 +1168,11 @@ impl Build {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
-            let lead = if let ToolFamily::Msvc = cmd.family {"/"} else {"-"};
+            let lead = if let ToolFamily::Msvc = cmd.family {
+                "/"
+            } else {
+                "-"
+            };
             if let Some(ref value) = *value {
                 cmd.args.push(format!("{}D{}={}", lead, key, value).into());
             } else {
@@ -1165,37 +1225,46 @@ impl Build {
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
                 Some(ref s) => self.cmd(s),
-                None => windows_registry::find(&target, "lib.exe").unwrap_or_else(|| self.cmd("lib.exe")),
+                None => {
+                    windows_registry::find(&target, "lib.exe").unwrap_or_else(
+                        || {
+                            self.cmd("lib.exe")
+                        },
+                    )
+                }
             };
             let mut out = OsString::from("/OUT:");
             out.push(dst);
-            run(cmd.arg(out)
-                    .arg("/nologo")
-                    .args(objects)
-                    .args(&self.objects),
-                "lib.exe")?;
+            run(
+                cmd.arg(out).arg("/nologo").args(objects).args(
+                    &self.objects,
+                ),
+                "lib.exe",
+            )?;
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            match fs::hard_link(&dst, &lib_dst)
-                .or_else(|_| {
-                    // if hard-link fails, just copy (ignoring the number of bytes written)
-                    fs::copy(&dst, &lib_dst).map(|_| ())
-                }) {
+            match fs::hard_link(&dst, &lib_dst).or_else(|_| {
+                // if hard-link fails, just copy (ignoring the number of bytes written)
+                fs::copy(&dst, &lib_dst).map(|_| ())
+            }) {
                 Ok(_) => (),
-                Err(_) => return Err(Error::new(ErrorKind::IOError, "Could not copy or create a hard-link to the generated lib file.")),
+                Err(_) => {
+                    return Err(Error::new(
+                        ErrorKind::IOError,
+                        "Could not copy or create a hard-link to the generated lib file.",
+                    ))
+                }
             };
         } else {
             let (mut ar, cmd) = self.get_ar()?;
-            run(ar
-                    .arg("crs")
-                    .arg(dst)
-                    .args(objects)
-                    .args(&self.objects),
-                &cmd)?;
+            run(
+                ar.arg("crs").arg(dst).args(objects).args(&self.objects),
+                &cmd,
+            )?;
         }
 
         Ok(())
@@ -1208,14 +1277,24 @@ impl Build {
         }
 
         let target = self.get_target()?;
-        let arch = target.split('-').nth(0).ok_or_else(|| Error::new(ErrorKind::ArchitectureInvalid, "Unknown architecture for iOS target."))?;
+        let arch = target.split('-').nth(0).ok_or_else(|| {
+            Error::new(
+                ErrorKind::ArchitectureInvalid,
+                "Unknown architecture for iOS target.",
+            )
+        })?;
         let arch = match arch {
             "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
             "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
             "arm64" | "aarch64" => ArchSpec::Device("arm64"),
             "i386" | "i686" => ArchSpec::Simulator("-m32"),
             "x86_64" => ArchSpec::Simulator("-m64"),
-            _ => return Err(Error::new(ErrorKind::ArchitectureInvalid, "Unknown architecture for iOS target.")),
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::ArchitectureInvalid,
+                    "Unknown architecture for iOS target.",
+                ))
+            }
         };
 
         let sdk = match arch {
@@ -1243,7 +1322,12 @@ impl Build {
 
         let sdk_path = match String::from_utf8(sdk_path) {
             Ok(p) => p,
-            Err(_) => return Err(Error::new(ErrorKind::IOError, "Unable to determine iOS SDK path.")),
+            Err(_) => {
+                return Err(Error::new(
+                    ErrorKind::IOError,
+                    "Unable to determine iOS SDK path.",
+                ))
+            }
         };
 
         cmd.args.push("-isysroot".into());
@@ -1281,35 +1365,32 @@ impl Build {
             "cc"
         };
 
-        let tool_opt: Option<Tool> = self.env_tool(env)
-            .map(|(tool, args)| {
-                let mut t = Tool::new(PathBuf::from(tool));
-                for arg in args {
-                    t.args.push(arg.into());
-                }
-                t
-            })
-            .or_else(|| {
-                if target.contains("emscripten") {
-                    let tool = if self.cpp {
-                        "em++"
-                    } else {
-                        "emcc"
-                    };
-                    // Windows uses bat file so we have to be a bit more specific
-                    if cfg!(windows) {
-                        let mut t = Tool::new(PathBuf::from("cmd"));
-                        t.args.push("/c".into());
-                        t.args.push(format!("{}.bat", tool).into());
-                        Some(t)
-                    } else {
-                        Some(Tool::new(PathBuf::from(tool)))
+        let tool_opt: Option<Tool> =
+            self.env_tool(env)
+                .map(|(tool, args)| {
+                    let mut t = Tool::new(PathBuf::from(tool));
+                    for arg in args {
+                        t.args.push(arg.into());
                     }
-                } else {
-                    None
-                }
-            })
-            .or_else(|| windows_registry::find_tool(&target, "cl.exe"));
+                    t
+                })
+                .or_else(|| {
+                    if target.contains("emscripten") {
+                        let tool = if self.cpp { "em++" } else { "emcc" };
+                        // Windows uses bat file so we have to be a bit more specific
+                        if cfg!(windows) {
+                            let mut t = Tool::new(PathBuf::from("cmd"));
+                            t.args.push("/c".into());
+                            t.args.push(format!("{}.bat", tool).into());
+                            Some(t)
+                        } else {
+                            Some(Tool::new(PathBuf::from(tool)))
+                        }
+                    } else {
+                        None
+                    }
+                })
+                .or_else(|| windows_registry::find_tool(&target, "cl.exe"));
 
         let tool = match tool_opt {
             Some(t) => t,
@@ -1388,7 +1469,13 @@ impl Build {
 
         match res {
             Some(res) => Ok(res),
-            None => Err(Error::new(ErrorKind::EnvVarNotFound, &format!("Could not find environment variable {}.", var_base))),
+            None => Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                &format!(
+                    "Could not find environment variable {}.",
+                    var_base
+                ),
+            )),
         }
     }
 
@@ -1429,17 +1516,17 @@ impl Build {
                 } else {
                     Ok(Some("stdc++".to_string()))
                 }
-            },
+            }
         }
     }
 
     fn get_ar(&self) -> Result<(Command, String), Error> {
         if let Some(ref p) = self.archiver {
             let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("ar");
-            return Ok((self.cmd(p), name.to_string()))
+            return Ok((self.cmd(p), name.to_string()));
         }
         if let Ok(p) = self.get_var("AR") {
-            return Ok((self.cmd(&p), p))
+            return Ok((self.cmd(&p), p));
         }
         let program = if self.get_target()?.contains("android") {
             format!("{}-ar", self.get_target()?.replace("armv7", "arm"))
@@ -1448,7 +1535,7 @@ impl Build {
             if cfg!(windows) {
                 let mut cmd = self.cmd("cmd");
                 cmd.arg("/c").arg("emar.bat");
-                return Ok((cmd, "emar.bat".to_string()))
+                return Ok((cmd, "emar.bat".to_string()));
             }
 
             "emar".to_string()
@@ -1480,20 +1567,21 @@ impl Build {
     }
 
     fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| {
-            match self.getenv("DEBUG") {
-                Some(s) => s != "false",
-                None => false,
-            }
+        self.debug.unwrap_or_else(|| match self.getenv("DEBUG") {
+            Some(s) => s != "false",
+            None => false,
         })
     }
 
     fn get_out_dir(&self) -> Result<PathBuf, Error> {
         match self.out_dir.clone() {
             Some(p) => Ok(p),
-            None => Ok(env::var_os("OUT_DIR")
-                .map(PathBuf::from)
-                .ok_or_else(|| Error::new(ErrorKind::EnvVarNotFound, "Environment variable OUT_DIR not defined."))?),
+            None => Ok(env::var_os("OUT_DIR").map(PathBuf::from).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::EnvVarNotFound,
+                    "Environment variable OUT_DIR not defined.",
+                )
+            })?),
         }
     }
 
@@ -1506,7 +1594,13 @@ impl Build {
     fn getenv_unwrap(&self, v: &str) -> Result<String, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
-            None => Err(Error::new(ErrorKind::EnvVarNotFound, &format!("Environment variable {} not defined.", v.to_string()))),
+            None => Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                &format!(
+                    "Environment variable {} not defined.",
+                    v.to_string()
+                ),
+            )),
         }
     }
 
@@ -1541,7 +1635,7 @@ impl Tool {
             path: path,
             args: Vec::new(),
             env: Vec::new(),
-            family: family
+            family: family,
         }
     }
 
@@ -1586,7 +1680,16 @@ fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
     let (mut child, print) = spawn(cmd, program)?;
     let status = match child.wait() {
         Ok(s) => s,
-        Err(_) => return Err(Error::new(ErrorKind::ToolExecError, &format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program))),
+        Err(_) => {
+            return Err(Error::new(
+                ErrorKind::ToolExecError,
+                &format!(
+                    "Failed to wait on spawned child process, command {:?} with args {:?}.",
+                    cmd,
+                    program
+                ),
+            ))
+        }
     };
     print.join().unwrap();
     println!("{}", status);
@@ -1594,7 +1697,15 @@ fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
     if status.success() {
         Ok(())
     } else {
-        Err(Error::new(ErrorKind::ToolExecError, &format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status)))
+        Err(Error::new(
+            ErrorKind::ToolExecError,
+            &format!(
+                "Command {:?} with args {:?} did not execute successfully (status code {}).",
+                cmd,
+                program,
+                status
+            ),
+        ))
     }
 }
 
@@ -1602,10 +1713,24 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     cmd.stdout(Stdio::piped());
     let (mut child, print) = spawn(cmd, program)?;
     let mut stdout = vec![];
-    child.stdout.take().unwrap().read_to_end(&mut stdout).unwrap();
+    child
+        .stdout
+        .take()
+        .unwrap()
+        .read_to_end(&mut stdout)
+        .unwrap();
     let status = match child.wait() {
         Ok(s) => s,
-        Err(_) => return Err(Error::new(ErrorKind::ToolExecError, &format!("Failed to wait on spawned child process, command {:?} with args {:?}.", cmd, program))),
+        Err(_) => {
+            return Err(Error::new(
+                ErrorKind::ToolExecError,
+                &format!(
+                    "Failed to wait on spawned child process, command {:?} with args {:?}.",
+                    cmd,
+                    program
+                ),
+            ))
+        }
     };
     print.join().unwrap();
     println!("{}", status);
@@ -1613,7 +1738,15 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     if status.success() {
         Ok(stdout)
     } else {
-        Err(Error::new(ErrorKind::ToolExecError, &format!("Command {:?} with args {:?} did not execute successfully (status code {}).", cmd, program, status)))
+        Err(Error::new(
+            ErrorKind::ToolExecError,
+            &format!(
+                "Command {:?} with args {:?} did not execute successfully (status code {}).",
+                cmd,
+                program,
+                status
+            ),
+        ))
     }
 }
 
@@ -1627,12 +1760,13 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
     match cmd.stderr(Stdio::piped()).spawn() {
         Ok(mut child) => {
             let stderr = BufReader::new(child.stderr.take().unwrap());
-            let print = thread::spawn(move || {
-                for line in stderr.split(b'\n').filter_map(|l| l.ok()) {
-                    print!("cargo:warning=");
-                    std::io::stdout().write_all(&line).unwrap();
-                    println!("");
-                }
+            let print = thread::spawn(move || for line in stderr.split(b'\n').filter_map(
+                |l| l.ok(),
+            )
+            {
+                print!("cargo:warning=");
+                std::io::stdout().write_all(&line).unwrap();
+                println!("");
             });
             Ok((child, print))
         }
@@ -1643,9 +1777,23 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
             } else {
                 ""
             };
-            Err(Error::new(ErrorKind::ToolNotFound, &format!("Failed to find tool. Is `{}` installed?{}", program, extra)))
+            Err(Error::new(
+                ErrorKind::ToolNotFound,
+                &format!(
+                    "Failed to find tool. Is `{}` installed?{}",
+                    program,
+                    extra
+                ),
+            ))
         }
-        Err(_) => Err(Error::new(ErrorKind::ToolExecError, &format!("Command {:?} with args {:?} failed to start.", cmd, program))),
+        Err(_) => Err(Error::new(
+            ErrorKind::ToolExecError,
+            &format!(
+                "Command {:?} with args {:?} failed to start.",
+                cmd,
+                program
+            ),
+        )),
     }
 }
 

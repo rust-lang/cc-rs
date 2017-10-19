@@ -97,6 +97,8 @@ and `HOST` variables.
 
 ## Optional features
 
+### Parallel
+
 Currently cc-rs supports parallel compilation (think `make -jN`) but this
 feature is turned off by default. To enable cc-rs to compile C/C++ in parallel,
 you can change your dependency to:
