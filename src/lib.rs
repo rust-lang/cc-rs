@@ -823,7 +823,8 @@ impl Build {
 
         objs.par_iter().with_max_len(1).for_each(
             |&(ref src, ref dst)| {
-                results.lock().unwrap().push(self.compile_object(src, dst))
+                let res = self.compile_object(src, dst);
+                results.lock().unwrap().push(res)
             },
         );
 
