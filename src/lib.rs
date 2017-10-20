@@ -1675,6 +1675,21 @@ impl Tool {
     pub fn env(&self) -> &[(OsString, OsString)] {
         &self.env
     }
+
+    /// Whether the tool is GNU Compiler Collection-like.
+    pub fn is_like_gnu(&self) -> bool {
+        self.family == ToolFamily::Gnu
+    }
+
+    /// Whether the tool is Clang-like.
+    pub fn is_like_clang(&self) -> bool {
+        self.family == ToolFamily::Clang
+    }
+
+    /// Whether the tool is MSVC-like.
+    pub fn is_like_msvc(&self) -> bool {
+        self.family == ToolFamily::Msvc
+    }
 }
 
 fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
