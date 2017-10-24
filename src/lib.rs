@@ -1659,8 +1659,15 @@ impl Tool {
     /// command returned will already have the initial arguments and environment
     /// variables configured.
     pub fn to_command(&self) -> Command {
-        let mut cmd = Command::new(&self.path);
-        cmd.args(&self.cc_args);
+        let mut cmd = match self.cc_path {
+            Some(ref cc_path) => {
+                let mut cmd = Command::new(&cc_path);
+                cmd.arg(&self.path);
+                cmd.args(&self.cc_args);
+                cmd
+            },
+            None => Command::new(&self.path)
+        };
         cmd.args(&self.args);
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
