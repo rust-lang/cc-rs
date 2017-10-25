@@ -167,8 +167,8 @@ impl From<io::Error> for Error {
 #[derive(Clone, Debug)]
 pub struct Tool {
     path: PathBuf,
-    cc_path: Option<PathBuf>,
-    cc_args: Vec<OsString>,
+    cc_wrapper_path: Option<PathBuf>,
+    cc_wrapper_args: Vec<OsString>,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
     family: ToolFamily,
@@ -1373,10 +1373,10 @@ impl Build {
                 .map(|(tool, cc, args)| {
                     let mut t = Tool::new(PathBuf::from(tool));
                     if let Some(cc) = cc {
-                        t.cc_path = Some(PathBuf::from(cc));
+                        t.cc_wrapper_path = Some(PathBuf::from(cc));
                     }
                     for arg in args {
-                        t.cc_args.push(arg.into());
+                        t.cc_wrapper_args.push(arg.into());
                     }
                     t
                 })
@@ -1645,8 +1645,8 @@ impl Tool {
         };
         Tool {
             path: path,
-            cc_path: None,
-            cc_args: Vec::new(),
+            cc_wrapper_path: None,
+            cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
             family: family,
@@ -1659,11 +1659,11 @@ impl Tool {
     /// command returned will already have the initial arguments and environment
     /// variables configured.
     pub fn to_command(&self) -> Command {
-        let mut cmd = match self.cc_path {
-            Some(ref cc_path) => {
-                let mut cmd = Command::new(&cc_path);
+        let mut cmd = match self.cc_wrapper_path {
+            Some(ref cc_wrapper_path) => {
+                let mut cmd = Command::new(&cc_wrapper_path);
                 cmd.arg(&self.path);
-                cmd.args(&self.cc_args);
+                cmd.args(&self.cc_wrapper_args);
                 cmd
             },
             None => Command::new(&self.path)
@@ -1702,12 +1702,12 @@ impl Tool {
     ///
     /// This is typically used by configure script
     pub fn cc_env(&self) -> OsString {
-        match self.cc_path {
-            Some(ref cc_path) => {
-                let mut cc_env = cc_path.as_os_str().to_owned();
+        match self.cc_wrapper_path {
+            Some(ref cc_wrapper_path) => {
+                let mut cc_env = cc_wrapper_path.as_os_str().to_owned();
                 cc_env.push(" ");
                 cc_env.push(self.path.to_path_buf().into_os_string());
-                for arg in self.cc_args.iter() {
+                for arg in self.cc_wrapper_args.iter() {
                     cc_env.push(" ");
                     cc_env.push(arg);
                 }
