@@ -167,6 +167,8 @@ impl From<io::Error> for Error {
 #[derive(Clone, Debug)]
 pub struct Tool {
     path: PathBuf,
+    cc_wrapper_path: Option<PathBuf>,
+    cc_wrapper_args: Vec<OsString>,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
     family: ToolFamily,
@@ -1368,10 +1370,13 @@ impl Build {
 
         let tool_opt: Option<Tool> =
             self.env_tool(env)
-                .map(|(tool, args)| {
+                .map(|(tool, cc, args)| {
                     let mut t = Tool::new(PathBuf::from(tool));
+                    if let Some(cc) = cc {
+                        t.cc_wrapper_path = Some(PathBuf::from(cc));
+                    }
                     for arg in args {
-                        t.args.push(arg.into());
+                        t.cc_wrapper_args.push(arg.into());
                     }
                     t
                 })
@@ -1490,15 +1495,20 @@ impl Build {
             .collect()
     }
 
-    fn env_tool(&self, name: &str) -> Option<(String, Vec<String>)> {
+
+    /// Returns compiler path, optional modifier name from whitelist, and arguments vec
+    fn env_tool(&self, name: &str) -> Option<(String, Option<String>, Vec<String>)> {
         self.get_var(name).ok().map(|tool| {
             let whitelist = ["ccache", "distcc", "sccache"];
+
             for t in whitelist.iter() {
-                if tool.starts_with(t) && tool[t.len()..].starts_with(' ') {
-                    return (t.to_string(), vec![tool[t.len()..].trim_left().to_string()]);
+                if tool.starts_with(t) && tool[t.len()..].starts_with(' ')  {
+                    let args = tool.split_whitespace().collect::<Vec<_>>();
+
+                    return (args[1].to_string(), Some(t.to_string()), args[2..].iter().map(|s| s.to_string()).collect());
                 }
             }
-            (tool, Vec::new())
+            (tool, None, Vec::new())
         })
     }
 
@@ -1635,6 +1645,8 @@ impl Tool {
         };
         Tool {
             path: path,
+            cc_wrapper_path: None,
+            cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
             family: family,
@@ -1647,7 +1659,15 @@ impl Tool {
     /// command returned will already have the initial arguments and environment
     /// variables configured.
     pub fn to_command(&self) -> Command {
-        let mut cmd = Command::new(&self.path);
+        let mut cmd = match self.cc_wrapper_path {
+            Some(ref cc_wrapper_path) => {
+                let mut cmd = Command::new(&cc_wrapper_path);
+                cmd.arg(&self.path);
+                cmd.args(&self.cc_wrapper_args);
+                cmd
+            },
+            None => Command::new(&self.path)
+        };
         cmd.args(&self.args);
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
@@ -1675,6 +1695,42 @@ impl Tool {
     /// This is typically only used for MSVC compilers currently.
     pub fn env(&self) -> &[(OsString, OsString)] {
         &self.env
+    }
+
+    /// Returns the compiler command in format of CC environment variable.
+    /// Or empty string if CC env was not present
+    ///
+    /// This is typically used by configure script
+    pub fn cc_env(&self) -> OsString {
+        match self.cc_wrapper_path {
+            Some(ref cc_wrapper_path) => {
+                let mut cc_env = cc_wrapper_path.as_os_str().to_owned();
+                cc_env.push(" ");
+                cc_env.push(self.path.to_path_buf().into_os_string());
+                for arg in self.cc_wrapper_args.iter() {
+                    cc_env.push(" ");
+                    cc_env.push(arg);
+                }
+                cc_env
+            },
+            None => {
+                OsString::from("")
+            }
+        }
+    }
+
+    /// Returns the compiler flags in format of CFLAGS environment variable.
+    /// Important here - this will not be CFLAGS from env, its internal gcc's flags to use as CFLAGS
+    /// This is typically used by configure script
+    pub fn cflags_env(&self) -> OsString {
+        let mut flags = OsString::new();
+        for (i, arg) in self.args.iter().enumerate() {
+            if i > 0 {
+                flags.push(" ");
+            }
+            flags.push(arg);
+        }
+        flags
     }
 
     /// Whether the tool is GNU Compiler Collection-like.
