@@ -1,7 +1,9 @@
-extern crate tempdir;
 extern crate cc;
+extern crate tempdir;
 
 use std::env;
+use std::path::Path;
+use std::ffi::OsString;
 
 mod support;
 use support::Test;
@@ -18,12 +20,9 @@ fn ccache() {
     let test = Test::gnu();
 
     env::set_var("CC", "ccache cc");
-    test.gcc().file("foo.c").compile("foo");
+    let compiler = test.gcc().file("foo.c").get_compiler();
 
-    test.cmd(0)
-        .must_have("foo.c")
-        .must_not_have("ccache");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    assert_eq!(compiler.path(), Path::new("cc"));
 }
 
 fn ccache_spaces() {
@@ -31,9 +30,8 @@ fn ccache_spaces() {
     test.shim("ccache");
 
     env::set_var("CC", "ccache        cc");
-    test.gcc().file("foo.c").compile("libfoo.a");
-    test.cmd(0).must_have("foo.c");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    let compiler = test.gcc().file("foo.c").get_compiler();
+    assert_eq!(compiler.path(), Path::new("cc"));
 }
 
 fn distcc() {
@@ -41,27 +39,35 @@ fn distcc() {
     test.shim("distcc");
 
     env::set_var("CC", "distcc cc");
-    test.gcc().file("foo.c").compile("foo");
-
-    test.cmd(0)
-        .must_have("foo.c")
-        .must_not_have("distcc");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    let compiler = test.gcc().file("foo.c").get_compiler();
+    assert_eq!(compiler.path(), Path::new("cc"));
 }
 
 fn ccache_env_flags() {
-    use std::path::Path;
-    use std::ffi::OsString;
-
     let test = Test::gnu();
     test.shim("ccache");
 
     env::set_var("CC", "ccache lol-this-is-not-a-compiler");
     let compiler = test.gcc().file("foo.c").get_compiler();
     assert_eq!(compiler.path(), Path::new("lol-this-is-not-a-compiler"));
-    assert_eq!(compiler.cc_env(), OsString::from("ccache lol-this-is-not-a-compiler"));
-    assert!(compiler.cflags_env().into_string().unwrap().contains("ccache") == false);
-    assert!(compiler.cflags_env().into_string().unwrap().contains(" lol-this-is-not-a-compiler") == false);
+    assert_eq!(
+        compiler.cc_env(),
+        OsString::from("ccache lol-this-is-not-a-compiler")
+    );
+    assert!(
+        compiler
+            .cflags_env()
+            .into_string()
+            .unwrap()
+            .contains("ccache") == false
+    );
+    assert!(
+        compiler
+            .cflags_env()
+            .into_string()
+            .unwrap()
+            .contains(" lol-this-is-not-a-compiler") == false
+    );
 
     env::set_var("CC", "");
 }
