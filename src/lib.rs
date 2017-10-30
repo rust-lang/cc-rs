@@ -133,12 +133,12 @@ enum ErrorKind {
     ToolNotFound,
 }
 
-/// Represents an internal error that occurred, with an explaination.
+/// Represents an internal error that occurred, with an explanation.
 #[derive(Clone, Debug)]
 pub struct Error {
     /// Describes the kind of error that occurred.
     kind: ErrorKind,
-    /// More explaination of error that occurred.
+    /// More explanation of error that occurred.
     message: String,
 }
 
