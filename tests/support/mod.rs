@@ -109,4 +109,14 @@ impl Execution {
     pub fn has(&self, p: &OsStr) -> bool {
         self.args.iter().any(|arg| OsStr::new(arg) == p)
     }
+
+    pub fn must_have_in_order(&self, before: &str, after: &str) -> &Execution {
+        let before_position = self.args.iter().rposition(|x| OsStr::new(x) == OsStr::new(before));
+        let after_position = self.args.iter().rposition(|x| OsStr::new(x) == OsStr::new(after));
+        match (before_position, after_position) {
+            (Some(b), Some(a)) if b < a => {},
+            (b, a) => { panic!("{:?} (last position: {:?}) did not appear before {:?} (last position: {:?})", before, b, after, a) },
+        };
+        self
+    }
 }

@@ -1,10 +1,11 @@
 [package]
 
 name = "cc"
-version = "1.0.0"
+version = "1.0.3"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 license = "MIT/Apache-2.0"
 repository = "https://github.com/alexcrichton/cc-rs"
+homepage = "https://github.com/alexcrichton/cc-rs"
 documentation = "https://docs.rs/cc"
 description = """
 A build-time dependency for Cargo build scripts to assist in invoking the native
@@ -16,8 +17,8 @@ readme = "README.md"
 categories = ["development-tools"]
 
 [badges]
-travis-ci = { repository = "alexcrichton/gcc-rs" }
-appveyor = { repository = "alexcrichton/gcc-rs" }
+travis-ci = { repository = "alexcrichton/cc-rs" }
+appveyor = { repository = "alexcrichton/cc-rs" }
 
 [dependencies]
 rayon = { version = "0.8", optional = true }
