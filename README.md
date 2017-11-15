@@ -159,18 +159,26 @@ linked to the crate target.
 
 ## CUDA C++ support
 
-`gcc-rs` also supports compiling CUDA C++ libraries by using the `cuda` method
+`cc-rs` also supports compiling CUDA C++ libraries by using the `cuda` method
 on `Build` (currently for GNU/Clang toolchains only):
 
 ```rust,no_run
-extern crate gcc;
+extern crate cc;
 
 fn main() {
-    gcc::Build::new()
+    cc::Build::new()
         // Switch to CUDA C++ library compilation using NVCC.
         .cuda(true)
-        // Generate code for Maxwell architecture.
+        // Generate code for Maxwell (GTX 970, 980, 980 Ti, Titan X).
         .flag("-gencode").flag("arch=compute_52,code=sm_52")
+        // Generate code for Maxwell (Jetson TX1).
+        .flag("-gencode").flag("arch=compute_53,code=sm_53")
+        // Generate code for Pascal (GTX 1070, 1080, 1080 Ti, Titan Xp).
+        .flag("-gencode").flag("arch=compute_61,code=sm_61")
+        // Generate code for Pascal (Tesla P100).
+        .flag("-gencode").flag("arch=compute_60,code=sm_60")
+        // Generate code for Pascal (Jetson TX2).
+        .flag("-gencode").flag("arch=compute_62,code=sm_62")
         .file("bar.cu")
         .compile("libbar.a");
 }
