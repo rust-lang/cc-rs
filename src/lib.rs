@@ -1525,6 +1525,8 @@ impl Build {
                     Ok(Some("c++".to_string()))
                 } else if target.contains("freebsd") {
                     Ok(Some("c++".to_string()))
+                } else if target.contains("openbsd") {
+                    Ok(Some("c++".to_string()))
                 } else {
                     Ok(Some("stdc++".to_string()))
                 }
