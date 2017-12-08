@@ -1415,6 +1415,7 @@ impl Build {
                     let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
                     let prefix = cross_compile.or(match &target[..] {
                         "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
+                        "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
                         "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                         "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
                         "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
