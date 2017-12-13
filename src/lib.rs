@@ -261,7 +261,7 @@ impl ToolFamily {
 ///
 /// This is a source file -> object file pair.
 #[derive(Clone, Debug)]
-pub struct Object {
+struct Object {
     src: PathBuf,
     dst: PathBuf,
 }
