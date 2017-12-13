@@ -101,6 +101,7 @@ pub struct Build {
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
     cpp_set_stdlib: Option<String>,
+    cuda: bool,
     target: Option<String>,
     host: Option<String>,
     out_dir: Option<PathBuf>,
@@ -172,6 +173,7 @@ pub struct Tool {
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
     family: ToolFamily,
+    cuda: bool,
 }
 
 /// Represents the family of tools this tool belongs to.
@@ -233,6 +235,45 @@ impl ToolFamily {
             ToolFamily::Gnu | ToolFamily::Clang => "-Werror",
         }
     }
+
+    /// NVCC-specific. Device code debug info flag. This is separate from the
+    /// debug info flag passed to the C++ compiler.
+    fn nvcc_debug_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => unimplemented!(),
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-G",
+        }
+    }
+
+    /// NVCC-specific. Redirect the following flag to the underlying C++
+    /// compiler.
+    fn nvcc_redirect_flag(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc => unimplemented!(),
+            ToolFamily::Gnu |
+            ToolFamily::Clang => "-Xcompiler",
+        }
+    }
+}
+
+/// Represents an object.
+///
+/// This is a source file -> object file pair.
+#[derive(Clone, Debug)]
+pub struct Object {
+    src: PathBuf,
+    dst: PathBuf,
+}
+
+impl Object {
+    /// Create a new source file -> object file pair.
+    fn new(src: PathBuf, dst: PathBuf) -> Object {
+        Object {
+            src: src,
+            dst: dst,
+        }
+    }
 }
 
 impl Build {
@@ -254,6 +295,7 @@ impl Build {
             cpp: false,
             cpp_link_stdlib: None,
             cpp_set_stdlib: None,
+            cuda: false,
             target: None,
             host: None,
             out_dir: None,
@@ -332,7 +374,10 @@ impl Build {
 
     fn ensure_check_file(&self) -> Result<PathBuf, Error> {
         let out_dir = self.get_out_dir()?;
-        let src = if self.cpp {
+        let src = if self.cuda {
+            assert!(self.cpp);
+            out_dir.join("flag_check.cu")
+        } else if self.cpp {
             out_dir.join("flag_check.cpp")
         } else {
             out_dir.join("flag_check.c")
@@ -357,7 +402,8 @@ impl Build {
             .opt_level(0)
             .host(&target)
             .debug(false)
-            .cpp(self.cpp);
+            .cpp(self.cpp)
+            .cuda(self.cuda);
         let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
@@ -452,6 +498,22 @@ impl Build {
     /// `true`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
+        self
+    }
+
+    /// Set CUDA C++ support.
+    ///
+    /// Enabling CUDA will pass the detected C/C++ toolchain as an argument to
+    /// the CUDA compiler, NVCC. NVCC itself accepts some limited GNU-like args;
+    /// any other arguments for the C/C++ toolchain will be redirected using
+    /// "-Xcompiler" flags.
+    ///
+    /// If enabled, this also implicitly enables C++ support.
+    pub fn cuda(&mut self, cuda: bool) -> &mut Build {
+        self.cuda = cuda;
+        if cuda {
+            self.cpp = true;
+        }
         self
     }
 
@@ -730,7 +792,6 @@ impl Build {
         let dst = self.get_out_dir()?;
 
         let mut objects = Vec::new();
-        let mut src_dst = Vec::new();
         for file in self.files.iter() {
             let obj = dst.join(file).with_extension("o");
             let obj = if !obj.starts_with(&dst) {
@@ -751,10 +812,9 @@ impl Build {
                 }
             };
 
-            src_dst.push((file.to_path_buf(), obj.clone()));
-            objects.push(obj);
+            objects.push(Object::new(file.to_path_buf(), obj));
         }
-        self.compile_objects(&src_dst)?;
+        self.compile_objects(&objects)?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
@@ -810,7 +870,7 @@ impl Build {
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
         let mut cfg = rayon::Configuration::new();
@@ -824,8 +884,8 @@ impl Build {
         let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
 
         objs.par_iter().with_max_len(1).for_each(
-            |&(ref src, ref dst)| {
-                let res = self.compile_object(src, dst);
+            |obj| {
+                let res = self.compile_object(obj);
                 results.lock().unwrap().push(res)
             },
         );
@@ -841,15 +901,15 @@ impl Build {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[(PathBuf, PathBuf)]) -> Result<(), Error> {
-        for &(ref src, ref dst) in objs {
-            self.compile_object(src, dst)?;
+    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+        for obj in objs {
+            self.compile_object(obj)?;
         }
         Ok(())
     }
 
-    fn compile_object(&self, file: &Path, dst: &Path) -> Result<(), Error> {
-        let is_asm = file.extension().and_then(|s| s.to_str()) == Some("asm");
+    fn compile_object(&self, obj: &Object) -> Result<(), Error> {
+        let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let msvc = self.get_target()?.contains("msvc");
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
@@ -871,9 +931,9 @@ impl Build {
                     .into_owned(),
             )
         };
-        command_add_output_file(&mut cmd, dst, msvc, is_asm);
+        command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm);
         cmd.arg(if msvc { "/c" } else { "-c" });
-        cmd.arg(file);
+        cmd.arg(&obj.src);
 
         run(&mut cmd, &name)?;
         Ok(())
@@ -961,16 +1021,14 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
-        let nvcc = cmd.path
-            .file_name()
-            .and_then(|p| p.to_str())
-            .map(|p| p.contains("nvcc"))
-            .unwrap_or(false);
 
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc => {
+                assert!(!self.cuda,
+                    "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
+
                 cmd.args.push("/nologo".into());
 
                 let crt_flag = match self.static_crt {
@@ -1005,15 +1063,10 @@ impl Build {
                     cmd.args.push(format!("-O{}", opt_level).into());
                 }
 
-                if !nvcc {
-                    cmd.args.push("-ffunction-sections".into());
-                    cmd.args.push("-fdata-sections".into());
-                    if self.pic.unwrap_or(!target.contains("windows-gnu")) {
-                        cmd.args.push("-fPIC".into());
-                    }
-                } else if self.pic.unwrap_or(false) {
-                    cmd.args.push("-Xcompiler".into());
-                    cmd.args.push("\'-fPIC\'".into());
+                cmd.push_cc_arg("-ffunction-sections".into());
+                cmd.push_cc_arg("-fdata-sections".into());
+                if self.pic.unwrap_or(!target.contains("windows-gnu")) {
+                    cmd.push_cc_arg("-fPIC".into());
                 }
             }
         }
@@ -1022,7 +1075,12 @@ impl Build {
         }
 
         if self.get_debug() {
-            cmd.args.push(cmd.family.debug_flag().into());
+            if self.cuda {
+                let nvcc_debug_flag = cmd.family.nvcc_debug_flag().into();
+                cmd.args.push(nvcc_debug_flag);
+            }
+            let debug_flag = cmd.family.debug_flag().into();
+            cmd.push_cc_arg(debug_flag);
         }
 
         // Target flags
@@ -1137,7 +1195,7 @@ impl Build {
                 (None, _) => {}
                 (Some(stdlib), ToolFamily::Gnu) |
                 (Some(stdlib), ToolFamily::Clang) => {
-                    cmd.args.push(format!("-stdlib=lib{}", stdlib).into());
+                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
                     println!(
@@ -1156,7 +1214,7 @@ impl Build {
 
         if self.warnings {
             for flag in cmd.family.warnings_flags().iter() {
-                cmd.args.push(flag.into());
+                cmd.push_cc_arg(flag.into());
             }
         }
 
@@ -1166,7 +1224,7 @@ impl Build {
 
         for flag in self.flags_supported.iter() {
             if self.is_flag_supported(flag).unwrap_or(false) {
-                cmd.args.push(flag.into());
+                cmd.push_cc_arg(flag.into());
             }
         }
 
@@ -1184,7 +1242,8 @@ impl Build {
         }
 
         if self.warnings_into_errors {
-            cmd.args.push(cmd.family.warnings_to_errors_flag().into());
+            let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
+            cmd.push_cc_arg(warnings_to_errors_flag);
         }
 
         Ok(cmd)
@@ -1219,11 +1278,12 @@ impl Build {
         Ok((cmd, tool.to_string()))
     }
 
-    fn assemble(&self, lib_name: &str, dst: &Path, objects: &[PathBuf]) -> Result<(), Error> {
+    fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
         // Delete the destination if it exists as the `ar` tool at least on Unix
         // appends to it, which we don't want.
         let _ = fs::remove_file(&dst);
 
+        let objects: Vec<_> = objs.iter().map(|obj| obj.dst.clone()).collect();
         let target = self.get_target()?;
         if target.contains("msvc") {
             let mut cmd = match self.archiver {
@@ -1239,9 +1299,7 @@ impl Build {
             let mut out = OsString::from("/OUT:");
             out.push(dst);
             run(
-                cmd.arg(out).arg("/nologo").args(objects).args(
-                    &self.objects,
-                ),
+                cmd.arg(out).arg("/nologo").args(&objects).args(&self.objects),
                 "lib.exe",
             )?;
 
@@ -1265,7 +1323,7 @@ impl Build {
         } else {
             let (mut ar, cmd) = self.get_ar()?;
             run(
-                ar.arg("crs").arg(dst).args(objects).args(&self.objects),
+                ar.arg("crs").arg(dst).args(&objects).args(&self.objects),
                 &cmd,
             )?;
         }
@@ -1462,6 +1520,20 @@ impl Build {
             }
         };
 
+        let tool = if self.cuda {
+            assert!(tool.args.is_empty(),
+                "CUDA compilation currently assumes empty pre-existing args");
+            let nvcc = match self.get_var("NVCC") {
+                Err(_) => "nvcc".into(),
+                Ok(nvcc) => nvcc,
+            };
+            let mut nvcc_tool = Tool::with_features(PathBuf::from(nvcc), self.cuda);
+            nvcc_tool.args.push(format!("-ccbin={}", tool.path.display()).into());
+            nvcc_tool
+        } else {
+            tool
+        };
+
         Ok(tool)
     }
 
@@ -1634,6 +1706,10 @@ impl Default for Build {
 
 impl Tool {
     fn new(path: PathBuf) -> Tool {
+        Tool::with_features(path, false)
+    }
+
+    fn with_features(path: PathBuf, cuda: bool) -> Tool {
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang") {
@@ -1653,7 +1729,20 @@ impl Tool {
             args: Vec::new(),
             env: Vec::new(),
             family: family,
+            cuda: cuda,
         }
+    }
+
+    /// Add a flag, and optionally prepend the NVCC wrapper flag "-Xcompiler".
+    ///
+    /// Currently this is only used for compiling CUDA sources, since NVCC only
+    /// accepts a limited set of GNU-like flags, and the rest must be prefixed
+    /// with a "-Xcompiler" flag to get passed to the underlying C++ compiler.
+    fn push_cc_arg(&mut self, flag: OsString) {
+        if self.cuda {
+            self.args.push(self.family.nvcc_redirect_flag().into());
+        }
+        self.args.push(flag);
     }
 
     /// Converts this compiler into a `Command` that's ready to be run.
