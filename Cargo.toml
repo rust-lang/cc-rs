@@ -22,6 +22,7 @@ appveyor = { repository = "alexcrichton/cc-rs" }
 
 [dependencies]
 rayon = { version = "0.9", optional = true }
+winapi = { version = "0.3", features = ["combaseapi", "minwindef", "oaidl", "objbase", "oleauto", "unknwnbase", "winerror", "winnt", "winreg", "wtypes", "wtypesbase"] }
 
 [features]
 parallel = ["rayon"]

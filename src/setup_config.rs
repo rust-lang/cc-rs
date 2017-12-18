@@ -11,14 +11,14 @@
 use std::ffi::OsString;
 use std::ptr::null_mut;
 use winapi::Interface;
-use winapi::{LPFILETIME, ULONG};
-use winapi::S_FALSE;
-use winapi::BSTR;
-use winapi::LPCOLESTR;
-use winapi::{CLSCTX_ALL, CoCreateInstance};
-use winapi::LPSAFEARRAY;
-use winapi::{IUnknown, IUnknownVtbl};
-use winapi::{HRESULT, LCID, LPCWSTR, PULONGLONG};
+use winapi::shared::minwindef::{LPFILETIME, ULONG};
+use winapi::shared::winerror::S_FALSE;
+use winapi::shared::wtypes::BSTR;
+use winapi::shared::wtypesbase::LPCOLESTR;
+use winapi::um::combaseapi::{CLSCTX_ALL, CoCreateInstance};
+use winapi::um::oaidl::LPSAFEARRAY;
+use winapi::um::unknwnbase::{IUnknown, IUnknownVtbl};
+use winapi::um::winnt::{HRESULT, LCID, LPCWSTR, PULONGLONG};
 
 use com::{BStr, ComPtr};
 

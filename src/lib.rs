@@ -59,6 +59,8 @@
 
 #[cfg(feature = "parallel")]
 extern crate rayon;
+#[cfg(windows)] #[macro_use]
+extern crate winapi;
 
 use std::env;
 use std::ffi::{OsString, OsStr};
@@ -75,9 +77,6 @@ use std::sync::Mutex;
 // the registry and from COM interfaces
 #[cfg(windows)]
 mod registry;
-#[cfg(windows)]
-#[macro_use]
-mod winapi;
 #[cfg(windows)]
 mod com;
 #[cfg(windows)]

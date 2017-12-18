@@ -14,12 +14,12 @@ use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
 use winapi::Interface;
-use winapi::BSTR;
-use winapi::CoInitializeEx;
-use winapi::COINIT_MULTITHREADED;
-use winapi::{SysFreeString, SysStringLen};
-use winapi::IUnknown;
-use winapi::{S_OK, S_FALSE, HRESULT};
+use winapi::shared::winerror::{S_OK, S_FALSE, HRESULT};
+use winapi::shared::wtypes::BSTR;
+use winapi::um::combaseapi::CoInitializeEx;
+use winapi::um::objbase::COINIT_MULTITHREADED;
+use winapi::um::oleauto::{SysFreeString, SysStringLen};
+use winapi::um::unknwnbase:: IUnknown;
 
 pub fn initialize() -> Result<(), HRESULT> {
     let err = unsafe { CoInitializeEx(null_mut(), COINIT_MULTITHREADED) };

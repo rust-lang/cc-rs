@@ -11,55 +11,14 @@
 use std::ffi::{OsString, OsStr};
 use std::io;
 use std::ops::RangeFrom;
-use std::os::raw;
 use std::os::windows::prelude::*;
 
+use winapi::shared::minwindef::{DWORD, HKEY};
+use winapi::shared::winerror::{ERROR_NO_MORE_ITEMS, ERROR_SUCCESS};
+use winapi::um::winreg::{HKEY_LOCAL_MACHINE, RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW};
+use winapi::um::winnt::{KEY_READ, KEY_WOW64_32KEY, LONG, REG_SZ};
+
 pub struct RegistryKey(Repr);
-
-type HKEY = *mut u8;
-type DWORD = u32;
-type LPDWORD = *mut DWORD;
-type LPCWSTR = *const u16;
-type LPWSTR = *mut u16;
-type LONG = raw::c_long;
-type PHKEY = *mut HKEY;
-type PFILETIME = *mut u8;
-type LPBYTE = *mut u8;
-type REGSAM = u32;
-
-const ERROR_SUCCESS: DWORD = 0;
-const ERROR_NO_MORE_ITEMS: DWORD = 259;
-const HKEY_LOCAL_MACHINE: HKEY = 0x80000002 as HKEY;
-const REG_SZ: DWORD = 1;
-const KEY_READ: DWORD = 0x20019;
-const KEY_WOW64_32KEY: DWORD = 0x200;
-
-#[link(name = "advapi32")]
-extern "system" {
-    fn RegOpenKeyExW(key: HKEY,
-                     lpSubKey: LPCWSTR,
-                     ulOptions: DWORD,
-                     samDesired: REGSAM,
-                     phkResult: PHKEY)
-                     -> LONG;
-    fn RegEnumKeyExW(key: HKEY,
-                     dwIndex: DWORD,
-                     lpName: LPWSTR,
-                     lpcName: LPDWORD,
-                     lpReserved: LPDWORD,
-                     lpClass: LPWSTR,
-                     lpcClass: LPDWORD,
-                     lpftLastWriteTime: PFILETIME)
-                     -> LONG;
-    fn RegQueryValueExW(hKey: HKEY,
-                        lpValueName: LPCWSTR,
-                        lpReserved: LPDWORD,
-                        lpType: LPDWORD,
-                        lpData: LPBYTE,
-                        lpcbData: LPDWORD)
-                        -> LONG;
-    fn RegCloseKey(hKey: HKEY) -> LONG;
-}
 
 struct OwnedKey(HKEY);
 
