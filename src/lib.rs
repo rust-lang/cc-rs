@@ -1411,20 +1411,14 @@ impl Build {
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
-        let (env, msvc, gnu) = if self.cpp {
-            ("CXX", "cl.exe", "g++")
+        let (env, msvc, gnu, traditional) = if self.cpp {
+            ("CXX", "cl.exe", "g++", "c++")
         } else {
-            ("CC", "cl.exe", "gcc")
+            ("CC", "cl.exe", "gcc", "cc")
         };
 
-        let default = if host.contains("solaris") {
-            // In this case, c++/cc unlikely to exist or be correct.
-            gnu
-        } else if self.cpp {
-            "c++"
-        } else {
-            "cc"
-        };
+        // On Solaris, c++/cc unlikely to exist or be correct.
+        let default = if host.contains("solaris") { gnu } else { traditional };
 
         let tool_opt: Option<Tool> =
             self.env_tool(env)
@@ -1467,6 +1461,8 @@ impl Build {
                     }
                 } else if target.contains("android") {
                     format!("{}-{}", target.replace("armv7", "arm"), gnu)
+                } else if target.contains("cloudabi") {
+                    format!("{}-{}", target, traditional)
                 } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
