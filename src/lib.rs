@@ -1120,6 +1120,18 @@ impl Build {
                     cmd.args.push("-mfloat-abi=softfp".into());
                 }
 
+                if target.starts_with("armv4t-unknown-linux-") {
+                    cmd.args.push("-march=armv4t".into());
+                    cmd.args.push("-marm".into());
+                    cmd.args.push("-mfloat-abi=soft".into());
+                }
+
+                if target.starts_with("armv5te-unknown-linux-") {
+                    cmd.args.push("-march=armv5te".into());
+                    cmd.args.push("-marm".into());
+                    cmd.args.push("-mfloat-abi=soft".into());
+                }
+
                 // For us arm == armv6 by default
                 if target.starts_with("arm-unknown-linux-") {
                     cmd.args.push("-march=armv6".into());
@@ -1471,6 +1483,8 @@ impl Build {
                         "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                         "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
                         "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                        "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                        "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                         "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
                         "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                         "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
