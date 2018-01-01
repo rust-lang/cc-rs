@@ -1724,7 +1724,8 @@ impl Tool {
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang") {
                 ToolFamily::Clang
-            } else if fname.contains("cl") && !fname.contains("uclibc") {
+            } else if fname.contains("cl") && !fname.contains("cloudabi") &&
+                      !fname.contains("uclibc") {
                 ToolFamily::Msvc
             } else {
                 ToolFamily::Gnu
