@@ -395,6 +395,9 @@ impl Build {
     ///
     /// For a convenience method for setting flags conditionally,
     /// see `flag_if_supported()`.
+    ///
+    /// It may return error if it's unable to run the compilier with a test file
+    /// (e.g. the compiler is missing or a write to the `out_dir` failed).
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
