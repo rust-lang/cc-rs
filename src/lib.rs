@@ -391,7 +391,11 @@ impl Build {
         Ok(src)
     }
 
-    fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
+    /// Run the compiler to test if it accepts the given flag.
+    ///
+    /// For a convenience method for setting flags conditionally,
+    /// see `flag_if_supported()`.
+    pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
