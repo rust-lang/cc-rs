@@ -400,12 +400,17 @@ impl Build {
     ///
     /// It may return error if it's unable to run the compilier with a test file
     /// (e.g. the compiler is missing or a write to the `out_dir` failed).
+    ///
+    /// Note: Once computed, the result of this call is stored in the
+    /// `known_flag_support` field. If `is_flag_supported(flag)`
+    /// is called again, the result will be read from the hash table.
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
         let known_status = self.known_flag_support_status.lock().ok()
             .and_then(|flag_status| flag_status.get(flag).cloned());
         if let Some(is_supported) = known_status {
             return Ok(is_supported)
         }
+
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
