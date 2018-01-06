@@ -67,9 +67,9 @@ use std::path::{PathBuf, Path};
 use std::process::{Command, Stdio, Child};
 use std::io::{self, BufReader, BufRead, Read, Write};
 use std::thread::{self, JoinHandle};
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
-#[cfg(feature = "parallel")]
-use std::sync::Mutex;
 
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
@@ -97,6 +97,7 @@ pub struct Build {
     objects: Vec<PathBuf>,
     flags: Vec<String>,
     flags_supported: Vec<String>,
+    known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
     files: Vec<PathBuf>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
@@ -289,6 +290,7 @@ impl Build {
             objects: Vec::new(),
             flags: Vec::new(),
             flags_supported: Vec::new(),
+            known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
@@ -399,6 +401,11 @@ impl Build {
     /// It may return error if it's unable to run the compilier with a test file
     /// (e.g. the compiler is missing or a write to the `out_dir` failed).
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
+        let known_status = self.known_flag_support_status.lock().ok()
+            .and_then(|flag_status| flag_status.get(flag).cloned());
+        if let Some(is_supported) = known_status {
+            return Ok(is_supported)
+        }
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
@@ -424,7 +431,12 @@ impl Build {
         cmd.arg(&src);
 
         let output = cmd.output()?;
-        Ok(output.stderr.is_empty())
+        let is_supported = output.stderr.is_empty();
+
+        if let Ok(mut flag_status) = self.known_flag_support_status.lock() {
+            flag_status.insert(flag.to_owned(), is_supported);
+        }
+        Ok(is_supported)
     }
 
     /// Add an arbitrary flag to the invocation of the compiler if it supports it
