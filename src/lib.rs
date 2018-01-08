@@ -1169,7 +1169,7 @@ impl Build {
                 // linker that we're generating 32-bit executables as well. This'll
                 // typically only be used for build scripts which transitively use
                 // these flags that try to compile executables.
-                if target == "i686-unknown-linux-musl" {
+                if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
                     cmd.args.push("-Wl,-melf_i386".into());
                 }
 
@@ -1501,6 +1501,7 @@ impl Build {
                         "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                         "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
                         "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
+                        "i586-unknown-linux-musl" => Some("musl"),
                         "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
                         "i686-unknown-linux-musl" => Some("musl"),
                         "i686-unknown-netbsd" => Some("i486--netbsdelf"),
