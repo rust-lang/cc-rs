@@ -905,23 +905,11 @@ impl Build {
             }
         }
 
-        let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
-
-        objs.par_iter().with_max_len(1).for_each(
-            |obj| {
-                let res = self.compile_object(obj);
-                results.lock().unwrap().push(res)
-            },
-        );
-
         // Check for any errors and return the first one found.
-        for result in results.into_inner().unwrap().iter() {
-            if result.is_err() {
-                return result.clone();
-            }
-        }
-
-        Ok(())
+        objs.par_iter()
+            .with_max_len(1)
+            .map(|obj| self.compile_object(obj))
+            .collect()
     }
 
     #[cfg(not(feature = "parallel"))]
