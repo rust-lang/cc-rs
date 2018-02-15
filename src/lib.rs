@@ -897,13 +897,13 @@ impl Build {
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
-        let mut cfg = rayon::Configuration::new();
+        let mut builder = rayon::ThreadPoolBuilder::new();
         if let Ok(amt) = env::var("NUM_JOBS") {
             if let Ok(amt) = amt.parse() {
-                cfg = cfg.num_threads(amt);
+                builder = builder.num_threads(amt);
             }
         }
-        drop(rayon::initialize(cfg));
+        drop(builder.build_global());
 
         let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
 
