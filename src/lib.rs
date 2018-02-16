@@ -897,31 +897,19 @@ impl Build {
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
-        let mut cfg = rayon::Configuration::new();
         if let Ok(amt) = env::var("NUM_JOBS") {
             if let Ok(amt) = amt.parse() {
-                cfg = cfg.num_threads(amt);
+                let _ = rayon::ThreadPoolBuilder::new()
+                    .num_threads(amt)
+                    .build_global();
             }
         }
-        drop(rayon::initialize(cfg));
-
-        let results: Mutex<Vec<Result<(), Error>>> = Mutex::new(Vec::new());
-
-        objs.par_iter().with_max_len(1).for_each(
-            |obj| {
-                let res = self.compile_object(obj);
-                results.lock().unwrap().push(res)
-            },
-        );
 
         // Check for any errors and return the first one found.
-        for result in results.into_inner().unwrap().iter() {
-            if result.is_err() {
-                return result.clone();
-            }
-        }
-
-        Ok(())
+        objs.par_iter()
+            .with_max_len(1)
+            .map(|obj| self.compile_object(obj))
+            .collect()
     }
 
     #[cfg(not(feature = "parallel"))]
