@@ -1628,7 +1628,7 @@ impl Build {
                 let target = self.get_target()?;
                 if target.contains("msvc") {
                     Ok(None)
-                } else if target.contains("darwin") {
+                } else if target.contains("apple") {
                     Ok(Some("c++".to_string()))
                 } else if target.contains("freebsd") {
                     Ok(Some("c++".to_string()))
