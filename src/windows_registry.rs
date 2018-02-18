@@ -497,6 +497,7 @@ mod impl_ {
             "i586" | "i686" => Some("x86"),
             "x86_64" => Some("x64"),
             "arm" => Some("arm"),
+            "aarch64" => Some("arm64"),
             _ => None,
         }
     }
@@ -508,6 +509,7 @@ mod impl_ {
             "i586" | "i686" => Some(""),
             "x86_64" => Some("amd64"),
             "arm" => Some("arm"),
+            "aarch64" => Some("arm64"),
             _ => None,
         }
     }

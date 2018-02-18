@@ -425,7 +425,9 @@ impl Build {
             .cuda(self.cuda);
         let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
-        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false);
+        let is_arm = target.contains("aarch64") || target.contains("arm");
+        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false,
+                                is_arm);
 
         // We need to explicitly tell msvc not to link and create an exe
         // in the root directory of the crate
@@ -922,7 +924,8 @@ impl Build {
 
     fn compile_object(&self, obj: &Object) -> Result<(), Error> {
         let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
-        let msvc = self.get_target()?.contains("msvc");
+        let target = self.get_target()?;
+        let msvc = target.contains("msvc");
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
@@ -943,8 +946,12 @@ impl Build {
                     .into_owned(),
             )
         };
-        command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm);
-        cmd.arg(if msvc { "/c" } else { "-c" });
+        let is_arm = target.contains("aarch64") || target.contains("arm");
+        command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm, is_arm);
+        // armasm and armasm64 don't requrie -c option
+        if !msvc || !is_asm || !is_arm {
+            cmd.arg(if msvc { "/c" } else { "-c" });
+        }
         cmd.arg(&obj.src);
 
         run(&mut cmd, &name)?;
@@ -1277,6 +1284,10 @@ impl Build {
         let target = self.get_target()?;
         let tool = if target.contains("x86_64") {
             "ml64.exe"
+        } else if target.contains("arm") {
+            "armasm.exe"
+        } else if target.contains("aarch64") {
+            "armasm64.exe"
         } else {
             "ml.exe"
         };
@@ -1991,8 +2002,10 @@ fn fail(s: &str) -> ! {
 }
 
 
-fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool) {
-    if msvc && is_asm {
+fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool, is_arm: bool) {
+    if msvc && is_asm && is_arm {
+        cmd.arg("-o").arg(&dst);
+    } else if msvc && is_asm {
         cmd.arg("/Fo").arg(dst);
     } else if msvc {
         let mut s = OsString::from("/Fo");
