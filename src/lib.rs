@@ -95,6 +95,7 @@ pub struct Build {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
     objects: Vec<PathBuf>,
+    explicit_flags: bool,
     flags: Vec<String>,
     flags_supported: Vec<String>,
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
@@ -288,6 +289,7 @@ impl Build {
             include_directories: Vec::new(),
             definitions: Vec::new(),
             objects: Vec::new(),
+            explicit_flags: false,
             flags: Vec::new(),
             flags_supported: Vec::new(),
             known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
@@ -356,6 +358,15 @@ impl Build {
     /// Add an arbitrary object file to link in
     pub fn object<P: AsRef<Path>>(&mut self, obj: P) -> &mut Build {
         self.objects.push(obj.as_ref().to_path_buf());
+        self
+    }
+
+    /// Only add explicitly provided flags using `Build::flag`.
+    /// Do not implicitly add any other flags.
+    ///
+    /// This is useful for building with assemblers or non-standard compilers.
+    pub fn explicit_flags_only(&mut self, explicit_flags: bool) -> &mut Build {
+        self.explicit_flags = explicit_flags;
         self
     }
 
@@ -949,7 +960,7 @@ impl Build {
         let is_arm = target.contains("aarch64") || target.contains("arm");
         command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
-        if !msvc || !is_asm || !is_arm {
+        if !self.explicit_flags && !(msvc && is_asm && is_arm) {
             cmd.arg(if msvc { "/c" } else { "-c" });
         }
         cmd.arg(&obj.src);
@@ -1040,6 +1051,14 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
+
+        if self.explicit_flags {
+            for flag in self.flags.iter() {
+                cmd.args.push(flag.into());
+            }
+
+            return Ok(cmd);
+        }
 
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
