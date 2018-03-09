@@ -1082,8 +1082,10 @@ impl Build {
                     cmd.args.push(format!("-O{}", opt_level).into());
                 }
 
-                cmd.push_cc_arg("-ffunction-sections".into());
-                cmd.push_cc_arg("-fdata-sections".into());
+                if !target.contains("-ios") {
+                    cmd.push_cc_arg("-ffunction-sections".into());
+                    cmd.push_cc_arg("-fdata-sections".into());
+                }
                 if self.pic.unwrap_or(!target.contains("windows-gnu")) {
                     cmd.push_cc_arg("-fPIC".into());
                 }
@@ -1462,6 +1464,10 @@ impl Build {
 
         cmd.args.push("-isysroot".into());
         cmd.args.push(sdk_path.trim().into());
+        cmd.args.push("-fembed-bitcode".into());
+        if self.get_opt_level()? == "0" {
+            cmd.args.push("-fembed-bitcode-marker".into());
+        }
 
         Ok(())
     }
