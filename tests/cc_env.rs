@@ -14,6 +14,7 @@ fn main() {
     distcc();
     ccache_spaces();
     ccache_env_flags();
+    leading_spaces();
 }
 
 fn ccache() {
@@ -68,6 +69,17 @@ fn ccache_env_flags() {
             .unwrap()
             .contains(" lol-this-is-not-a-compiler") == false
     );
+
+    env::set_var("CC", "");
+}
+
+fn leading_spaces() {
+    let test = Test::gnu();
+    test.shim("ccache");
+
+    env::set_var("CC", " test ");
+    let compiler = test.gcc().file("foo.c").get_compiler();
+    assert_eq!(compiler.path(), Path::new("test"));
 
     env::set_var("CC", "");
 }

@@ -1498,7 +1498,11 @@ impl Build {
         let tool_opt: Option<Tool> =
             self.env_tool(env)
                 .map(|(tool, cc, args)| {
-                    let mut t = Tool::new(PathBuf::from(tool));
+                    // chop off leading/trailing whitespace to work around
+                    // semi-buggy build scripts which are shared in
+                    // makefiles/configure scripts (where spaces are far more
+                    // lenient)
+                    let mut t = Tool::new(PathBuf::from(tool.trim()));
                     if let Some(cc) = cc {
                         t.cc_wrapper_path = Some(PathBuf::from(cc));
                     }
