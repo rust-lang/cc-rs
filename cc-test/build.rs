@@ -25,12 +25,12 @@ fn main() {
 
     let target = std::env::var("TARGET").unwrap();
     let file = target.split("-").next().unwrap();
-    let file = format!("src/{}.{}",
-                       file,
-                       if target.contains("msvc") { "asm" } else { "S" });
-    cc::Build::new()
-        .file(file)
-        .compile("asm");
+    let file = format!(
+        "src/{}.{}",
+        file,
+        if target.contains("msvc") { "asm" } else { "S" }
+    );
+    cc::Build::new().file(file).compile("asm");
 
     cc::Build::new()
         .file("src/baz.cpp")
@@ -38,9 +38,7 @@ fn main() {
         .compile("baz");
 
     if target.contains("windows") {
-        cc::Build::new()
-            .file("src/windows.c")
-            .compile("windows");
+        cc::Build::new().file("src/windows.c").compile("windows");
     }
 
     // Test that the `windows_registry` module will set PATH by looking for
@@ -86,9 +84,7 @@ fn main() {
         .file("src/opt_linkage.c")
         .compile("OptLinkage");
 
-    let out = cc::Build::new()
-        .file("src/expand.c")
-        .expand();
+    let out = cc::Build::new().file("src/expand.c").expand();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains("hello world"));
 }
