@@ -1652,7 +1652,7 @@ impl Build {
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
     fn env_tool(&self, name: &str) -> Option<(String, Option<String>, Vec<String>)> {
         self.get_var(name).ok().map(|tool| {
-            let whitelist = ["ccache", "distcc", "sccache"];
+            let whitelist = ["ccache", "distcc", "sccache", "icecc"];
 
             for t in whitelist.iter() {
                 if tool.starts_with(t) && tool[t.len()..].starts_with(' ')  {
