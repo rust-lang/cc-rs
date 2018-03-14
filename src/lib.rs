@@ -1651,18 +1651,41 @@ impl Build {
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
     fn env_tool(&self, name: &str) -> Option<(String, Option<String>, Vec<String>)> {
-        self.get_var(name).ok().map(|tool| {
-            let whitelist = ["ccache", "distcc", "sccache", "icecc"];
+        let tool = match self.get_var(name) {
+            Ok(tool) => tool,
+            Err(_) => return None,
+        };
 
-            for t in whitelist.iter() {
-                if tool.starts_with(t) && tool[t.len()..].starts_with(' ')  {
-                    let args = tool.split_whitespace().collect::<Vec<_>>();
+        // If our env var looks like `CC='ccache gcc'` then we want to handle
+        // that by default and use `ccache` as a wrapper and `gcc` as the actual
+        // compiler itself. This is quite common in a lot of build systems and
+        // it's in general best to just handle it.
+        //
+        // Note that we're careful here though because we don't want to
+        // misinterpret `CC='C:\path to\bin\gcc.exe'` as a wrapper by default.
+        // In other words we want to support spaces in paths to compilers as it
+        // happens from time to time. As a result we maintain a whitelist here
+        // of ccache-like wrappers and only split on spaces if we see them.
+        let whitelist = ["ccache", "distcc", "sccache", "icecc"];
 
-                    return (args[1].to_string(), Some(t.to_string()), args[2..].iter().map(|s| s.to_string()).collect());
-                }
+        let mut parts = tool.split_whitespace();
+        let maybe_wrapper = match parts.next() {
+            Some(s) => s,
+            None => return None,
+        };
+
+        let file_stem = Path::new(maybe_wrapper).file_stem().unwrap().to_str().unwrap();
+        if whitelist.contains(&file_stem) {
+            if let Some(compiler) = parts.next() {
+                return Some((
+                    compiler.to_string(),
+                    Some(maybe_wrapper.to_string()),
+                    parts.map(|s| s.to_string()).collect(),
+                ))
             }
-            (tool, None, Vec::new())
-        })
+        }
+
+        Some((tool.clone(), None, Vec::new()))
     }
 
     /// Returns the default C++ standard library for the current target: `libc++`
