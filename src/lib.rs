@@ -1054,8 +1054,8 @@ impl Build {
                 cmd.args.push(crt_flag.into());
 
                 match &opt_level[..] {
-                    "z" | "s" => cmd.args.push("/Os".into()),
-                    "1" => cmd.args.push("/O1".into()),
+                    // Msvc uses /O1 to enable all optimizations that minimize code size.
+                    "z" | "s" | "1" => cmd.args.push("/O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
                     "2" | "3" => cmd.args.push("/O2".into()),
                     _ => {}
