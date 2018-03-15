@@ -67,8 +67,6 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::thread::{self, JoinHandle};
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
 
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
@@ -96,7 +94,6 @@ pub struct Build {
     objects: Vec<PathBuf>,
     flags: Vec<String>,
     flags_supported: Vec<String>,
-    known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
     files: Vec<PathBuf>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
@@ -284,7 +281,6 @@ impl Build {
             objects: Vec::new(),
             flags: Vec::new(),
             flags_supported: Vec::new(),
-            known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
@@ -392,31 +388,30 @@ impl Build {
     ///
     /// It may return error if it's unable to run the compilier with a test file
     /// (e.g. the compiler is missing or a write to the `out_dir` failed).
-    ///
-    /// Note: Once computed, the result of this call is stored in the
-    /// `known_flag_support` field. If `is_flag_supported(flag)`
-    /// is called again, the result will be read from the hash table.
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        let known_status = self.known_flag_support_status
-            .lock()
-            .ok()
-            .and_then(|flag_status| flag_status.get(flag).cloned());
-        if let Some(is_supported) = known_status {
-            return Ok(is_supported);
-        }
-
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
-        let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
+        Self::is_flag_supported_helper(flag, &out_dir, &src, &target, self.cpp, self.cuda)
+    }
+
+    fn is_flag_supported_helper(
+        flag: &str,
+        out_dir: &PathBuf,
+        src: &PathBuf,
+        target: &str,
+        cpp: bool,
+        cuda: bool
+    ) -> Result<bool, Error> {
+        let obj = out_dir.join("flag_check");
         let mut cfg = Build::new();
         cfg.flag(flag)
-            .target(&target)
+            .target(target)
             .opt_level(0)
-            .host(&target)
+            .host(target)
             .debug(false)
-            .cpp(self.cpp)
-            .cuda(self.cuda);
+            .cpp(cpp)
+            .cuda(cuda);
         let compiler = cfg.try_get_compiler()?;
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
@@ -428,14 +423,11 @@ impl Build {
             cmd.arg("/c");
         }
 
-        cmd.arg(&src);
+        cmd.arg(src);
 
         let output = cmd.output()?;
         let is_supported = output.stderr.is_empty();
 
-        if let Ok(mut flag_status) = self.known_flag_support_status.lock() {
-            flag_status.insert(flag.to_owned(), is_supported);
-        }
         Ok(is_supported)
     }
 
@@ -797,7 +789,7 @@ impl Build {
     /// Run the compiler, generating the file `output`
     ///
     /// This will return a result instead of panicing; see compile() for the complete description.
-    pub fn try_compile(&self, output: &str) -> Result<(), Error> {
+    pub fn try_compile(&mut self, output: &str) -> Result<(), Error> {
         let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
             (&output[3..output.len() - 2], output.to_owned())
         } else {
@@ -832,6 +824,7 @@ impl Build {
 
             objects.push(Object::new(file.to_path_buf(), obj));
         }
+        self.resolve_supported_flags()?;
         self.compile_objects(&objects)?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
@@ -881,10 +874,22 @@ impl Build {
     /// Panics if `output` is not formatted correctly or if one of the underlying
     /// compiler commands fails. It can also panic if it fails reading file names
     /// or creating directories.
-    pub fn compile(&self, output: &str) {
+    pub fn compile(&mut self, output: &str) {
         if let Err(e) = self.try_compile(output) {
             fail(&e.message);
         }
+    }
+
+    fn resolve_supported_flags(&mut self) -> Result<(), Error> {
+        let out_dir = self.get_out_dir()?;
+        let src = self.ensure_check_file()?;
+        let target = self.get_target()?;
+        let cpp = self.cpp;
+        let cuda = self.cuda;
+        self.flags_supported.retain(|flag| {
+            Self::is_flag_supported_helper(&flag, &out_dir, &src, &target, cpp, cuda).unwrap_or(false)
+        });
+        Ok(())
     }
 
     #[cfg(feature = "parallel")]
@@ -1243,9 +1248,7 @@ impl Build {
         }
 
         for flag in self.flags_supported.iter() {
-            if self.is_flag_supported(flag).unwrap_or(false) {
-                cmd.push_cc_arg(flag.into());
-            }
+            cmd.push_cc_arg(flag.into());
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
