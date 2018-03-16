@@ -397,9 +397,7 @@ impl Build {
     /// `known_flag_support` field. If `is_flag_supported(flag)`
     /// is called again, the result will be read from the hash table.
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        let mut known_status = self.known_flag_support_status
-            .lock()
-            .unwrap();
+        let mut known_status = self.known_flag_support_status.lock().unwrap();
         if let Some(is_supported) = known_status.get(flag).cloned() {
             return Ok(is_supported);
         }
