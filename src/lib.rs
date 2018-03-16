@@ -397,11 +397,10 @@ impl Build {
     /// `known_flag_support` field. If `is_flag_supported(flag)`
     /// is called again, the result will be read from the hash table.
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        let known_status = self.known_flag_support_status
+        let mut known_status = self.known_flag_support_status
             .lock()
-            .ok()
-            .and_then(|flag_status| flag_status.get(flag).cloned());
-        if let Some(is_supported) = known_status {
+            .unwrap();
+        if let Some(is_supported) = known_status.get(flag).cloned() {
             return Ok(is_supported);
         }
 
@@ -433,9 +432,7 @@ impl Build {
         let output = cmd.output()?;
         let is_supported = output.stderr.is_empty();
 
-        if let Ok(mut flag_status) = self.known_flag_support_status.lock() {
-            flag_status.insert(flag.to_owned(), is_supported);
-        }
+        known_status.insert(flag.to_owned(), is_supported);
         Ok(is_supported)
     }
 
