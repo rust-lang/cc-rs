@@ -1453,9 +1453,17 @@ impl Build {
         cmd.args.push("-isysroot".into());
         cmd.args.push(sdk_path.trim().into());
         cmd.args.push("-fembed-bitcode".into());
+        /*
+         * TODO we probably ultimatedly want the -fembed-bitcode-marker flag
+         * but can't have it now because of an issue in LLVM:
+         * https://github.com/alexcrichton/cc-rs/issues/301
+         * https://github.com/rust-lang/rust/pull/48896#comment-372192660
+         */
+        /*
         if self.get_opt_level()? == "0" {
             cmd.args.push("-fembed-bitcode-marker".into());
         }
+        */
 
         Ok(())
     }
