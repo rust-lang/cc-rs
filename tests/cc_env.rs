@@ -17,6 +17,7 @@ fn main() {
     leading_spaces();
     extra_flags();
     path_to_ccache();
+    more_spaces();
 }
 
 fn ccache() {
@@ -106,4 +107,13 @@ fn path_to_ccache() {
         compiler.cc_env(),
         OsString::from("/path/to/ccache.exe cc -m32"),
     );
+}
+
+fn more_spaces() {
+    let test = Test::gnu();
+    test.shim("ccache");
+
+    env::set_var("CC", "cc -m32");
+    let compiler = test.gcc().file("foo.c").get_compiler();
+    assert_eq!(compiler.path(), Path::new("cc"));
 }

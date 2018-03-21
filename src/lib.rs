@@ -1650,17 +1650,34 @@ impl Build {
             Err(_) => return None,
         };
 
-        // If our env var looks like `CC='ccache gcc'` then we want to handle
-        // that by default and use `ccache` as a wrapper and `gcc` as the actual
-        // compiler itself. This is quite common in a lot of build systems and
-        // it's in general best to just handle it.
+        // If this is an exact path on the filesystem we don't want to do any
+        // interpretation at all, just pass it on through. This'll hopefully get
+        // us to support spaces-in-paths.
+        if Path::new(&tool).exists() {
+            return Some((tool, None, Vec::new()))
+        }
+
+        // Ok now we want to handle a couple of scenarios. We'll assume from
+        // here on out that spaces are splitting separate arguments. Two major
+        // features we want to support are:
         //
-        // Note that we're careful here though because we don't want to
-        // misinterpret `CC='C:\path to\bin\gcc.exe'` as a wrapper by default.
-        // In other words we want to support spaces in paths to compilers as it
-        // happens from time to time. As a result we maintain a whitelist here
-        // of ccache-like wrappers and only split on spaces if we see them.
-        let whitelist = ["ccache", "distcc", "sccache", "icecc"];
+        //      CC='sccache cc'
+        //
+        // aka using `sccache` or any other wrapper/caching-like-thing for
+        // compilations. We want to know what the actual compiler is still,
+        // though, because our `Tool` API support introspection of it to see
+        // what compiler is in use.
+        //
+        // additionally we want to support
+        //
+        //      CC='cc -flag'
+        //
+        // where the CC env var is used to also pass default flags to the C
+        // compiler.
+        //
+        // It's true that everything here is a bit of a pain, but apparently if
+        // you're not literally make or bash then you get a lot of bug reports.
+        let known_wrappers = ["ccache", "distcc", "sccache", "icecc"];
 
         let mut parts = tool.split_whitespace();
         let maybe_wrapper = match parts.next() {
@@ -1673,7 +1690,7 @@ impl Build {
             .unwrap()
             .to_str()
             .unwrap();
-        if whitelist.contains(&file_stem) {
+        if known_wrappers.contains(&file_stem) {
             if let Some(compiler) = parts.next() {
                 return Some((
                     compiler.to_string(),
@@ -1683,7 +1700,11 @@ impl Build {
             }
         }
 
-        Some((tool.clone(), None, Vec::new()))
+        Some((
+            maybe_wrapper.to_string(),
+            None,
+            parts.map(|s| s.to_string()).collect(),
+        ))
     }
 
     /// Returns the default C++ standard library for the current target: `libc++`
