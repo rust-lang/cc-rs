@@ -1106,8 +1106,11 @@ impl Build {
                     cmd.args.push("-m64".into());
                 }
 
-                if self.static_flag.is_none() && target.contains("musl") {
-                    cmd.args.push("-static".into());
+                if self.static_flag.is_none() {
+                    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                    if features.contains("crt-static") {
+                        cmd.args.push("-static".into());
+                    }
                 }
 
                 // armv7 targets get to use armv7 instructions
