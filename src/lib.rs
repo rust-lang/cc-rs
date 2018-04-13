@@ -582,6 +582,8 @@ impl Build {
     /// The default value of this property depends on the current target: On
     /// OS X `Some("c++")` is used, when compiling for a Visual Studio based
     /// target `None` is used and for other targets `Some("stdc++")` is used.
+    /// If the `CXXSTDLIB` environment variable is set, its value will
+    /// override the default value.
     ///
     /// A value of `None` indicates that no automatic linking should happen,
     /// otherwise cargo will link against the specified library.
@@ -1716,17 +1718,25 @@ impl Build {
         match self.cpp_link_stdlib.clone() {
             Some(s) => Ok(s),
             None => {
-                let target = self.get_target()?;
-                if target.contains("msvc") {
-                    Ok(None)
-                } else if target.contains("apple") {
-                    Ok(Some("c++".to_string()))
-                } else if target.contains("freebsd") {
-                    Ok(Some("c++".to_string()))
-                } else if target.contains("openbsd") {
-                    Ok(Some("c++".to_string()))
+                if let Ok(stdlib) = self.get_var("CXXSTDLIB") {
+                    if stdlib.is_empty() {
+                        Ok(None)
+                    } else {
+                        Ok(Some(stdlib))
+                    }
                 } else {
-                    Ok(Some("stdc++".to_string()))
+                    let target = self.get_target()?;
+                    if target.contains("msvc") {
+                        Ok(None)
+                    } else if target.contains("apple") {
+                        Ok(Some("c++".to_string()))
+                    } else if target.contains("freebsd") {
+                        Ok(Some("c++".to_string()))
+                    } else if target.contains("openbsd") {
+                        Ok(Some("c++".to_string()))
+                    } else {
+                        Ok(Some("stdc++".to_string()))
+                    }
                 }
             }
         }
