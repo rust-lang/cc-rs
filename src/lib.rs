@@ -1634,7 +1634,7 @@ impl Build {
                 tool.env.len() == 0 &&
                 target.contains("msvc")
             {
-                for (k, v) in cl_exe.env.iter() {
+                for &(ref k, ref v) in cl_exe.env.iter() {
                     tool.env.push((k.to_owned(), v.to_owned()));
                 }
             }
