@@ -1495,6 +1495,8 @@ impl Build {
             traditional
         };
 
+        let cl_exe = windows_registry::find_tool(&target, "cl.exe");
+
         let tool_opt: Option<Tool> = self.env_tool(env)
             .map(|(tool, cc, args)| {
                 // chop off leading/trailing whitespace to work around
@@ -1526,7 +1528,7 @@ impl Build {
                     None
                 }
             })
-            .or_else(|| windows_registry::find_tool(&target, "cl.exe"));
+            .or_else(|| cl_exe.clone());
 
         let tool = match tool_opt {
             Some(t) => t,
@@ -1599,7 +1601,7 @@ impl Build {
             }
         };
 
-        let tool = if self.cuda {
+        let mut tool = if self.cuda {
             assert!(
                 tool.args.is_empty(),
                 "CUDA compilation currently assumes empty pre-existing args"
@@ -1616,6 +1618,27 @@ impl Build {
         } else {
             tool
         };
+
+        // If we found `cl.exe` in our environment, the tool we're returning is
+        // an MSVC-like tool, *and* no env vars were set then set env vars for
+        // the tool that we're returning.
+        //
+        // Env vars are needed for things like `link.exe` being put into PATH as
+        // well as header include paths sometimes. These paths are automatically
+        // included by default but if the `CC` or `CXX` env vars are set these
+        // won't be used. This'll ensure that when the env vars are used to
+        // configure for invocations like `clang-cl` we still get a "works out
+        // of the box" experience.
+        if let Some(cl_exe) = cl_exe {
+            if tool.family == ToolFamily::Msvc &&
+                tool.env.len() == 0 &&
+                target.contains("msvc")
+            {
+                for (k, v) in cl_exe.env.iter() {
+                    tool.env.push((k.to_owned(), v.to_owned()));
+                }
+            }
+        }
 
         Ok(tool)
     }
