@@ -1630,10 +1630,7 @@ impl Build {
         // configure for invocations like `clang-cl` we still get a "works out
         // of the box" experience.
         if let Some(cl_exe) = cl_exe {
-            if tool.family == ToolFamily::Msvc &&
-                tool.env.len() == 0 &&
-                target.contains("msvc")
-            {
+            if tool.family == ToolFamily::Msvc && tool.env.len() == 0 && target.contains("msvc") {
                 for &(ref k, ref v) in cl_exe.env.iter() {
                     tool.env.push((k.to_owned(), v.to_owned()));
                 }
@@ -1867,9 +1864,7 @@ impl Tool {
     fn with_features(path: PathBuf, cuda: bool) -> Tool {
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
-            if fname.contains("cl") && !fname.contains("cloudabi")
-                && !fname.contains("uclibc")
-            {
+            if fname.contains("cl") && !fname.contains("cloudabi") && !fname.contains("uclibc") {
                 ToolFamily::Msvc
             } else if fname.contains("clang") {
                 ToolFamily::Clang
