@@ -1864,7 +1864,10 @@ impl Tool {
     fn with_features(path: PathBuf, cuda: bool) -> Tool {
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
-            if fname.contains("cl") && !fname.contains("cloudabi") && !fname.contains("uclibc") {
+            if fname.contains("cl") &&
+                !fname.contains("cloudabi") &&
+                !fname.contains("uclibc") &&
+                (!fname.contains("clang") || fname.contains("clang-cl")) {
                 ToolFamily::Msvc
             } else if fname.contains("clang") {
                 ToolFamily::Clang
