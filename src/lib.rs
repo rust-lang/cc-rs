@@ -227,10 +227,10 @@ impl ToolFamily {
     }
 
     /// What the flags to enable extra warnings
-    fn extra_warnings_flags(&self) -> &'static str {
+    fn extra_warnings_flags(&self) -> Option<&'static str> {
         match *self {
-            ToolFamily::Msvc => "",
-            ToolFamily::Gnu | ToolFamily::Clang => "-Wextra",
+            ToolFamily::Msvc => None,
+            ToolFamily::Gnu | ToolFamily::Clang => Some("-Wextra"),
         }
     }
 
@@ -1268,8 +1268,9 @@ impl Build {
         }
 
         if self.extra_warnings {
-            let wflags = cmd.family.extra_warnings_flags().into();
-            cmd.push_cc_arg(wflags);
+            if let Some(wflags) = cmd.family.extra_warnings_flags() {
+                cmd.push_cc_arg(wflags.into());
+            }
         }
 
         for flag in self.flags.iter() {
