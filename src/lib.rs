@@ -117,6 +117,7 @@ pub struct Build {
     static_flag: Option<bool>,
     warnings_into_errors: bool,
     warnings: bool,
+    extra_warnings: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -218,13 +219,18 @@ impl ToolFamily {
     }
 
     /// What the flags to enable all warnings
-    fn warnings_flags(&self) -> &'static [&'static str] {
-        static MSVC_FLAGS: &'static [&'static str] = &["/W4"];
-        static GNU_CLANG_FLAGS: &'static [&'static str] = &["-Wall", "-Wextra"];
-
+    fn warnings_flags(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => &MSVC_FLAGS,
-            ToolFamily::Gnu | ToolFamily::Clang => &GNU_CLANG_FLAGS,
+            ToolFamily::Msvc => "/W4",
+            ToolFamily::Gnu | ToolFamily::Clang => "-Wall",
+        }
+    }
+
+    /// What the flags to enable extra warnings
+    fn extra_warnings_flags(&self) -> Option<&'static str> {
+        match *self {
+            ToolFamily::Msvc => None,
+            ToolFamily::Gnu | ToolFamily::Clang => Some("-Wextra"),
         }
     }
 
@@ -304,6 +310,7 @@ impl Build {
             pic: None,
             static_crt: None,
             warnings: true,
+            extra_warnings: true,
             warnings_into_errors: false,
         }
     }
@@ -573,6 +580,29 @@ impl Build {
     /// ```
     pub fn warnings(&mut self, warnings: bool) -> &mut Build {
         self.warnings = warnings;
+        self.extra_warnings = warnings;
+        self
+    }
+
+    /// Set extra warnings flags.
+    ///
+    /// Adds some flags:
+    /// - nothing for MSVC.
+    /// - "-Wextra" for GNU and Clang.
+    ///
+    /// Enabled by default.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// // Disables -Wextra, -Wall remains enabled:
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .extra_warnings(false)
+    ///     .compile("libfoo.a");
+    /// ```
+    pub fn extra_warnings(&mut self, warnings: bool) -> &mut Build {
+        self.extra_warnings = warnings;
         self
     }
 
@@ -1233,8 +1263,13 @@ impl Build {
         }
 
         if self.warnings {
-            for flag in cmd.family.warnings_flags().iter() {
-                cmd.push_cc_arg(flag.into());
+            let wflags = cmd.family.warnings_flags().into();
+            cmd.push_cc_arg(wflags);
+        }
+
+        if self.extra_warnings {
+            if let Some(wflags) = cmd.family.extra_warnings_flags() {
+                cmd.push_cc_arg(wflags.into());
             }
         }
 
