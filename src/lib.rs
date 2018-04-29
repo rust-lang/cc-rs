@@ -190,14 +190,14 @@ enum ToolFamily {
     /// and its cross-compilation approach is different.
     Clang,
     /// Tool is the MSVC cl.exe.
-    Msvc,
+    Msvc { clang_cl: bool },
 }
 
 impl ToolFamily {
     /// What the flag to request debug info for this family of tools look like
     fn debug_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => "/Z7",
+            ToolFamily::Msvc { .. } => "/Z7",
             ToolFamily::Gnu | ToolFamily::Clang => "-g",
         }
     }
@@ -205,7 +205,7 @@ impl ToolFamily {
     /// What the flag to include directories into header search path looks like
     fn include_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => "/I",
+            ToolFamily::Msvc { .. } => "/I",
             ToolFamily::Gnu | ToolFamily::Clang => "-I",
         }
     }
@@ -213,7 +213,7 @@ impl ToolFamily {
     /// What the flag to request macro-expanded source output looks like
     fn expand_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => "/E",
+            ToolFamily::Msvc { .. } => "/E",
             ToolFamily::Gnu | ToolFamily::Clang => "-E",
         }
     }
@@ -221,7 +221,7 @@ impl ToolFamily {
     /// What the flags to enable all warnings
     fn warnings_flags(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => "/W4",
+            ToolFamily::Msvc { .. } => "/W4",
             ToolFamily::Gnu | ToolFamily::Clang => "-Wall",
         }
     }
@@ -229,7 +229,7 @@ impl ToolFamily {
     /// What the flags to enable extra warnings
     fn extra_warnings_flags(&self) -> Option<&'static str> {
         match *self {
-            ToolFamily::Msvc => None,
+            ToolFamily::Msvc { .. } => None,
             ToolFamily::Gnu | ToolFamily::Clang => Some("-Wextra"),
         }
     }
@@ -237,7 +237,7 @@ impl ToolFamily {
     /// What the flag to turn warning into errors
     fn warnings_to_errors_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => "/WX",
+            ToolFamily::Msvc { .. } => "/WX",
             ToolFamily::Gnu | ToolFamily::Clang => "-Werror",
         }
     }
@@ -246,7 +246,7 @@ impl ToolFamily {
     /// debug info flag passed to the C++ compiler.
     fn nvcc_debug_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => unimplemented!(),
+            ToolFamily::Msvc { .. } => unimplemented!(),
             ToolFamily::Gnu | ToolFamily::Clang => "-G",
         }
     }
@@ -255,7 +255,7 @@ impl ToolFamily {
     /// compiler.
     fn nvcc_redirect_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc => unimplemented!(),
+            ToolFamily::Msvc { .. } => unimplemented!(),
             ToolFamily::Gnu | ToolFamily::Clang => "-Xcompiler",
         }
     }
@@ -1059,7 +1059,7 @@ impl Build {
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
-            ToolFamily::Msvc => {
+            ToolFamily::Msvc { .. } => {
                 assert!(!self.cuda,
                     "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
 
@@ -1124,9 +1124,15 @@ impl Build {
             ToolFamily::Clang => {
                 cmd.args.push(format!("--target={}", target).into());
             }
-            ToolFamily::Msvc => {
+            ToolFamily::Msvc { clang_cl } => {
                 if target.contains("i586") {
                     cmd.args.push("/ARCH:IA32".into());
+                } else if clang_cl {
+                    if target.contains("x86_64") {
+                        cmd.args.push("-m64".into());
+                    } else {
+                        cmd.args.push("-m32".into());
+                    }
                 }
             }
             ToolFamily::Gnu => {
@@ -1284,7 +1290,7 @@ impl Build {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
-            let lead = if let ToolFamily::Msvc = cmd.family {
+            let lead = if let ToolFamily::Msvc { .. } = cmd.family {
                 "/"
             } else {
                 "-"
@@ -1665,7 +1671,10 @@ impl Build {
         // configure for invocations like `clang-cl` we still get a "works out
         // of the box" experience.
         if let Some(cl_exe) = cl_exe {
-            if tool.family == ToolFamily::Msvc && tool.env.len() == 0 && target.contains("msvc") {
+            if tool.family == (ToolFamily::Msvc { clang_cl: true }) &&
+                tool.env.len() == 0 &&
+                target.contains("msvc")
+            {
                 for &(ref k, ref v) in cl_exe.env.iter() {
                     tool.env.push((k.to_owned(), v.to_owned()));
                 }
@@ -1899,11 +1908,13 @@ impl Tool {
     fn with_features(path: PathBuf, cuda: bool) -> Tool {
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
-            if fname.contains("cl") &&
+            if fname.contains("clang-cl") {
+                ToolFamily::Msvc { clang_cl: true }
+            } else if fname.contains("cl") &&
                 !fname.contains("cloudabi") &&
                 !fname.contains("uclibc") &&
-                (!fname.contains("clang") || fname.contains("clang-cl")) {
-                ToolFamily::Msvc
+                !fname.contains("clang") {
+                ToolFamily::Msvc { clang_cl: false }
             } else if fname.contains("clang") {
                 ToolFamily::Clang
             } else {
@@ -2025,7 +2036,10 @@ impl Tool {
 
     /// Whether the tool is MSVC-like.
     pub fn is_like_msvc(&self) -> bool {
-        self.family == ToolFamily::Msvc
+        match self.family {
+            ToolFamily::Msvc { .. } => true,
+            _ => false,
+        }
     }
 }
 
