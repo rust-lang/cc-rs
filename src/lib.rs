@@ -1126,7 +1126,7 @@ impl Build {
             }
             ToolFamily::Msvc { clang_cl } => {
                 if target.contains("i586") {
-                    cmd.args.push("/ARCH:IA32".into());
+                    cmd.args.push("/arch:IA32".into());
                 } else if clang_cl {
                     if target.contains("x86_64") {
                         cmd.args.push("-m64".into());
