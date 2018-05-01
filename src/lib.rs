@@ -1125,13 +1125,18 @@ impl Build {
                 cmd.args.push(format!("--target={}", target).into());
             }
             ToolFamily::Msvc { clang_cl } => {
-                if target.contains("i586") {
-                    cmd.args.push("/ARCH:IA32".into());
-                } else if clang_cl {
+                if clang_cl {
                     if target.contains("x86_64") {
                         cmd.args.push("-m64".into());
+                    } else if target.contains("i586") {
+                        cmd.args.push("-m32".into());
+                        cmd.args.push("/arch:IA32".into());
                     } else {
                         cmd.args.push("-m32".into());
+                    }
+                } else {
+                    if target.contains("i586") {
+                        cmd.args.push("/ARCH:IA32".into());
                     }
                 }
             }
