@@ -325,6 +325,7 @@ mod impl_ {
             tool.libs.push(sdk_lib.join("um").join(sub));
             let sdk_include = sdk.join("include").join(&version);
             tool.include.push(sdk_include.join("um"));
+            tool.include.push(sdk_include.join("cppwinrt"));
             tool.include.push(sdk_include.join("winrt"));
             tool.include.push(sdk_include.join("shared"));
         } else if let Some(sdk) = get_sdk81_dir() {
