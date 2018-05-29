@@ -1157,17 +1157,25 @@ impl Build {
                 }
 
                 // armv7 targets get to use armv7 instructions
-                if target.starts_with("armv7-") && target.contains("-linux-") {
+                if (target.starts_with("armv7") || target.starts_with("thumbv7")) && target.contains("-linux-") {
                     cmd.args.push("-march=armv7-a".into());
                 }
 
-                // On android we can guarantee some extra float instructions
-                // (specified in the android spec online)
-                if target.starts_with("armv7-linux-androideabi") {
-                    cmd.args.push("-march=armv7-a".into());
+                // (x86 Android doesn't say "eabi")
+                if target.contains("-androideabi") && target.contains("v7") {
+                    // -march=armv7-a handled above
                     cmd.args.push("-mthumb".into());
-                    cmd.args.push("-mfpu=vfpv3-d16".into());
+                    if !target.contains("neon") {
+                        // On android we can guarantee some extra float instructions
+                        // (specified in the android spec online)
+                        // NEON guarantees even more; see below.
+                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                    }
                     cmd.args.push("-mfloat-abi=softfp".into());
+                }
+
+                if target.contains("neon") {
+                    cmd.args.push("-mfpu=neon-vfpv4".into());
                 }
 
                 if target.starts_with("armv4t-unknown-linux-") {
@@ -1586,7 +1594,15 @@ impl Build {
                         format!("{}.exe", gnu)
                     }
                 } else if target.contains("android") {
-                    format!("{}-{}", target.replace("armv7", "arm"), gnu)
+                    format!(
+                        "{}-{}",
+                        target
+                            .replace("armv7", "arm")
+                            .replace("armv7neon", "arm")
+                            .replace("thumbv7", "arm")
+                            .replace("thumbv7neon", "arm"),
+                        gnu
+                    )
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if self.get_host()? != target {
@@ -1607,6 +1623,12 @@ impl Build {
                         "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
                         "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                         "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                        "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                        "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                        "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                        "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                        "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                        "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
                         "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
                         "i586-unknown-linux-musl" => Some("musl"),
                         "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
