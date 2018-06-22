@@ -413,10 +413,12 @@ impl Build {
         let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
+        let host = self.get_host()?;
         let mut cfg = Build::new();
         cfg.flag(flag)
             .target(&target)
             .opt_level(0)
+            .host(&host)
             .debug(false)
             .cpp(self.cpp)
             .cuda(self.cuda);
