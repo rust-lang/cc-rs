@@ -417,7 +417,6 @@ impl Build {
         cfg.flag(flag)
             .target(&target)
             .opt_level(0)
-            .host(&target)
             .debug(false)
             .cpp(self.cpp)
             .cuda(self.cuda);
