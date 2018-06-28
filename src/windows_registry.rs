@@ -65,6 +65,10 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         return impl_::find_msbuild(target);
     }
 
+    if tool.contains("devenv") {
+        return impl_::find_devenv(target);
+    }
+
     // If VCINSTALLDIR is set, then someone's probably already run vcvars and we
     // should just find whatever that indicates.
     if env::var_os("VCINSTALLDIR").is_some() {
@@ -620,6 +624,27 @@ mod impl_ {
                 .is_ok(),
             _ => false,
         }
+    }
+
+    pub fn find_devenv(target: &str) -> Option<Tool> {
+        find_devenv_vs15(&target)
+    }
+
+    fn find_devenv_vs15(target: &str) -> Option<Tool> {
+        let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
+        LOCAL_MACHINE
+            .open(key.as_ref())
+            .ok()
+            .and_then(|key| key.query_str("15.0").ok())
+            .map(|path| {
+                let path = PathBuf::from(path).join(r"Common7\IDE\devenv.exe");
+                println!("*** path: {:?}", path);
+                let mut tool = Tool::new(path);
+                if target.contains("x86_64") {
+                    tool.env.push(("Platform".into(), "X64".into()));
+                }
+                tool
+            })
     }
 
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
