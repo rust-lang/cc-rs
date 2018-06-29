@@ -638,7 +638,6 @@ mod impl_ {
             .and_then(|key| key.query_str("15.0").ok())
             .map(|path| {
                 let path = PathBuf::from(path).join(r"Common7\IDE\devenv.exe");
-                println!("*** path: {:?}", path);
                 let mut tool = Tool::new(path);
                 if target.contains("x86_64") {
                     tool.env.push(("Platform".into(), "X64".into()));
