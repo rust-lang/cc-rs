@@ -1984,11 +1984,11 @@ impl Tool {
             Some(ref cc_wrapper_path) => {
                 let mut cmd = Command::new(&cc_wrapper_path);
                 cmd.arg(&self.path);
-                cmd.args(&self.cc_wrapper_args);
                 cmd
             }
             None => Command::new(&self.path),
         };
+        cmd.args(&self.cc_wrapper_args);
         cmd.args(&self.args);
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
