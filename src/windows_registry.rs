@@ -174,7 +174,7 @@ mod impl_ {
     use std::io::Read;
     use registry::{RegistryKey, LOCAL_MACHINE};
     use com;
-    use setup_config::{SetupConfiguration, SetupInstance};
+    use setup_config::{EnumSetupInstances, SetupConfiguration, SetupInstance};
 
     use Tool;
 
@@ -217,11 +217,15 @@ mod impl_ {
     // Note that much of this logic can be found [online] wrt paths, COM, etc.
     //
     // [online]: https://blogs.msdn.microsoft.com/vcblog/2017/03/06/finding-the-visual-c-compiler-tools-in-visual-studio-2017/
-    pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
+    fn vs15_instances() -> Option<EnumSetupInstances> {
         otry!(com::initialize().ok());
 
         let config = otry!(SetupConfiguration::new().ok());
-        let iter = otry!(config.enum_all_instances().ok());
+        config.enum_all_instances().ok()
+    }
+
+    pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
+        let iter = otry!(vs15_instances());
         for instance in iter {
             let instance = otry!(instance.ok());
             let tool = tool_from_vs15_instance(tool, target, &instance);
