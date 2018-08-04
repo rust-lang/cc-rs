@@ -251,6 +251,7 @@ mod impl_ {
                     .and_then(|instance| instance.installation_path().ok())
             })
             .map(|ip| PathBuf::from(ip).join(tool))
+            .filter(|ref path| path.is_file())
             .map(|path| {
                 let mut tool = Tool::new(path);
                 if target.contains("x86_64") {
