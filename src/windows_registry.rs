@@ -237,6 +237,30 @@ mod impl_ {
         None
     }
 
+    // It may seem that the paths to Visual Studio 2017's devenv and MSBuild
+    // could also be retrieved from the [registry], but SetupConfiguration's
+    // method seems to be [more reliable], and preferred according to Microsoft.
+    //
+    // [registry]: HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7
+    // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
+    fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
+        otry!(vs15_instances())
+            .filter_map(|instance| {
+                instance
+                    .ok()
+                    .and_then(|instance| instance.installation_path().ok())
+            })
+            .map(|ip| PathBuf::from(ip).join(tool))
+            .map(|path| {
+                let mut tool = Tool::new(path);
+                if target.contains("x86_64") {
+                    tool.env.push(("Platform".into(), "X64".into()));
+                }
+                tool
+            })
+            .next()
+    }
+
     fn tool_from_vs15_instance(tool: &str, target: &str, instance: &SetupInstance) -> Option<Tool> {
         let (bin_path, host_dylib_path, lib_path, include_path) =
             otry!(vs15_vc_paths(target, instance));
@@ -635,19 +659,7 @@ mod impl_ {
     }
 
     fn find_devenv_vs15(target: &str) -> Option<Tool> {
-        let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
-        LOCAL_MACHINE
-            .open(key.as_ref())
-            .ok()
-            .and_then(|key| key.query_str("15.0").ok())
-            .map(|path| {
-                let path = PathBuf::from(path).join(r"Common7\IDE\devenv.exe");
-                let mut tool = Tool::new(path);
-                if target.contains("x86_64") {
-                    tool.env.push(("Platform".into(), "X64".into()));
-                }
-                tool
-            })
+        find_tool_in_vs15_path(r"Common7\IDE\devenv.exe", target)
     }
 
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
@@ -661,22 +673,7 @@ mod impl_ {
     }
 
     fn find_msbuild_vs15(target: &str) -> Option<Tool> {
-        // Seems like this could also go through SetupConfiguration,
-        // or that find_msvc_15 could just use this registry key
-        // instead of the COM interface.
-        let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
-        LOCAL_MACHINE
-            .open(key.as_ref())
-            .ok()
-            .and_then(|key| key.query_str("15.0").ok())
-            .map(|path| {
-                let path = PathBuf::from(path).join(r"MSBuild\15.0\Bin\MSBuild.exe");
-                let mut tool = Tool::new(path);
-                if target.contains("x86_64") {
-                    tool.env.push(("Platform".into(), "X64".into()));
-                }
-                tool
-            })
+        find_tool_in_vs15_path(r"MSBuild\15.0\Bin\MSBuild.exe", target)
     }
 
     fn find_old_msbuild(target: &str) -> Option<Tool> {
