@@ -1613,6 +1613,7 @@ impl Build {
                     let prefix = cross_compile.or(match &target[..] {
                         "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                         "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
+                        "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
                         "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                         "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                         "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
