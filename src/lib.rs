@@ -175,6 +175,7 @@ pub struct Tool {
     env: Vec<(OsString, OsString)>,
     family: ToolFamily,
     cuda: bool,
+    removed_args: Vec<OsString>,
 }
 
 /// Represents the family of tools this tool belongs to.
@@ -258,6 +259,10 @@ impl ToolFamily {
             ToolFamily::Msvc { .. } => unimplemented!(),
             ToolFamily::Gnu | ToolFamily::Clang => "-Xcompiler",
         }
+    }
+
+    fn verbose_stderr(&self) -> bool {
+        *self == ToolFamily::Clang
     }
 }
 
@@ -422,7 +427,14 @@ impl Build {
             .debug(false)
             .cpp(self.cpp)
             .cuda(self.cuda);
-        let compiler = cfg.try_get_compiler()?;
+        let mut compiler = cfg.try_get_compiler()?;
+
+        // Clang uses stderr for verbose output, which yields a false positive
+        // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
+        if compiler.family.verbose_stderr() {
+            compiler.remove_arg("-v".into());
+        }
+
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
         command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false, is_arm);
@@ -1960,7 +1972,13 @@ impl Tool {
             env: Vec::new(),
             family: family,
             cuda: cuda,
+            removed_args: Vec::new(),
         }
+    }
+
+    /// Add an argument to be stripped from the final command arguments.
+    fn remove_arg(&mut self, flag: OsString) {
+        self.removed_args.push(flag);
     }
 
     /// Add a flag, and optionally prepend the NVCC wrapper flag "-Xcompiler".
@@ -1990,7 +2008,7 @@ impl Tool {
             None => Command::new(&self.path),
         };
         cmd.args(&self.cc_wrapper_args);
-        cmd.args(&self.args);
+        cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
         }
