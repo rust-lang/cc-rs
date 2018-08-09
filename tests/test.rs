@@ -230,12 +230,14 @@ fn gnu_flag_if_supported() {
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
+        .flag("-v")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wflag-does-not-exist")
         .flag_if_supported("-std=c++11")
         .compile("foo");
 
     test.cmd(0)
+        .must_have("-v")
         .must_have("-Wall")
         .must_not_have("-Wflag-does-not-exist")
         .must_not_have("-std=c++11");
