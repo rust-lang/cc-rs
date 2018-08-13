@@ -1549,10 +1549,10 @@ impl Build {
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
-        let (env, msvc, gnu, traditional) = if self.cpp {
-            ("CXX", "cl.exe", "g++", "c++")
+        let (env, msvc, gnu, traditional, clang) = if self.cpp {
+            ("CXX", "cl.exe", "g++", "c++", "clang++")
         } else {
-            ("CC", "cl.exe", "gcc", "cc")
+            ("CC", "cl.exe", "gcc", "cc", "clang")
         };
 
         // On Solaris, c++/cc unlikely to exist or be correct.
@@ -1607,15 +1607,20 @@ impl Build {
                         format!("{}.exe", gnu)
                     }
                 } else if target.contains("android") {
-                    format!(
-                        "{}-{}",
-                        target
-                            .replace("armv7", "arm")
-                            .replace("armv7neon", "arm")
-                            .replace("thumbv7", "arm")
-                            .replace("thumbv7neon", "arm"),
-                        gnu
-                    )
+                    let target = target
+                        .replace("armv7", "arm")
+                        .replace("armv7neon", "arm")
+                        .replace("thumbv7", "arm")
+                        .replace("thumbv7neon", "arm");
+                    let gnu_compiler = format!("{}-{}", target, gnu);
+                    let clang_compiler = format!("{}-{}", target, clang);
+                    // Check if gnu compiler is present
+                    // if not, use clang
+                    if Command::new(&gnu_compiler).spawn().is_ok() {
+                        gnu_compiler
+                    } else {
+                        clang_compiler
+                    }
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if self.get_host()? != target {
