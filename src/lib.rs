@@ -196,10 +196,15 @@ enum ToolFamily {
 
 impl ToolFamily {
     /// What the flag to request debug info for this family of tools look like
-    fn debug_flag(&self) -> &'static str {
+    fn add_debug_flags(&self, cmd: &mut Tool) {
         match *self {
-            ToolFamily::Msvc { .. } => "/Z7",
-            ToolFamily::Gnu | ToolFamily::Clang => "-g",
+            ToolFamily::Msvc { .. } => {
+                cmd.push_cc_arg("/Z7".into());
+            }
+            ToolFamily::Gnu | ToolFamily::Clang => {
+                cmd.push_cc_arg("-g".into());
+                cmd.push_cc_arg("-fno-omit-frame-pointer".into());
+            }
         }
     }
 
@@ -1128,8 +1133,8 @@ impl Build {
                 let nvcc_debug_flag = cmd.family.nvcc_debug_flag().into();
                 cmd.args.push(nvcc_debug_flag);
             }
-            let debug_flag = cmd.family.debug_flag().into();
-            cmd.push_cc_arg(debug_flag);
+            let family = cmd.family;
+            family.add_debug_flags(&mut cmd);
         }
 
         // Target flags
