@@ -2019,8 +2019,8 @@ impl Tool {
         };
         cmd.args(&self.cc_wrapper_args);
 
-        let value = self.args.iter().filter(|a| !self.removed_args.contains(a)).map(|a| a).collect::<Vec<_>>();
-        cmd.args(&value[..]);
+        let value = self.args.iter().filter(|a| !self.removed_args.contains(a)).collect::<Vec<_>>();
+        cmd.args(&value);
 
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
