@@ -2018,7 +2018,10 @@ impl Tool {
             None => Command::new(&self.path),
         };
         cmd.args(&self.cc_wrapper_args);
-        cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
+
+        let value = self.args.iter().filter(|a| !self.removed_args.contains(a)).collect::<Vec<_>>();
+        cmd.args(&value);
+
         for &(ref k, ref v) in self.env.iter() {
             cmd.env(k, v);
         }
