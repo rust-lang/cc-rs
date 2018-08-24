@@ -1262,6 +1262,25 @@ impl Build {
                 if target.starts_with("thumbv7m") {
                     cmd.args.push("-march=armv7-m".into());
                 }
+                if target.starts_with("armebv7r") | target.starts_with("armv7r") {
+                    // ARM mode
+                    cmd.args.push("-marm".into());
+
+                    // R Profile
+                    cmd.args.push("-march=armv7-r".into());
+
+                    if target.ends_with("eabihf") {
+                        // Calling convention
+                        cmd.args.push("-mfloat-abi=hard".into());
+
+                        // lowest common denominator FPU
+                        // (see Cortex-R4 technical reference manual)
+                        cmd.args.push("-mfpu=vfpv3-d16".into())
+                    } else {
+                        // Calling convention
+                        cmd.args.push("-mfloat-abi=soft".into());
+                    }
+                }
             }
         }
 
@@ -1672,6 +1691,9 @@ impl Build {
                         "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
                         "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
                         "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
+                        "armebv7r-none-eabihf" => Some("arm-none-eabi"),
+                        "armv7r-none-eabi" => Some("arm-none-eabi"),
+                        "armv7r-none-eabihf" => Some("arm-none-eabi"),
                         "thumbv6m-none-eabi" => Some("arm-none-eabi"),
                         "thumbv7em-none-eabi" => Some("arm-none-eabi"),
                         "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
