@@ -1697,6 +1697,7 @@ impl Build {
                         "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
                         "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
                         "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
+                        "armebv7r-none-eabi" => Some("arm-none-eabi"),
                         "armebv7r-none-eabihf" => Some("arm-none-eabi"),
                         "armv7r-none-eabi" => Some("arm-none-eabi"),
                         "armv7r-none-eabihf" => Some("arm-none-eabi"),
