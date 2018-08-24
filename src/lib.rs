@@ -1263,6 +1263,12 @@ impl Build {
                     cmd.args.push("-march=armv7-m".into());
                 }
                 if target.starts_with("armebv7r") | target.starts_with("armv7r") {
+                    if target.starts_with("armeb") {
+                        cmd.args.push("-mbig-endian".into());
+                    } else {
+                        cmd.args.push("-mlittle-endian".into());
+                    }
+
                     // ARM mode
                     cmd.args.push("-marm".into());
 
