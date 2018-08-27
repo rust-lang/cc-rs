@@ -116,8 +116,8 @@ pub struct Build {
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
     warnings_into_errors: bool,
-    warnings: bool,
-    extra_warnings: bool,
+    warnings: Option<bool>,
+    extra_warnings: Option<bool>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -319,8 +319,8 @@ impl Build {
             cargo_metadata: true,
             pic: None,
             static_crt: None,
-            warnings: true,
-            extra_warnings: true,
+            warnings: None,
+            extra_warnings: None,
             warnings_into_errors: false,
         }
     }
@@ -597,8 +597,8 @@ impl Build {
     ///     .compile("libfoo.a");
     /// ```
     pub fn warnings(&mut self, warnings: bool) -> &mut Build {
-        self.warnings = warnings;
-        self.extra_warnings = warnings;
+        self.warnings = Some(warnings);
+        self.extra_warnings = Some(warnings);
         self
     }
 
@@ -620,7 +620,7 @@ impl Build {
     ///     .compile("libfoo.a");
     /// ```
     pub fn extra_warnings(&mut self, warnings: bool) -> &mut Build {
-        self.extra_warnings = warnings;
+        self.extra_warnings = Some(warnings);
         self
     }
 
@@ -1324,12 +1324,17 @@ impl Build {
             cmd.args.push(directory.into());
         }
 
-        if self.warnings {
+        // If warnings and/or extra_warnings haven't been explicitly set,
+        // then we set them only if the environment doesn't already have
+        // CFLAGS/CXXFLAGS, since those variables presumably already contain
+        // the desired set of warnings flags.
+
+        if self.warnings.unwrap_or(if self.has_flags() { false } else { true }) {
             let wflags = cmd.family.warnings_flags().into();
             cmd.push_cc_arg(wflags);
         }
 
-        if self.extra_warnings {
+        if self.extra_warnings.unwrap_or(if self.has_flags() { false } else { true }) {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
                 cmd.push_cc_arg(wflags.into());
             }
@@ -1364,6 +1369,12 @@ impl Build {
         }
 
         Ok(cmd)
+    }
+
+    fn has_flags(&self) -> bool {
+        let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
+        let flags_env_var_value = self.get_var(flags_env_var_name);
+        if let Ok(_) = flags_env_var_value { true } else { false }
     }
 
     fn msvc_macro_assembler(&self) -> Result<(Command, String), Error> {
