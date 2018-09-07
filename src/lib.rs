@@ -1649,10 +1649,10 @@ impl Build {
                     }
                 } else if target.contains("android") {
                     let target = target
-                        .replace("armv7", "arm")
                         .replace("armv7neon", "arm")
-                        .replace("thumbv7", "arm")
-                        .replace("thumbv7neon", "arm");
+                        .replace("armv7", "arm")
+                        .replace("thumbv7neon", "arm")
+                        .replace("thumbv7", "arm");
                     let gnu_compiler = format!("{}-{}", target, gnu);
                     let clang_compiler = format!("{}-{}", target, clang);
                     // Check if gnu compiler is present
