@@ -118,6 +118,7 @@ pub struct Build {
     warnings_into_errors: bool,
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
+    env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -322,6 +323,7 @@ impl Build {
             warnings: None,
             extra_warnings: None,
             warnings_into_errors: false,
+            env_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1963,8 +1965,13 @@ impl Build {
     }
 
     fn getenv(&self, v: &str) -> Option<String> {
+        let mut cache = self.env_cache.lock().unwrap();
+        if let Some(val) = cache.get(v) {
+            return val.clone()
+        }
         let r = env::var(v).ok();
         self.print(&format!("{} = {:?}", v, r));
+        cache.insert(v.to_string(), r.clone());
         r
     }
 
