@@ -1159,6 +1159,19 @@ impl Build {
                         cmd.args.push("/ARCH:IA32".into());
                     }
                 }
+
+                // There is a check in corecrt.h that will generate a
+                // compilation error if
+                // _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE is
+                // not defined to 1. The check was added in Windows
+                // 8 days because only store apps were allowed on ARM.
+                // This changed with the release of Windows 10 IoT Core.
+                // The check will be going away in future versions of
+                // the SDK, but for all released versions of the
+                // Windows SDK it is required.
+                if target.contains("arm") || target.contains("thumb") {
+                    cmd.args.push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                }
             }
             ToolFamily::Gnu => {
                 if target.contains("i686") || target.contains("i586") {
