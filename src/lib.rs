@@ -112,6 +112,7 @@ pub struct Build {
     archiver: Option<PathBuf>,
     cargo_metadata: bool,
     pic: Option<bool>,
+    use_plt: Option<bool>,
     static_crt: Option<bool>,
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
@@ -319,6 +320,7 @@ impl Build {
             archiver: None,
             cargo_metadata: true,
             pic: None,
+            use_plt: None,
             static_crt: None,
             warnings: None,
             extra_warnings: None,
@@ -822,6 +824,21 @@ impl Build {
         self
     }
 
+    /// Configures whether the Procedure Linkage Table is used for indirect
+    /// calls into shared libraries.
+    ///
+    /// The PLT is used to provide features like lazy binding, but introduces
+    /// a small performance loss due to extra pointer indirection. Setting
+    /// `use_plt` to `false` can provide a small performance increase.
+    ///
+    /// Note that skipping the PLT requires a recent version of GCC/Clang.
+    ///
+    /// This only applies to ELF targets. It has no effect on other platforms.
+    pub fn use_plt(&mut self, use_plt: bool) -> &mut Build {
+        self.use_plt = Some(use_plt);
+        self
+    }
+
     /// Configures whether the /MT flag or the /MD flag will be passed to msvc build tools.
     ///
     /// This option defaults to `false`, and affect only msvc targets.
@@ -1123,6 +1140,11 @@ impl Build {
                 }
                 if self.pic.unwrap_or(!target.contains("windows-gnu")) {
                     cmd.push_cc_arg("-fPIC".into());
+                    // PLT only applies if code is compiled with PIC support,
+                    // and only for ELF targets.
+                    if target.contains("linux") && !self.use_plt.unwrap_or(true) {
+                        cmd.push_cc_arg("-fno-plt".into());
+                    }
                 }
             }
         }
