@@ -75,6 +75,7 @@ pub mod windows_registry;
 
 /// Extra configuration to pass to gcc.
 #[derive(Clone, Debug)]
+#[deprecated(note = "crate has been renamed to `cc`, the `gcc` name is not maintained")]
 pub struct Build {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
@@ -232,8 +233,8 @@ impl ToolFamily {
 /// ```no_run
 /// gcc::compile_library("foo", &["foo.c", "bar.c"]);
 /// ```
-#[deprecated]
 #[doc(hidden)]
+#[deprecated(note = "crate has been renamed to `cc`, the `gcc` name is not maintained")]
 pub fn compile_library(output: &str, files: &[&str]) {
     let mut c = Build::new();
     for f in files.iter() {
@@ -248,6 +249,7 @@ impl Build {
     /// This builder is finished with the [`compile`] function.
     ///
     /// [`compile`]: struct.Build.html#method.compile
+    #[deprecated(note = "crate has been renamed to `cc`, the `gcc` name is not maintained")]
     pub fn new() -> Build {
         Build {
             include_directories: Vec::new(),

@@ -7,6 +7,8 @@ license = "MIT/Apache-2.0"
 repository = "https://github.com/alexcrichton/gcc-rs"
 documentation = "https://docs.rs/gcc"
 description = """
+**Deprecated** crate, renamed to `cc`
+
 A build-time dependency for Cargo build scripts to assist in invoking the native
 C compiler to compile native C code into a static archive to be linked into Rust
 code.

@@ -1,5 +1,8 @@
 # gcc-rs
 
+> **NOTE**: This crate has been deprecated and is renamed to `cc`. It's
+> recommended to not use this crate and instead use `cc`
+
 A library to compile C/C++ code into a Rust library/application.
 
 [![Build Status](https://travis-ci.org/alexcrichton/gcc-rs.svg?branch=master)](https://travis-ci.org/alexcrichton/gcc-rs)
