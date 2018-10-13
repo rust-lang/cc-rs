@@ -237,29 +237,42 @@ mod impl_ {
         None
     }
 
-    // It may seem that the paths to Visual Studio 2017's devenv and MSBuild
-    // could also be retrieved from the [registry], but SetupConfiguration's
-    // method seems to be [more reliable], and preferred according to Microsoft.
+    // While the paths to Visual Studio 2017's devenv and MSBuild could
+    // potentially be retrieved from the registry, finding them via
+    // SetupConfiguration has shown to be [more reliable], and is preferred
+    // according to Microsoft. To help head off potential regressions though,
+    // we keep the registry method as a fallback option.
     //
-    // [registry]: HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7
     // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
     fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
-        otry!(vs15_instances())
-            .filter_map(|instance| {
-                instance
-                    .ok()
-                    .and_then(|instance| instance.installation_path().ok())
-            })
-            .map(|ip| PathBuf::from(ip).join(tool))
-            .filter(|ref path| path.is_file())
-            .map(|path| {
-                let mut tool = Tool::new(path);
-                if target.contains("x86_64") {
-                    tool.env.push(("Platform".into(), "X64".into()));
-                }
-                tool
-            })
-            .next()
+        let mut path = match vs15_instances() {
+            Some(instances) => instances
+                .filter_map(|instance| {
+                    instance
+                        .ok()
+                        .and_then(|instance| instance.installation_path().ok())
+                }).map(|path| PathBuf::from(path).join(tool))
+                .find(|ref path| path.is_file()),
+            None => None,
+        };
+
+        if path.is_none() {
+            let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
+            path = LOCAL_MACHINE
+                .open(key.as_ref())
+                .ok()
+                .and_then(|key| key.query_str("15.0").ok())
+                .map(|path| PathBuf::from(path).join(tool))
+                .filter(|ref path| path.is_file());
+        }
+
+        path.map(|path| {
+            let mut tool = Tool::new(path);
+            if target.contains("x86_64") {
+                tool.env.push(("Platform".into(), "X64".into()));
+            }
+            tool
+        })
     }
 
     fn tool_from_vs15_instance(tool: &str, target: &str, instance: &SetupInstance) -> Option<Tool> {
