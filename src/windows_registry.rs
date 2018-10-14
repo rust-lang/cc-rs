@@ -174,7 +174,7 @@ mod impl_ {
     use std::io::Read;
     use registry::{RegistryKey, LOCAL_MACHINE};
     use com;
-    use setup_config::{SetupConfiguration, SetupInstance};
+    use setup_config::{EnumSetupInstances, SetupConfiguration, SetupInstance};
 
     use Tool;
 
@@ -217,11 +217,15 @@ mod impl_ {
     // Note that much of this logic can be found [online] wrt paths, COM, etc.
     //
     // [online]: https://blogs.msdn.microsoft.com/vcblog/2017/03/06/finding-the-visual-c-compiler-tools-in-visual-studio-2017/
-    pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
+    fn vs15_instances() -> Option<EnumSetupInstances> {
         otry!(com::initialize().ok());
 
         let config = otry!(SetupConfiguration::new().ok());
-        let iter = otry!(config.enum_all_instances().ok());
+        config.enum_all_instances().ok()
+    }
+
+    pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
+        let iter = otry!(vs15_instances());
         for instance in iter {
             let instance = otry!(instance.ok());
             let tool = tool_from_vs15_instance(tool, target, &instance);
@@ -231,6 +235,44 @@ mod impl_ {
         }
 
         None
+    }
+
+    // While the paths to Visual Studio 2017's devenv and MSBuild could
+    // potentially be retrieved from the registry, finding them via
+    // SetupConfiguration has shown to be [more reliable], and is preferred
+    // according to Microsoft. To help head off potential regressions though,
+    // we keep the registry method as a fallback option.
+    //
+    // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
+    fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
+        let mut path = match vs15_instances() {
+            Some(instances) => instances
+                .filter_map(|instance| {
+                    instance
+                        .ok()
+                        .and_then(|instance| instance.installation_path().ok())
+                }).map(|path| PathBuf::from(path).join(tool))
+                .find(|ref path| path.is_file()),
+            None => None,
+        };
+
+        if path.is_none() {
+            let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
+            path = LOCAL_MACHINE
+                .open(key.as_ref())
+                .ok()
+                .and_then(|key| key.query_str("15.0").ok())
+                .map(|path| PathBuf::from(path).join(tool))
+                .filter(|ref path| path.is_file());
+        }
+
+        path.map(|path| {
+            let mut tool = Tool::new(path);
+            if target.contains("x86_64") {
+                tool.env.push(("Platform".into(), "X64".into()));
+            }
+            tool
+        })
     }
 
     fn tool_from_vs15_instance(tool: &str, target: &str, instance: &SetupInstance) -> Option<Tool> {
@@ -631,19 +673,7 @@ mod impl_ {
     }
 
     fn find_devenv_vs15(target: &str) -> Option<Tool> {
-        let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
-        LOCAL_MACHINE
-            .open(key.as_ref())
-            .ok()
-            .and_then(|key| key.query_str("15.0").ok())
-            .map(|path| {
-                let path = PathBuf::from(path).join(r"Common7\IDE\devenv.exe");
-                let mut tool = Tool::new(path);
-                if target.contains("x86_64") {
-                    tool.env.push(("Platform".into(), "X64".into()));
-                }
-                tool
-            })
+        find_tool_in_vs15_path(r"Common7\IDE\devenv.exe", target)
     }
 
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
@@ -657,22 +687,7 @@ mod impl_ {
     }
 
     fn find_msbuild_vs15(target: &str) -> Option<Tool> {
-        // Seems like this could also go through SetupConfiguration,
-        // or that find_msvc_15 could just use this registry key
-        // instead of the COM interface.
-        let key = r"SOFTWARE\WOW6432Node\Microsoft\VisualStudio\SxS\VS7";
-        LOCAL_MACHINE
-            .open(key.as_ref())
-            .ok()
-            .and_then(|key| key.query_str("15.0").ok())
-            .map(|path| {
-                let path = PathBuf::from(path).join(r"MSBuild\15.0\Bin\MSBuild.exe");
-                let mut tool = Tool::new(path);
-                if target.contains("x86_64") {
-                    tool.env.push(("Platform".into(), "X64".into()));
-                }
-                tool
-            })
+        find_tool_in_vs15_path(r"MSBuild\15.0\Bin\MSBuild.exe", target)
     }
 
     fn find_old_msbuild(target: &str) -> Option<Tool> {
