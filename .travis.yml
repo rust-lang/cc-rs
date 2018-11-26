@@ -49,7 +49,6 @@ script:
   - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET --release $NO_RUN
   - cargo doc
   - cargo clean && cargo build
-  - rustdoc --test README.md -L target/debug -L target/debug/deps
 
 env:
   global:
