@@ -1249,6 +1249,7 @@ impl Build {
                 if target.starts_with("arm-unknown-linux-") {
                     cmd.args.push("-march=armv6".into());
                     cmd.args.push("-marm".into());
+                    cmd.args.push("-mfpu=vfp".into());
                 }
 
                 // We can guarantee some settings for FRC
