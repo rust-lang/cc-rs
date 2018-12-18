@@ -1304,6 +1304,16 @@ impl Build {
                 if target.starts_with("thumbv7m") {
                     cmd.args.push("-march=armv7-m".into());
                 }
+                if target.starts_with("thumbv8m.base") {
+                    cmd.args.push("-march=armv8-m.base".into());
+                }
+                if target.starts_with("thumbv8m.main") {
+                    cmd.args.push("-march=armv8-m.main".into());
+
+                    if target.ends_with("eabihf") {
+                        cmd.args.push("-mfpu=fpv5-sp-d16".into())
+                    }
+                }
                 if target.starts_with("armebv7r") | target.starts_with("armv7r") {
                     if target.starts_with("armeb") {
                         cmd.args.push("-mbig-endian".into());
@@ -1709,7 +1719,7 @@ impl Build {
                 } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
-                    let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
+                    let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-'));
                     let prefix = cross_compile.or(match &target[..] {
                         "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                         "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
@@ -1758,6 +1768,9 @@ impl Build {
                         "thumbv7em-none-eabi" => Some("arm-none-eabi"),
                         "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
                         "thumbv7m-none-eabi" => Some("arm-none-eabi"),
+                        "thumbv8m.base-none-eabi" => Some("arm-none-eabi"),
+                        "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
+                        "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
                         "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
                         "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
                         "x86_64-unknown-linux-musl" => Some("musl"),
