@@ -55,6 +55,7 @@
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
 #![cfg_attr(test, deny(warnings))]
+#![allow(deprecated)]
 #![deny(missing_docs)]
 
 #[cfg(feature = "parallel")]
@@ -1719,7 +1720,7 @@ impl Build {
                 } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
-                    let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-'));
+                    let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
                     let prefix = cross_compile.or(match &target[..] {
                         "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                         "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),

@@ -3,7 +3,7 @@ sudo: false
 
 matrix:
   include:
-    - rust: 1.30.0
+    - rust: 1.16.0
       install:
       script: cargo build
     - rust: stable
