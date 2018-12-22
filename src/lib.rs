@@ -99,10 +99,8 @@ pub struct Build {
     flags_supported: Vec<String>,
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
     files: Vec<PathBuf>,
-    cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
     cpp_set_stdlib: Option<String>,
-    cuda: bool,
     target: Option<String>,
     host: Option<String>,
     out_dir: Option<PathBuf>,
@@ -121,6 +119,7 @@ pub struct Build {
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
+    language: BuildLanguage,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -290,6 +289,73 @@ impl Object {
     }
 }
 
+/// Language for which tool is invoked.
+///
+/// Note, that tools like `gcc` or `clang` support specifying multiple distinct files on the same
+/// command line, as such:
+///
+/// ```sh
+/// $ gcc -xc file.c -xc++ file.cpp -xnone file.o
+/// ```
+///
+/// This is not really supported by this library per se. Nevertheless, it is necessary for `cc` to
+/// have a good understanding of the language of the files being compiled, so that it could specify
+/// the flags necessary for the language and select the appropriate tools.
+#[derive(Clone, Copy, Debug)]
+pub enum BuildLanguage {
+    /// No language (autodetect, corresponds to -xnone)
+    None,
+    /// C language
+    C,
+    /// C++ language
+    Cpp,
+    /// CUDA language
+    Cuda,
+    /// Assembler language
+    Assembler,
+}
+
+impl BuildLanguage {
+    /// Is language like C++?
+    fn is_cpp(&self) -> bool {
+        match *self {
+            BuildLanguage::Cpp | BuildLanguage::Cuda => true,
+            _ => false
+        }
+    }
+
+    /// If self is None, return `other`.
+    fn or(&self, other: BuildLanguage) -> BuildLanguage {
+        if let BuildLanguage::None = *self {
+            other
+        } else {
+            *self
+        }
+    }
+
+    fn flags_for(&self, family: ToolFamily, args: &mut Vec<OsString>) {
+        let arg = match (family, *self) {
+            (ToolFamily::Gnu, BuildLanguage::None) |
+            (ToolFamily::Clang, BuildLanguage::None) => "-xnone".into(),
+            (ToolFamily::Gnu, BuildLanguage::C) |
+            (ToolFamily::Clang, BuildLanguage::C) => "-xc".into(),
+            (ToolFamily::Gnu, BuildLanguage::Cpp) |
+            (ToolFamily::Clang, BuildLanguage::Cpp) => "-xc++".into(),
+            (ToolFamily::Gnu, BuildLanguage::Cuda) |
+            (ToolFamily::Clang, BuildLanguage::Cuda) => return,
+            (ToolFamily::Gnu, BuildLanguage::Assembler) |
+            (ToolFamily::Clang, BuildLanguage::Assembler) => "-xassembler-with-cpp".into(),
+            (ToolFamily::Msvc { .. }, BuildLanguage::None) => return,
+            (ToolFamily::Msvc { .. }, BuildLanguage::C) => "/TC".into(),
+            (ToolFamily::Msvc { .. }, BuildLanguage::Cpp) => "/TP".into(),
+            (ToolFamily::Msvc { .. }, BuildLanguage::Cuda) => return,
+            (ToolFamily::Msvc { .. }, BuildLanguage::Assembler) => return,
+        };
+        args.push(arg);
+    }
+}
+
+
 impl Build {
     /// Construct a new instance of a blank set of configuration.
     ///
@@ -307,10 +373,8 @@ impl Build {
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
-            cpp: false,
             cpp_link_stdlib: None,
             cpp_set_stdlib: None,
-            cuda: false,
             target: None,
             host: None,
             out_dir: None,
@@ -327,6 +391,7 @@ impl Build {
             extra_warnings: None,
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
+            language: BuildLanguage::None,
         }
     }
 
@@ -390,13 +455,11 @@ impl Build {
 
     fn ensure_check_file(&self) -> Result<PathBuf, Error> {
         let out_dir = self.get_out_dir()?;
-        let src = if self.cuda {
-            assert!(self.cpp);
-            out_dir.join("flag_check.cu")
-        } else if self.cpp {
-            out_dir.join("flag_check.cpp")
-        } else {
-            out_dir.join("flag_check.c")
+        let src = match self.language {
+            BuildLanguage::Cuda => out_dir.join("flag_check.cu"),
+            BuildLanguage::Cpp => out_dir.join("flag_check.cpp"),
+            BuildLanguage::Assembler => panic!("assembler check file not supported!"),
+            BuildLanguage::C | BuildLanguage::None => out_dir.join("flag_check.c"),
         };
 
         if !src.exists() {
@@ -425,40 +488,55 @@ impl Build {
         }
 
         let out_dir = self.get_out_dir()?;
-        let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
         let host = self.get_host()?;
         let mut cfg = Build::new();
-        cfg.flag(flag)
-            .target(&target)
-            .opt_level(0)
-            .host(&host)
-            .debug(false)
-            .cpp(self.cpp)
-            .cuda(self.cuda);
+        cfg.language(self.language.or(BuildLanguage::C))
+           .flag(flag)
+           .target(&target)
+           .opt_level(0)
+           .host(&host)
+           .debug(false);
         let mut compiler = cfg.try_get_compiler()?;
 
-        // Clang uses stderr for verbose output, which yields a false positive
-        // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
-        if compiler.family.verbose_stderr() {
-            compiler.remove_arg("-v".into());
-        }
+        let is_supported = match compiler.family {
+            ToolFamily::Gnu | ToolFamily::Clang => {
+                // Clang uses stderr for verbose output, which yields a false positive
+                // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
+                if compiler.family.verbose_stderr() {
+                    compiler.remove_arg("-v".into());
+                }
 
-        let mut cmd = compiler.to_command();
-        let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false, is_arm);
-
-        // We need to explicitly tell msvc not to link and create an exe
-        // in the root directory of the crate
-        if target.contains("msvc") {
-            cmd.arg("/c");
-        }
-
-        cmd.arg(&src);
-
-        let output = cmd.output()?;
-        let is_supported = output.stderr.is_empty();
+                let mut cmd = compiler.to_command();
+                // Provide input over stdin.  For gcc and clang empty file is a valid input
+                // for all of: C, C++, assembler & fortran, which allows checking vaility
+                // of more flags.
+                //
+                // It does not work for go or ada (empty file is not a valid program there).
+                //
+                // NB: we could also output to null stdout as well, but an external assembler
+                // may not react too well to that, so we still output to a file.
+                cmd.arg("-c");
+                cmd.arg("-");
+                cmd.arg("-o");
+                cmd.arg(obj);
+                cmd.stdout(Stdio::null());
+                cmd.stdin(Stdio::null());
+                let output = cmd.output()?;
+                output.stderr.is_empty()
+            }
+            ToolFamily::Msvc { clang_cl: _ } => {
+                let src = self.ensure_check_file()?;
+                let mut cmd = compiler.to_command();
+                let is_arm = target.contains("aarch64") || target.contains("arm");
+                command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false, is_arm);
+                cmd.arg("/c");
+                cmd.arg(&src);
+                let output = cmd.output()?;
+                output.stderr.is_empty()
+            }
+        };
 
         known_status.insert(flag.to_owned(), is_supported);
         Ok(is_supported)
@@ -541,7 +619,12 @@ impl Build {
     /// The other `cpp_*` options will only become active if this is set to
     /// `true`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
-        self.cpp = cpp;
+        self.language = match self.language {
+            BuildLanguage::Cpp if !cpp => BuildLanguage::None,
+            _ if cpp => BuildLanguage::Cpp,
+            // Nonsensical code?
+            x => x,
+        };
         self
     }
 
@@ -554,10 +637,22 @@ impl Build {
     ///
     /// If enabled, this also implicitly enables C++ support.
     pub fn cuda(&mut self, cuda: bool) -> &mut Build {
-        self.cuda = cuda;
-        if cuda {
-            self.cpp = true;
-        }
+        self.language = match self.language {
+            BuildLanguage::Cuda if !cuda => BuildLanguage::None,
+            _ if cuda => BuildLanguage::Cuda,
+            // Nonsensical code?
+            x => x,
+        };
+        self
+    }
+
+    /// Sets the language of the source files.
+    ///
+    /// This influences the selection of the compiler tools and the flags passed to them.
+    ///
+    /// By default `BuildLanguage::None` is used.
+    pub fn language(&mut self, language: BuildLanguage) -> &mut Build {
+        self.language = language;
         self
     }
 
@@ -925,7 +1020,7 @@ impl Build {
         self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
 
         // Add specific C++ libraries, if enabled.
-        if self.cpp {
+        if self.language.is_cpp() {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
@@ -1093,14 +1188,16 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
+        self.language.flags_for(cmd.family, &mut cmd.args);
 
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc { .. } => {
-                assert!(!self.cuda,
-                    "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
-
+                if let BuildLanguage::Cuda = self.language {
+                    panic!("CUDA C++ compilation not supported for MSVC, yet... but you are \
+                            welcome to implement it :)");
+                }
                 cmd.args.push("/nologo".into());
 
                 let crt_flag = match self.static_crt {
@@ -1149,12 +1246,12 @@ impl Build {
                 }
             }
         }
-        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
+        for arg in self.envflags(if self.language.is_cpp() { "CXXFLAGS" } else { "CFLAGS" }) {
             cmd.args.push(arg.into());
         }
 
         if self.get_debug() {
-            if self.cuda {
+            if let BuildLanguage::Cuda = self.language {
                 let nvcc_debug_flag = cmd.family.nvcc_debug_flag().into();
                 cmd.args.push(nvcc_debug_flag);
             }
@@ -1356,7 +1453,7 @@ impl Build {
             cmd.args.push("-shared".into());
         }
 
-        if self.cpp {
+        if self.language.is_cpp() {
             match (self.cpp_set_stdlib.as_ref(), cmd.family) {
                 (None, _) => {}
                 (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang) => {
@@ -1425,7 +1522,7 @@ impl Build {
     }
 
     fn has_flags(&self) -> bool {
-        let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
+        let flags_env_var_name = if self.language.is_cpp() { "CXXFLAGS" } else { "CFLAGS" };
         let flags_env_var_value = self.get_var(flags_env_var_name);
         if let Ok(_) = flags_env_var_value { true } else { false }
     }
@@ -1643,7 +1740,7 @@ impl Build {
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
-        let (env, msvc, gnu, traditional, clang) = if self.cpp {
+        let (env, msvc, gnu, traditional, clang) = if self.language.is_cpp() {
             ("CXX", "cl.exe", "g++", "c++", "clang++")
         } else {
             ("CC", "cl.exe", "gcc", "cc", "clang")
@@ -1675,7 +1772,7 @@ impl Build {
             })
             .or_else(|| {
                 if target.contains("emscripten") {
-                    let tool = if self.cpp { "em++" } else { "emcc" };
+                    let tool = if self.language.is_cpp() { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
                         let mut t = Tool::new(PathBuf::from("cmd"));
@@ -1789,7 +1886,7 @@ impl Build {
             }
         };
 
-        let mut tool = if self.cuda {
+        let mut tool = if let BuildLanguage::Cuda = self.language {
             assert!(
                 tool.args.is_empty(),
                 "CUDA compilation currently assumes empty pre-existing args"
@@ -1798,7 +1895,7 @@ impl Build {
                 Err(_) => "nvcc".into(),
                 Ok(nvcc) => nvcc,
             };
-            let mut nvcc_tool = Tool::with_features(PathBuf::from(nvcc), self.cuda);
+            let mut nvcc_tool = Tool::with_features(PathBuf::from(nvcc), true);
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());

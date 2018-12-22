@@ -30,6 +30,12 @@ fn gnu_opt_level_1() {
 }
 
 #[test]
+fn gnu_detection_of_language_works() {
+    let test = Test::gnu();
+    assert!(test.gcc().is_flag_supported("-xassembler-with-cpp").unwrap());
+}
+
+#[test]
 fn gnu_opt_level_s() {
     let test = Test::gnu();
     test.gcc().opt_level_str("s").file("foo.c").compile("foo");
