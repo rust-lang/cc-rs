@@ -19,14 +19,16 @@ matrix:
     - rust: nightly
       env: TARGET=x86_64-unknown-linux-gnu NO_ADD=1
 
-    - rust: nightly
-      before_script:
-        - pip install 'travis-cargo<0.2' --user && export PATH=$HOME/.local/bin:$PATH
-      install:
+    - name: "master doc to gh-pages"
+      rust: nightly
       script:
         - cargo doc --no-deps --all-features
-      after_success:
-        - travis-cargo --only nightly doc-upload
+      deploy:
+        provider: script
+        script: curl -LsSf https://git.io/fhJ8n | rustc - && (cd target/doc && ../../rust_out)
+        skip_cleanup: true
+        on:
+          branch: master
 
 install:
   - if [ -z "$NO_ADD" ]; then rustup target add $TARGET; fi
@@ -47,12 +49,7 @@ script:
   - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET $NO_RUN
   - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET --features parallel $NO_RUN
   - cargo test --manifest-path cc-test/Cargo.toml --target $TARGET --release $NO_RUN
-  - cargo doc
   - cargo clean && cargo build
-
-env:
-  global:
-    secure: "CBtqrudgE0PS8x3kTr44jKbC2D4nfnmdYVecooNm0qnER4B4TSvZpZSQoCgKK6k4BYQuOSyFTOwYx6M79w39ZMOgyCP9ytB+tyMWL0/+ZuUQL04yVg4M5vd3oJMkOaXbvG56ncgPyFrseY+FPDg+mXAzvJk/nily37YXjkQj2D0="
 
 notifications:
   email:
