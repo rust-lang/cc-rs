@@ -2,7 +2,7 @@
 
 A library to compile C/C++/assembly into a Rust library/application.
 
-[![Build Status](https://travis-ci.org/alexcrichton/cc-rs.svg?branch=master)](https://travis-ci.org/alexcrichton/cc-rs)
+[![Build Status](https://travis-ci.com/alexcrichton/cc-rs.svg?branch=master)](https://travis-ci.com/alexcrichton/cc-rs)
 [![Build status](https://ci.appveyor.com/api/projects/status/onu270iw98h81nwv?svg=true)](https://ci.appveyor.com/project/alexcrichton/cc-rs)
 
 [Documentation](https://docs.rs/cc)
