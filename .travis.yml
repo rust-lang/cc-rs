@@ -20,6 +20,7 @@ matrix:
       env: TARGET=x86_64-unknown-linux-gnu NO_ADD=1
 
     - name: "master doc to gh-pages"
+      install: true
       rust: nightly
       script:
         - cargo doc --no-deps --all-features
