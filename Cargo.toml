@@ -13,7 +13,7 @@ code.
 """
 keywords = ["build-dependencies"]
 readme = "README.md"
-categories = ["development-tools"]
+categories = ["development-tools::build-utils"]
 exclude = ["/.travis.yml", "/appveyor.yml"]
 
 [badges]
