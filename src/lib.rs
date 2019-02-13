@@ -1736,6 +1736,8 @@ impl Build {
                     }
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
+                } else if target == "wasm32-unknown-wasi" {
+                    "clang".to_string()
                 } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
