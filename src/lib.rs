@@ -1098,8 +1098,13 @@ impl Build {
             cmd.push_cc_arg(arg.into());
         }
 
-        // Disable default flag generation via environment variable
-        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none();
+        // Disable default flag generation via environment variable or when
+        // certain cross compiling arguments are set
+        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none()
+            && !(cmd.args.iter().any(|ref a| {
+                let arg = a.to_str().unwrap_or("");
+                arg.starts_with("-m") || arg.starts_with("/arch") || arg.starts_with("--target")
+            }));
 
         if use_defaults {
             // Non-target flags
