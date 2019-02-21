@@ -1094,6 +1094,10 @@ impl Build {
 
         let mut cmd = self.get_base_compiler()?;
 
+        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
+            cmd.push_cc_arg(arg.into());
+        }
+
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
@@ -1120,9 +1124,9 @@ impl Build {
 
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
-                    "z" | "s" | "1" => cmd.args.push("/O1".into()),
+                    "z" | "s" | "1" => cmd.push_opt_unless_duplicate("/O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
-                    "2" | "3" => cmd.args.push("/O2".into()),
+                    "2" | "3" => cmd.push_opt_unless_duplicate("/O2".into()),
                     _ => {}
                 }
             }
@@ -1130,9 +1134,9 @@ impl Build {
                 // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
                 // not support '-Oz'
                 if opt_level == "z" && cmd.family != ToolFamily::Clang {
-                    cmd.args.push("-Os".into());
+                    cmd.push_opt_unless_duplicate("-Os".into());
                 } else {
-                    cmd.args.push(format!("-O{}", opt_level).into());
+                    cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
                 }
 
                 if !target.contains("-ios") {
@@ -1148,9 +1152,6 @@ impl Build {
                     }
                 }
             }
-        }
-        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
-            cmd.args.push(arg.into());
         }
 
         if self.get_debug() {
@@ -2102,6 +2103,41 @@ impl Tool {
             self.args.push(self.family.nvcc_redirect_flag().into());
         }
         self.args.push(flag);
+    }
+
+    fn is_duplicate_opt_arg(&self, flag: &OsString) -> bool {
+        let flag = flag.to_str().unwrap();
+        let mut chars = flag.chars();
+
+        // Only duplicate check compiler flags
+        if self.is_like_msvc() {
+            if chars.next() != Some('/') {
+                return false;
+            }
+        } else if self.is_like_gnu() || self.is_like_clang() {
+            if chars.next() != Some('-') {
+                return false;
+            }
+        }
+
+        // Check for existing optimization flags (-O, /O)
+        if chars.next() == Some('O') {
+            return self.args().iter().any(|ref a|
+                a.to_str().unwrap_or("").chars().nth(1) == Some('O')
+            );
+        }
+
+        // TODO Check for existing -m..., -m...=..., /arch:... flags
+        return false;
+    }
+
+    /// Don't push optimization arg if it conflicts with existing args
+    fn push_opt_unless_duplicate(&mut self, flag: OsString) {
+        if self.is_duplicate_opt_arg(&flag) {
+            println!("Info: Ignoring duplicate arg {:?}", &flag);
+        } else {
+            self.push_cc_arg(flag);
+        }
     }
 
     /// Converts this compiler into a `Command` that's ready to be run.
