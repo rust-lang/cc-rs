@@ -1093,16 +1093,12 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
-
-        for arg in self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
-            cmd.push_cc_arg(arg.into());
-        }
+        let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" });
 
         // Disable default flag generation via environment variable or when
         // certain cross compiling arguments are set
         let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none()
-            && !(cmd.args.iter().any(|ref a| {
-                let arg = a.to_str().unwrap_or("");
+            && !(envflags.iter().any(|ref arg| {
                 arg.starts_with("-m") || arg.starts_with("/arch") || arg.starts_with("--target")
             }));
 
@@ -1383,6 +1379,10 @@ impl Build {
             }
         } else {
             println!("Info: default compiler flags are disabled");
+        }
+
+        for arg in envflags {
+            cmd.push_cc_arg(arg.into());
         }
 
         for directory in self.include_directories.iter() {
