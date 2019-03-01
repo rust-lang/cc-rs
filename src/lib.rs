@@ -1103,280 +1103,7 @@ impl Build {
             }));
 
         if use_defaults {
-            // Non-target flags
-            // If the flag is not conditioned on target variable, it belongs here :)
-            match cmd.family {
-                ToolFamily::Msvc { .. } => {
-                    assert!(!self.cuda,
-                        "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
-
-                    cmd.args.push("/nologo".into());
-
-                    let crt_flag = match self.static_crt {
-                        Some(true) => "/MT",
-                        Some(false) => "/MD",
-                        None => {
-                            let features =
-                                env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
-                            if features.contains("crt-static") {
-                                "/MT"
-                            } else {
-                                "/MD"
-                            }
-                        }
-                    };
-                    cmd.args.push(crt_flag.into());
-
-                    match &opt_level[..] {
-                        // Msvc uses /O1 to enable all optimizations that minimize code size.
-                        "z" | "s" | "1" => cmd.push_opt_unless_duplicate("/O1".into()),
-                        // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
-                        "2" | "3" => cmd.push_opt_unless_duplicate("/O2".into()),
-                        _ => {}
-                    }
-                }
-                ToolFamily::Gnu | ToolFamily::Clang => {
-                    // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
-                    // not support '-Oz'
-                    if opt_level == "z" && cmd.family != ToolFamily::Clang {
-                        cmd.push_opt_unless_duplicate("-Os".into());
-                    } else {
-                        cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
-                    }
-
-                    if !target.contains("-ios") {
-                        cmd.push_cc_arg("-ffunction-sections".into());
-                        cmd.push_cc_arg("-fdata-sections".into());
-                    }
-                    if self.pic.unwrap_or(!target.contains("windows-gnu")) {
-                        cmd.push_cc_arg("-fPIC".into());
-                        // PLT only applies if code is compiled with PIC support,
-                        // and only for ELF targets.
-                        if target.contains("linux") && !self.use_plt.unwrap_or(true) {
-                            cmd.push_cc_arg("-fno-plt".into());
-                        }
-                    }
-                }
-            }
-
-            if self.get_debug() {
-                if self.cuda {
-                    let nvcc_debug_flag = cmd.family.nvcc_debug_flag().into();
-                    cmd.args.push(nvcc_debug_flag);
-                }
-                let family = cmd.family;
-                family.add_debug_flags(&mut cmd);
-            }
-
-            // Target flags
-            match cmd.family {
-                ToolFamily::Clang => {
-                    cmd.args.push(format!("--target={}", target).into());
-                }
-                ToolFamily::Msvc { clang_cl } => {
-                    if clang_cl {
-                        if target.contains("x86_64") {
-                            cmd.args.push("-m64".into());
-                        } else if target.contains("86") {
-                            cmd.args.push("-m32".into());
-                            cmd.args.push("/arch:IA32".into());
-                        } else {
-                            cmd.args.push(format!("--target={}", target).into());
-                        }
-                    } else {
-                        if target.contains("i586") {
-                            cmd.args.push("/ARCH:IA32".into());
-                        }
-                    }
-
-                    // There is a check in corecrt.h that will generate a
-                    // compilation error if
-                    // _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE is
-                    // not defined to 1. The check was added in Windows
-                    // 8 days because only store apps were allowed on ARM.
-                    // This changed with the release of Windows 10 IoT Core.
-                    // The check will be going away in future versions of
-                    // the SDK, but for all released versions of the
-                    // Windows SDK it is required.
-                    if target.contains("arm") || target.contains("thumb") {
-                        cmd.args.push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
-                    }
-                }
-                ToolFamily::Gnu => {
-                    if target.contains("i686") || target.contains("i586") {
-                        cmd.args.push("-m32".into());
-                    } else if target == "x86_64-unknown-linux-gnux32" {
-                        cmd.args.push("-mx32".into());
-                    } else if target.contains("x86_64") || target.contains("powerpc64") {
-                        cmd.args.push("-m64".into());
-                    }
-
-                    if self.static_flag.is_none() {
-                        let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
-                        if features.contains("crt-static") {
-                            cmd.args.push("-static".into());
-                        }
-                    }
-
-                    // armv7 targets get to use armv7 instructions
-                    if (target.starts_with("armv7") || target.starts_with("thumbv7")) && target.contains("-linux-") {
-                        cmd.args.push("-march=armv7-a".into());
-                    }
-
-                    // (x86 Android doesn't say "eabi")
-                    if target.contains("-androideabi") && target.contains("v7") {
-                        // -march=armv7-a handled above
-                        cmd.args.push("-mthumb".into());
-                        if !target.contains("neon") {
-                            // On android we can guarantee some extra float instructions
-                            // (specified in the android spec online)
-                            // NEON guarantees even more; see below.
-                            cmd.args.push("-mfpu=vfpv3-d16".into());
-                        }
-                        cmd.args.push("-mfloat-abi=softfp".into());
-                    }
-
-                    if target.contains("neon") {
-                        cmd.args.push("-mfpu=neon-vfpv4".into());
-                    }
-
-                    if target.starts_with("armv4t-unknown-linux-") {
-                        cmd.args.push("-march=armv4t".into());
-                        cmd.args.push("-marm".into());
-                        cmd.args.push("-mfloat-abi=soft".into());
-                    }
-
-                    if target.starts_with("armv5te-unknown-linux-") {
-                        cmd.args.push("-march=armv5te".into());
-                        cmd.args.push("-marm".into());
-                        cmd.args.push("-mfloat-abi=soft".into());
-                    }
-
-                    // For us arm == armv6 by default
-                    if target.starts_with("arm-unknown-linux-") {
-                        cmd.args.push("-march=armv6".into());
-                        cmd.args.push("-marm".into());
-                        if target.ends_with("hf") {
-                            cmd.args.push("-mfpu=vfp".into());
-                        } else {
-                            cmd.args.push("-mfloat-abi=soft".into());
-                        }
-                    }
-
-                    // We can guarantee some settings for FRC
-                    if target.starts_with("arm-frc-") {
-                        cmd.args.push("-march=armv7-a".into());
-                        cmd.args.push("-mcpu=cortex-a9".into());
-                        cmd.args.push("-mfpu=vfpv3".into());
-                        cmd.args.push("-mfloat-abi=softfp".into());
-                        cmd.args.push("-marm".into());
-                    }
-
-                    // Turn codegen down on i586 to avoid some instructions.
-                    if target.starts_with("i586-unknown-linux-") {
-                        cmd.args.push("-march=pentium".into());
-                    }
-
-                    // Set codegen level for i686 correctly
-                    if target.starts_with("i686-unknown-linux-") {
-                        cmd.args.push("-march=i686".into());
-                    }
-
-                    // Looks like `musl-gcc` makes is hard for `-m32` to make its way
-                    // all the way to the linker, so we need to actually instruct the
-                    // linker that we're generating 32-bit executables as well. This'll
-                    // typically only be used for build scripts which transitively use
-                    // these flags that try to compile executables.
-                    if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
-                        cmd.args.push("-Wl,-melf_i386".into());
-                    }
-
-                    if target.starts_with("thumb") {
-                        cmd.args.push("-mthumb".into());
-
-                        if target.ends_with("eabihf") {
-                            cmd.args.push("-mfloat-abi=hard".into())
-                        }
-                    }
-                    if target.starts_with("thumbv6m") {
-                        cmd.args.push("-march=armv6s-m".into());
-                    }
-                    if target.starts_with("thumbv7em") {
-                        cmd.args.push("-march=armv7e-m".into());
-
-                        if target.ends_with("eabihf") {
-                            cmd.args.push("-mfpu=fpv4-sp-d16".into())
-                        }
-                    }
-                    if target.starts_with("thumbv7m") {
-                        cmd.args.push("-march=armv7-m".into());
-                    }
-                    if target.starts_with("thumbv8m.base") {
-                        cmd.args.push("-march=armv8-m.base".into());
-                    }
-                    if target.starts_with("thumbv8m.main") {
-                        cmd.args.push("-march=armv8-m.main".into());
-
-                        if target.ends_with("eabihf") {
-                            cmd.args.push("-mfpu=fpv5-sp-d16".into())
-                        }
-                    }
-                    if target.starts_with("armebv7r") | target.starts_with("armv7r") {
-                        if target.starts_with("armeb") {
-                            cmd.args.push("-mbig-endian".into());
-                        } else {
-                            cmd.args.push("-mlittle-endian".into());
-                        }
-
-                        // ARM mode
-                        cmd.args.push("-marm".into());
-
-                        // R Profile
-                        cmd.args.push("-march=armv7-r".into());
-
-                        if target.ends_with("eabihf") {
-                            // Calling convention
-                            cmd.args.push("-mfloat-abi=hard".into());
-
-                            // lowest common denominator FPU
-                            // (see Cortex-R4 technical reference manual)
-                            cmd.args.push("-mfpu=vfpv3-d16".into())
-                        } else {
-                            // Calling convention
-                            cmd.args.push("-mfloat-abi=soft".into());
-                        }
-                    }
-                }
-            }
-
-            if target.contains("-ios") {
-                // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
-                // detected instead.
-                self.ios_flags(&mut cmd)?;
-            }
-
-            if self.static_flag.unwrap_or(false) {
-                cmd.args.push("-static".into());
-            }
-            if self.shared_flag.unwrap_or(false) {
-                cmd.args.push("-shared".into());
-            }
-
-            if self.cpp {
-                match (self.cpp_set_stdlib.as_ref(), cmd.family) {
-                    (None, _) => {}
-                    (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang) => {
-                        cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
-                    }
-                    _ => {
-                        println!(
-                            "cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
-                             does not support this option, ignored",
-                            cmd.family
-                        );
-                    }
-                }
-            }
+            self.add_default_flags(&mut cmd, &target, &opt_level)?;
         } else {
             println!("Info: default compiler flags are disabled");
         }
@@ -1435,6 +1162,285 @@ impl Build {
         }
 
         Ok(cmd)
+    }
+
+    fn add_default_flags(&self, cmd: &mut Tool, target: &str, opt_level: &str) -> Result<(), Error> {
+        // Non-target flags
+        // If the flag is not conditioned on target variable, it belongs here :)
+        match cmd.family {
+            ToolFamily::Msvc { .. } => {
+                assert!(!self.cuda,
+                    "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
+
+                cmd.args.push("/nologo".into());
+
+                let crt_flag = match self.static_crt {
+                    Some(true) => "/MT",
+                    Some(false) => "/MD",
+                    None => {
+                        let features =
+                            env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                        if features.contains("crt-static") {
+                            "/MT"
+                        } else {
+                            "/MD"
+                        }
+                    }
+                };
+                cmd.args.push(crt_flag.into());
+
+                match &opt_level[..] {
+                    // Msvc uses /O1 to enable all optimizations that minimize code size.
+                    "z" | "s" | "1" => cmd.push_opt_unless_duplicate("/O1".into()),
+                    // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
+                    "2" | "3" => cmd.push_opt_unless_duplicate("/O2".into()),
+                    _ => {}
+                }
+            }
+            ToolFamily::Gnu | ToolFamily::Clang => {
+                // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
+                // not support '-Oz'
+                if opt_level == "z" && cmd.family != ToolFamily::Clang {
+                    cmd.push_opt_unless_duplicate("-Os".into());
+                } else {
+                    cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
+                }
+
+                if !target.contains("-ios") {
+                    cmd.push_cc_arg("-ffunction-sections".into());
+                    cmd.push_cc_arg("-fdata-sections".into());
+                }
+                if self.pic.unwrap_or(!target.contains("windows-gnu")) {
+                    cmd.push_cc_arg("-fPIC".into());
+                    // PLT only applies if code is compiled with PIC support,
+                    // and only for ELF targets.
+                    if target.contains("linux") && !self.use_plt.unwrap_or(true) {
+                        cmd.push_cc_arg("-fno-plt".into());
+                    }
+                }
+            }
+        }
+
+        if self.get_debug() {
+            if self.cuda {
+                let nvcc_debug_flag = cmd.family.nvcc_debug_flag().into();
+                cmd.args.push(nvcc_debug_flag);
+            }
+            let family = cmd.family;
+            family.add_debug_flags(cmd);
+        }
+
+        // Target flags
+        match cmd.family {
+            ToolFamily::Clang => {
+                cmd.args.push(format!("--target={}", target).into());
+            }
+            ToolFamily::Msvc { clang_cl } => {
+                if clang_cl {
+                    if target.contains("x86_64") {
+                        cmd.args.push("-m64".into());
+                    } else if target.contains("86") {
+                        cmd.args.push("-m32".into());
+                        cmd.args.push("/arch:IA32".into());
+                    } else {
+                        cmd.args.push(format!("--target={}", target).into());
+                    }
+                } else {
+                    if target.contains("i586") {
+                        cmd.args.push("/ARCH:IA32".into());
+                    }
+                }
+
+                // There is a check in corecrt.h that will generate a
+                // compilation error if
+                // _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE is
+                // not defined to 1. The check was added in Windows
+                // 8 days because only store apps were allowed on ARM.
+                // This changed with the release of Windows 10 IoT Core.
+                // The check will be going away in future versions of
+                // the SDK, but for all released versions of the
+                // Windows SDK it is required.
+                if target.contains("arm") || target.contains("thumb") {
+                    cmd.args.push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                }
+            }
+            ToolFamily::Gnu => {
+                if target.contains("i686") || target.contains("i586") {
+                    cmd.args.push("-m32".into());
+                } else if target == "x86_64-unknown-linux-gnux32" {
+                    cmd.args.push("-mx32".into());
+                } else if target.contains("x86_64") || target.contains("powerpc64") {
+                    cmd.args.push("-m64".into());
+                }
+
+                if self.static_flag.is_none() {
+                    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                    if features.contains("crt-static") {
+                        cmd.args.push("-static".into());
+                    }
+                }
+
+                // armv7 targets get to use armv7 instructions
+                if (target.starts_with("armv7") || target.starts_with("thumbv7")) && target.contains("-linux-") {
+                    cmd.args.push("-march=armv7-a".into());
+                }
+
+                // (x86 Android doesn't say "eabi")
+                if target.contains("-androideabi") && target.contains("v7") {
+                    // -march=armv7-a handled above
+                    cmd.args.push("-mthumb".into());
+                    if !target.contains("neon") {
+                        // On android we can guarantee some extra float instructions
+                        // (specified in the android spec online)
+                        // NEON guarantees even more; see below.
+                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                    }
+                    cmd.args.push("-mfloat-abi=softfp".into());
+                }
+
+                if target.contains("neon") {
+                    cmd.args.push("-mfpu=neon-vfpv4".into());
+                }
+
+                if target.starts_with("armv4t-unknown-linux-") {
+                    cmd.args.push("-march=armv4t".into());
+                    cmd.args.push("-marm".into());
+                    cmd.args.push("-mfloat-abi=soft".into());
+                }
+
+                if target.starts_with("armv5te-unknown-linux-") {
+                    cmd.args.push("-march=armv5te".into());
+                    cmd.args.push("-marm".into());
+                    cmd.args.push("-mfloat-abi=soft".into());
+                }
+
+                // For us arm == armv6 by default
+                if target.starts_with("arm-unknown-linux-") {
+                    cmd.args.push("-march=armv6".into());
+                    cmd.args.push("-marm".into());
+                    if target.ends_with("hf") {
+                        cmd.args.push("-mfpu=vfp".into());
+                    } else {
+                        cmd.args.push("-mfloat-abi=soft".into());
+                    }
+                }
+
+                // We can guarantee some settings for FRC
+                if target.starts_with("arm-frc-") {
+                    cmd.args.push("-march=armv7-a".into());
+                    cmd.args.push("-mcpu=cortex-a9".into());
+                    cmd.args.push("-mfpu=vfpv3".into());
+                    cmd.args.push("-mfloat-abi=softfp".into());
+                    cmd.args.push("-marm".into());
+                }
+
+                // Turn codegen down on i586 to avoid some instructions.
+                if target.starts_with("i586-unknown-linux-") {
+                    cmd.args.push("-march=pentium".into());
+                }
+
+                // Set codegen level for i686 correctly
+                if target.starts_with("i686-unknown-linux-") {
+                    cmd.args.push("-march=i686".into());
+                }
+
+                // Looks like `musl-gcc` makes is hard for `-m32` to make its way
+                // all the way to the linker, so we need to actually instruct the
+                // linker that we're generating 32-bit executables as well. This'll
+                // typically only be used for build scripts which transitively use
+                // these flags that try to compile executables.
+                if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
+                    cmd.args.push("-Wl,-melf_i386".into());
+                }
+
+                if target.starts_with("thumb") {
+                    cmd.args.push("-mthumb".into());
+
+                    if target.ends_with("eabihf") {
+                        cmd.args.push("-mfloat-abi=hard".into())
+                    }
+                }
+                if target.starts_with("thumbv6m") {
+                    cmd.args.push("-march=armv6s-m".into());
+                }
+                if target.starts_with("thumbv7em") {
+                    cmd.args.push("-march=armv7e-m".into());
+
+                    if target.ends_with("eabihf") {
+                        cmd.args.push("-mfpu=fpv4-sp-d16".into())
+                    }
+                }
+                if target.starts_with("thumbv7m") {
+                    cmd.args.push("-march=armv7-m".into());
+                }
+                if target.starts_with("thumbv8m.base") {
+                    cmd.args.push("-march=armv8-m.base".into());
+                }
+                if target.starts_with("thumbv8m.main") {
+                    cmd.args.push("-march=armv8-m.main".into());
+
+                    if target.ends_with("eabihf") {
+                        cmd.args.push("-mfpu=fpv5-sp-d16".into())
+                    }
+                }
+                if target.starts_with("armebv7r") | target.starts_with("armv7r") {
+                    if target.starts_with("armeb") {
+                        cmd.args.push("-mbig-endian".into());
+                    } else {
+                        cmd.args.push("-mlittle-endian".into());
+                    }
+
+                    // ARM mode
+                    cmd.args.push("-marm".into());
+
+                    // R Profile
+                    cmd.args.push("-march=armv7-r".into());
+
+                    if target.ends_with("eabihf") {
+                        // Calling convention
+                        cmd.args.push("-mfloat-abi=hard".into());
+
+                        // lowest common denominator FPU
+                        // (see Cortex-R4 technical reference manual)
+                        cmd.args.push("-mfpu=vfpv3-d16".into())
+                    } else {
+                        // Calling convention
+                        cmd.args.push("-mfloat-abi=soft".into());
+                    }
+                }
+            }
+        }
+
+        if target.contains("-ios") {
+            // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
+            // detected instead.
+            self.ios_flags(cmd)?;
+        }
+
+        if self.static_flag.unwrap_or(false) {
+            cmd.args.push("-static".into());
+        }
+        if self.shared_flag.unwrap_or(false) {
+            cmd.args.push("-shared".into());
+        }
+
+        if self.cpp {
+            match (self.cpp_set_stdlib.as_ref(), cmd.family) {
+                (None, _) => {}
+                (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang) => {
+                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
+                }
+                _ => {
+                    println!(
+                        "cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
+                         does not support this option, ignored",
+                        cmd.family
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn has_flags(&self) -> bool {
