@@ -89,7 +89,7 @@ in the following prioritized order:
 
 If none of these variables exist, cc-rs uses built-in defaults
 
-In addition to the the above optional environment variables, `cc-rs` has some
+In addition to the above optional environment variables, `cc-rs` has some
 functions with hard requirements on some variables supplied by [cargo's
 build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
 and `HOST` variables.
