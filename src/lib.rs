@@ -956,7 +956,7 @@ impl Build {
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use self::rayon::prelude::*;
 
-        if let Ok(amt) = env::var("NUM_JOBS") {
+        if let Some(amt) = self.getenv("NUM_JOBS") {
             if let Ok(amt) = amt.parse() {
                 let _ = rayon::ThreadPoolBuilder::new()
                     .num_threads(amt)
@@ -1179,7 +1179,7 @@ impl Build {
                     Some(false) => "/MD",
                     None => {
                         let features =
-                            env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                            self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
                         if features.contains("crt-static") {
                             "/MT"
                         } else {
@@ -1274,7 +1274,7 @@ impl Build {
                 }
 
                 if self.static_flag.is_none() {
-                    let features = env::var("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
                     if features.contains("crt-static") {
                         cmd.args.push("-static".into());
                     }
