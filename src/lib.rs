@@ -1097,10 +1097,7 @@ impl Build {
 
         // Disable default flag generation via environment variable or when
         // certain cross compiling arguments are set
-        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none()
-            && !(envflags.iter().any(|ref arg| {
-                arg.starts_with("-m") || arg.starts_with("/arch") || arg.starts_with("--target")
-            }));
+        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none();
 
         if use_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
