@@ -103,6 +103,8 @@ pub enum VsVers {
     Vs14,
     /// Visual Studio 15 (2017)
     Vs15,
+    /// Visual Studio 16 (2019)
+    Vs16,
 
     /// Hidden variant that should not be matched on. Callers that want to
     /// handle an enumeration of `VsVers` instances should always have a default
@@ -128,6 +130,7 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 
     match env::var("VisualStudioVersion") {
         Ok(version) => match &version[..] {
+            "16.0" => Ok(VsVers::Vs16),
             "15.0" => Ok(VsVers::Vs15),
             "14.0" => Ok(VsVers::Vs14),
             "12.0" => Ok(VsVers::Vs12),
@@ -144,7 +147,9 @@ pub fn find_vs_version() -> Result<VsVers, String> {
         _ => {
             // Check for the presense of a specific registry key
             // that indicates visual studio is installed.
-            if impl_::has_msbuild_version("15.0") {
+            if impl_::has_msbuild_version("16.0") {
+                Ok(VsVers::Vs16)
+            } else if impl_::has_msbuild_version("15.0") {
                 Ok(VsVers::Vs15)
             } else if impl_::has_msbuild_version("14.0") {
                 Ok(VsVers::Vs14)
