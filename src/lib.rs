@@ -1761,7 +1761,9 @@ impl Build {
                           target == "wasm32-unknown-wasi" ||
                           target == "wasm32-unknown-unknown" {
                     "clang".to_string()
-                } else if self.get_host()? != target {
+                } else if target.contains("vxworks") {
+		    "vx-cc".to_string()
+		} else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
                     let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
