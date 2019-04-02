@@ -2,8 +2,7 @@
 
 A library to compile C/C++/assembly into a Rust library/application.
 
-[![Build Status](https://travis-ci.com/alexcrichton/cc-rs.svg?branch=master)](https://travis-ci.com/alexcrichton/cc-rs)
-[![Build status](https://ci.appveyor.com/api/projects/status/onu270iw98h81nwv?svg=true)](https://ci.appveyor.com/project/alexcrichton/cc-rs)
+[![Build Status](https://dev.azure.com/alexcrichton/cc-rs/_apis/build/status/alexcrichton.cc-rs?branchName=master)](https://dev.azure.com/alexcrichton/cc-rs/_build/latest?definitionId=5&branchName=master)
 
 [Documentation](https://docs.rs/cc)
 
