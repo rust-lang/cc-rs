@@ -1487,12 +1487,7 @@ impl Build {
         let objects: Vec<_> = objs.iter().map(|obj| obj.dst.clone()).collect();
         let target = self.get_target()?;
         if target.contains("msvc") {
-            let mut cmd = match self.archiver {
-                Some(ref s) => self.cmd(s),
-                None => windows_registry::find(&target, "lib.exe")
-                    .unwrap_or_else(|| self.cmd("lib.exe")),
-            };
-
+            let (mut cmd, program) = self.get_ar()?;
             let mut out = OsString::from("/OUT:");
             out.push(dst);
             cmd.arg(out).arg("/nologo");
@@ -1537,7 +1532,7 @@ impl Build {
             } else {
                 cmd.args(&objects).args(&self.objects);
             }
-            run(&mut cmd, "lib.exe")?;
+            run(&mut cmd, &program)?;
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
@@ -1979,9 +1974,10 @@ impl Build {
         if let Ok(p) = self.get_var("AR") {
             return Ok((self.cmd(&p), p));
         }
-        let program = if self.get_target()?.contains("android") {
-            format!("{}-ar", self.get_target()?.replace("armv7", "arm"))
-        } else if self.get_target()?.contains("emscripten") {
+        let target = self.get_target()?;
+        let program = if target.contains("android") {
+            format!("{}-ar", target.replace("armv7", "arm"))
+        } else if target.contains("emscripten") {
             // Windows use bat files so we have to be a bit more specific
             if cfg!(windows) {
                 let mut cmd = self.cmd("cmd");
@@ -1990,6 +1986,14 @@ impl Build {
             }
 
             "emar".to_string()
+        } else if target.contains("msvc") {
+            match windows_registry::find_tool(&target, "lib.exe") {
+                Some(t) => match t.path().to_str() {
+                    Some(ref p) => p.to_string(),
+                    None => "lib.exe".to_string(),
+                },
+                None => "lib.exe".to_string(),
+            }
         } else {
             "ar".to_string()
         };
