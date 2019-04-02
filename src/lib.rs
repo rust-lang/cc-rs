@@ -1987,11 +1987,8 @@ impl Build {
 
             "emar".to_string()
         } else if target.contains("msvc") {
-            match windows_registry::find_tool(&target, "lib.exe") {
-                Some(t) => match t.path().to_str() {
-                    Some(ref p) => p.to_string(),
-                    None => "lib.exe".to_string(),
-                },
+            match windows_registry::find(&target, "lib.exe") {
+                Some(t) => return Ok((t, "lib.exe".to_string())),
                 None => "lib.exe".to_string(),
             }
         } else {
