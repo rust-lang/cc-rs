@@ -3,6 +3,10 @@ steps:
   - bash: rustup target add $TARGET
     displayName: Install Rust target
 
+  - bash: sudo apt-get install gcc-multilib
+    condition: eq( variables['Agent.OS'], 'Linux' )
+    displayName: Install gcc-multilib
+
   - script: cargo build
     displayName: "Normal build"
   - bash: cargo test $NO_RUN -- --test-threads 1
