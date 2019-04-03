@@ -3,7 +3,7 @@ steps:
   - bash: rustup target add $TARGET
     displayName: Install Rust target
 
-  - bash: sudo apt-get install gcc-multilib
+  - bash: sudo apt-get install g++-multilib
     condition: eq( variables['Agent.OS'], 'Linux' )
     displayName: Install g++-multilib
 
