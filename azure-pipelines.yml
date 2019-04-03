@@ -13,6 +13,8 @@ jobs:
   - job: Linux
     pool:
       vmImage: ubuntu-16.04
+    steps:
+      - template: ci/azure-steps.yml
     strategy:
       matrix:
         x86_64:
