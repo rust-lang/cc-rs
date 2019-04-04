@@ -61,15 +61,15 @@
 #[cfg(feature = "parallel")]
 extern crate rayon;
 
+use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fs;
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::io::{self, BufRead, BufReader, Read, Write};
-use std::thread::{self, JoinHandle};
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::thread::{self, JoinHandle};
 
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
@@ -891,7 +891,7 @@ impl Build {
                     return Err(Error::new(
                         ErrorKind::IOError,
                         "Getting object file details failed.",
-                    ))
+                    ));
                 }
             };
 
@@ -1119,12 +1119,18 @@ impl Build {
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
 
-        if self.warnings.unwrap_or(if self.has_flags() { false } else { true }) {
+        if self
+            .warnings
+            .unwrap_or(if self.has_flags() { false } else { true })
+        {
             let wflags = cmd.family.warnings_flags().into();
             cmd.push_cc_arg(wflags);
         }
 
-        if self.extra_warnings.unwrap_or(if self.has_flags() { false } else { true }) {
+        if self
+            .extra_warnings
+            .unwrap_or(if self.has_flags() { false } else { true })
+        {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
                 cmd.push_cc_arg(wflags.into());
             }
@@ -1161,7 +1167,12 @@ impl Build {
         Ok(cmd)
     }
 
-    fn add_default_flags(&self, cmd: &mut Tool, target: &str, opt_level: &str) -> Result<(), Error> {
+    fn add_default_flags(
+        &self,
+        cmd: &mut Tool,
+        target: &str,
+        opt_level: &str,
+    ) -> Result<(), Error> {
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
@@ -1175,8 +1186,9 @@ impl Build {
                     Some(true) => "/MT",
                     Some(false) => "/MD",
                     None => {
-                        let features =
-                            self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                        let features = self
+                            .getenv("CARGO_CFG_TARGET_FEATURE")
+                            .unwrap_or(String::new());
                         if features.contains("crt-static") {
                             "/MT"
                         } else {
@@ -1258,7 +1270,8 @@ impl Build {
                 // the SDK, but for all released versions of the
                 // Windows SDK it is required.
                 if target.contains("arm") || target.contains("thumb") {
-                    cmd.args.push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                    cmd.args
+                        .push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
                 }
             }
             ToolFamily::Gnu => {
@@ -1271,14 +1284,18 @@ impl Build {
                 }
 
                 if self.static_flag.is_none() {
-                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or(String::new());
+                    let features = self
+                        .getenv("CARGO_CFG_TARGET_FEATURE")
+                        .unwrap_or(String::new());
                     if features.contains("crt-static") {
                         cmd.args.push("-static".into());
                     }
                 }
 
                 // armv7 targets get to use armv7 instructions
-                if (target.starts_with("armv7") || target.starts_with("thumbv7")) && target.contains("-linux-") {
+                if (target.starts_with("armv7") || target.starts_with("thumbv7"))
+                    && target.contains("-linux-")
+                {
                     cmd.args.push("-march=armv7-a".into());
                 }
 
@@ -1443,7 +1460,11 @@ impl Build {
     fn has_flags(&self) -> bool {
         let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
         let flags_env_var_value = self.get_var(flags_env_var_name);
-        if let Ok(_) = flags_env_var_value { true } else { false }
+        if let Ok(_) = flags_env_var_value {
+            true
+        } else {
+            false
+        }
     }
 
     fn msvc_macro_assembler(&self) -> Result<(Command, String), Error> {
@@ -1548,7 +1569,7 @@ impl Build {
                     return Err(Error::new(
                         ErrorKind::IOError,
                         "Could not copy or create a hard-link to the generated lib file.",
-                    ))
+                    ));
                 }
             };
         } else {
@@ -1585,7 +1606,7 @@ impl Build {
                 return Err(Error::new(
                     ErrorKind::ArchitectureInvalid,
                     "Unknown architecture for iOS target.",
-                ))
+                ));
             }
         };
 
@@ -1604,7 +1625,8 @@ impl Build {
         };
 
         self.print(&format!("Detecting iOS SDK path for {}", sdk));
-        let sdk_path = self.cmd("xcrun")
+        let sdk_path = self
+            .cmd("xcrun")
             .arg("--show-sdk-path")
             .arg("--sdk")
             .arg(sdk)
@@ -1618,7 +1640,7 @@ impl Build {
                 return Err(Error::new(
                     ErrorKind::IOError,
                     "Unable to determine iOS SDK path.",
-                ))
+                ));
             }
         };
 
@@ -1669,7 +1691,8 @@ impl Build {
 
         let cl_exe = windows_registry::find_tool(&target, "cl.exe");
 
-        let tool_opt: Option<Tool> = self.env_tool(env)
+        let tool_opt: Option<Tool> = self
+            .env_tool(env)
             .map(|(tool, cc, args)| {
                 // chop off leading/trailing whitespace to work around
                 // semi-buggy build scripts which are shared in
@@ -1831,9 +1854,9 @@ impl Build {
         // configure for invocations like `clang-cl` we still get a "works out
         // of the box" experience.
         if let Some(cl_exe) = cl_exe {
-            if tool.family == (ToolFamily::Msvc { clang_cl: true }) &&
-                tool.env.len() == 0 &&
-                target.contains("msvc")
+            if tool.family == (ToolFamily::Msvc { clang_cl: true })
+                && tool.env.len() == 0
+                && target.contains("msvc")
             {
                 for &(ref k, ref v) in cl_exe.env.iter() {
                     tool.env.push((k.to_owned(), v.to_owned()));
@@ -1849,7 +1872,8 @@ impl Build {
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
         let target_u = target.replace("-", "_");
-        let res = self.getenv(&format!("{}_{}", var_base, target))
+        let res = self
+            .getenv(&format!("{}_{}", var_base, target))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
             .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))
             .or_else(|| self.getenv(var_base));
@@ -2040,7 +2064,7 @@ impl Build {
     fn getenv(&self, v: &str) -> Option<String> {
         let mut cache = self.env_cache.lock().unwrap();
         if let Some(val) = cache.get(v) {
-            return val.clone()
+            return val.clone();
         }
         let r = env::var(v).ok();
         self.print(&format!("{} = {:?}", v, r));
@@ -2081,10 +2105,11 @@ impl Tool {
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang-cl") {
                 ToolFamily::Msvc { clang_cl: true }
-            } else if fname.contains("cl") &&
-                !fname.contains("cloudabi") &&
-                !fname.contains("uclibc") &&
-                !fname.contains("clang") {
+            } else if fname.contains("cl")
+                && !fname.contains("cloudabi")
+                && !fname.contains("uclibc")
+                && !fname.contains("clang")
+            {
                 ToolFamily::Msvc { clang_cl: false }
             } else if fname.contains("clang") {
                 ToolFamily::Clang
@@ -2140,9 +2165,10 @@ impl Tool {
 
         // Check for existing optimization flags (-O, /O)
         if chars.next() == Some('O') {
-            return self.args().iter().any(|ref a|
-                a.to_str().unwrap_or("").chars().nth(1) == Some('O')
-            );
+            return self
+                .args()
+                .iter()
+                .any(|ref a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
         }
 
         // TODO Check for existing -m..., -m...=..., /arch:... flags
@@ -2174,7 +2200,11 @@ impl Tool {
         };
         cmd.args(&self.cc_wrapper_args);
 
-        let value = self.args.iter().filter(|a| !self.removed_args.contains(a)).collect::<Vec<_>>();
+        let value = self
+            .args
+            .iter()
+            .filter(|a| !self.removed_args.contains(a))
+            .collect::<Vec<_>>();
         cmd.args(&value);
 
         for &(ref k, ref v) in self.env.iter() {
@@ -2269,7 +2299,7 @@ fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
                     "Failed to wait on spawned child process, command {:?} with args {:?}.",
                     cmd, program
                 ),
-            ))
+            ));
         }
     };
     print.join().unwrap();
@@ -2307,7 +2337,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
                     "Failed to wait on spawned child process, command {:?} with args {:?}.",
                     cmd, program
                 ),
-            ))
+            ));
         }
     };
     print.join().unwrap();

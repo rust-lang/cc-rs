@@ -115,9 +115,7 @@ fn gnu_warnings_overridable() {
 fn gnu_no_warnings_if_cflags() {
     env::set_var("CFLAGS", "-Wflag-does-not-exist");
     let test = Test::gnu();
-    test.gcc()
-        .file("foo.c")
-        .compile("foo");
+    test.gcc().file("foo.c").compile("foo");
 
     test.cmd(0).must_not_have("-Wall").must_not_have("-Wextra");
     env::set_var("CFLAGS", "");
@@ -127,9 +125,7 @@ fn gnu_no_warnings_if_cflags() {
 fn gnu_no_warnings_if_cxxflags() {
     env::set_var("CXXFLAGS", "-Wflag-does-not-exist");
     let test = Test::gnu();
-    test.gcc()
-        .file("foo.c")
-        .compile("foo");
+    test.gcc().file("foo.c").compile("foo");
 
     test.cmd(0).must_not_have("-Wall").must_not_have("-Wextra");
     env::set_var("CXXFLAGS", "");

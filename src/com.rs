@@ -13,12 +13,12 @@ use std::ops::Deref;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
+use winapi::CoInitializeEx;
+use winapi::IUnknown;
 use winapi::Interface;
 use winapi::BSTR;
-use winapi::CoInitializeEx;
 use winapi::COINIT_MULTITHREADED;
 use winapi::{SysFreeString, SysStringLen};
-use winapi::IUnknown;
 use winapi::{HRESULT, S_FALSE, S_OK};
 
 pub fn initialize() -> Result<(), HRESULT> {

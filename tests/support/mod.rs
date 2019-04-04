@@ -113,10 +113,12 @@ impl Execution {
     }
 
     pub fn must_have_in_order(&self, before: &str, after: &str) -> &Execution {
-        let before_position = self.args
+        let before_position = self
+            .args
             .iter()
             .rposition(|x| OsStr::new(x) == OsStr::new(before));
-        let after_position = self.args
+        let after_position = self
+            .args
             .iter()
             .rposition(|x| OsStr::new(x) == OsStr::new(after));
         match (before_position, after_position) {

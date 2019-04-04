@@ -17,10 +17,12 @@ use Tool;
 
 #[cfg(windows)]
 macro_rules! otry {
-    ($expr:expr) => (match $expr {
-        Some(val) => val,
-        None => return None,
-    })
+    ($expr:expr) => {
+        match $expr {
+            Some(val) => val,
+            None => return None,
+        }
+    };
 }
 
 /// Attempts to find a tool within an MSVC installation using the Windows
@@ -171,15 +173,15 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 
 #[cfg(windows)]
 mod impl_ {
+    use com;
+    use registry::{RegistryKey, LOCAL_MACHINE};
+    use setup_config::{EnumSetupInstances, SetupConfiguration, SetupInstance};
     use std::env;
     use std::ffi::OsString;
-    use std::mem;
-    use std::path::{Path, PathBuf};
     use std::fs::File;
     use std::io::Read;
-    use registry::{RegistryKey, LOCAL_MACHINE};
-    use com;
-    use setup_config::{EnumSetupInstances, SetupConfiguration, SetupInstance};
+    use std::mem;
+    use std::path::{Path, PathBuf};
 
     use Tool;
 
@@ -256,7 +258,8 @@ mod impl_ {
                     instance
                         .ok()
                         .and_then(|instance| instance.installation_path().ok())
-                }).map(|path| PathBuf::from(path).join(tool))
+                })
+                .map(|path| PathBuf::from(path).join(tool))
                 .find(|ref path| path.is_file()),
             None => None,
         };
@@ -324,13 +327,15 @@ mod impl_ {
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
         // This is the path to the toolchain for a particular target, running
         // on a given host
-        let bin_path = path.join("bin")
+        let bin_path = path
+            .join("bin")
             .join(&format!("Host{}", host))
             .join(&target);
         // But! we also need PATH to contain the target directory for the host
         // architecture, because it contains dlls like mspdb140.dll compiled for
         // the host architecture.
-        let host_dylib_path = path.join("bin")
+        let host_dylib_path = path
+            .join("bin")
             .join(&format!("Host{}", host))
             .join(&host.to_lowercase());
         let lib_path = path.join("lib").join(&target);
@@ -483,17 +488,16 @@ mod impl_ {
         let key = otry!(LOCAL_MACHINE.open(key.as_ref()).ok());
         let root = otry!(key.query_str("KitsRoot10").ok());
         let readdir = otry!(Path::new(&root).join("lib").read_dir().ok());
-        let max_libdir = otry!(
-            readdir
-                .filter_map(|dir| dir.ok())
-                .map(|dir| dir.path())
-                .filter(|dir| dir.components()
-                    .last()
-                    .and_then(|c| c.as_os_str().to_str())
-                    .map(|c| c.starts_with("10.") && dir.join("ucrt").is_dir())
-                    .unwrap_or(false))
-                .max()
-        );
+        let max_libdir = otry!(readdir
+            .filter_map(|dir| dir.ok())
+            .map(|dir| dir.path())
+            .filter(|dir| dir
+                .components()
+                .last()
+                .and_then(|c| c.as_os_str().to_str())
+                .map(|c| c.starts_with("10.") && dir.join("ucrt").is_dir())
+                .unwrap_or(false))
+            .max());
         let version = max_libdir.components().last().unwrap();
         let version = version.as_os_str().to_str().unwrap().to_string();
         Some((root.into(), version))
@@ -517,12 +521,11 @@ mod impl_ {
             .map(|dir| dir.path())
             .collect::<Vec<_>>();
         dirs.sort();
-        let dir = otry!(
-            dirs.into_iter()
-                .rev()
-                .filter(|dir| dir.join("um").join("x64").join("kernel32.lib").is_file())
-                .next()
-        );
+        let dir = otry!(dirs
+            .into_iter()
+            .rev()
+            .filter(|dir| dir.join("um").join("x64").join("kernel32.lib").is_file())
+            .next());
         let version = dir.components().last().unwrap();
         let version = version.as_os_str().to_str().unwrap().to_string();
         Some((root.into(), version))
