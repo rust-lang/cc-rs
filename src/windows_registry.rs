@@ -181,6 +181,7 @@ mod impl_ {
     use std::fs::File;
     use std::io::Read;
     use std::mem;
+    use std::iter;
     use std::path::{Path, PathBuf};
 
     use Tool;
@@ -217,28 +218,35 @@ mod impl_ {
         }
     }
 
-    fn vs16_instance() -> Option<PathBuf> {
-        vs15_instances()?.find_map(|instance| {
+    fn vs16_instances() -> Box<Iterator<Item=PathBuf>> {
+        let instances = if let Some(instances) = vs15_instances() {
+            instances
+        } else {
+            return Box::new(iter::empty());
+        };
+        Box::new(instances.filter_map(|instance| {
             let instance = instance.ok()?;
-            let installation_name = instance.installation_name().ok()?;;
+            let installation_name = instance.installation_name().ok()?;
             if installation_name.to_str()?.starts_with("VisualStudio/16.") {
                 Some(PathBuf::from(instance.installation_path().ok()?))
             } else {
                 None
             }
-        })
+        }))
     }
 
     fn find_tool_in_vs16_path(tool: &str, target: &str) -> Option<Tool> {
-        let path = vs16_instance()?.join(tool);
-        if !path.is_file() {
-            return None;
-        }
-        let mut tool = Tool::new(path);
-        if target.contains("x86_64") {
-            tool.env.push(("Platform".into(), "X64".into()));
-        }
-        Some(tool)
+        vs16_instances().find_map(|path| {
+            let path = path.join(tool);
+            if !path.is_file() {
+                return None;
+            }
+            let mut tool = Tool::new(path);
+            if target.contains("x86_64") {
+                tool.env.push(("Platform".into(), "X64".into()));
+            }
+            Some(tool)
+        })
     }
 
     fn find_msbuild_vs16(target: &str) -> Option<Tool> {
