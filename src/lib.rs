@@ -1708,7 +1708,7 @@ impl Build {
                 t
             })
             .or_else(|| {
-                if target.contains("emscripten") {
+                if Build::target_uses_emscripten(&target) {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
@@ -1994,6 +1994,10 @@ impl Build {
         }
     }
 
+    fn target_uses_emscripten(target: &str) -> bool {
+        target == "wasm32-unknown-unknown" || target.contains("emscripten")
+    }
+
     fn get_ar(&self) -> Result<(Command, String), Error> {
         if let Some(ref p) = self.archiver {
             let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("ar");
@@ -2005,7 +2009,7 @@ impl Build {
         let target = self.get_target()?;
         let program = if target.contains("android") {
             format!("{}-ar", target.replace("armv7", "arm"))
-        } else if target.contains("emscripten") {
+        } else if Build::target_uses_emscripten(&target) {
             // Windows use bat files so we have to be a bit more specific
             if cfg!(windows) {
                 let mut cmd = self.cmd("cmd");
