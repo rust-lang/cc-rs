@@ -2399,7 +2399,8 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
 }
 
 fn fail(s: &str) -> ! {
-    panic!("\n\nInternal error occurred: {}\n\n", s)
+    eprintln!("\n\nerror occurred: {}\n\n", s);
+    std::process::exit(1);
 }
 
 fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool, is_arm: bool) {
