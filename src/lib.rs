@@ -1762,7 +1762,7 @@ impl Build {
                           target == "wasm32-unknown-unknown" {
                     "clang".to_string()
                 } else if target.contains("vxworks") {
-		    "vx-cc".to_string()
+		    "vx-cxx".to_string()
 		} else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
