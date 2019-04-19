@@ -132,6 +132,37 @@ fn gnu_no_warnings_if_cxxflags() {
 }
 
 #[test]
+fn gnu_no_duplicate_march_after_cflags() {
+    env::set_var("CFLAGS", "-march=armv7ve");
+    let test = Test::gnu();
+
+    test.gcc()
+        .target("armv7-unknown-linux-gnu")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have("-march=armv7ve")
+        .must_not_have("-march=armv7-a");
+    env::set_var("CFLAGS", "");
+}
+
+#[test]
+fn gnu_prefer_cflags_over_defaults() {
+    env::set_var("CFLAGS", "-m32");
+    let test = Test::gnu();
+    test.gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .file("foo.c")
+        .compile("foo");
+
+    // This is contrived and probably not valid for real builds, but it
+    // validates that we use the incoming CFLAGS over the default flags.
+    test.cmd(0).must_have("-m32").must_not_have("-m64");
+    env::set_var("CFLAGS", "");
+}
+
+#[test]
 fn gnu_x86_64() {
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("x86_64-{}", vendor);

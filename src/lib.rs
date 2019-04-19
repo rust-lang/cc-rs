@@ -1095,18 +1095,17 @@ impl Build {
         let mut cmd = self.get_base_compiler()?;
         let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" });
 
-        // Disable default flag generation via environment variable or when
-        // certain cross compiling arguments are set
-        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none();
+        for arg in envflags {
+            cmd.push_cc_arg(arg.into());
+        }
 
+        // Disable default flag generation via environment variable. This is
+        // generally not advisable.
+        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none();
         if use_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
         } else {
             println!("Info: default compiler flags are disabled");
-        }
-
-        for arg in envflags {
-            cmd.push_cc_arg(arg.into());
         }
 
         for directory in self.include_directories.iter() {
@@ -1196,13 +1195,13 @@ impl Build {
                         }
                     }
                 };
-                cmd.args.push(crt_flag.into());
+                cmd.add_flag(crt_flag.into());
 
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
-                    "z" | "s" | "1" => cmd.push_opt_unless_duplicate("/O1".into()),
+                    "z" | "s" | "1" => cmd.add_flag("/O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
-                    "2" | "3" => cmd.push_opt_unless_duplicate("/O2".into()),
+                    "2" | "3" => cmd.add_flag("/O2".into()),
                     _ => {}
                 }
             }
@@ -1210,21 +1209,21 @@ impl Build {
                 // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
                 // not support '-Oz'
                 if opt_level == "z" && cmd.family != ToolFamily::Clang {
-                    cmd.push_opt_unless_duplicate("-Os".into());
+                    cmd.add_flag("-Os".into());
                 } else {
-                    cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
+                    cmd.add_flag(format!("-O{}", opt_level).into());
                 }
 
                 if !target.contains("-ios") {
-                    cmd.push_cc_arg("-ffunction-sections".into());
-                    cmd.push_cc_arg("-fdata-sections".into());
+                    cmd.add_flag("-ffunction-sections".into());
+                    cmd.add_flag("-fdata-sections".into());
                 }
                 if self.pic.unwrap_or(!target.contains("windows-gnu")) {
-                    cmd.push_cc_arg("-fPIC".into());
+                    cmd.add_flag("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
                     if target.contains("linux") && !self.use_plt.unwrap_or(true) {
-                        cmd.push_cc_arg("-fno-plt".into());
+                        cmd.add_flag("-fno-plt".into());
                     }
                 }
             }
@@ -1242,21 +1241,21 @@ impl Build {
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
-                cmd.args.push(format!("--target={}", target).into());
+                cmd.add_flag(format!("--target={}", target).into());
             }
             ToolFamily::Msvc { clang_cl } => {
                 if clang_cl {
                     if target.contains("x86_64") {
-                        cmd.args.push("-m64".into());
+                        cmd.add_flag("-m64".into());
                     } else if target.contains("86") {
-                        cmd.args.push("-m32".into());
-                        cmd.args.push("/arch:IA32".into());
+                        cmd.add_flag("-m32".into());
+                        cmd.add_flag("/arch:IA32".into());
                     } else {
-                        cmd.args.push(format!("--target={}", target).into());
+                        cmd.add_flag(format!("--target={}", target).into());
                     }
                 } else {
                     if target.contains("i586") {
-                        cmd.args.push("/ARCH:IA32".into());
+                        cmd.add_flag("/ARCH:IA32".into());
                     }
                 }
 
@@ -1276,11 +1275,11 @@ impl Build {
             }
             ToolFamily::Gnu => {
                 if target.contains("i686") || target.contains("i586") {
-                    cmd.args.push("-m32".into());
+                    cmd.add_flag("-m32".into());
                 } else if target == "x86_64-unknown-linux-gnux32" {
-                    cmd.args.push("-mx32".into());
+                    cmd.add_flag("-mx32".into());
                 } else if target.contains("x86_64") || target.contains("powerpc64") {
-                    cmd.args.push("-m64".into());
+                    cmd.add_flag("-m64".into());
                 }
 
                 if self.static_flag.is_none() {
@@ -1288,7 +1287,7 @@ impl Build {
                         .getenv("CARGO_CFG_TARGET_FEATURE")
                         .unwrap_or(String::new());
                     if features.contains("crt-static") {
-                        cmd.args.push("-static".into());
+                        cmd.add_flag("-static".into());
                     }
                 }
 
@@ -1296,66 +1295,66 @@ impl Build {
                 if (target.starts_with("armv7") || target.starts_with("thumbv7"))
                     && target.contains("-linux-")
                 {
-                    cmd.args.push("-march=armv7-a".into());
+                    cmd.add_flag("-march=armv7-a".into());
                 }
 
                 // (x86 Android doesn't say "eabi")
                 if target.contains("-androideabi") && target.contains("v7") {
                     // -march=armv7-a handled above
-                    cmd.args.push("-mthumb".into());
+                    cmd.add_flag("-mthumb".into());
                     if !target.contains("neon") {
                         // On android we can guarantee some extra float instructions
                         // (specified in the android spec online)
                         // NEON guarantees even more; see below.
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                        cmd.add_flag("-mfpu=vfpv3-d16".into());
                     }
-                    cmd.args.push("-mfloat-abi=softfp".into());
+                    cmd.add_flag("-mfloat-abi=softfp".into());
                 }
 
                 if target.contains("neon") {
-                    cmd.args.push("-mfpu=neon-vfpv4".into());
+                    cmd.add_flag("-mfpu=neon-vfpv4".into());
                 }
 
                 if target.starts_with("armv4t-unknown-linux-") {
-                    cmd.args.push("-march=armv4t".into());
-                    cmd.args.push("-marm".into());
-                    cmd.args.push("-mfloat-abi=soft".into());
+                    cmd.add_flag("-march=armv4t".into());
+                    cmd.add_flag("-marm".into());
+                    cmd.add_flag("-mfloat-abi=soft".into());
                 }
 
                 if target.starts_with("armv5te-unknown-linux-") {
-                    cmd.args.push("-march=armv5te".into());
-                    cmd.args.push("-marm".into());
-                    cmd.args.push("-mfloat-abi=soft".into());
+                    cmd.add_flag("-march=armv5te".into());
+                    cmd.add_flag("-marm".into());
+                    cmd.add_flag("-mfloat-abi=soft".into());
                 }
 
                 // For us arm == armv6 by default
                 if target.starts_with("arm-unknown-linux-") {
-                    cmd.args.push("-march=armv6".into());
-                    cmd.args.push("-marm".into());
+                    cmd.add_flag("-march=armv6".into());
+                    cmd.add_flag("-marm".into());
                     if target.ends_with("hf") {
-                        cmd.args.push("-mfpu=vfp".into());
+                        cmd.add_flag("-mfpu=vfp".into());
                     } else {
-                        cmd.args.push("-mfloat-abi=soft".into());
+                        cmd.add_flag("-mfloat-abi=soft".into());
                     }
                 }
 
                 // We can guarantee some settings for FRC
                 if target.starts_with("arm-frc-") {
-                    cmd.args.push("-march=armv7-a".into());
-                    cmd.args.push("-mcpu=cortex-a9".into());
-                    cmd.args.push("-mfpu=vfpv3".into());
-                    cmd.args.push("-mfloat-abi=softfp".into());
-                    cmd.args.push("-marm".into());
+                    cmd.add_flag("-march=armv7-a".into());
+                    cmd.add_flag("-mcpu=cortex-a9".into());
+                    cmd.add_flag("-mfpu=vfpv3".into());
+                    cmd.add_flag("-mfloat-abi=softfp".into());
+                    cmd.add_flag("-marm".into());
                 }
 
                 // Turn codegen down on i586 to avoid some instructions.
                 if target.starts_with("i586-unknown-linux-") {
-                    cmd.args.push("-march=pentium".into());
+                    cmd.add_flag("-march=pentium".into());
                 }
 
                 // Set codegen level for i686 correctly
                 if target.starts_with("i686-unknown-linux-") {
-                    cmd.args.push("-march=i686".into());
+                    cmd.add_flag("-march=i686".into());
                 }
 
                 // Looks like `musl-gcc` makes is hard for `-m32` to make its way
@@ -1364,62 +1363,62 @@ impl Build {
                 // typically only be used for build scripts which transitively use
                 // these flags that try to compile executables.
                 if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
-                    cmd.args.push("-Wl,-melf_i386".into());
+                    cmd.add_flag("-Wl,-melf_i386".into());
                 }
 
                 if target.starts_with("thumb") {
-                    cmd.args.push("-mthumb".into());
+                    cmd.add_flag("-mthumb".into());
 
                     if target.ends_with("eabihf") {
-                        cmd.args.push("-mfloat-abi=hard".into())
+                        cmd.add_flag("-mfloat-abi=hard".into())
                     }
                 }
                 if target.starts_with("thumbv6m") {
-                    cmd.args.push("-march=armv6s-m".into());
+                    cmd.add_flag("-march=armv6s-m".into());
                 }
                 if target.starts_with("thumbv7em") {
-                    cmd.args.push("-march=armv7e-m".into());
+                    cmd.add_flag("-march=armv7e-m".into());
 
                     if target.ends_with("eabihf") {
-                        cmd.args.push("-mfpu=fpv4-sp-d16".into())
+                        cmd.add_flag("-mfpu=fpv4-sp-d16".into())
                     }
                 }
                 if target.starts_with("thumbv7m") {
-                    cmd.args.push("-march=armv7-m".into());
+                    cmd.add_flag("-march=armv7-m".into());
                 }
                 if target.starts_with("thumbv8m.base") {
-                    cmd.args.push("-march=armv8-m.base".into());
+                    cmd.add_flag("-march=armv8-m.base".into());
                 }
                 if target.starts_with("thumbv8m.main") {
-                    cmd.args.push("-march=armv8-m.main".into());
+                    cmd.add_flag("-march=armv8-m.main".into());
 
                     if target.ends_with("eabihf") {
-                        cmd.args.push("-mfpu=fpv5-sp-d16".into())
+                        cmd.add_flag("-mfpu=fpv5-sp-d16".into())
                     }
                 }
                 if target.starts_with("armebv7r") | target.starts_with("armv7r") {
                     if target.starts_with("armeb") {
-                        cmd.args.push("-mbig-endian".into());
+                        cmd.add_flag("-mbig-endian".into());
                     } else {
-                        cmd.args.push("-mlittle-endian".into());
+                        cmd.add_flag("-mlittle-endian".into());
                     }
 
                     // ARM mode
-                    cmd.args.push("-marm".into());
+                    cmd.add_flag("-marm".into());
 
                     // R Profile
-                    cmd.args.push("-march=armv7-r".into());
+                    cmd.add_flag("-march=armv7-r".into());
 
                     if target.ends_with("eabihf") {
                         // Calling convention
-                        cmd.args.push("-mfloat-abi=hard".into());
+                        cmd.add_flag("-mfloat-abi=hard".into());
 
                         // lowest common denominator FPU
                         // (see Cortex-R4 technical reference manual)
-                        cmd.args.push("-mfpu=vfpv3-d16".into())
+                        cmd.add_flag("-mfpu=vfpv3-d16".into())
                     } else {
                         // Calling convention
-                        cmd.args.push("-mfloat-abi=soft".into());
+                        cmd.add_flag("-mfloat-abi=soft".into());
                     }
                 }
             }
@@ -1432,17 +1431,17 @@ impl Build {
         }
 
         if self.static_flag.unwrap_or(false) {
-            cmd.args.push("-static".into());
+            cmd.add_flag("-static".into());
         }
         if self.shared_flag.unwrap_or(false) {
-            cmd.args.push("-shared".into());
+            cmd.add_flag("-shared".into());
         }
 
         if self.cpp {
             match (self.cpp_set_stdlib.as_ref(), cmd.family) {
                 (None, _) => {}
                 (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang) => {
-                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
+                    cmd.add_flag(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
                     println!(
@@ -2154,37 +2153,96 @@ impl Tool {
         self.args.push(flag);
     }
 
-    fn is_duplicate_opt_arg(&self, flag: &OsString) -> bool {
-        let flag = flag.to_str().unwrap();
-        let mut chars = flag.chars();
-
-        // Only duplicate check compiler flags
-        if self.is_like_msvc() {
-            if chars.next() != Some('/') {
+    /// Check if a given flag conflicts with existing flags
+    fn is_conflicting_arg(&self, flag: &OsString) -> bool {
+        let flag = match flag.to_str() {
+            Some(flag) => flag,
+            None => {
+                println!("Info: Ignoring flag - could not convert to str {:?}", &flag);
                 return false;
             }
-        } else if self.is_like_gnu() || self.is_like_clang() {
-            if chars.next() != Some('-') {
-                return false;
+        };
+
+        // Only check compiler flags (ignore includes, defines, etc)
+        let is_flag = {
+            let first_char = flag.chars().next();
+            match self.family {
+                ToolFamily::Gnu | ToolFamily::Clang => first_char == Some('-'),
+                ToolFamily::Msvc { .. } => first_char == Some('/'),
+            }
+        };
+        if !is_flag {
+            return false;
+        }
+
+        // Get flag name and set a flag for value-bearing flags
+        let value_chars: &[_] = &['=', ':'];
+        let (name_part, has_value) = if let Some(idx) = flag.find(value_chars) {
+            (&flag[1..idx], true)
+        } else {
+            (&flag[1..], false)
+        };
+
+        // Mutually exclusive flags - a maximum of one value from each of these
+        // groups may be used
+        // Note: all flags should have the first charachter removed (`-`, `/`)
+        let mutually_exclusive_groups = &[
+            vec!["m32", "m64", "mx32"],
+            vec!["mbig-endian", "mlittle-endian"],
+            vec!["O0", "O1", "O2", "O3", "Os", "Oz"],
+        ];
+
+        for group in mutually_exclusive_groups {
+            if group.contains(&name_part) {
+                return self.args().iter().any(|ref arg| {
+                    if let Some(arg) = arg.to_str() {
+                        // See if any existing arg is in this group
+                        group.contains(&&arg[1..])
+                    } else {
+                        false
+                    }
+                });
             }
         }
 
-        // Check for existing optimization flags (-O, /O)
-        if chars.next() == Some('O') {
-            return self
-                .args()
-                .iter()
-                .any(|ref a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
+        // Note: all flags should have the first charachter removed (`-`, `/`)
+        let exclusive_value_flags = &[
+            "-target",
+            "arch",
+            "ARCH",
+            "march",
+            "mcpu",
+            "mfloat-abi",
+            "mfpu",
+            "mios-simulator-version-min",
+            "miphoneos-version-min",
+            "stdlib",
+        ];
+        if has_value {
+            // Exclusive value flags - each of these flags carries a value and each
+            // should only be used a maximum of one time
+            // march=, -target=, arch:
+            if exclusive_value_flags.contains(&name_part) {
+                return self.args().iter().any(|ref arg| {
+                    if let Some(arg) = arg.to_str() {
+                        arg[1..].starts_with(name_part)
+                    } else {
+                        false
+                    }
+                });
+            }
         }
 
-        // TODO Check for existing -m..., -m...=..., /arch:... flags
         return false;
     }
 
-    /// Don't push optimization arg if it conflicts with existing args
-    fn push_opt_unless_duplicate(&mut self, flag: OsString) {
-        if self.is_duplicate_opt_arg(&flag) {
-            println!("Info: Ignoring duplicate arg {:?}", &flag);
+    /// Add flag, checking for conflicts. Conflicting flags are dropped.
+    fn add_flag(&mut self, flag: OsString) {
+        if self.is_conflicting_arg(&flag) {
+            println!(
+                "Info: Ignoring default flag - may conflict with incoming CFLAGS/CXXFLAGS {:?}",
+                &flag
+            );
         } else {
             self.push_cc_arg(flag);
         }
