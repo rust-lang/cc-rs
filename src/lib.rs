@@ -2178,18 +2178,19 @@ impl Tool {
         // Get flag name and set a flag for value-bearing flags
         let value_chars: &[_] = &['=', ':'];
         let (name_part, has_value) = if let Some(idx) = flag.find(value_chars) {
-            (&flag[1..idx], true)
+            (&flag[0..idx], true)
         } else {
-            (&flag[1..], false)
+            (flag, false)
         };
 
         // Mutually exclusive flags - a maximum of one value from each of these
         // groups may be used
-        // Note: all flags should have the first charachter removed (`-`, `/`)
         let mutually_exclusive_groups = &[
-            vec!["m32", "m64", "mx32"],
-            vec!["mbig-endian", "mlittle-endian"],
-            vec!["O0", "O1", "O2", "O3", "Os", "Oz"],
+            vec!["-m32", "-m64", "-mx32"],
+            vec!["-mbig-endian", "-mlittle-endian"],
+            vec![
+                "-O0", "-O1", "-O2", "-O3", "-Os", "-Oz", "/O0", "/O1", "/O2", "/O3", "/Os", "/Oz",
+            ],
         ];
 
         for group in mutually_exclusive_groups {
@@ -2197,7 +2198,7 @@ impl Tool {
                 return self.args().iter().any(|ref arg| {
                     if let Some(arg) = arg.to_str() {
                         // See if any existing arg is in this group
-                        group.contains(&&arg[1..])
+                        group.contains(&arg)
                     } else {
                         false
                     }
@@ -2205,27 +2206,28 @@ impl Tool {
             }
         }
 
-        // Note: all flags should have the first charachter removed (`-`, `/`)
         let exclusive_value_flags = &[
-            "-target",
-            "arch",
-            "ARCH",
-            "march",
-            "mcpu",
-            "mfloat-abi",
-            "mfpu",
-            "mios-simulator-version-min",
-            "miphoneos-version-min",
-            "stdlib",
+            "--target",
+            "-arch",
+            "-ARCH",
+            "/arch",
+            "/ARCH",
+            "-march",
+            "-mcpu",
+            "-mfloat-abi",
+            "-mfpu",
+            "-mios-simulator-version-min",
+            "-miphoneos-version-min",
+            "-stdlib",
         ];
         if has_value {
             // Exclusive value flags - each of these flags carries a value and each
             // should only be used a maximum of one time
-            // march=, -target=, arch:
+            // -march=, --target=, /arch:
             if exclusive_value_flags.contains(&name_part) {
                 return self.args().iter().any(|ref arg| {
                     if let Some(arg) = arg.to_str() {
-                        arg[1..].starts_with(name_part)
+                        arg.starts_with(name_part)
                     } else {
                         false
                     }
