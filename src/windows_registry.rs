@@ -225,10 +225,10 @@ mod impl_ {
             return Box::new(iter::empty());
         };
         Box::new(instances.filter_map(|instance| {
-            let instance = instance.ok()?;
-            let installation_name = instance.installation_name().ok()?;
-            if installation_name.to_str()?.starts_with("VisualStudio/16.") {
-                Some(PathBuf::from(instance.installation_path().ok()?))
+            let instance = otry!(instance.ok());
+            let installation_name = otry!(instance.installation_name().ok());
+            if otry!(installation_name.to_str()).starts_with("VisualStudio/16.") {
+                Some(PathBuf::from(otry!(instance.installation_path().ok())))
             } else {
                 None
             }
@@ -236,7 +236,7 @@ mod impl_ {
     }
 
     fn find_tool_in_vs16_path(tool: &str, target: &str) -> Option<Tool> {
-        vs16_instances().find_map(|path| {
+        vs16_instances().filter_map(|path| {
             let path = path.join(tool);
             if !path.is_file() {
                 return None;
@@ -246,7 +246,7 @@ mod impl_ {
                 tool.env.push(("Platform".into(), "X64".into()));
             }
             Some(tool)
-        })
+        }).next()
     }
 
     fn find_msbuild_vs16(target: &str) -> Option<Tool> {
@@ -307,7 +307,7 @@ mod impl_ {
                 .ok()
                 .and_then(|key| key.query_str("15.0").ok())
                 .map(|path| PathBuf::from(path).join(tool))
-                .filter(|ref path| path.is_file());
+                .and_then(|path| if path.is_file() { Some(path) } else { None });
         }
 
         path.map(|path| {
@@ -681,7 +681,7 @@ mod impl_ {
         for subkey in key.iter().filter_map(|k| k.ok()) {
             let val = subkey
                 .to_str()
-                .and_then(|s| s.trim_start_matches("v").replace(".", "").parse().ok());
+                .and_then(|s| s.trim_left_matches("v").replace(".", "").parse().ok());
             let val = match val {
                 Some(s) => s,
                 None => continue,

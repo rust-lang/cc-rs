@@ -2401,7 +2401,7 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
 }
 
 fn fail(s: &str) -> ! {
-    eprintln!("\n\nerror occurred: {}\n\n", s);
+    let _ = writeln!(io::stderr(), "\n\nerror occurred: {}\n\n", s);
     std::process::exit(1);
 }
 
