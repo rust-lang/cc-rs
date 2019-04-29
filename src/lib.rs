@@ -61,6 +61,13 @@
 #[cfg(feature = "parallel")]
 extern crate rayon;
 
+#[cfg(test)]
+#[macro_use]
+extern crate doc_comment;
+
+#[cfg(test)]
+doctest!("../README.md");
+
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};

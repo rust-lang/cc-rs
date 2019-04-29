@@ -24,3 +24,4 @@ parallel = ["rayon"]
 
 [dev-dependencies]
 tempdir = "0.3"
+doc-comment = "0.3"
