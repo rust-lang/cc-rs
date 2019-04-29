@@ -2,12 +2,24 @@ trigger:
   - master
 
 jobs:
-  - job: min
-    displayName: Minimum Rust
+  - job: min_linux
+    pool:
+      vmImage: ubuntu-16.04
+    displayName: Minimum Rust (Linux)
+    variables:
+      TOOLCHAIN: 1.16.0
     steps:
       - template: ci/azure-install-rust.yml
-        parameters:
-          toolchain: 1.16.0
+      - script: cargo build
+
+  - job: min_Windows
+    pool:
+      vmImage: vs2017-win2016
+    displayName: Minimum Rust (Windows)
+    variables:
+      TOOLCHAIN: 1.16.0
+    steps:
+      - template: ci/azure-install-rust.yml
       - script: cargo build
 
   - job: Linux
