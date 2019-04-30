@@ -11,8 +11,9 @@ steps:
     condition: ne( variables['Agent.OS'], 'Windows_NT' )
 
   - script: |
+      IF "%TOOLCHAIN%"=="" (SET TOOLCHAIN=stable-%TARGET%)
       curl -sSf -o rustup-init.exe https://win.rustup.rs
-      rustup-init.exe -y --default-toolchain stable-%TARGET%
+      rustup-init.exe -y --default-toolchain %TOOLCHAIN%
       echo ##vso[task.prependpath]%USERPROFILE%\.cargo\bin
     displayName: Install rust (windows)
     condition: eq( variables['Agent.OS'], 'Windows_NT' )
