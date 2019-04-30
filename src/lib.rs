@@ -1751,7 +1751,9 @@ impl Build {
                     }
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
-                } else if target == "wasm32-unknown-wasi" || target == "wasm32-unknown-unknown" {
+                } else if target == "wasm32-wasi" ||
+                          target == "wasm32-unknown-wasi" ||
+                          target == "wasm32-unknown-unknown" {
                     "clang".to_string()
                 } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
