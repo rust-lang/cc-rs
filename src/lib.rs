@@ -65,7 +65,7 @@ use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write};
+use std::io::{self, BufRead, BufReader, Read, Write, Stdout};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
@@ -876,6 +876,24 @@ impl Build {
             (output, gnu)
         };
         let dst = self.get_out_dir()?;
+        let target_filepath = dst.join(gnu_lib_name);
+
+        if self.check_already_compiled(&target_filepath) {
+            self.print(&format!("cargo:warning=skip compile {}", target_filepath.display()));
+            self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
+            self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
+
+            // Add specific C++ libraries, if enabled.
+            if self.cpp {
+                if let Some(stdlib) = self.get_cpp_link_stdlib()? {
+                    self.print(&format!("cargo:rustc-link-lib={}", stdlib));
+                }
+            }
+
+            self.print(&format!("cargo:warning=take {}ms.t ", now.elapsed().as_millis()));
+
+            return Ok(());
+        }
 
         let mut objects = Vec::new();
         for file in self.files.iter() {
@@ -901,7 +919,7 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
         self.compile_objects(&objects)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+        self.assemble(lib_name, &target_filepath, &objects)?;
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -937,6 +955,44 @@ impl Build {
         self.print(&format!("cargo:warning=take {}ms.t ", now.elapsed().as_millis()));
 
         Ok(())
+    }
+
+    fn check_already_compiled(&self, target_filepath: &PathBuf) -> bool {
+        use std::fs;
+        if !target_filepath.exists() {
+            return false;
+        }
+
+        let files = &self.files;
+
+        if files.into_iter().any(|x| {
+            let target_metadata = &target_filepath.metadata().unwrap();
+            println!("cargo:warning={:?} {:?}, {:?} {:?} {}",
+                     target_filepath, target_metadata.created().unwrap(), x, x.metadata().unwrap().created().unwrap(),
+                     target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
+            );
+            target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
+        }) {
+            println!("cargo:warning=!cpp filename");
+            return false;
+        }
+        println!("cargo:warning=cpp filename");
+
+        let include_directories = &self.include_directories;
+
+        if include_directories.into_iter().any(|x| {
+            let target_metadata = &target_filepath.metadata().unwrap();
+            println!("cargo:warning={:?} {:?}, {:?} {:?} {}",
+                     target_filepath, target_metadata.created().unwrap(), x, x.metadata().unwrap().created().unwrap(),
+                     target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
+            );
+            target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
+        }) {
+            return false;
+        }
+        println!("cargo:warning=cpp filename");
+
+        return true;
     }
 
     /// Run the compiler, generating the file `output`
@@ -985,16 +1041,6 @@ impl Build {
     }
 
     fn compile_object(&self, obj: &Object) -> Result<(), Error> {
-        use std::fs;
-        if obj.dst.exists() {
-            let dst_metadata = fs::metadata(&obj.dst).unwrap();
-            let src_metadata = fs::metadata(&obj.src).unwrap();
-
-            if src_metadata.created().unwrap() <= dst_metadata.created().unwrap() {
-                self.print(&format!("cargo:warning=skip compile obj file {}", obj.dst.display()))
-            }
-        }
-
         let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
