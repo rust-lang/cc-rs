@@ -990,7 +990,7 @@ impl Build {
             let dst_metadata = fs::metadata(&obj.dst).unwrap();
             let src_metadata = fs::metadata(&obj.src).unwrap();
 
-            if src_metadata.created() <= dst_metadata.created() {
+            if src_metadata.created().unwrap() <= dst_metadata.created().unwrap() {
                 self.print(&format!("cargo:warning=skip compile obj file {}", obj.dst.display()))
             }
         }
