@@ -70,6 +70,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+use std::time;
 
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
@@ -863,6 +864,8 @@ impl Build {
     ///
     /// This will return a result instead of panicing; see compile() for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
+        let now = time::Instant::now();
+
         let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
             (&output[3..output.len() - 2], output.to_owned())
         } else {
@@ -930,6 +933,8 @@ impl Build {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
         }
+
+        self.print(&format!("cargo:warning=take {}ms.", now.elapsed().as_millis()));
 
         Ok(())
     }
