@@ -934,7 +934,7 @@ impl Build {
             }
         }
 
-        self.print(&format!("cargo:warning=take {}ms.", now.elapsed().as_millis()));
+        self.print(&format!("cargo:warning=take {}ms.t ", now.elapsed().as_millis()));
 
         Ok(())
     }
@@ -985,6 +985,16 @@ impl Build {
     }
 
     fn compile_object(&self, obj: &Object) -> Result<(), Error> {
+        use std::fs;
+        if obj.dst.exists() {
+            let dst_metadata = fs::metadata(&obj.dst).unwrap();
+            let src_metadata = fs::metadata(&obj.src).unwrap();
+
+            if src_metadata.created() <= dst_metadata.created() {
+                self.print(&format!("cargo:warning=skip compile obj file {}", obj.dst.display()))
+            }
+        }
+
         let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
