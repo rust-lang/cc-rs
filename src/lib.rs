@@ -967,25 +967,15 @@ impl Build {
 
         if files.into_iter().any(|x| {
             let target_metadata = &target_filepath.metadata().unwrap();
-            println!("cargo:warning={:?} {:?}, {:?} {:?} {}",
-                     target_filepath, target_metadata.created().unwrap(), x, x.metadata().unwrap().created().unwrap(),
-                     target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
-            );
             target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
         }) {
-            println!("cargo:warning=!cpp filename");
             return false;
         }
-        println!("cargo:warning=cpp filename");
 
         let include_directories = &self.include_directories;
 
         if include_directories.into_iter().any(|x| {
             let target_metadata = &target_filepath.metadata().unwrap();
-            println!("cargo:warning={:?} {:?}, {:?} {:?} {}",
-                     target_filepath, target_metadata.created().unwrap(), x, x.metadata().unwrap().created().unwrap(),
-                     target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
-            );
             target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
         }) {
             return false;
