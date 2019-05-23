@@ -18,6 +18,9 @@ exclude = ["/.travis.yml", "/appveyor.yml"]
 
 [dependencies]
 rayon = { version = "1.0", optional = true }
+serde = "*"
+serde_json = "1.0"
+serde_derive = "*"
 
 [features]
 parallel = ["rayon"]

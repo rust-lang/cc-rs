@@ -61,16 +61,24 @@
 #[cfg(feature = "parallel")]
 extern crate rayon;
 
+#[macro_use]
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
+
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fs;
-use std::io::{self, BufRead, BufReader, Read, Write, Stdout};
+use std::io::{self, BufRead, BufReader, Read, Write, Stdout, BufWriter};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time;
+
+
 
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
@@ -91,13 +99,14 @@ pub mod windows_registry;
 /// A `Build` is the main type of the `cc` crate and is used to control all the
 /// various configuration options and such of a compile. You'll find more
 /// documentation on each method itself.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct Build {
     include_directories: Vec<PathBuf>,
     definitions: Vec<(String, Option<String>)>,
     objects: Vec<PathBuf>,
     flags: Vec<String>,
     flags_supported: Vec<String>,
+    #[serde(skip)]
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
     files: Vec<PathBuf>,
     cpp: bool,
@@ -118,11 +127,36 @@ pub struct Build {
     static_crt: Option<bool>,
     shared_flag: Option<bool>,
     static_flag: Option<bool>,
+    #[serde(skip)]
     warnings_into_errors: bool,
+    #[serde(skip)]
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
+    #[serde(skip)]
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
 }
+
+/*
+impl Serialize for Build {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut s = serializer.serialize_struct("Build", 9)?;
+        s.serialize_field("include_directories", &self.include_directories)?;
+        s.serialize_field("files", &self.files)?;
+        s.serialize_field("flags", &self.flags)?;
+        s.serialize_field("env", &self.env)?;
+        s.serialize_field("definitions", &self.definitions)?;
+        s.serialize_field("cpp", &self.cpp)?;
+        s.serialize_field("static_flag", &self.static_flag)?;
+        s.serialize_field("shared_flag", &self.shared_flag)?;
+        s.serialize_field("opt_level", &self.opt_level)?;
+        s.serialize_field("opt_level", &self.opt_level)?;
+        s.end()
+    }
+}
+*/
 
 /// Represents the types of errors that may occur while using cc-rs.
 #[derive(Clone, Debug)]
@@ -876,9 +910,9 @@ impl Build {
             (output, gnu)
         };
         let dst = self.get_out_dir()?;
-        let target_filepath = dst.join(gnu_lib_name);
+        let target_filepath = dst.join(&gnu_lib_name);
 
-        if self.check_already_compiled(&target_filepath) {
+        if self.check_already_compiled(&target_filepath).unwrap_or(false) {
             self.print(&format!("cargo:warning=skip compile {}", target_filepath.display()));
             self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
             self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
@@ -954,13 +988,26 @@ impl Build {
 
         self.print(&format!("cargo:warning=take {}ms.t ", now.elapsed().as_millis()));
 
+        self.save_build_config(gnu_lib_name.as_str())?;
+
         Ok(())
     }
 
-    fn check_already_compiled(&self, target_filepath: &PathBuf) -> bool {
+    fn get_build_config_file_path(&self, target_filename: &str) -> Result<PathBuf, Error> {
+        Ok(self.get_out_dir()?.join(format!("{}_build_config.json", target_filename)))
+    }
+
+    fn save_build_config(&self, target_filename: &str) -> Result<(), Error> {
+        let mut f = BufWriter::new(fs::File::create(self.get_build_config_file_path(target_filename).unwrap())?);
+        serde_json::to_writer(f, self).unwrap();
+
+        Ok(())
+    }
+
+    fn check_already_compiled(&self, target_filepath: &PathBuf) -> io::Result<bool> {
         use std::fs;
         if !target_filepath.exists() {
-            return false;
+            return Ok(false);
         }
 
         let files = &self.files;
@@ -969,7 +1016,7 @@ impl Build {
             let target_metadata = &target_filepath.metadata().unwrap();
             target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
         }) {
-            return false;
+            return Ok(false);
         }
 
         let include_directories = &self.include_directories;
@@ -978,11 +1025,22 @@ impl Build {
             let target_metadata = &target_filepath.metadata().unwrap();
             target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
         }) {
-            return false;
+            return Ok(false);
+        }
+
+
+        let mut f = BufReader::new(fs::File::open(self.get_build_config_file_path(target_filepath.file_name().unwrap().to_str().unwrap()).unwrap())?);
+        let mut s = String::new();
+        f.read_to_string(&mut s);
+
+        println!("cargo:warning={} {}", s, serde_json::to_string(self).unwrap());
+        println!("cargo:warning=same?={}", s == serde_json::to_string(self).unwrap());
+        if s != serde_json::to_string(self).unwrap() {
+            return Ok(false);
         }
         println!("cargo:warning=cpp filename");
 
-        return true;
+        return Ok(true);
     }
 
     /// Run the compiler, generating the file `output`
