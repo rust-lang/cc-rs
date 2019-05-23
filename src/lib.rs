@@ -134,29 +134,9 @@ pub struct Build {
     extra_warnings: Option<bool>,
     #[serde(skip)]
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
+    skip_when_compiled: Option<bool>,
 }
 
-/*
-impl Serialize for Build {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where
-            S: Serializer,
-    {
-        let mut s = serializer.serialize_struct("Build", 9)?;
-        s.serialize_field("include_directories", &self.include_directories)?;
-        s.serialize_field("files", &self.files)?;
-        s.serialize_field("flags", &self.flags)?;
-        s.serialize_field("env", &self.env)?;
-        s.serialize_field("definitions", &self.definitions)?;
-        s.serialize_field("cpp", &self.cpp)?;
-        s.serialize_field("static_flag", &self.static_flag)?;
-        s.serialize_field("shared_flag", &self.shared_flag)?;
-        s.serialize_field("opt_level", &self.opt_level)?;
-        s.serialize_field("opt_level", &self.opt_level)?;
-        s.end()
-    }
-}
-*/
 
 /// Represents the types of errors that may occur while using cc-rs.
 #[derive(Clone, Debug)]
@@ -195,6 +175,15 @@ impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
         Error::new(ErrorKind::IOError, &format!("{}", e))
     }
+}
+
+/// compile finish status
+#[derive(Clone, Debug)]
+pub enum CompileStatus {
+    /// built target file.
+    Built,
+    /// skip compile target file.
+    Skipped,
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -362,6 +351,7 @@ impl Build {
             extra_warnings: None,
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
+            skip_when_compiled: None,
         }
     }
 
@@ -883,6 +873,15 @@ impl Build {
         self
     }
 
+    /// Skip compiling when exist compiled target file.
+    ///
+    /// This option defaults to `false`.
+    /// Skip rule is here `fn check_already_compiled(&self, target_filepath: &PathBuf) -> io::Result<bool> `
+    pub fn skip_when_compiled(&mut self, skip_when_compiled: bool) -> &mut Build {
+        self.skip_when_compiled = Some(skip_when_compiled);
+        self
+    }
+
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
     where
@@ -897,7 +896,7 @@ impl Build {
     /// Run the compiler, generating the file `output`
     ///
     /// This will return a result instead of panicing; see compile() for the complete description.
-    pub fn try_compile(&self, output: &str) -> Result<(), Error> {
+    pub fn try_compile(&self, output: &str) -> Result<CompileStatus, Error> {
         let now = time::Instant::now();
 
         let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
@@ -912,21 +911,11 @@ impl Build {
         let dst = self.get_out_dir()?;
         let target_filepath = dst.join(&gnu_lib_name);
 
-        if self.check_already_compiled(&target_filepath).unwrap_or(false) {
+        if self.skip_when_compiled.unwrap_or(false) && self.check_already_compiled(&target_filepath).unwrap_or(false) {
             self.print(&format!("cargo:warning=skip compile {}", target_filepath.display()));
-            self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
-            self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
+            self.print_link_settings(lib_name);
 
-            // Add specific C++ libraries, if enabled.
-            if self.cpp {
-                if let Some(stdlib) = self.get_cpp_link_stdlib()? {
-                    self.print(&format!("cargo:rustc-link-lib={}", stdlib));
-                }
-            }
-
-            self.print(&format!("cargo:warning=take {}ms.t ", now.elapsed().as_millis()));
-
-            return Ok(());
+            return Ok((CompileStatus::Skipped));
         }
 
         let mut objects = Vec::new();
@@ -976,8 +965,16 @@ impl Build {
             }
         }
 
+        self.print_link_settings(lib_name);
+
+        self.save_build_config(gnu_lib_name.as_str())?;
+
+        Ok((CompileStatus::Built))
+    }
+
+    fn print_link_settings(&self, lib_name: &str) -> Result<(), Error> {
         self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
-        self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
+        self.print(&format!("cargo:rustc-link-search=native={}", self.get_out_dir()?.display()));
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
@@ -985,11 +982,6 @@ impl Build {
                 self.print(&format!("cargo:rustc-link-lib={}", stdlib));
             }
         }
-
-        self.print(&format!("cargo:warning=take {}ms.t ", now.elapsed().as_millis()));
-
-        self.save_build_config(gnu_lib_name.as_str())?;
-
         Ok(())
     }
 
@@ -1033,12 +1025,9 @@ impl Build {
         let mut s = String::new();
         f.read_to_string(&mut s);
 
-        println!("cargo:warning={} {}", s, serde_json::to_string(self).unwrap());
-        println!("cargo:warning=same?={}", s == serde_json::to_string(self).unwrap());
         if s != serde_json::to_string(self).unwrap() {
             return Ok(false);
         }
-        println!("cargo:warning=cpp filename");
 
         return Ok(true);
     }
@@ -1055,9 +1044,10 @@ impl Build {
     /// Panics if `output` is not formatted correctly or if one of the underlying
     /// compiler commands fails. It can also panic if it fails reading file names
     /// or creating directories.
-    pub fn compile(&self, output: &str) {
-        if let Err(e) = self.try_compile(output) {
-            fail(&e.message);
+    pub fn compile(&self, output: &str) -> CompileStatus {
+        match self.try_compile(output) {
+            Err(e) => fail(&e.message),
+            Ok(c) => c
         }
     }
 
