@@ -996,32 +996,36 @@ impl Build {
         Ok(())
     }
 
-    fn check_already_compiled(&self, target_filepath: &PathBuf) -> io::Result<bool> {
+    fn check_already_compiled(&self, output_filepath: &PathBuf) -> io::Result<bool> {
         use std::fs;
-        if !target_filepath.exists() {
+        if !output_filepath.exists() {
             return Ok(false);
         }
 
         let files = &self.files;
+        let output_metadata = output_filepath.metadata()?;
 
-        if files.into_iter().any(|x| {
-            let target_metadata = &target_filepath.metadata().unwrap();
-            target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
-        }) {
+        let files_max_created = files.into_iter()
+            .try_fold(
+                std::time::SystemTime::UNIX_EPOCH,
+                |time, item| { item.metadata()?.created() })?;
+
+        if output_metadata.created()? <= files_max_created {
             return Ok(false);
         }
 
         let include_directories = &self.include_directories;
 
-        if include_directories.into_iter().any(|x| {
-            let target_metadata = &target_filepath.metadata().unwrap();
-            target_metadata.created().unwrap() <= x.metadata().unwrap().created().unwrap()
-        }) {
+        let include_directories_max_created = include_directories.into_iter()
+            .try_fold(
+                std::time::SystemTime::UNIX_EPOCH,
+                |time, item| { item.metadata()?.created() })?;
+        if output_metadata.created()? <= include_directories_max_created {
             return Ok(false);
         }
 
 
-        let mut f = BufReader::new(fs::File::open(self.get_build_config_file_path(target_filepath.file_name().unwrap().to_str().unwrap()).unwrap())?);
+        let mut f = BufReader::new(fs::File::open(self.get_build_config_file_path(output_filepath.file_name().unwrap().to_str().unwrap()).unwrap())?);
         let mut s = String::new();
         f.read_to_string(&mut s);
 

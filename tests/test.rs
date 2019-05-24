@@ -376,11 +376,12 @@ fn msvc_no_static_crt() {
 #[test]
 fn skip_when_compiled() {
     let test = Test::gnu();
+    let input_filepath = test.td.path().join("foo.c");
     test.add_file("foo.c");
 
     let status = test.gcc()
         .skip_when_compiled(true)
-        .file(test.td.path().join("foo.c"))
+        .file(&input_filepath)
         .compile("foo");
 
     assert_eq!(status, CompileStatus::Built);
@@ -389,7 +390,7 @@ fn skip_when_compiled() {
 
     let status = test.gcc()
         .skip_when_compiled(true)
-        .file(test.td.path().join("foo.c"))
+        .file(&input_filepath)
         .compile("foo");
 
     assert_eq!(status, CompileStatus::Skipped);
@@ -397,7 +398,7 @@ fn skip_when_compiled() {
 
     let status = test.gcc()
         .skip_when_compiled(false)
-        .file(test.td.path().join("foo.c"))
+        .file(&input_filepath)
         .compile("foo");
 
     assert_eq!(status, CompileStatus::Built);
@@ -405,7 +406,7 @@ fn skip_when_compiled() {
     let output_created = fs::metadata(&output_filepath).unwrap().created().unwrap();
 
     let status = test.gcc()
-        .file(test.td.path().join("foo.c"))
+        .file(&input_filepath)
         .compile("foo");
 
     assert_eq!(status, CompileStatus::Built);
