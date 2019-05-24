@@ -47,6 +47,11 @@ impl Test {
         t
     }
 
+    pub fn add_file(&self, filename: &str) -> &Test {
+        fs::File::create(self.td.path().join(filename));
+        self
+    }
+
     pub fn shim(&self, name: &str) -> &Test {
         let fname = format!("{}{}", name, env::consts::EXE_SUFFIX);
         fs::hard_link(&self.gcc, self.td.path().join(&fname))

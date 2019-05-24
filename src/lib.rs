@@ -178,7 +178,7 @@ impl From<io::Error> for Error {
 }
 
 /// compile finish status
-#[derive(Clone, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum CompileStatus {
     /// built target file.
     Built,

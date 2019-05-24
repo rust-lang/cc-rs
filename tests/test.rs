@@ -3,6 +3,8 @@ extern crate tempdir;
 
 use std::env;
 use support::Test;
+use cc::CompileStatus;
+use std::fs;
 
 mod support;
 
@@ -368,4 +370,44 @@ fn msvc_no_static_crt() {
     test.gcc().static_crt(false).file("foo.c").compile("foo");
 
     test.cmd(0).must_have("/MD");
+}
+
+
+#[test]
+fn skip_when_compiled() {
+    let test = Test::gnu();
+    test.add_file("foo.c");
+
+    let status = test.gcc()
+        .skip_when_compiled(true)
+        .file(test.td.path().join("foo.c"))
+        .compile("foo");
+
+    assert_eq!(status, CompileStatus::Built);
+    let output_filepath = test.td.path().join("libfoo.a");
+    let output_created = fs::metadata(&output_filepath).unwrap().created().unwrap();
+
+    let status = test.gcc()
+        .skip_when_compiled(true)
+        .file(test.td.path().join("foo.c"))
+        .compile("foo");
+
+    assert_eq!(status, CompileStatus::Skipped);
+    assert_eq!(fs::metadata(&output_filepath).unwrap().created().unwrap(), output_created);  // check not create new output file
+
+    let status = test.gcc()
+        .skip_when_compiled(false)
+        .file(test.td.path().join("foo.c"))
+        .compile("foo");
+
+    assert_eq!(status, CompileStatus::Built);
+    assert_ne!(fs::metadata(&output_filepath).unwrap().created().unwrap(), output_created);
+    let output_created = fs::metadata(&output_filepath).unwrap().created().unwrap();
+
+    let status = test.gcc()
+        .file(test.td.path().join("foo.c"))
+        .compile("foo");
+
+    assert_eq!(status, CompileStatus::Built);
+    assert_ne!(fs::metadata(&output_filepath).unwrap().created().unwrap(), output_created);
 }
