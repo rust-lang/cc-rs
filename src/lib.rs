@@ -1426,8 +1426,6 @@ impl Build {
         }
 
         if target.contains("-ios") {
-            // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
-            // detected instead.
             self.ios_flags(cmd)?;
         }
 
@@ -1682,9 +1680,12 @@ impl Build {
             ("CC", "cl.exe", "gcc", "cc", "clang")
         };
 
-        // On Solaris, c++/cc unlikely to exist or be correct.
         let default = if host.contains("solaris") {
+            // On Solaris, cc/c++ is unlikely to exist or be correct.
             gnu
+        } else if host.contains("apple") {
+            // On macOS, this allows us to correctly identify the ToolFamily.
+            clang
         } else {
             traditional
         };
