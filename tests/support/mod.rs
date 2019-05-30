@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::env;
-use std::ffi::OsStr;
+use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -57,8 +57,6 @@ impl Test {
 
     pub fn gcc(&self) -> cc::Build {
         let mut cfg = cc::Build::new();
-        let mut path = env::split_paths(&env::var_os("PATH").unwrap()).collect::<Vec<_>>();
-        path.insert(0, self.td.path().to_owned());
         let target = if self.msvc {
             "x86_64-pc-windows-msvc"
         } else {
@@ -70,13 +68,19 @@ impl Test {
             .opt_level(2)
             .debug(false)
             .out_dir(self.td.path())
-            .__set_env("PATH", env::join_paths(path).unwrap())
+            .__set_env("PATH", self.path())
             .__set_env("GCCTEST_OUT_DIR", self.td.path());
         if self.msvc {
             cfg.compiler(self.td.path().join("cl"));
             cfg.archiver(self.td.path().join("lib.exe"));
         }
         cfg
+    }
+
+    fn path(&self) -> OsString {
+        let mut path = env::split_paths(&env::var_os("PATH").unwrap()).collect::<Vec<_>>();
+        path.insert(0, self.td.path().to_owned());
+        env::join_paths(path).unwrap()
     }
 
     pub fn cmd(&self, i: u32) -> Execution {
