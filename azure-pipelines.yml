@@ -1,5 +1,9 @@
+# Note for forks: Azure Pipelines is triggered only by commits to the branches
+# matching the patterns below.
+# See https://docs.microsoft.com/en-us/azure/devops/pipelines/build/triggers
 trigger:
   - master
+  - ci-*
 
 jobs:
   - job: min_linux
