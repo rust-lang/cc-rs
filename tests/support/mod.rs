@@ -26,9 +26,10 @@ impl Test {
         if gcc.ends_with("deps") {
             gcc.pop();
         }
+        let td = TempDir::new_in(&gcc, "gcc-test").unwrap();
         gcc.push(format!("gcc-shim{}", env::consts::EXE_SUFFIX));
         Test {
-            td: TempDir::new("gcc-test").unwrap(),
+            td: td,
             gcc: gcc,
             msvc: false,
         }
