@@ -64,6 +64,7 @@ extern crate rayon;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
+use std::fmt::{self, Display};
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
@@ -159,6 +160,12 @@ impl Error {
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
         Error::new(ErrorKind::IOError, &format!("{}", e))
+    }
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}: {}", self.kind, self.message)
     }
 }
 
