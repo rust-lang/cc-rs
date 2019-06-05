@@ -5,16 +5,20 @@ steps:
       if [ "$toolchain" = "" ]; then
         toolchain=stable
       fi
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $toolchain
-      echo "##vso[task.prependpath]$HOME/.cargo/bin"
+      if command -v rustup; then
+        rustup update $toolchain
+        rustup default $toolchain
+      else
+        curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain $toolchain
+        echo "##vso[task.prependpath]$HOME/.cargo/bin"
+      fi
     displayName: Install rust (unix)
     condition: ne( variables['Agent.OS'], 'Windows_NT' )
 
   - script: |
       IF "%TOOLCHAIN%"=="" (SET TOOLCHAIN=stable-%TARGET%)
-      curl -sSf -o rustup-init.exe https://win.rustup.rs
-      rustup-init.exe -y --default-toolchain %TOOLCHAIN%
-      echo ##vso[task.prependpath]%USERPROFILE%\.cargo\bin
+      rustup update %TOOLCHAIN%
+      rustup default %TOOLCHAIN%
     displayName: Install rust (windows)
     condition: eq( variables['Agent.OS'], 'Windows_NT' )
 
