@@ -22,7 +22,7 @@ steps:
         toolchain=stable-$TARGET
       fi
       if command -v rustup; then
-        rustup update $toolchain
+        rustup --no-self-update update $toolchain
         rustup default $toolchain
       else
         curl.exe -sSf -o rustup-init.exe https://win.rustup.rs
