@@ -2,87 +2,10 @@
 # matching the patterns below.
 # See https://docs.microsoft.com/en-us/azure/devops/pipelines/build/triggers
 trigger:
-  - master
+  - urgh
   - ci-*
 
 jobs:
-  - job: min_linux
-    pool:
-      vmImage: ubuntu-16.04
-    displayName: Minimum Rust (Linux)
-    variables:
-      TOOLCHAIN: 1.16.0
-    steps:
-      - template: ci/azure-install-rust.yml
-      - script: cargo build
-
-  - job: min_Windows
-    pool:
-      vmImage: vs2017-win2016
-    displayName: Minimum Rust (Windows)
-    variables:
-      TOOLCHAIN: 1.16.0
-    steps:
-      - template: ci/azure-install-rust.yml
-      - script: cargo build
-
-  - job: Linux
-    pool:
-      vmImage: ubuntu-16.04
-    steps:
-      - template: ci/azure-steps.yml
-    strategy:
-      matrix:
-        x86_64:
-          TARGET: x86_64-unknown-linux-gnu
-        i686:
-          TARGET: i686-unknown-linux-gnu
-        x86_64-beta:
-          TARGET: x86_64-unknown-linux-gnu
-          TOOLCHAIN: beta
-        x86_64-nightly:
-          TARGET: x86_64-unknown-linux-gnu
-          TOOLCHAIN: nightly
-
-  - job: macOS
-    pool:
-      vmImage: macos-10.13
-    steps:
-      - template: ci/azure-steps.yml
-    strategy:
-      matrix:
-        x86_64:
-          TARGET: x86_64-apple-darwin
-        aarch64-ios:
-          TARGET: aarch64-apple-ios
-          NO_RUN: --no-run
-
-  - job: Windows_vs2019
-    pool:
-      vmImage: windows-2019
-    steps:
-      - template: ci/azure-steps.yml
-    strategy:
-      matrix:
-        x86_64-msvc:
-          TARGET: x86_64-pc-windows-msvc
-
-  - job: Windows_vs2017
-    pool:
-      vmImage: vs2017-win2016
-    steps:
-      - template: ci/azure-steps.yml
-    strategy:
-      matrix:
-        x86_64-msvc:
-          TARGET: x86_64-pc-windows-msvc
-        i686-msvc:
-          TARGET: i686-pc-windows-msvc
-        x86_64-gnu:
-          TARGET: x86_64-pc-windows-gnu
-        i686-gnu:
-          TARGET: i686-pc-windows-gnu
-
   - job: Windows_vs2015
     pool:
       vmImage: vs2015-win2012r2
@@ -94,12 +17,3 @@ jobs:
           TARGET: x86_64-pc-windows-msvc
         i686-msvc:
           TARGET: i686-pc-windows-msvc
-
-  - job: docs
-    steps:
-      - template: ci/azure-install-rust.yml
-      - script: cargo doc --no-deps --all-features
-      - script: curl -LsSf https://git.io/fhJ8n | rustc - && (cd target/doc && ../../rust_out)
-        condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-        env:
-          GITHUB_DEPLOY_KEY: $(GITHUB_DEPLOY_KEY)

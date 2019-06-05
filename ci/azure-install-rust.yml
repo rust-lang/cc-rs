@@ -15,12 +15,17 @@ steps:
     displayName: Install rust (unix)
     condition: ne( variables['Agent.OS'], 'Windows_NT' )
 
-  - script: |
-      IF "%RUSTUP_HOME%"=="" (curl -sSf -o rustup-init.exe https://win.rustup.rs)
-      IF "%TOOLCHAIN%"=="" (SET TOOLCHAIN=stable-%TARGET%)
-      IF "%RUSTUP_HOME%"=="" (rustup-init.exe -y --default-toolchain %TOOLCHAIN%)
-      rustup update --no-self-update %TOOLCHAIN%
-      rustup default %TOOLCHAIN%
+  - powershell: |
+      if (!$env:TOOLCHAIN) {
+        $env:TOOLCHAIN = "stable-${env:TARGET}";
+      }
+      if ($env:RUSTUP_HOME) {
+        rustup update --no-self-update $env:TOOLCHAIN
+        rustup default $env:TOOLCHAIN
+      } else {
+        curl.exe -sSf -o rustup-init.exe https://win.rustup.rs
+        ./rustup-init.exe -y --default-toolchain $env:TOOLCHAIN
+      }
     displayName: Install rust (windows)
     condition: eq( variables['Agent.OS'], 'Windows_NT' )
 
