@@ -15,7 +15,7 @@ steps:
     displayName: Install rust (unix)
     condition: ne( variables['Agent.OS'], 'Windows_NT' )
 
-  - powershell: |
+  - pwsh: |
       if (!$env:TOOLCHAIN) {
         $env:TOOLCHAIN = "stable-${env:TARGET}";
       }
