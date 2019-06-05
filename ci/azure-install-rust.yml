@@ -16,7 +16,9 @@ steps:
     condition: ne( variables['Agent.OS'], 'Windows_NT' )
 
   - script: |
+      IF "%RUSTUP_HOME%"=="" (curl -sSf -o rustup-init.exe https://win.rustup.rs)
       IF "%TOOLCHAIN%"=="" (SET TOOLCHAIN=stable-%TARGET%)
+      IF "%RUSTUP_HOME%"=="" (rustup-init.exe -y --default-toolchain %TOOLCHAIN%)
       rustup update --no-self-update %TOOLCHAIN%
       rustup default %TOOLCHAIN%
     displayName: Install rust (windows)
