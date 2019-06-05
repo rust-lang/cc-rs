@@ -25,6 +25,7 @@ steps:
       } else {
         curl.exe -sSf -o rustup-init.exe https://win.rustup.rs
         ./rustup-init.exe -y --default-toolchain $env:TOOLCHAIN
+        Write-Host "##vso[task.prependpath]${env:USERPROFILE}/.cargo/bin"
       }
     displayName: Install rust (windows)
     condition: eq( variables['Agent.OS'], 'Windows_NT' )
