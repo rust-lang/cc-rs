@@ -17,7 +17,7 @@ steps:
 
   - script: |
       IF "%TOOLCHAIN%"=="" (SET TOOLCHAIN=stable-%TARGET%)
-      rustup update %TOOLCHAIN%
+      rustup update --no-self-update %TOOLCHAIN%
       rustup default %TOOLCHAIN%
     displayName: Install rust (windows)
     condition: eq( variables['Agent.OS'], 'Windows_NT' )
