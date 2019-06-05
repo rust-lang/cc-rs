@@ -15,7 +15,7 @@ steps:
     displayName: Install rust (unix)
     condition: ne( variables['Agent.OS'], 'Windows_NT' )
 
-  - pwsh: |
+  - powershell: |
       if (!$env:TOOLCHAIN) {
         $env:TOOLCHAIN = "stable-${env:TARGET}";
       }
@@ -28,6 +28,7 @@ steps:
         Write-Host "##vso[task.prependpath]${env:USERPROFILE}/.cargo/bin"
       }
     displayName: Install rust (windows)
+    failOnStderr: false
     condition: eq( variables['Agent.OS'], 'Windows_NT' )
 
   - script: |
