@@ -771,9 +771,8 @@ impl Build {
     /// Configures whether the compiler will emit debug information when
     /// generating object files.
     ///
-    /// This option is automatically scraped from the `PROFILE` environment
-    /// variable by build scripts (only enabled when the profile is "debug"), so
-    /// it's not required to call this function.
+    /// This option is automatically scraped from the `DEBUG` environment
+    /// variable by build scripts, so it's not required to call this function.
     pub fn debug(&mut self, debug: bool) -> &mut Build {
         self.debug = Some(debug);
         self
