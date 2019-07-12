@@ -3,8 +3,9 @@
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
+use std::io;
 use std::io::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use cc;
 use tempdir::TempDir;
@@ -49,10 +50,13 @@ impl Test {
     }
 
     pub fn shim(&self, name: &str) -> &Test {
-        let fname = format!("{}{}", name, env::consts::EXE_SUFFIX);
-        fs::hard_link(&self.gcc, self.td.path().join(&fname))
-            .or_else(|_| fs::copy(&self.gcc, self.td.path().join(&fname)).map(|_| ()))
-            .unwrap();
+        link_or_copy(
+            &self.gcc,
+            self.td
+                .path()
+                .join(&format!("{}{}", name, env::consts::EXE_SUFFIX)),
+        )
+        .unwrap();
         self
     }
 
@@ -135,4 +139,23 @@ impl Execution {
         };
         self
     }
+}
+
+/// Hard link an executable or copy it if that fails.
+///
+/// We first try to hard link an executable to save space. If that fails (as on Windows with
+/// different mount points, issue #60), we copy.
+#[cfg(not(target_os = "macos"))]
+fn link_or_copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()> {
+    let from = from.as_ref();
+    let to = to.as_ref();
+    fs::hard_link(from, to).or_else(|_| fs::copy(from, to).map(|_| ()))
+}
+
+/// Copy an executable.
+///
+/// On macOS, hard linking the executable leads to strange failures (issue #419), so we just copy.
+#[cfg(target_os = "macos")]
+fn link_or_copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<()> {
+    fs::copy(from, to).map(|_| ())
 }
