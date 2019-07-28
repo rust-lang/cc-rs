@@ -219,18 +219,18 @@ impl ToolFamily {
     }
 
     /// What the flag to include directories into header search path looks like
-    fn include_flag(&self) -> &'static str {
+    fn include_flag(&self, cuda: bool) -> &'static str {
         match *self {
-            ToolFamily::Msvc { .. } => "/I",
-            ToolFamily::Gnu | ToolFamily::Clang => "-I",
+            ToolFamily::Msvc { .. } if !cuda => "/I",
+            _ => "-I",
         }
     }
 
     /// What the flag to request macro-expanded source output looks like
-    fn expand_flag(&self) -> &'static str {
+    fn expand_flag(&self, cuda: bool) -> &'static str {
         match *self {
-            ToolFamily::Msvc { .. } => "/E",
-            ToolFamily::Gnu | ToolFamily::Clang => "-E",
+            ToolFamily::Msvc { .. } if !cuda => "/E",
+            _ => "-E",
         }
     }
 
@@ -261,19 +261,13 @@ impl ToolFamily {
     /// NVCC-specific. Device code debug info flag. This is separate from the
     /// debug info flag passed to the C++ compiler.
     fn nvcc_debug_flag(&self) -> &'static str {
-        match *self {
-            ToolFamily::Msvc { .. } => unimplemented!(),
-            ToolFamily::Gnu | ToolFamily::Clang => "-G",
-        }
+        "-G"
     }
 
     /// NVCC-specific. Redirect the following flag to the underlying C++
     /// compiler.
     fn nvcc_redirect_flag(&self) -> &'static str {
-        match *self {
-            ToolFamily::Msvc { .. } => unimplemented!(),
-            ToolFamily::Gnu | ToolFamily::Clang => "-Xcompiler",
-        }
+        "-Xcompiler"
     }
 
     fn verbose_stderr(&self) -> bool {
@@ -454,11 +448,11 @@ impl Build {
 
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false, is_arm);
+        command_add_output_file(&mut cmd, &obj, self.cuda, target.contains("msvc"), false, is_arm);
 
         // We need to explicitly tell msvc not to link and create an exe
         // in the root directory of the crate
-        if target.contains("msvc") {
+        if target.contains("msvc") && !self.cuda {
             cmd.arg("/c");
         }
 
@@ -500,7 +494,6 @@ impl Build {
     ///     .shared_flag(true)
     ///     .compile("libfoo.so");
     /// ```
-
     pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Build {
         self.shared_flag = Some(shared_flag);
         self
@@ -1008,10 +1001,14 @@ impl Build {
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm, is_arm);
+        command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
         if !msvc || !is_asm || !is_arm {
-            cmd.arg(if msvc { "/c" } else { "-c" });
+            if msvc && !self.cuda {
+                cmd.arg("/c");
+            } else {
+                cmd.arg("-c");
+            }
         }
         cmd.arg(&obj.src);
 
@@ -1026,7 +1023,7 @@ impl Build {
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
         }
-        cmd.arg(compiler.family.expand_flag());
+        cmd.arg(compiler.family.expand_flag(self.cuda));
 
         assert!(
             self.files.len() <= 1,
@@ -1116,7 +1113,7 @@ impl Build {
         }
 
         for directory in self.include_directories.iter() {
-            cmd.args.push(cmd.family.include_flag().into());
+            cmd.args.push(cmd.family.include_flag(self.cuda).into());
             cmd.args.push(directory.into());
         }
 
@@ -1154,7 +1151,7 @@ impl Build {
 
         for &(ref key, ref value) in self.definitions.iter() {
             let lead = if let ToolFamily::Msvc { .. } = cmd.family {
-                "/"
+                if !self.cuda { "/" } else { "-" }
             } else {
                 "-"
             };
@@ -1183,10 +1180,7 @@ impl Build {
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc { .. } => {
-                assert!(!self.cuda,
-                    "CUDA C++ compilation not supported for MSVC, yet... but you are welcome to implement it :)");
-
-                cmd.args.push("/nologo".into());
+                cmd.push_cc_arg("/nologo".into());
 
                 let crt_flag = match self.static_crt {
                     Some(true) => "/MT",
@@ -1202,7 +1196,7 @@ impl Build {
                         }
                     }
                 };
-                cmd.args.push(crt_flag.into());
+                cmd.push_cc_arg(crt_flag.into());
 
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
@@ -1254,16 +1248,22 @@ impl Build {
             ToolFamily::Msvc { clang_cl } => {
                 if clang_cl {
                     if target.contains("x86_64") {
-                        cmd.args.push("-m64".into());
+                        if self.cuda {
+                            cmd.args.push("-m64".into());
+                        }
+                        cmd.push_cc_arg("-m64".into());
                     } else if target.contains("86") {
-                        cmd.args.push("-m32".into());
-                        cmd.args.push("/arch:IA32".into());
+                        if self.cuda {
+                            cmd.args.push("-m32".into());
+                        }
+                        cmd.push_cc_arg("-m32".into());
+                        cmd.push_cc_arg("/arch:IA32".into());
                     } else {
-                        cmd.args.push(format!("--target={}", target).into());
+                        cmd.push_cc_arg(format!("--target={}", target).into());
                     }
                 } else {
                     if target.contains("i586") {
-                        cmd.args.push("/ARCH:IA32".into());
+                        cmd.push_cc_arg("/ARCH:IA32".into());
                     }
                 }
 
@@ -1277,8 +1277,11 @@ impl Build {
                 // the SDK, but for all released versions of the
                 // Windows SDK it is required.
                 if target.contains("arm") || target.contains("thumb") {
-                    cmd.args
-                        .push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                    if self.cuda {
+                        cmd.args.push("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                    } else {
+                        cmd.args.push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                    }
                 }
             }
             ToolFamily::Gnu => {
@@ -1781,8 +1784,8 @@ impl Build {
                           target == "wasm32-unknown-unknown" {
                     "clang".to_string()
                 } else if target.contains("vxworks") {
-		    "wr-c++".to_string()
-		} else if self.get_host()? != target {
+                    "wr=c++".to_string()
+                } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
                     let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
@@ -1880,6 +1883,7 @@ impl Build {
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());
+            nvcc_tool.family = tool.family;
             nvcc_tool
         } else {
             tool
@@ -2441,8 +2445,10 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
-fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool, is_arm: bool) {
-    if msvc && is_asm && is_arm {
+fn command_add_output_file(cmd: &mut Command, dst: &Path, cuda: bool, msvc: bool, is_asm: bool, is_arm: bool) {
+    if cuda {
+        cmd.arg("-o").arg(&dst);
+    } else if msvc && is_asm && is_arm {
         cmd.arg("-o").arg(&dst);
     } else if msvc && is_asm {
         cmd.arg("/Fo").arg(dst);
