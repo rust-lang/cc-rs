@@ -218,22 +218,6 @@ impl ToolFamily {
         }
     }
 
-    /// What the flag to include directories into header search path looks like
-    fn include_flag(&self, cuda: bool) -> &'static str {
-        match *self {
-            ToolFamily::Msvc { .. } if !cuda => "/I",
-            _ => "-I",
-        }
-    }
-
-    /// What the flag to request macro-expanded source output looks like
-    fn expand_flag(&self, cuda: bool) -> &'static str {
-        match *self {
-            ToolFamily::Msvc { .. } if !cuda => "/E",
-            _ => "-E",
-        }
-    }
-
     /// What the flags to enable all warnings
     fn warnings_flags(&self) -> &'static str {
         match *self {
@@ -256,18 +240,6 @@ impl ToolFamily {
             ToolFamily::Msvc { .. } => "/WX",
             ToolFamily::Gnu | ToolFamily::Clang => "-Werror",
         }
-    }
-
-    /// NVCC-specific. Device code debug info flag. This is separate from the
-    /// debug info flag passed to the C++ compiler.
-    fn nvcc_debug_flag(&self) -> &'static str {
-        "-G"
-    }
-
-    /// NVCC-specific. Redirect the following flag to the underlying C++
-    /// compiler.
-    fn nvcc_redirect_flag(&self) -> &'static str {
-        "-Xcompiler"
     }
 
     fn verbose_stderr(&self) -> bool {
@@ -1023,7 +995,7 @@ impl Build {
         for &(ref a, ref b) in self.env.iter() {
             cmd.env(a, b);
         }
-        cmd.arg(compiler.family.expand_flag(self.cuda));
+        cmd.arg("-E");
 
         assert!(
             self.files.len() <= 1,
@@ -1113,7 +1085,7 @@ impl Build {
         }
 
         for directory in self.include_directories.iter() {
-            cmd.args.push(cmd.family.include_flag(self.cuda).into());
+            cmd.args.push("-I".into());
             cmd.args.push(directory.into());
         }
 
@@ -1233,8 +1205,8 @@ impl Build {
 
         if self.get_debug() {
             if self.cuda {
-                let nvcc_debug_flag = cmd.family.nvcc_debug_flag().into();
-                cmd.args.push(nvcc_debug_flag);
+                // NVCC debug flag
+                cmd.args.push("-G".into());
             }
             let family = cmd.family;
             family.add_debug_flags(cmd);
@@ -2189,7 +2161,7 @@ impl Tool {
     /// with a "-Xcompiler" flag to get passed to the underlying C++ compiler.
     fn push_cc_arg(&mut self, flag: OsString) {
         if self.cuda {
-            self.args.push(self.family.nvcc_redirect_flag().into());
+            self.args.push("-Xcompiler".into());
         }
         self.args.push(flag);
     }
