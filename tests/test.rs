@@ -318,7 +318,7 @@ fn msvc_include() {
     let test = Test::msvc();
     test.gcc().include("foo/bar").file("foo.c").compile("foo");
 
-    test.cmd(0).must_have("/I").must_have("foo/bar");
+    test.cmd(0).must_have("-I").must_have("foo/bar");
 }
 
 #[test]
