@@ -1220,15 +1220,9 @@ impl Build {
             ToolFamily::Msvc { clang_cl } => {
                 if clang_cl {
                     if target.contains("x86_64") {
-                        if self.cuda {
-                            cmd.args.push("-m64".into());
-                        }
-                        cmd.push_cc_arg("-m64".into());
+                        cmd.args.push("-m64".into());
                     } else if target.contains("86") {
-                        if self.cuda {
-                            cmd.args.push("-m32".into());
-                        }
-                        cmd.push_cc_arg("-m32".into());
+                        cmd.args.push("-m32".into());
                         cmd.push_cc_arg("/arch:IA32".into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
@@ -1249,11 +1243,7 @@ impl Build {
                 // the SDK, but for all released versions of the
                 // Windows SDK it is required.
                 if target.contains("arm") || target.contains("thumb") {
-                    if self.cuda {
-                        cmd.args.push("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
-                    } else {
-                        cmd.args.push("/D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
-                    }
+                    cmd.args.push("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
                 }
             }
             ToolFamily::Gnu => {
