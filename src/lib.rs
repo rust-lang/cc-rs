@@ -1428,6 +1428,17 @@ impl Build {
                         cmd.args.push("-mfloat-abi=soft".into());
                     }
                 }
+                if target.starts_with("riscv32") || target.starts_with("riscv64") {
+                    // get the 32i/32imac/32imc/64gc/64imac/... part
+                    let mut parts = target.split('-');
+                    if let Some(arch) = parts.next() {
+                        let arch = &arch[5..];
+                        cmd.args.push(("-march=rv".to_owned() + arch).into());
+                        // ABI is always soft-float right now, update this when this is no longer the
+                        // case:
+                        cmd.args.push("-mabi=lp64".into());
+                    }
+                }
             }
         }
 
@@ -1809,6 +1820,11 @@ impl Build {
                         "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
                         "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                         "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
+                        "riscv32i-unknown-none-elf" => Some("riscv32-unknown-elf"),
+                        "riscv32imac-unknown-none-elf" => Some("riscv32-unknown-elf"),
+                        "riscv32imc-unknown-none-elf" => Some("riscv32-unknown-elf"),
+                        "riscv64gc-unknown-none-elf" => Some("riscv64-unknown-elf"),
+                        "riscv64imac-unknown-none-elf" => Some("riscv64-unknown-elf"),
                         "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
                         "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
                         "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
