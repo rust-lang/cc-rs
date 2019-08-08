@@ -1436,7 +1436,11 @@ impl Build {
                         cmd.args.push(("-march=rv".to_owned() + arch).into());
                         // ABI is always soft-float right now, update this when this is no longer the
                         // case:
-                        cmd.args.push("-mabi=lp64".into());
+                        if arch.starts_with("64") {
+                            cmd.args.push("-mabi=lp64".into());
+                        } else {
+                            cmd.args.push("-mabi=ilp32".into());
+                        }
                     }
                 }
             }
