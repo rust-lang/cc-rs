@@ -1627,16 +1627,19 @@ impl Build {
             }
         };
 
+        let min_version = std::env::var("IPHONEOS_DEPLOYMENT_TARGET")
+                .unwrap_or_else(|_| "7.0".into());
+
         let sdk = match arch {
             ArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
-                cmd.args.push("-miphoneos-version-min=7.0".into());
+                cmd.args.push(format!("-miphoneos-version-min={}", min_version).into());
                 "iphoneos"
             }
             ArchSpec::Simulator(arch) => {
                 cmd.args.push(arch.into());
-                cmd.args.push("-mios-simulator-version-min=7.0".into());
+                cmd.args.push(format!("-mios-simulator-version-min={}", min_version).into());
                 "iphonesimulator"
             }
         };
