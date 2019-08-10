@@ -2399,13 +2399,7 @@ fn fail(s: &str) -> ! {
 }
 
 fn command_add_output_file(cmd: &mut Command, dst: &Path, cuda: bool, msvc: bool, is_asm: bool, is_arm: bool) {
-    if cuda {
-        cmd.arg("-o").arg(&dst);
-    } else if msvc && is_asm && is_arm {
-        cmd.arg("-o").arg(&dst);
-    } else if msvc && is_asm {
-        cmd.arg("-Fo").arg(dst);
-    } else if msvc {
+    if msvc && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
