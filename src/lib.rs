@@ -209,7 +209,7 @@ impl ToolFamily {
     fn add_debug_flags(&self, cmd: &mut Tool) {
         match *self {
             ToolFamily::Msvc { .. } => {
-                cmd.push_cc_arg("/Z7".into());
+                cmd.push_cc_arg("-Z7".into());
             }
             ToolFamily::Gnu | ToolFamily::Clang => {
                 cmd.push_cc_arg("-g".into());
@@ -221,7 +221,7 @@ impl ToolFamily {
     /// What the flags to enable all warnings
     fn warnings_flags(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc { .. } => "/W4",
+            ToolFamily::Msvc { .. } => "-W4",
             ToolFamily::Gnu | ToolFamily::Clang => "-Wall",
         }
     }
@@ -237,7 +237,7 @@ impl ToolFamily {
     /// What the flag to turn warning into errors
     fn warnings_to_errors_flag(&self) -> &'static str {
         match *self {
-            ToolFamily::Msvc { .. } => "/WX",
+            ToolFamily::Msvc { .. } => "-WX",
             ToolFamily::Gnu | ToolFamily::Clang => "-Werror",
         }
     }
@@ -425,7 +425,7 @@ impl Build {
         // We need to explicitly tell msvc not to link and create an exe
         // in the root directory of the crate
         if target.contains("msvc") && !self.cuda {
-            cmd.arg("/c");
+            cmd.arg("-c");
         }
 
         cmd.arg(&src);
@@ -560,7 +560,7 @@ impl Build {
     /// Set warnings flags.
     ///
     /// Adds some flags:
-    /// - "/Wall" for MSVC.
+    /// - "-Wall" for MSVC.
     /// - "-Wall", "-Wextra" for GNU and Clang.
     ///
     /// Enabled by default.
@@ -976,11 +976,7 @@ impl Build {
         command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
         if !msvc || !is_asm || !is_arm {
-            if msvc && !self.cuda {
-                cmd.arg("/c");
-            } else {
-                cmd.arg("-c");
-            }
+            cmd.arg("-c");
         }
         cmd.arg(&obj.src);
 
@@ -1122,15 +1118,10 @@ impl Build {
         }
 
         for &(ref key, ref value) in self.definitions.iter() {
-            let lead = if let ToolFamily::Msvc { .. } = cmd.family {
-                if !self.cuda { "/" } else { "-" }
-            } else {
-                "-"
-            };
             if let Some(ref value) = *value {
-                cmd.args.push(format!("{}D{}={}", lead, key, value).into());
+                cmd.args.push(format!("-D{}={}", key, value).into());
             } else {
-                cmd.args.push(format!("{}D{}", lead, key).into());
+                cmd.args.push(format!("-D{}", key).into());
             }
         }
 
@@ -1152,19 +1143,19 @@ impl Build {
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc { .. } => {
-                cmd.push_cc_arg("/nologo".into());
+                cmd.push_cc_arg("-nologo".into());
 
                 let crt_flag = match self.static_crt {
-                    Some(true) => "/MT",
-                    Some(false) => "/MD",
+                    Some(true) => "-MT",
+                    Some(false) => "-MD",
                     None => {
                         let features = self
                             .getenv("CARGO_CFG_TARGET_FEATURE")
                             .unwrap_or(String::new());
                         if features.contains("crt-static") {
-                            "/MT"
+                            "-MT"
                         } else {
-                            "/MD"
+                            "-MD"
                         }
                     }
                 };
@@ -1172,9 +1163,9 @@ impl Build {
 
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
-                    "z" | "s" | "1" => cmd.push_opt_unless_duplicate("/O1".into()),
+                    "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
-                    "2" | "3" => cmd.push_opt_unless_duplicate("/O2".into()),
+                    "2" | "3" => cmd.push_opt_unless_duplicate("-O2".into()),
                     _ => {}
                 }
             }
@@ -1223,13 +1214,13 @@ impl Build {
                         cmd.args.push("-m64".into());
                     } else if target.contains("86") {
                         cmd.args.push("-m32".into());
-                        cmd.push_cc_arg("/arch:IA32".into());
+                        cmd.push_cc_arg("-arch:IA32".into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
                 } else {
                     if target.contains("i586") {
-                        cmd.push_cc_arg("/ARCH:IA32".into());
+                        cmd.push_cc_arg("-arch:IA32".into());
                     }
                 }
 
@@ -1467,18 +1458,18 @@ impl Build {
         };
         let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| self.cmd(tool));
         for directory in self.include_directories.iter() {
-            cmd.arg("/I").arg(directory);
+            cmd.arg("-I").arg(directory);
         }
         for &(ref key, ref value) in self.definitions.iter() {
             if let Some(ref value) = *value {
-                cmd.arg(&format!("/D{}={}", key, value));
+                cmd.arg(&format!("-D{}={}", key, value));
             } else {
-                cmd.arg(&format!("/D{}", key));
+                cmd.arg(&format!("-D{}", key));
             }
         }
 
         if target.contains("i686") || target.contains("i586") {
-            cmd.arg("/safeseh");
+            cmd.arg("-safeseh");
         }
         for flag in self.flags.iter() {
             cmd.arg(flag);
@@ -1496,9 +1487,9 @@ impl Build {
         let target = self.get_target()?;
         if target.contains("msvc") {
             let (mut cmd, program) = self.get_ar()?;
-            let mut out = OsString::from("/OUT:");
+            let mut out = OsString::from("-out:");
             out.push(dst);
-            cmd.arg(out).arg("/nologo");
+            cmd.arg(out).arg("-nologo");
 
             // Similar to https://github.com/rust-lang/rust/pull/47507
             // and https://github.com/rust-lang/rust/pull/48548
@@ -2413,9 +2404,9 @@ fn command_add_output_file(cmd: &mut Command, dst: &Path, cuda: bool, msvc: bool
     } else if msvc && is_asm && is_arm {
         cmd.arg("-o").arg(&dst);
     } else if msvc && is_asm {
-        cmd.arg("/Fo").arg(dst);
+        cmd.arg("-Fo").arg(dst);
     } else if msvc {
-        let mut s = OsString::from("/Fo");
+        let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
     } else {
