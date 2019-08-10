@@ -420,7 +420,7 @@ impl Build {
 
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj, target.contains("msvc"), false, is_arm);
+        command_add_output_file(&mut cmd, &obj, self.cuda, target.contains("msvc"), false, is_arm);
 
         // We need to explicitly tell msvc not to link and create an exe
         // in the root directory of the crate
@@ -973,7 +973,7 @@ impl Build {
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj.dst, msvc, is_asm, is_arm);
+        command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
         if !msvc || !is_asm || !is_arm {
             cmd.arg("-c");
@@ -2398,8 +2398,8 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
-fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool, is_asm: bool, is_arm: bool) {
-    if msvc && !(is_asm && is_arm) {
+fn command_add_output_file(cmd: &mut Command, dst: &Path, cuda: bool, msvc: bool, is_asm: bool, is_arm: bool) {
+    if msvc && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
