@@ -180,8 +180,8 @@ mod impl_ {
     use std::ffi::OsString;
     use std::fs::File;
     use std::io::Read;
-    use std::mem;
     use std::iter;
+    use std::mem;
     use std::path::{Path, PathBuf};
 
     use Tool;
@@ -218,7 +218,7 @@ mod impl_ {
         }
     }
 
-    fn vs16_instances() -> Box<Iterator<Item=PathBuf>> {
+    fn vs16_instances() -> Box<Iterator<Item = PathBuf>> {
         let instances = if let Some(instances) = vs15_instances() {
             instances
         } else {
@@ -236,17 +236,19 @@ mod impl_ {
     }
 
     fn find_tool_in_vs16_path(tool: &str, target: &str) -> Option<Tool> {
-        vs16_instances().filter_map(|path| {
-            let path = path.join(tool);
-            if !path.is_file() {
-                return None;
-            }
-            let mut tool = Tool::new(path);
-            if target.contains("x86_64") {
-                tool.env.push(("Platform".into(), "X64".into()));
-            }
-            Some(tool)
-        }).next()
+        vs16_instances()
+            .filter_map(|path| {
+                let path = path.join(tool);
+                if !path.is_file() {
+                    return None;
+                }
+                let mut tool = Tool::new(path);
+                if target.contains("x86_64") {
+                    tool.env.push(("Platform".into(), "X64".into()));
+                }
+                Some(tool)
+            })
+            .next()
     }
 
     fn find_msbuild_vs16(target: &str) -> Option<Tool> {

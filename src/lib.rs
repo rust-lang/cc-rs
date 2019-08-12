@@ -420,7 +420,14 @@ impl Build {
 
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj, self.cuda, target.contains("msvc"), false, is_arm);
+        command_add_output_file(
+            &mut cmd,
+            &obj,
+            self.cuda,
+            target.contains("msvc"),
+            false,
+            is_arm,
+        );
 
         // We need to explicitly tell msvc not to link and create an exe
         // in the root directory of the crate
@@ -1183,7 +1190,10 @@ impl Build {
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
                 // Disable generation of PIC on RISC-V for now: rust-lld doesn't support this yet
-                if self.pic.unwrap_or(!target.contains("windows-gnu") && !target.contains("riscv")) {
+                if self
+                    .pic
+                    .unwrap_or(!target.contains("windows-gnu") && !target.contains("riscv"))
+                {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
@@ -1234,7 +1244,8 @@ impl Build {
                 // the SDK, but for all released versions of the
                 // Windows SDK it is required.
                 if target.contains("arm") || target.contains("thumb") {
-                    cmd.args.push("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                    cmd.args
+                        .push("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
                 }
             }
             ToolFamily::Gnu => {
@@ -1588,19 +1599,21 @@ impl Build {
             }
         };
 
-        let min_version = std::env::var("IPHONEOS_DEPLOYMENT_TARGET")
-                .unwrap_or_else(|_| "7.0".into());
+        let min_version =
+            std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into());
 
         let sdk = match arch {
             ArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
-                cmd.args.push(format!("-miphoneos-version-min={}", min_version).into());
+                cmd.args
+                    .push(format!("-miphoneos-version-min={}", min_version).into());
                 "iphoneos"
             }
             ArchSpec::Simulator(arch) => {
                 cmd.args.push(arch.into());
-                cmd.args.push(format!("-mios-simulator-version-min={}", min_version).into());
+                cmd.args
+                    .push(format!("-mios-simulator-version-min={}", min_version).into());
                 "iphonesimulator"
             }
         };
@@ -1732,9 +1745,10 @@ impl Build {
                     }
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
-                } else if target == "wasm32-wasi" ||
-                          target == "wasm32-unknown-wasi" ||
-                          target == "wasm32-unknown-unknown" {
+                } else if target == "wasm32-wasi"
+                    || target == "wasm32-unknown-wasi"
+                    || target == "wasm32-unknown-unknown"
+                {
                     "clang".to_string()
                 } else if target.contains("vxworks") {
                     "wr=c++".to_string()
@@ -2398,7 +2412,14 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
-fn command_add_output_file(cmd: &mut Command, dst: &Path, cuda: bool, msvc: bool, is_asm: bool, is_arm: bool) {
+fn command_add_output_file(
+    cmd: &mut Command,
+    dst: &Path,
+    cuda: bool,
+    msvc: bool,
+    is_asm: bool,
+    is_arm: bool,
+) {
     if msvc && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
         s.push(&dst);
