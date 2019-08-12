@@ -1751,7 +1751,7 @@ impl Build {
                 {
                     "clang".to_string()
                 } else if target.contains("vxworks") {
-                    "wr=c++".to_string()
+                    "wr-c++".to_string()
                 } else if self.get_host()? != target {
                     // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
                     let cc_env = self.getenv("CROSS_COMPILE");
