@@ -99,6 +99,7 @@ pub struct Build {
     flags: Vec<String>,
     flags_supported: Vec<String>,
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
+    no_default_flags: bool,
     files: Vec<PathBuf>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<String>>,
@@ -277,6 +278,7 @@ impl Build {
             flags: Vec::new(),
             flags_supported: Vec::new(),
             known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
+            no_default_flags: false,
             files: Vec::new(),
             shared_flag: None,
             static_flag: None,
@@ -494,6 +496,17 @@ impl Build {
     /// ```
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
         self.static_flag = Some(static_flag);
+        self
+    }
+
+    /// Disables the generation of default compiler flags. The default compiler
+    /// flags may cause conflicts in some cross compiling scenarios.
+    ///
+    /// Setting the `CRATE_CC_NO_DEFAULTS` environment variable has the same
+    /// effect as setting this to `true`. The presence of the environment
+    /// variable and the value of `no_default_flags` will be OR'd together.
+    pub fn no_default_flags(&mut self, no_default_flags: bool) -> &mut Build {
+        self.no_default_flags = no_default_flags;
         self
     }
 
@@ -1073,11 +1086,10 @@ impl Build {
         let mut cmd = self.get_base_compiler()?;
         let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" });
 
-        // Disable default flag generation via environment variable or when
-        // certain cross compiling arguments are set
-        let use_defaults = self.getenv("CRATE_CC_NO_DEFAULTS").is_none();
+        // Disable default flag generation via `no_default_flags` or environment variable
+        let no_defaults = self.no_default_flags || self.getenv("CRATE_CC_NO_DEFAULTS").is_some();
 
-        if use_defaults {
+        if !no_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
         } else {
             println!("Info: default compiler flags are disabled");
