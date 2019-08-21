@@ -218,6 +218,7 @@ mod impl_ {
         }
     }
 
+    #[allow(bare_trait_objects)]
     fn vs16_instances() -> Box<Iterator<Item = PathBuf>> {
         let instances = if let Some(instances) = vs15_instances() {
             instances
