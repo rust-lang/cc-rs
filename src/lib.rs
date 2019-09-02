@@ -1231,6 +1231,11 @@ impl Build {
                 cmd.args.push(format!("--target={}", target).into());
             }
             ToolFamily::Msvc { clang_cl } => {
+                // This is an undocumented flag from MSVC but helps with making
+                // builds more reproducible by avoiding putting timestamps into
+                // files.
+                cmd.args.push("-Brepro".into());
+
                 if clang_cl {
                     if target.contains("x86_64") {
                         cmd.args.push("-m64".into());
