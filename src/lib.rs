@@ -1575,6 +1575,31 @@ impl Build {
             };
         } else {
             let (mut ar, cmd) = self.get_ar()?;
+
+            // Set an environment variable to tell the OSX archiver to ensure
+            // that all dates listed in the archive are zero, improving
+            // determinism of builds. AFAIK there's not really official
+            // documentation of this but there's a lot of references to it if
+            // you search google.
+            //
+            // You can reproduce this locally on a mac with:
+            //
+            //      $ touch foo.c
+            //      $ cc -c foo.c -o foo.o
+            //
+            //      # Notice that these two checksums are different
+            //      $ ar crus libfoo1.a foo.o && sleep 2 && ar crus libfoo2.a foo.o
+            //      $ md5sum libfoo*.a
+            //
+            //      # Notice that these two checksums are the same
+            //      $ export ZERO_AR_DATE=1
+            //      $ ar crus libfoo1.a foo.o && sleep 2 && touch foo.o && ar crus libfoo2.a foo.o
+            //      $ md5sum libfoo*.a
+            //
+            // In any case if this doesn't end up getting read, it shouldn't
+            // cause that many issues!
+            ar.env("ZERO_AR_DATE", "1");
+
             run(
                 ar.arg("crs").arg(dst).args(&objects).args(&self.objects),
                 &cmd,
