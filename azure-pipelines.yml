@@ -11,7 +11,7 @@ jobs:
       vmImage: ubuntu-16.04
     displayName: Minimum Rust (Linux)
     variables:
-      TOOLCHAIN: 1.16.0
+      TOOLCHAIN: 1.31.0
     steps:
       - template: ci/azure-install-rust.yml
       - script: cargo build
@@ -21,7 +21,7 @@ jobs:
       vmImage: vs2017-win2016
     displayName: Minimum Rust (Windows)
     variables:
-      TOOLCHAIN: 1.16.0
+      TOOLCHAIN: 1.31.0
     steps:
       - template: ci/azure-install-rust.yml
       - script: cargo build
