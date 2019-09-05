@@ -1,5 +1,3 @@
-extern crate cc_test;
-
 use cc_test::*;
 
 #[link(name = "OptLinkage", kind = "static")]

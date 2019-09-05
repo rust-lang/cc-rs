@@ -10,17 +10,17 @@
 
 use std::ffi::OsString;
 use std::ptr::null_mut;
-use winapi::Interface;
-use winapi::BSTR;
-use winapi::LPCOLESTR;
-use winapi::LPSAFEARRAY;
-use winapi::S_FALSE;
-use winapi::{CoCreateInstance, CLSCTX_ALL};
-use winapi::{IUnknown, IUnknownVtbl};
-use winapi::{HRESULT, LCID, LPCWSTR, PULONGLONG};
-use winapi::{LPFILETIME, ULONG};
+use crate::winapi::Interface;
+use crate::winapi::BSTR;
+use crate::winapi::LPCOLESTR;
+use crate::winapi::LPSAFEARRAY;
+use crate::winapi::S_FALSE;
+use crate::winapi::{CoCreateInstance, CLSCTX_ALL};
+use crate::winapi::{IUnknown, IUnknownVtbl};
+use crate::winapi::{HRESULT, LCID, LPCWSTR, PULONGLONG};
+use crate::winapi::{LPFILETIME, ULONG};
 
-use com::{BStr, ComPtr};
+use crate::com::{BStr, ComPtr};
 
 // Bindings to the Setup.Configuration stuff
 pub type InstanceState = u32;
@@ -196,7 +196,7 @@ impl SetupConfiguration {
     }
     pub fn enum_all_instances(&self) -> Result<EnumSetupInstances, i32> {
         let mut obj = null_mut();
-        let this = try!(self.0.cast::<ISetupConfiguration2>());
+        let this = self.0.cast::<ISetupConfiguration2>()?;
         let err = unsafe { this.EnumAllInstances(&mut obj) };
         if err < 0 {
             return Err(err);
@@ -249,7 +249,7 @@ impl SetupInstance {
     }
     pub fn product_path(&self) -> Result<OsString, i32> {
         let mut s = null_mut();
-        let this = try!(self.0.cast::<ISetupInstance2>());
+        let this = self.0.cast::<ISetupInstance2>()?;
         let err = unsafe { this.GetProductPath(&mut s) };
         let bstr = unsafe { BStr::from_raw(s) };
         if err < 0 {

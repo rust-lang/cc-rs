@@ -1,12 +1,9 @@
-extern crate cc;
-extern crate tempdir;
-
 use std::env;
 use std::ffi::OsString;
 use std::path::Path;
 
 mod support;
-use support::Test;
+use crate::support::Test;
 
 #[test]
 fn main() {

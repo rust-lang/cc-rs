@@ -13,13 +13,13 @@ use std::ops::Deref;
 use std::os::windows::ffi::{OsStrExt, OsStringExt};
 use std::ptr::null_mut;
 use std::slice::from_raw_parts;
-use winapi::CoInitializeEx;
-use winapi::IUnknown;
-use winapi::Interface;
-use winapi::BSTR;
-use winapi::COINIT_MULTITHREADED;
-use winapi::{SysFreeString, SysStringLen};
-use winapi::{HRESULT, S_FALSE, S_OK};
+use crate::winapi::CoInitializeEx;
+use crate::winapi::IUnknown;
+use crate::winapi::Interface;
+use crate::winapi::BSTR;
+use crate::winapi::COINIT_MULTITHREADED;
+use crate::winapi::{SysFreeString, SysStringLen};
+use crate::winapi::{HRESULT, S_FALSE, S_OK};
 
 pub fn initialize() -> Result<(), HRESULT> {
     let err = unsafe { CoInitializeEx(null_mut(), COINIT_MULTITHREADED) };

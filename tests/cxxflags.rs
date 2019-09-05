@@ -1,10 +1,7 @@
-extern crate cc;
-extern crate tempdir;
-
 mod support;
 
 use std::env;
-use support::Test;
+use crate::support::Test;
 
 /// This test is in its own module because it modifies the environment and would affect other tests
 /// when run in parallel with them.

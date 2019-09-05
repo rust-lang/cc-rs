@@ -42,8 +42,6 @@
 //! Use the `Build` struct to compile `src/foo.c`:
 //!
 //! ```no_run
-//! extern crate cc;
-//!
 //! fn main() {
 //!     cc::Build::new()
 //!         .file("src/foo.c")
