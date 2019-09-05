@@ -28,8 +28,6 @@ Next up, you'll want to write a build script like so:
 ```rust,no_run
 // build.rs
 
-extern crate cc;
-
 fn main() {
     cc::Build::new()
         .file("foo.c")
@@ -143,8 +141,6 @@ required varies per platform, but there are three broad categories:
 `Build`:
 
 ```rust,no_run
-extern crate cc;
-
 fn main() {
     cc::Build::new()
         .cpp(true) // Switch to C++ library compilation.
@@ -163,8 +159,6 @@ linked to the crate target.
 on `Build` (currently for GNU/Clang toolchains only):
 
 ```rust,no_run
-extern crate cc;
-
 fn main() {
     cc::Build::new()
         // Switch to CUDA C++ library compilation using NVCC.

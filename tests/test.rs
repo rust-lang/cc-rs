@@ -1,7 +1,4 @@
-extern crate cc;
-extern crate tempdir;
-
-use support::Test;
+use crate::support::Test;
 
 mod support;
 
