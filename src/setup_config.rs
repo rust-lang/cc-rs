@@ -8,8 +8,6 @@
 #![allow(bad_style)]
 #![allow(unused)]
 
-use std::ffi::OsString;
-use std::ptr::null_mut;
 use crate::winapi::Interface;
 use crate::winapi::BSTR;
 use crate::winapi::LPCOLESTR;
@@ -19,6 +17,8 @@ use crate::winapi::{CoCreateInstance, CLSCTX_ALL};
 use crate::winapi::{IUnknown, IUnknownVtbl};
 use crate::winapi::{HRESULT, LCID, LPCWSTR, PULONGLONG};
 use crate::winapi::{LPFILETIME, ULONG};
+use std::ffi::OsString;
+use std::ptr::null_mut;
 
 use crate::com::{BStr, ComPtr};
 

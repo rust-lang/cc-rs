@@ -1,0 +1,122 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [stable, beta, nightly, linux32, macos, aarch64-ios, win32, win64, mingw32, mingw64, windows-2016]
+        include:
+          - build: stable
+            os: ubuntu-latest
+            rust: stable
+            target: x86_64-unknown-linux-gnu
+          - build: beta
+            os: ubuntu-latest
+            rust: beta
+            target: x86_64-unknown-linux-gnu
+          - build: nightly
+            os: ubuntu-latest
+            rust: nightly
+            target: x86_64-unknown-linux-gnu
+          - build: linux32
+            os: ubuntu-latest
+            rust: stable
+            target: i686-unknown-linux-gnu
+          - build: macos
+            os: macos-latest
+            rust: stable
+            target: x86_64-apple-darwin
+          - build: aarch64-ios
+            os: macos-latest
+            rust: stable
+            target: aarch64-apple-ios
+            no_run: --no-run
+          - build: win32
+            os: windows-2016
+            rust: stable-i686-msvc
+            target: i686-pc-windows-msvc
+          - build: win64
+            os: windows-latest
+            rust: stable
+            target: x86_64-pc-windows-msvc
+          - build: mingw32
+            os: windows-latest
+            rust: stable-i686-gnu
+            target: i686-pc-windows-gnu
+          - build: mingw64
+            os: windows-latest
+            rust: stable-x86_64-gnu
+            target: x86_64-pc-windows-gnu
+          - build: windows-2016
+            os: windows-2016
+            rust: stable-x86_64
+            target: x86_64-pc-windows-msvc
+    steps:
+    - uses: actions/checkout@master
+    - name: Install Rust (rustup)
+      run: rustup update ${{ matrix.rust }} && rustup default ${{ matrix.rust }}
+      if: matrix.os != 'macos-latest'
+    - name: Install Rust (macos)
+      run: |
+        curl https://sh.rustup.rs | sh -s -- -y
+        echo "##[add-path]$HOME/.cargo/bin"
+      if: matrix.os == 'macos-latest'
+    - run: rustup target add ${{ matrix.target }}
+    - name: Install g++-multilib
+      run: |
+        set -e
+        # Remove the ubuntu-toolchain-r/test PPA, which is added by default.
+        # Some packages were removed, and this is causing the g++multilib
+        # install to fail. Similar issue:
+        # https://github.com/scikit-learn/scikit-learn/issues/13928.
+        sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
+        sudo apt-get install g++-multilib
+      if: matrix.build == 'linux32'
+    - run: cargo build
+    - run: cargo test ${{ matrix.no_run }}
+    - run: cargo test ${{ matrix.no_run }} --features parallel
+    - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }}
+    - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --features parallel
+    - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --release
+
+  msrv:
+    name: MSRV
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+    - uses: actions/checkout@master
+    - name: Install Rust
+      run: rustup update 1.31.0 && rustup default 1.31.0
+    - run: cargo build
+
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@master
+    - name: Install Rust
+      run: rustup update stable && rustup default stable && rustup component add rustfmt
+    - run: cargo fmt -- --check
+
+  publish_docs:
+    name: Publish Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - name: Install Rust
+        run: rustup update stable && rustup default stable
+      - name: Build documentation
+        run: cargo doc --no-deps --all-features
+      - name: Publish documentation
+        run: |
+          cd target/doc
+          git init
+          git add .
+          git -c user.name='ci' -c user.email='ci' commit -m init
+          git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages
+        if: github.event_name == 'push' && github.event.ref == 'refs/heads/master'

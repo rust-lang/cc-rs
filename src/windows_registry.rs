@@ -313,8 +313,7 @@ mod impl_ {
     }
 
     fn tool_from_vs15_instance(tool: &str, target: &str, instance: &SetupInstance) -> Option<Tool> {
-        let (bin_path, host_dylib_path, lib_path, include_path) =
-            vs15_vc_paths(target, instance)?;
+        let (bin_path, host_dylib_path, lib_path, include_path) = vs15_vc_paths(target, instance)?;
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() {
             return None;
@@ -520,12 +519,13 @@ mod impl_ {
         let max_libdir = readdir
             .filter_map(|dir| dir.ok())
             .map(|dir| dir.path())
-            .filter(|dir| dir
-                .components()
-                .last()
-                .and_then(|c| c.as_os_str().to_str())
-                .map(|c| c.starts_with("10.") && dir.join("ucrt").is_dir())
-                .unwrap_or(false))
+            .filter(|dir| {
+                dir.components()
+                    .last()
+                    .and_then(|c| c.as_os_str().to_str())
+                    .map(|c| c.starts_with("10.") && dir.join("ucrt").is_dir())
+                    .unwrap_or(false)
+            })
             .max()?;
         let version = max_libdir.components().last().unwrap();
         let version = version.as_os_str().to_str().unwrap().to_string();

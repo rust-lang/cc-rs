@@ -2,8 +2,6 @@
 
 A library to compile C/C++/assembly into a Rust library/application.
 
-[![Build Status](https://dev.azure.com/alexcrichton/cc-rs/_apis/build/status/alexcrichton.cc-rs?branchName=master)](https://dev.azure.com/alexcrichton/cc-rs/_build/latest?definitionId=5&branchName=master)
-
 [Documentation](https://docs.rs/cc)
 
 A simple library meant to be used as a build dependency with Cargo packages in
