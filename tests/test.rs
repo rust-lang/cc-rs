@@ -39,10 +39,40 @@ fn gnu_opt_level_s() {
 }
 
 #[test]
-fn gnu_debug() {
+fn gnu_debug_fp_auto() {
     let test = Test::gnu();
     test.gcc().debug(true).file("foo.c").compile("foo");
     test.cmd(0).must_have("-g");
+    test.cmd(0).must_have("-fno-omit-frame-pointer");
+}
+
+#[test]
+fn gnu_debug_fp() {
+    let test = Test::gnu();
+    test.gcc().debug(true).file("foo.c").compile("foo");
+    test.cmd(0).must_have("-g");
+    test.cmd(0).must_have("-fno-omit-frame-pointer");
+}
+
+#[test]
+fn gnu_debug_nofp() {
+    let test = Test::gnu();
+    test.gcc()
+        .debug(true)
+        .force_frame_pointer(false)
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-g");
+    test.cmd(0).must_not_have("-fno-omit-frame-pointer");
+
+    let test = Test::gnu();
+    test.gcc()
+        .force_frame_pointer(false)
+        .debug(true)
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-g");
+    test.cmd(0).must_not_have("-fno-omit-frame-pointer");
 }
 
 #[test]
