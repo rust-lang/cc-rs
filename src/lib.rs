@@ -1011,7 +1011,7 @@ impl Build {
 
         // Reacquire our process's token before we proceed, which we released
         // before entering the loop above.
-        server.release_raw()?;
+        server.acquire_raw()?;
 
         return Ok(());
 
