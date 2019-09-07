@@ -977,6 +977,7 @@ impl Build {
         // possible as soon as any compilation fails to ensure that errors get
         // out to the user as fast as possible.
         let server = jobserver();
+        server.release_raw()?; // release our process's token which we'll reacquire in the loop
         let error = AtomicBool::new(false);
         let mut threads = Vec::new();
         for obj in objs {
@@ -1007,6 +1008,10 @@ impl Build {
                 thread.join().expect("thread should not panic")?;
             }
         }
+
+        // Reacquire our process's token before we proceed, which we released
+        // before entering the loop above.
+        server.release_raw()?;
 
         return Ok(());
 
@@ -1053,7 +1058,12 @@ impl Build {
                     parallelism = amt;
                 }
             }
-            jobserver::Client::new(parallelism).expect("failed to create jobserver")
+
+            // If we create our own jobserver then be sure to reserve one token
+            // for ourselves.
+            let client = jobserver::Client::new(parallelism).expect("failed to create jobserver");
+            client.acquire_raw().expect("failed to acquire initial");
+            return client;
         }
 
         struct JoinOnDrop(Option<thread::JoinHandle<Result<(), Error>>>);
