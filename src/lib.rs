@@ -943,6 +943,14 @@ impl Build {
         use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
         use std::sync::Once;
 
+        // Limit our parallelism globally with a jobserver. Start off by
+        // releasing our own token for this process so we can have a bit of an
+        // easier to write loop below. If this fails, though, then we're likely
+        // on Windows with the main implicit token, so we just have a bit extra
+        // parallelism for a bit and don't reacquire later.
+        let server = jobserver();
+        let reacquire = server.release_raw().is_ok();
+
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
         //
@@ -976,8 +984,6 @@ impl Build {
         // Note that as a slight optimization we try to break out as soon as
         // possible as soon as any compilation fails to ensure that errors get
         // out to the user as fast as possible.
-        let server = jobserver();
-        server.release_raw()?; // release our process's token which we'll reacquire in the loop
         let error = AtomicBool::new(false);
         let mut threads = Vec::new();
         for obj in objs {
@@ -1011,7 +1017,9 @@ impl Build {
 
         // Reacquire our process's token before we proceed, which we released
         // before entering the loop above.
-        server.acquire_raw()?;
+        if reacquire {
+            server.acquire_raw()?;
+        }
 
         return Ok(());
 
