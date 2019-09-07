@@ -105,6 +105,7 @@ pub struct Build {
     out_dir: Option<PathBuf>,
     opt_level: Option<String>,
     debug: Option<bool>,
+    force_frame_pointer: Option<bool>,
     env: Vec<(OsString, OsString)>,
     compiler: Option<PathBuf>,
     archiver: Option<PathBuf>,
@@ -209,8 +210,17 @@ impl ToolFamily {
             }
             ToolFamily::Gnu | ToolFamily::Clang => {
                 cmd.push_cc_arg("-g".into());
+            }
+        }
+    }
+
+    /// What the flag to force frame pointers.
+    fn add_force_frame_pointer(&self, cmd: &mut Tool) {
+        match *self {
+            ToolFamily::Gnu | ToolFamily::Clang => {
                 cmd.push_cc_arg("-fno-omit-frame-pointer".into());
             }
+            _ => (),
         }
     }
 
@@ -286,6 +296,7 @@ impl Build {
             out_dir: None,
             opt_level: None,
             debug: None,
+            force_frame_pointer: None,
             env: Vec::new(),
             compiler: None,
             archiver: None,
@@ -755,6 +766,17 @@ impl Build {
     /// variable by build scripts, so it's not required to call this function.
     pub fn debug(&mut self, debug: bool) -> &mut Build {
         self.debug = Some(debug);
+        self
+    }
+
+    /// Configures whether the compiler will emit instructions to store
+    /// frame pointers during codegen.
+    ///
+    /// This option is automatically enabled when debug information is emitted.
+    /// Otherwise the target platform compiler's default will be used.
+    /// You can use this option to force a specific setting.
+    pub fn force_frame_pointer(&mut self, force: bool) -> &mut Build {
+        self.force_frame_pointer = Some(force);
         self
     }
 
@@ -1346,6 +1368,11 @@ impl Build {
             }
             let family = cmd.family;
             family.add_debug_flags(cmd);
+        }
+
+        if self.get_force_frame_pointer() {
+            let family = cmd.family;
+            family.add_force_frame_pointer(cmd);
         }
 
         // Target flags
@@ -2225,6 +2252,10 @@ impl Build {
             Some(s) => s != "false",
             None => false,
         })
+    }
+
+    fn get_force_frame_pointer(&self) -> bool {
+        self.force_frame_pointer.unwrap_or_else(|| self.get_debug())
     }
 
     fn get_out_dir(&self) -> Result<PathBuf, Error> {
