@@ -35,7 +35,7 @@
 //! Cargo will also set this environment variable when executed with the `-jN` flag.
 //!
 //! If `NUM_JOBS` is not set, the `RAYON_NUM_THREADS` environment variable can
-//! also specify the build paralellism.
+//! also specify the build parallelism.
 //!
 //! # Examples
 //!
