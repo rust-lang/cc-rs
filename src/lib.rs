@@ -94,6 +94,7 @@ pub struct Build {
     flags: Vec<String>,
     flags_supported: Vec<String>,
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
+    ar_flags: Vec<String>,
     no_default_flags: bool,
     files: Vec<PathBuf>,
     cpp: bool,
@@ -283,6 +284,7 @@ impl Build {
             flags: Vec::new(),
             flags_supported: Vec::new(),
             known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
+            ar_flags: Vec::new(),
             no_default_flags: false,
             files: Vec::new(),
             shared_flag: None,
@@ -366,6 +368,23 @@ impl Build {
     /// ```
     pub fn flag(&mut self, flag: &str) -> &mut Build {
         self.flags.push(flag.to_string());
+        self
+    }
+
+    /// Add an arbitrary flag to the invocation of the compiler
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .file("src/bar.c")
+    ///     .ar_flag("/NODEFAULTLIB:libc.dll")
+    ///     .compile("foo");
+    /// ```
+
+    pub fn ar_flag(&mut self, flag: &str) -> &mut Build {
+        self.ar_flags.push(flag.to_string());
         self
     }
 
@@ -1668,6 +1687,9 @@ impl Build {
             let mut out = OsString::from("-out:");
             out.push(dst);
             cmd.arg(out).arg("-nologo");
+            for flag in self.ar_flags.iter() {
+                cmd.arg(flag);
+            }
 
             // Similar to https://github.com/rust-lang/rust/pull/47507
             // and https://github.com/rust-lang/rust/pull/48548
@@ -1754,7 +1776,9 @@ impl Build {
             // In any case if this doesn't end up getting read, it shouldn't
             // cause that many issues!
             ar.env("ZERO_AR_DATE", "1");
-
+            for flag in self.ar_flags.iter() {
+                ar.arg(flag);
+            }
             run(
                 ar.arg("crs").arg(dst).args(&objects).args(&self.objects),
                 &cmd,
