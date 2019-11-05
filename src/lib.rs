@@ -1903,13 +1903,19 @@ impl Build {
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
-            .map(|(tool, cc, args)| {
+            .map(|(tool, wrapper, args)| {
+                // find the driver mode, if any
+                const DRIVER_MODE: &str = "--driver-mode=";
+                let driver_mode = args
+                    .iter()
+                    .find(|a| a.starts_with(DRIVER_MODE))
+                    .map(|a| &a[DRIVER_MODE.len()..]);
                 // chop off leading/trailing whitespace to work around
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::new(PathBuf::from(tool.trim()));
-                if let Some(cc) = cc {
+                let mut t = Tool::with_clang_driver(PathBuf::from(tool.trim()), driver_mode);
+                if let Some(cc) = wrapper {
                     t.cc_wrapper_path = Some(PathBuf::from(cc));
                 }
                 for arg in args {
@@ -2062,7 +2068,7 @@ impl Build {
                 Err(_) => "nvcc".into(),
                 Ok(nvcc) => nvcc,
             };
-            let mut nvcc_tool = Tool::with_features(PathBuf::from(nvcc), self.cuda);
+            let mut nvcc_tool = Tool::with_features(PathBuf::from(nvcc), None, self.cuda);
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());
@@ -2329,11 +2335,15 @@ impl Default for Build {
 }
 
 impl Tool {
-    fn new(path: PathBuf) -> Tool {
-        Tool::with_features(path, false)
+    fn new(path: PathBuf) -> Self {
+        Tool::with_features(path, None, false)
     }
 
-    fn with_features(path: PathBuf, cuda: bool) -> Tool {
+    fn with_clang_driver(path: PathBuf, clang_driver: Option<&str>) -> Self {
+        Self::with_features(path, clang_driver, false)
+    }
+
+    fn with_features(path: PathBuf, clang_driver: Option<&str>, cuda: bool) -> Self {
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang-cl") {
@@ -2345,13 +2355,17 @@ impl Tool {
             {
                 ToolFamily::Msvc { clang_cl: false }
             } else if fname.contains("clang") {
-                ToolFamily::Clang
+                match clang_driver {
+                    Some("cl") => ToolFamily::Msvc { clang_cl: true },
+                    _ => ToolFamily::Clang,
+                }
             } else {
                 ToolFamily::Gnu
             }
         } else {
             ToolFamily::Gnu
         };
+
         Tool {
             path: path,
             cc_wrapper_path: None,
