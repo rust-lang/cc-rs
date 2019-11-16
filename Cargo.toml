@@ -25,4 +25,4 @@ jobserver = { version = "0.1.16", optional = true }
 parallel = ["num_cpus", "jobserver"]
 
 [dev-dependencies]
-tempdir = "0.3"
+tempfile = "3"
