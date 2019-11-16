@@ -8,7 +8,7 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
 use cc;
-use tempdir::TempDir;
+use tempfile::{Builder, TempDir};
 
 pub struct Test {
     pub td: TempDir,
@@ -27,7 +27,7 @@ impl Test {
         if gcc.ends_with("deps") {
             gcc.pop();
         }
-        let td = TempDir::new_in(&gcc, "gcc-test").unwrap();
+        let td = Builder::new().prefix("gcc-test").tempdir_in(&gcc).unwrap();
         gcc.push(format!("gcc-shim{}", env::consts::EXE_SUFFIX));
         Test {
             td: td,
