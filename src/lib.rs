@@ -1588,9 +1588,11 @@ impl Build {
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
                         cmd.args.push(("-march=rv".to_owned() + arch).into());
-                        // ABI is always soft-float right now, update this when this is no longer the
-                        // case:
-                        if arch.starts_with("64") {
+                        if target.contains("linux") && arch.starts_with("64") {
+                            cmd.args.push("-mabi=lp64d".into());
+                        } else if target.contains("linux") && arch.starts_with("32") {
+                            cmd.args.push("-mabi=ilp32d".into());
+                        } else if arch.starts_with("64") {
                             cmd.args.push("-mabi=lp64".into());
                         } else {
                             cmd.args.push("-mabi=ilp32".into());
