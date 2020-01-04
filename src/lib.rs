@@ -2027,6 +2027,7 @@ impl Build {
                         "riscv32imc-unknown-none-elf" => Some("riscv32-unknown-elf"),
                         "riscv64gc-unknown-none-elf" => Some("riscv64-unknown-elf"),
                         "riscv64imac-unknown-none-elf" => Some("riscv64-unknown-elf"),
+                        "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
                         "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
                         "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
                         "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
