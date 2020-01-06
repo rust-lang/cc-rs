@@ -167,6 +167,8 @@ impl Display for Error {
     }
 }
 
+impl std::error::Error for Error {}
+
 /// Configuration used to represent an invocation of a C compiler.
 ///
 /// This can be used to figure out what compiler is in use, what the arguments
