@@ -1101,9 +1101,13 @@ impl Build {
                 return client;
             }
 
-            // ... but if that fails for whatever reason fall back to the number
-            // of cpus on the system or the `NUM_JOBS` env var.
-            let mut parallelism = num_cpus::get();
+            // ... but if that fails for whatever reason select something
+            // reasonable and crate a new jobserver. Use `NUM_JOBS` if set (it's
+            // configured by Cargo) and otherwise just fall back to a
+            // semi-reasonable number. Note that we could use `num_cpus` here
+            // but it's an extra dependency that will almost never be used, so
+            // it's generally not too worth it.
+            let mut parallelism = 4;
             if let Ok(amt) = env::var("NUM_JOBS") {
                 if let Ok(amt) = amt.parse() {
                     parallelism = amt;

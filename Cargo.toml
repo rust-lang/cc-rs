@@ -18,11 +18,10 @@ exclude = ["/.travis.yml", "/appveyor.yml"]
 edition = "2018"
 
 [dependencies]
-num_cpus = { version = "1.10", optional = true }
 jobserver = { version = "0.1.16", optional = true }
 
 [features]
-parallel = ["num_cpus", "jobserver"]
+parallel = ["jobserver"]
 
 [dev-dependencies]
 tempfile = "3"
