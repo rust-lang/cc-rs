@@ -1603,6 +1603,7 @@ impl Build {
                         } else {
                             cmd.args.push("-mabi=ilp32".into());
                         }
+                        cmd.args.push("-mcmodel=medany".into());
                     }
                 }
             }
