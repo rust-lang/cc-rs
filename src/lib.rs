@@ -847,7 +847,7 @@ impl Build {
 
     /// Configures whether the compiler will emit position independent code.
     ///
-    /// This option defaults to `false` for `windows-gnu` and `riscv` targets and
+    /// This option defaults to `false` for `windows-gnu` and bare metal targets and
     /// to `true` for all other targets.
     pub fn pic(&mut self, pic: bool) -> &mut Build {
         self.pic = Some(pic);
@@ -1371,11 +1371,11 @@ impl Build {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
-                // Disable generation of PIC on bare-metal RISC-V for now: rust-lld doesn't support this yet
-                if self.pic.unwrap_or(
-                    !target.contains("windows-gnu")
-                        && !(target.contains("riscv") && target.contains("-none-")),
-                ) {
+                // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
+                if self
+                    .pic
+                    .unwrap_or(!target.contains("windows-gnu") && !target.contains("-none-"))
+                {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
