@@ -58,13 +58,7 @@ jobs:
     - uses: actions/checkout@master
     - name: Install Rust (rustup)
       run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
-      if: matrix.os != 'macos-latest'
       shell: bash
-    - name: Install Rust (macos)
-      run: |
-        curl https://sh.rustup.rs | sh -s -- -y
-        echo "##[add-path]$HOME/.cargo/bin"
-      if: matrix.os == 'macos-latest'
     - run: rustup target add ${{ matrix.target }}
     - name: Install g++-multilib
       run: |
