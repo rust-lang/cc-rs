@@ -1867,7 +1867,7 @@ impl Build {
         cmd.args.push(sdk_path.trim().into());
         cmd.args.push("-fembed-bitcode".into());
         /*
-         * TODO we probably ultimatedly want the -fembed-bitcode-marker flag
+         * TODO we probably ultimately want the -fembed-bitcode-marker flag
          * but can't have it now because of an issue in LLVM:
          * https://github.com/alexcrichton/cc-rs/issues/301
          * https://github.com/rust-lang/rust/pull/48896#comment-372192660
@@ -1919,13 +1919,13 @@ impl Build {
                     .iter()
                     .find(|a| a.starts_with(DRIVER_MODE))
                     .map(|a| &a[DRIVER_MODE.len()..]);
-                // chop off leading/trailing whitespace to work around
+                // Chop off leading/trailing whitespace to work around
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
                 let mut t = Tool::with_clang_driver(PathBuf::from(tool.trim()), driver_mode);
-                if let Some(cc) = wrapper {
-                    t.cc_wrapper_path = Some(PathBuf::from(cc));
+                if let Some(cc_wrapper) = wrapper {
+                    t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
                 for arg in args {
                     t.cc_wrapper_args.push(arg.into());
@@ -2065,7 +2065,12 @@ impl Build {
                 } else {
                     default.to_string()
                 };
-                Tool::new(PathBuf::from(compiler))
+
+                let mut t = Tool::new(PathBuf::from(compiler));
+                if let Some(cc_wrapper) = Self::rustc_wrapper_fallback() {
+                    t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
+                }
+                t
             }
         };
 
@@ -2141,6 +2146,18 @@ impl Build {
             .collect()
     }
 
+    /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
+    fn rustc_wrapper_fallback() -> Option<&'static str> {
+        // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
+        // is defined and is a build accelerator that is compatible with
+        // C/C++ compilers (e.g. sccache)
+        let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER");
+        match rustc_wrapper.as_ref().and_then(|s| s.as_os_str().to_str()) {
+            Some("sccache") => Some("sccache"),
+            _ => return None,
+        }
+    }
+
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
     fn env_tool(&self, name: &str) -> Option<(String, Option<String>, Vec<String>)> {
         let tool = match self.get_var(name) {
@@ -2200,7 +2217,7 @@ impl Build {
 
         Some((
             maybe_wrapper.to_string(),
-            None,
+            Self::rustc_wrapper_fallback().map(|s| s.to_owned()),
             parts.map(|s| s.to_string()).collect(),
         ))
     }
