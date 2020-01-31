@@ -2147,14 +2147,20 @@ impl Build {
     }
 
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
-    fn rustc_wrapper_fallback() -> Option<&'static str> {
+    fn rustc_wrapper_fallback() -> Option<String> {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER");
-        match rustc_wrapper.as_ref().and_then(|s| s.as_os_str().to_str()) {
-            Some("sccache") => Some("sccache"),
-            _ => return None,
+        let valid_wrappers = ["sccache"];
+
+        let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER")?;
+        let wrapper_path = Path::new(&rustc_wrapper);
+        let wrapper_stem = wrapper_path.file_stem()?;
+
+        if valid_wrappers.contains(&wrapper_stem.to_str()?) {
+            Some(rustc_wrapper.to_str()?.to_owned())
+        } else {
+            None
         }
     }
 
@@ -2217,7 +2223,7 @@ impl Build {
 
         Some((
             maybe_wrapper.to_string(),
-            Self::rustc_wrapper_fallback().map(|s| s.to_owned()),
+            Self::rustc_wrapper_fallback(),
             parts.map(|s| s.to_string()).collect(),
         ))
     }
