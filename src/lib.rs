@@ -449,11 +449,13 @@ impl Build {
 
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
+        let clang = compiler.family == ToolFamily::Clang;
         command_add_output_file(
             &mut cmd,
             &obj,
             self.cuda,
             target.contains("msvc"),
+            clang,
             false,
             is_arm,
         );
@@ -1144,10 +1146,11 @@ impl Build {
         let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
+        let compiler = self.try_get_compiler()?;
+        let clang = compiler.family == ToolFamily::Clang;
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
-            let compiler = self.try_get_compiler()?;
             let mut cmd = compiler.to_command();
             for &(ref a, ref b) in self.env.iter() {
                 cmd.env(a, b);
@@ -1163,7 +1166,7 @@ impl Build {
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, is_asm, is_arm);
+        command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, clang, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
         if !msvc || !is_asm || !is_arm {
             cmd.arg("-c");
@@ -2685,10 +2688,11 @@ fn command_add_output_file(
     dst: &Path,
     cuda: bool,
     msvc: bool,
+    clang: bool,
     is_asm: bool,
     is_arm: bool,
 ) {
-    if msvc && !cuda && !(is_asm && is_arm) {
+    if msvc && !clang && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
