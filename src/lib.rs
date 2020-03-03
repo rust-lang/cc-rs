@@ -1374,7 +1374,7 @@ impl Build {
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
                 if self
                     .pic
-                    .unwrap_or(!target.contains("windows-gnu") && !target.contains("-none-"))
+                    .unwrap_or(!target.contains("windows") && !target.contains("-none-"))
                 {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
