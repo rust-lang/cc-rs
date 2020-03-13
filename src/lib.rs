@@ -1591,6 +1591,14 @@ impl Build {
                         cmd.args.push("-mfloat-abi=soft".into());
                     }
                 }
+                if target.starts_with("armv7a") {
+                    cmd.args.push("-march=armv7-a".into());
+
+                    if target.ends_with("eabihf") {
+                        // lowest common denominator FPU
+                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                    }
+                }
                 if target.starts_with("riscv32") || target.starts_with("riscv64") {
                     // get the 32i/32imac/32imc/64gc/64imac/... part
                     let mut parts = target.split('-');
@@ -2044,6 +2052,8 @@ impl Build {
                         "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
                         "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
                         "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
+                        "armv7a-none-eabi" => Some("arm-none-eabi"),
+                        "armv7a-none-eabihf" => Some("arm-none-eabi"),
                         "armebv7r-none-eabi" => Some("arm-none-eabi"),
                         "armebv7r-none-eabihf" => Some("arm-none-eabi"),
                         "armv7r-none-eabi" => Some("arm-none-eabi"),
