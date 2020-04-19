@@ -1912,8 +1912,11 @@ impl Build {
             ("CC", "cl.exe", "gcc", "cc", "clang")
         };
 
-        // On Solaris, c++/cc unlikely to exist or be correct.
-        let default = if host.contains("solaris") {
+        // On historical Solaris systems, "cc" may have been Sun Studio, which
+        // is not flag-compatible with "gcc".  This history casts a long shadow,
+        // and many modern illumos distributions today ship GCC as "gcc" without
+        // also making it available as "cc".
+        let default = if host.contains("solaris") || host.contains("illumos") {
             gnu
         } else {
             traditional
