@@ -1980,15 +1980,20 @@ impl Build {
                         .replace("thumbv7neon", "arm")
                         .replace("thumbv7", "arm");
                     let gnu_compiler = format!("{}-{}", target, gnu);
-                    let clang_compiler = if host.contains("windows") {
-                        format!("{}-{}.cmd", target, clang)
-                    } else {
-                        format!("{}-{}", target, clang)
-                    };
+                    let clang_compiler = format!("{}-{}", target, clang);
+                    // On Windows, the Android clang compiler is provided as a `.cmd` file instead
+                    // of a `.exe` file. `std::process::Command` won't run `.cmd` files unless the
+                    // `.cmd` is explicitly appended to the command name, so we do that here.
+                    let clang_compiler_cmd = format!("{}-{}.cmd", target, clang);
+
                     // Check if gnu compiler is present
                     // if not, use clang
                     if Command::new(&gnu_compiler).spawn().is_ok() {
                         gnu_compiler
+                    } else if host.contains("windows")
+                        && Command::new(&clang_compiler).spawn().is_err()
+                    {
+                        clang_compiler_cmd
                     } else {
                         clang_compiler
                     }
