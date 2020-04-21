@@ -1980,7 +1980,11 @@ impl Build {
                         .replace("thumbv7neon", "arm")
                         .replace("thumbv7", "arm");
                     let gnu_compiler = format!("{}-{}", target, gnu);
-                    let clang_compiler = format!("{}-{}", target, clang);
+                    let clang_compiler = if host.contains("windows") {
+                        format!("{}-{}.cmd", target, clang)
+                    } else {
+                        format!("{}-{}", target, clang)
+                    };
                     // Check if gnu compiler is present
                     // if not, use clang
                     if Command::new(&gnu_compiler).spawn().is_ok() {
