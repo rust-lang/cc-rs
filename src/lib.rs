@@ -1988,10 +1988,10 @@ impl Build {
 
                     // Check if gnu compiler is present
                     // if not, use clang
-                    if Command::new(&gnu_compiler).spawn().is_ok() {
+                    if Command::new(&gnu_compiler).output().is_ok() {
                         gnu_compiler
                     } else if host.contains("windows")
-                        && Command::new(&clang_compiler).spawn().is_err()
+                        && Command::new(&clang_compiler).output().is_ok()
                     {
                         clang_compiler_cmd
                     } else {
