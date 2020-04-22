@@ -80,7 +80,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
     // the tool is actually usable.
 
-    return impl_::find_msvc_15(tool, target)
+    return impl_::find_msvc_15plus(tool, target)
         .or_else(|| impl_::find_msvc_14(tool, target))
         .or_else(|| impl_::find_msvc_12(tool, target))
         .or_else(|| impl_::find_msvc_11(tool, target));
@@ -173,6 +173,7 @@ mod impl_ {
     use std::iter;
     use std::mem;
     use std::path::{Path, PathBuf};
+    use std::str::FromStr;
 
     use crate::Tool;
 
@@ -210,7 +211,7 @@ mod impl_ {
 
     #[allow(bare_trait_objects)]
     fn vs16_instances() -> Box<Iterator<Item = PathBuf>> {
-        let instances = if let Some(instances) = vs15_instances() {
+        let instances = if let Some(instances) = vs15plus_instances() {
             instances
         } else {
             return Box::new(iter::empty());
@@ -253,24 +254,34 @@ mod impl_ {
     // Note that much of this logic can be found [online] wrt paths, COM, etc.
     //
     // [online]: https://blogs.msdn.microsoft.com/vcblog/2017/03/06/finding-the-visual-c-compiler-tools-in-visual-studio-2017/
-    fn vs15_instances() -> Option<EnumSetupInstances> {
+    //
+    // Returns MSVC 15+ instances (15, 16 right now), the order should be consider undefined.
+    fn vs15plus_instances() -> Option<EnumSetupInstances> {
         com::initialize().ok()?;
 
         let config = SetupConfiguration::new().ok()?;
         config.enum_all_instances().ok()
     }
 
-    pub fn find_msvc_15(tool: &str, target: &str) -> Option<Tool> {
-        let iter = vs15_instances()?;
-        for instance in iter {
-            let instance = instance.ok()?;
-            let tool = tool_from_vs15_instance(tool, target, &instance);
-            if tool.is_some() {
-                return tool;
-            }
-        }
+    // Inspired from official microsoft/vswhere ParseVersionString
+    // i.e. at most four u16 numbers separated by '.'
+    fn parse_version(version: &str) -> Option<Vec<u16>> {
+        version
+            .split('.')
+            .map(|chunk| u16::from_str(chunk).ok())
+            .collect()
+    }
 
-        None
+    pub fn find_msvc_15plus(tool: &str, target: &str) -> Option<Tool> {
+        let iter = vs15plus_instances()?;
+        iter.filter_map(|instance| {
+            let instance = instance.ok()?;
+            let version = parse_version(instance.installation_version().ok()?.to_str()?)?;
+            let tool = tool_from_vs15plus_instance(tool, target, &instance)?;
+            Some((version, tool))
+        })
+        .max_by(|(a_version, _), (b_version, _)| a_version.cmp(b_version))
+        .map(|(_version, tool)| tool)
     }
 
     // While the paths to Visual Studio 2017's devenv and MSBuild could
@@ -281,7 +292,7 @@ mod impl_ {
     //
     // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
     fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
-        let mut path = match vs15_instances() {
+        let mut path = match vs15plus_instances() {
             Some(instances) => instances
                 .filter_map(|instance| {
                     instance
@@ -312,8 +323,13 @@ mod impl_ {
         })
     }
 
-    fn tool_from_vs15_instance(tool: &str, target: &str, instance: &SetupInstance) -> Option<Tool> {
-        let (bin_path, host_dylib_path, lib_path, include_path) = vs15_vc_paths(target, instance)?;
+    fn tool_from_vs15plus_instance(
+        tool: &str,
+        target: &str,
+        instance: &SetupInstance,
+    ) -> Option<Tool> {
+        let (bin_path, host_dylib_path, lib_path, include_path) =
+            vs15plus_vc_paths(target, instance)?;
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() {
             return None;
@@ -334,7 +350,7 @@ mod impl_ {
         Some(tool.into_tool())
     }
 
-    fn vs15_vc_paths(
+    fn vs15plus_vc_paths(
         target: &str,
         instance: &SetupInstance,
     ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf)> {
