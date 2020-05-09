@@ -1370,6 +1370,15 @@ impl Build {
                     cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
                 }
 
+                if cmd.family == ToolFamily::Clang && target.contains("android") {
+                    // For compatibility with code that doesn't use pre-defined `__ANDROID__` macro.
+                    // If compiler used via ndk-build or cmake (officially supported build methods)
+                    // this macros is defined.
+                    // See https://android.googlesource.com/platform/ndk/+/refs/heads/ndk-release-r21/build/cmake/android.toolchain.cmake#456
+                    // https://android.googlesource.com/platform/ndk/+/refs/heads/ndk-release-r21/build/core/build-binary.mk#141
+                    cmd.push_opt_unless_duplicate("-DANDROID".into());
+                }
+
                 if !target.contains("-ios") {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
@@ -1406,7 +1415,11 @@ impl Build {
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
-                cmd.args.push(format!("--target={}", target).into());
+                if !(target.contains("android")
+                    && android_clang_compiler_uses_target_arg_internally(&cmd.path))
+                {
+                    cmd.args.push(format!("--target={}", target).into());
+                }
             }
             ToolFamily::Msvc { clang_cl } => {
                 // This is an undocumented flag from MSVC but helps with making
@@ -1974,29 +1987,7 @@ impl Build {
                         format!("{}.exe", gnu)
                     }
                 } else if target.contains("android") {
-                    let target = target
-                        .replace("armv7neon", "arm")
-                        .replace("armv7", "arm")
-                        .replace("thumbv7neon", "arm")
-                        .replace("thumbv7", "arm");
-                    let gnu_compiler = format!("{}-{}", target, gnu);
-                    let clang_compiler = format!("{}-{}", target, clang);
-                    // On Windows, the Android clang compiler is provided as a `.cmd` file instead
-                    // of a `.exe` file. `std::process::Command` won't run `.cmd` files unless the
-                    // `.cmd` is explicitly appended to the command name, so we do that here.
-                    let clang_compiler_cmd = format!("{}-{}.cmd", target, clang);
-
-                    // Check if gnu compiler is present
-                    // if not, use clang
-                    if Command::new(&gnu_compiler).output().is_ok() {
-                        gnu_compiler
-                    } else if host.contains("windows")
-                        && Command::new(&clang_compiler_cmd).output().is_ok()
-                    {
-                        clang_compiler_cmd
-                    } else {
-                        clang_compiler
-                    }
+                    autodetect_android_compiler(&target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if target == "wasm32-wasi"
@@ -2720,5 +2711,77 @@ fn command_add_output_file(
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(&dst);
+    }
+}
+
+// Use by default minimum available API level
+// See note about naming here
+// https://android.googlesource.com/platform/ndk/+/refs/heads/ndk-release-r21/docs/BuildSystemMaintainers.md#Clang
+static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
+    "aarch64-linux-android21-clang",
+    "armv7a-linux-androideabi16-clang",
+    "i686-linux-android16-clang",
+    "x86_64-linux-android21-clang",
+];
+
+// New "standalone" C/C++ cross-compiler executables from recent Android NDK
+// are just shell scripts that call main clang binary (from Android NDK) with
+// proper `--target` argument.
+//
+// For example, armv7a-linux-androideabi16-clang passes
+// `--target=armv7a-linux-androideabi16` to clang.
+// So to construct proper command line check if
+// `--target` argument would be passed or not to clang
+fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
+    NEW_STANDALONE_ANDROID_COMPILERS.iter().any(|x| {
+        let x: &OsStr = x.as_ref();
+        x == clang_path.as_os_str()
+    })
+}
+
+fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str) -> String {
+    let new_clang_key = match target {
+        "aarch64-linux-android" => Some("aarch64"),
+        "armv7-linux-androideabi" => Some("armv7a"),
+        "i686-linux-android" => Some("i686"),
+        "x86_64-linux-android" => Some("x86_64"),
+        _ => None,
+    };
+
+    let new_clang = new_clang_key
+        .map(|key| {
+            NEW_STANDALONE_ANDROID_COMPILERS
+                .iter()
+                .find(|x| x.starts_with(key))
+        })
+        .unwrap_or(None);
+
+    if let Some(new_clang) = new_clang {
+        if Command::new(new_clang).output().is_ok() {
+            return (*new_clang).into();
+        }
+    }
+
+    let target = target
+        .replace("armv7neon", "arm")
+        .replace("armv7", "arm")
+        .replace("thumbv7neon", "arm")
+        .replace("thumbv7", "arm");
+    let gnu_compiler = format!("{}-{}", target, gnu);
+    let clang_compiler = format!("{}-{}", target, clang);
+
+    // On Windows, the Android clang compiler is provided as a `.cmd` file instead
+    // of a `.exe` file. `std::process::Command` won't run `.cmd` files unless the
+    // `.cmd` is explicitly appended to the command name, so we do that here.
+    let clang_compiler_cmd = format!("{}-{}.cmd", target, clang);
+
+    // Check if gnu compiler is present
+    // if not, use clang
+    if Command::new(&gnu_compiler).output().is_ok() {
+        gnu_compiler
+    } else if host.contains("windows") && Command::new(&clang_compiler_cmd).output().is_ok() {
+        clang_compiler_cmd
+    } else {
+        clang_compiler
     }
 }
