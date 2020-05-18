@@ -2393,6 +2393,7 @@ impl Tool {
         Self::with_features(path, clang_driver, false)
     }
 
+    #[cfg(windows)]
     /// Explictly set the `ToolFamily`, skipping name-based detection.
     fn with_family(path: PathBuf, family: ToolFamily) -> Self {
         Self {

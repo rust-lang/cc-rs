@@ -15,6 +15,7 @@ use std::process::Command;
 
 use crate::{Tool, ToolFamily};
 
+#[cfg(windows)]
 const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
 
 /// Attempts to find a tool within an MSVC installation using the Windows
