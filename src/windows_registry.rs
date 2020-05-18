@@ -177,8 +177,8 @@ mod impl_ {
     use std::path::{Path, PathBuf};
     use std::str::FromStr;
 
-    use crate::Tool;
     use super::MSVC_FAMILY;
+    use crate::Tool;
 
     struct MsvcTool {
         tool: PathBuf,
