@@ -227,7 +227,9 @@ mod impl_ {
             let installation_name = instance.installation_name().ok()?;
             if installation_name.to_str()?.starts_with("VisualStudio/16.") {
                 Some(PathBuf::from(instance.installation_path().ok()?))
-            } else {
+            } else if installation_name.to_str()?.starts_with("VisualStudioPreview/16.") {
+				Some(PathBuf::from(instance.installation_path().ok()?))
+			}else {
                 None
             }
         }))
