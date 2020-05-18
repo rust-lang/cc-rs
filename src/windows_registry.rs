@@ -13,7 +13,9 @@
 
 use std::process::Command;
 
-use crate::{Tool, ToolFamily};
+use crate::Tool;
+#[cfg(windows)]
+use crate::ToolFamily;
 
 #[cfg(windows)]
 const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
