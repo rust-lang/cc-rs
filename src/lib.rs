@@ -2393,6 +2393,21 @@ impl Tool {
         Self::with_features(path, clang_driver, false)
     }
 
+    #[cfg(windows)]
+    /// Explictly set the `ToolFamily`, skipping name-based detection.
+    fn with_family(path: PathBuf, family: ToolFamily) -> Self {
+        Self {
+            path: path,
+            cc_wrapper_path: None,
+            cc_wrapper_args: Vec::new(),
+            args: Vec::new(),
+            env: Vec::new(),
+            family: family,
+            cuda: false,
+            removed_args: Vec::new(),
+        }
+    }
+
     fn with_features(path: PathBuf, clang_driver: Option<&str>, cuda: bool) -> Self {
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
