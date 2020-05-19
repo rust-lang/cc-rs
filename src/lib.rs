@@ -1998,83 +1998,7 @@ impl Build {
                 } else if target.contains("vxworks") {
                     "wr-c++".to_string()
                 } else if self.get_host()? != target {
-                    // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
-                    let cc_env = self.getenv("CROSS_COMPILE");
-                    let cross_compile = cc_env.as_ref().map(|s| s.trim_right_matches('-'));
-                    let prefix = cross_compile.or(match &target[..] {
-                        "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
-                        "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
-                        "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
-                        "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                        "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                        "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                        "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
-                        "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
-                        "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                        "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
-                        "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                        "arm-unknown-netbsd-eabi" => Some("arm--netbsdelf-eabi"),
-                        "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
-                        "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                        "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                        "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                        "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                        "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                        "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                        "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                        "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                        "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
-                        "i586-unknown-linux-musl" => Some("musl"),
-                        "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
-                        "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
-                        "i686-unknown-linux-musl" => Some("musl"),
-                        "i686-unknown-netbsd" => Some("i486--netbsdelf"),
-                        "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
-                        "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
-                        "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
-                        "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
-                        "mipsisa32r6-unknown-linux-gnu" => Some("mipsisa32r6-linux-gnu"),
-                        "mipsisa32r6el-unknown-linux-gnu" => Some("mipsisa32r6el-linux-gnu"),
-                        "mipsisa64r6-unknown-linux-gnuabi64" => Some("mipsisa64r6-linux-gnuabi64"),
-                        "mipsisa64r6el-unknown-linux-gnuabi64" => {
-                            Some("mipsisa64r6el-linux-gnuabi64")
-                        }
-                        "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-                        "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
-                        "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
-                        "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-                        "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
-                        "riscv32i-unknown-none-elf" => Some("riscv32-unknown-elf"),
-                        "riscv32imac-unknown-none-elf" => Some("riscv32-unknown-elf"),
-                        "riscv32imc-unknown-none-elf" => Some("riscv32-unknown-elf"),
-                        "riscv64gc-unknown-none-elf" => Some("riscv64-unknown-elf"),
-                        "riscv64imac-unknown-none-elf" => Some("riscv64-unknown-elf"),
-                        "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
-                        "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
-                        "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
-                        "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
-                        "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
-                        "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
-                        "armv7a-none-eabi" => Some("arm-none-eabi"),
-                        "armv7a-none-eabihf" => Some("arm-none-eabi"),
-                        "armebv7r-none-eabi" => Some("arm-none-eabi"),
-                        "armebv7r-none-eabihf" => Some("arm-none-eabi"),
-                        "armv7r-none-eabi" => Some("arm-none-eabi"),
-                        "armv7r-none-eabihf" => Some("arm-none-eabi"),
-                        "thumbv6m-none-eabi" => Some("arm-none-eabi"),
-                        "thumbv7em-none-eabi" => Some("arm-none-eabi"),
-                        "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
-                        "thumbv7m-none-eabi" => Some("arm-none-eabi"),
-                        "thumbv8m.base-none-eabi" => Some("arm-none-eabi"),
-                        "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
-                        "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
-                        "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
-                        "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
-                        "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
-                        "x86_64-unknown-linux-musl" => Some("musl"),
-                        "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-                        _ => None,
-                    });
+                    let prefix = self.prefix_for_target(&target);
                     match prefix {
                         Some(prefix) => format!("{}-{}", prefix, gnu),
                         None => default.to_string(),
@@ -2284,6 +2208,7 @@ impl Build {
             return Ok((self.cmd(&p), p));
         }
         let target = self.get_target()?;
+        let default_ar = "ar".to_string();
         let program = if target.contains("android") {
             format!("{}-ar", target.replace("armv7", "arm"))
         } else if target.contains("emscripten") {
@@ -2300,10 +2225,103 @@ impl Build {
                 Some(t) => return Ok((t, "lib.exe".to_string())),
                 None => "lib.exe".to_string(),
             }
+        } else if self.get_host()? != target {
+            match self.prefix_for_target(&target) {
+                Some(p) => {
+                    let target_ar = format!("{}-ar", p);
+                    if Command::new(&target_ar).output().is_ok() {
+                        target_ar
+                    } else {
+                        default_ar
+                    }
+                }
+                None => default_ar,
+            }
         } else {
-            "ar".to_string()
+            default_ar
         };
         Ok((self.cmd(&program), program))
+    }
+
+    fn prefix_for_target(&self, target: &str) -> Option<String> {
+        // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
+        let cc_env = self.getenv("CROSS_COMPILE");
+        let cross_compile = cc_env
+            .as_ref()
+            .map(|s| s.trim_right_matches('-').to_owned());
+        cross_compile.or(match &target[..] {
+            "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
+            "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
+            "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
+            "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+            "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+            "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+            "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
+            "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
+            "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+            "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
+            "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+            "arm-unknown-netbsd-eabi" => Some("arm--netbsdelf-eabi"),
+            "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
+            "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+            "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+            "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+            "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+            "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+            "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+            "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+            "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+            "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
+            "i586-unknown-linux-musl" => Some("musl"),
+            "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
+            "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
+            "i686-unknown-linux-musl" => Some("musl"),
+            "i686-unknown-netbsd" => Some("i486--netbsdelf"),
+            "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
+            "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
+            "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
+            "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
+            "mipsisa32r6-unknown-linux-gnu" => Some("mipsisa32r6-linux-gnu"),
+            "mipsisa32r6el-unknown-linux-gnu" => Some("mipsisa32r6el-linux-gnu"),
+            "mipsisa64r6-unknown-linux-gnuabi64" => Some("mipsisa64r6-linux-gnuabi64"),
+            "mipsisa64r6el-unknown-linux-gnuabi64" => Some("mipsisa64r6el-linux-gnuabi64"),
+            "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+            "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
+            "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
+            "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+            "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
+            "riscv32i-unknown-none-elf" => Some("riscv32-unknown-elf"),
+            "riscv32imac-unknown-none-elf" => Some("riscv32-unknown-elf"),
+            "riscv32imc-unknown-none-elf" => Some("riscv32-unknown-elf"),
+            "riscv64gc-unknown-none-elf" => Some("riscv64-unknown-elf"),
+            "riscv64imac-unknown-none-elf" => Some("riscv64-unknown-elf"),
+            "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
+            "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
+            "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
+            "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
+            "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
+            "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
+            "armv7a-none-eabi" => Some("arm-none-eabi"),
+            "armv7a-none-eabihf" => Some("arm-none-eabi"),
+            "armebv7r-none-eabi" => Some("arm-none-eabi"),
+            "armebv7r-none-eabihf" => Some("arm-none-eabi"),
+            "armv7r-none-eabi" => Some("arm-none-eabi"),
+            "armv7r-none-eabihf" => Some("arm-none-eabi"),
+            "thumbv6m-none-eabi" => Some("arm-none-eabi"),
+            "thumbv7em-none-eabi" => Some("arm-none-eabi"),
+            "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
+            "thumbv7m-none-eabi" => Some("arm-none-eabi"),
+            "thumbv8m.base-none-eabi" => Some("arm-none-eabi"),
+            "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
+            "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
+            "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
+            "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
+            "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
+            "x86_64-unknown-linux-musl" => Some("musl"),
+            "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
+            _ => None,
+        }
+        .map(|x| x.to_owned()))
     }
 
     fn get_target(&self) -> Result<String, Error> {
