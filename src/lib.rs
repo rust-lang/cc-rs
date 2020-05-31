@@ -2766,10 +2766,9 @@ static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
 // So to construct proper command line check if
 // `--target` argument would be passed or not to clang
 fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
-    NEW_STANDALONE_ANDROID_COMPILERS.iter().any(|x| {
-        let x: &OsStr = x.as_ref();
-        x == clang_path.as_os_str()
-    })
+    NEW_STANDALONE_ANDROID_COMPILERS
+        .iter()
+        .any(|x| Some(x.as_ref()) == clang_path.file_name())
 }
 
 fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str) -> String {
