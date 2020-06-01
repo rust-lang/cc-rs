@@ -929,6 +929,22 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
         self.compile_objects(&objects)?;
+
+        if self.cuda {
+            let compiler = self.try_get_compiler()?;
+            let mut cmd = compiler.to_command();
+            cmd.arg("-dlink");
+            for obj in objects.clone() {
+                cmd.arg(obj.dst);
+            }
+            cmd.arg("-o");
+            let out_dir = self.get_out_dir()?;
+            let out_dir = out_dir.join("link.o");
+            cmd.arg(out_dir);
+            println!("running {:?}", cmd);
+            run(&mut cmd, "nvcc")?;
+        }
+
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
@@ -1165,6 +1181,11 @@ impl Build {
                     .into_owned(),
             )
         };
+
+        if self.cuda {
+            cmd.arg("-dc");
+        }
+
         let is_arm = target.contains("aarch64") || target.contains("arm");
         command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, clang, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
@@ -1713,7 +1734,15 @@ impl Build {
         // appends to it, which we don't want.
         let _ = fs::remove_file(&dst);
 
-        let objects: Vec<_> = objs.iter().map(|obj| obj.dst.clone()).collect();
+        let mut objects: Vec<_> = objs.iter().map(|obj| obj.dst.clone()).collect();
+
+        if self.cuda {
+            let out_dir = self.get_out_dir()?;
+            let out_dir = out_dir.join("link.o");
+            objects.push(out_dir);
+        }
+
+        let objects = objects;
         let target = self.get_target()?;
         if target.contains("msvc") {
             let (mut cmd, program) = self.get_ar()?;
