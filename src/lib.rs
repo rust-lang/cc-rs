@@ -929,22 +929,6 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
         self.compile_objects(&objects)?;
-
-        if self.cuda {
-            let compiler = self.try_get_compiler()?;
-            let mut cmd = compiler.to_command();
-            cmd.arg("-dlink");
-            for obj in objects.clone() {
-                cmd.arg(obj.dst);
-            }
-            cmd.arg("-o");
-            let out_dir = self.get_out_dir()?;
-            let out_dir = out_dir.join("link.o");
-            cmd.arg(out_dir);
-            println!("running {:?}", cmd);
-            run(&mut cmd, "nvcc")?;
-        }
-
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
@@ -1155,6 +1139,21 @@ impl Build {
         for obj in objs {
             self.compile_object(obj)?;
         }
+
+        if self.cuda {
+            let compiler = self.try_get_compiler()?;
+            let mut cmd = compiler.to_command();
+            cmd.arg("-dlink");
+            for obj in objs {
+                cmd.arg(obj.dst.clone());
+            }
+            cmd.arg("-o");
+            let out_dir = self.get_out_dir()?;
+            let out_dir = out_dir.join("link.o");
+            cmd.arg(out_dir);
+            run(&mut cmd, "nvcc")?;
+        }
+
         Ok(())
     }
 
