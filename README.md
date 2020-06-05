@@ -39,7 +39,7 @@ application will now have the C files `foo.c` and `bar.c` compiled into a file
 named libfoo.a. You can call the functions in Rust by declaring functions in
 your Rust code like so:
 
-```
+```rust,no_run
 extern {
     fn foo_function();
     fn bar_function();
