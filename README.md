@@ -150,7 +150,7 @@ fn main() {
 When using C++ library compilation switch, the `CXX` and `CXXFLAGS` env
 variables are used instead of `CC` and `CFLAGS` and the C++ standard library is
 linked to the crate target.
-Remember that C++ does name wrangling so `extern "C {...}` might be required to enable rust linker to find your functions.
+Remember that C++ does name mangling so `extern "C {...}` might be required to enable rust linker to find your functions.
 
 ## CUDA C++ support
 
