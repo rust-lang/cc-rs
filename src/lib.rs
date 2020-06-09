@@ -1149,7 +1149,7 @@ impl Build {
             }
             cmd.arg("-o");
             let out_dir = self.get_out_dir()?;
-            let out_dir = out_dir.join("link.o");
+            let out_dir = out_dir.join("__cc_internal_link.o");
             cmd.arg(out_dir);
             run(&mut cmd, "nvcc")?;
         }
@@ -1737,7 +1737,7 @@ impl Build {
 
         if self.cuda {
             let out_dir = self.get_out_dir()?;
-            let out_dir = out_dir.join("link.o");
+            let out_dir = out_dir.join("__cc_internal_link.o");
             objects.push(out_dir);
         }
 
