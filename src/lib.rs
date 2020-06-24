@@ -1857,29 +1857,21 @@ impl Build {
                 cmd.args.push(arch.into());
                 cmd.args
                     .push(format!("-miphoneos-version-min={}", min_version).into());
-                "iphoneos"
+                xcrun::SDK::iPhoneOS(None)
             }
             ArchSpec::Simulator(arch) => {
                 cmd.args.push(arch.into());
                 cmd.args
                     .push(format!("-mios-simulator-version-min={}", min_version).into());
-                "iphonesimulator"
+                xcrun::SDK::iPhoneSimulator(None)
             }
         };
 
         self.print(&format!("Detecting iOS SDK path for {}", sdk));
-        let sdk_path = self
-            .cmd("xcrun")
-            .arg("--show-sdk-path")
-            .arg("--sdk")
-            .arg(sdk)
-            .stderr(Stdio::inherit())
-            .output()?
-            .stdout;
 
-        let sdk_path = match String::from_utf8(sdk_path) {
-            Ok(p) => p,
-            Err(_) => {
+        let sdk_path = match xcrun::find_sdk(sdk) {
+            Some(p) => p,
+            None => {
                 return Err(Error::new(
                     ErrorKind::IOError,
                     "Unable to determine iOS SDK path.",
@@ -1888,7 +1880,7 @@ impl Build {
         };
 
         cmd.args.push("-isysroot".into());
-        cmd.args.push(sdk_path.trim().into());
+        cmd.args.push(sdk_path.into());
         cmd.args.push("-fembed-bitcode".into());
         /*
          * TODO we probably ultimately want the -fembed-bitcode-marker flag
