@@ -375,6 +375,8 @@ mod impl_ {
         let host = match host_arch() {
             X86 => "X86",
             X86_64 => "X64",
+            // There is no natively hosted compiler on ARM64.
+            // Instead, use the x86 toolchain under emulation (there is no x64 emulation).
             AARCH64 => "X86",
             _ => return None,
         };
