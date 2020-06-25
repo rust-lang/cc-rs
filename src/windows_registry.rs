@@ -375,6 +375,7 @@ mod impl_ {
         let host = match host_arch() {
             X86 => "X86",
             X86_64 => "X64",
+            AARCH64 => "X86",
             _ => return None,
         };
         let target = lib_subdir(target)?;
@@ -607,8 +608,10 @@ mod impl_ {
 
     const PROCESSOR_ARCHITECTURE_INTEL: u16 = 0;
     const PROCESSOR_ARCHITECTURE_AMD64: u16 = 9;
+    const PROCESSOR_ARCHITECTURE_ARM64: u16 = 12;
     const X86: u16 = PROCESSOR_ARCHITECTURE_INTEL;
     const X86_64: u16 = PROCESSOR_ARCHITECTURE_AMD64;
+    const AARCH64: u16 = PROCESSOR_ARCHITECTURE_ARM64;
 
     // When choosing the tool to use, we have to choose the one which matches
     // the target architecture. Otherwise we end up in situations where someone
