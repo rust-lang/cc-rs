@@ -2291,11 +2291,31 @@ impl Build {
             "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
             "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
             "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
-            "riscv32i-unknown-none-elf" => Some("riscv32-unknown-elf"),
-            "riscv32imac-unknown-none-elf" => Some("riscv32-unknown-elf"),
-            "riscv32imc-unknown-none-elf" => Some("riscv32-unknown-elf"),
-            "riscv64gc-unknown-none-elf" => Some("riscv64-unknown-elf"),
-            "riscv64imac-unknown-none-elf" => Some("riscv64-unknown-elf"),
+            "riscv32i-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                "riscv32-unknown-elf",
+                "riscv64-unknown-elf",
+                "riscv-none-embed",
+            ]),
+            "riscv32imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                "riscv32-unknown-elf",
+                "riscv64-unknown-elf",
+                "riscv-none-embed",
+            ]),
+            "riscv32imc-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                "riscv32-unknown-elf",
+                "riscv64-unknown-elf",
+                "riscv-none-embed",
+            ]),
+            "riscv64gc-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                "riscv64-unknown-elf",
+                "riscv32-unknown-elf",
+                "riscv-none-embed",
+            ]),
+            "riscv64imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                "riscv64-unknown-elf",
+                "riscv32-unknown-elf",
+                "riscv-none-embed",
+            ]),
             "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
             "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
             "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
@@ -2323,6 +2343,38 @@ impl Build {
             _ => None,
         }
         .map(|x| x.to_owned()))
+    }
+
+    /// Some platforms have multiple, compatible, canonical prefixes. Look through
+    /// each possible prefix for a compiler that exists and return it. The prefixes
+    /// should be ordered from most-likely to least-likely.
+    fn find_working_gnu_prefix(&self, prefixes: &[&'static str]) -> Option<&'static str> {
+        let suffix = if self.cpp { "-g++" } else { "-gcc" };
+        let extension = std::env::consts::EXE_SUFFIX;
+
+        // Loop through PATH entries searching for each toolchain. This ensures that we
+        // are more likely to discover the toolchain early on, because chances are good
+        // that the desired toolchain is in one of the higher-priority paths.
+        env::var_os("PATH")
+            .as_ref()
+            .and_then(|path_entries| {
+                env::split_paths(path_entries).find_map(|path_entry| {
+                    for prefix in prefixes {
+                        let target_compiler = format!("{}{}{}", prefix, suffix, extension);
+                        if path_entry.join(&target_compiler).exists() {
+                            return Some(prefix);
+                        }
+                    }
+                    None
+                })
+            })
+            .map(|prefix| *prefix)
+            .or_else(||
+            // If no toolchain was found, provide the first toolchain that was passed in.
+            // This toolchain has been shown not to exist, however it will appear in the
+            // error that is shown to the user which should make it easier to search for
+            // where it should be obtained.
+            prefixes.first().map(|prefix| *prefix))
     }
 
     fn get_target(&self) -> Result<String, Error> {
