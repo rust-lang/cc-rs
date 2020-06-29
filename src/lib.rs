@@ -1690,11 +1690,15 @@ impl Build {
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(directory);
         }
-        for &(ref key, ref value) in self.definitions.iter() {
-            if let Some(ref value) = *value {
-                cmd.arg(&format!("-D{}={}", key, value));
-            } else {
-                cmd.arg(&format!("-D{}", key));
+        if target.contains("aarch64") || target.contains("arm") {
+            println!("cargo:warning=The MSVC ARM assemblers do not support -D flags");
+        } else {
+            for &(ref key, ref value) in self.definitions.iter() {
+                if let Some(ref value) = *value {
+                    cmd.arg(&format!("-D{}={}", key, value));
+                } else {
+                    cmd.arg(&format!("-D{}", key));
+                }
             }
         }
 
