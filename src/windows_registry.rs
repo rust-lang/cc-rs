@@ -347,6 +347,7 @@ mod impl_ {
         };
 
         let mut tool = MsvcTool::new(tool_path);
+        tool.path.push(bin_path.clone());
         tool.path.push(host_dylib_path);
         tool.libs.push(lib_path);
         tool.include.push(include_path);
@@ -424,8 +425,15 @@ mod impl_ {
         let sub = lib_subdir(target)?;
         let (ucrt, ucrt_version) = get_ucrt_dir()?;
 
+        let host = match host_arch() {
+            X86 => "x86",
+            X86_64 => "x64",
+            AARCH64 => "arm64",
+            _ => return None,
+        };
+
         tool.path
-            .push(ucrt.join("bin").join(&ucrt_version).join(sub));
+            .push(ucrt.join("bin").join(&ucrt_version).join(host));
 
         let ucrt_include = ucrt.join("include").join(&ucrt_version);
         tool.include.push(ucrt_include.join("ucrt"));
@@ -434,7 +442,7 @@ mod impl_ {
         tool.libs.push(ucrt_lib.join("ucrt").join(sub));
 
         if let Some((sdk, version)) = get_sdk10_dir() {
-            tool.path.push(sdk.join("bin").join(sub));
+            tool.path.push(sdk.join("bin").join(host));
             let sdk_lib = sdk.join("lib").join(&version);
             tool.libs.push(sdk_lib.join("um").join(sub));
             let sdk_include = sdk.join("include").join(&version);
@@ -443,7 +451,7 @@ mod impl_ {
             tool.include.push(sdk_include.join("winrt"));
             tool.include.push(sdk_include.join("shared"));
         } else if let Some(sdk) = get_sdk81_dir() {
-            tool.path.push(sdk.join("bin").join(sub));
+            tool.path.push(sdk.join("bin").join(host));
             let sdk_lib = sdk.join("lib").join("winv6.3");
             tool.libs.push(sdk_lib.join("um").join(sub));
             let sdk_include = sdk.join("include");

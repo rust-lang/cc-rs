@@ -34,6 +34,11 @@ jobs:
             rust: stable
             target: aarch64-apple-ios
             no_run: --no-run
+          - build: windows-aarch64
+            os: windows-latest
+            rust: stable
+            target: aarch64-pc-windows-msvc
+            no_run: --no-run
           - build: win32
             os: windows-2016
             rust: stable-i686-msvc
