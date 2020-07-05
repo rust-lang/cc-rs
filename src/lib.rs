@@ -1465,6 +1465,16 @@ impl Build {
                     cmd.args.push("-m64".into());
                 }
 
+                if target.contains("darwin") {
+                    if target.contains("x86_64") {
+                        cmd.args.push("-arch".into());
+                        cmd.args.push("x86_64".into());
+                    } else if target.contains("aarch64") {
+                        cmd.args.push("-arch".into());
+                        cmd.args.push("arm64".into());
+                    }
+                }
+
                 if self.static_flag.is_none() {
                     let features = self
                         .getenv("CARGO_CFG_TARGET_FEATURE")
