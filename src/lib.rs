@@ -1687,6 +1687,7 @@ impl Build {
             "ml.exe"
         };
         let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| self.cmd(tool));
+        cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(directory);
         }
