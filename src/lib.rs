@@ -1425,13 +1425,13 @@ impl Build {
                 // This is an undocumented flag from MSVC but helps with making
                 // builds more reproducible by avoiding putting timestamps into
                 // files.
-                cmd.args.push("-Brepro".into());
+                cmd.push_cc_arg("-Brepro".into());
 
                 if clang_cl {
                     if target.contains("x86_64") {
-                        cmd.args.push("-m64".into());
+                        cmd.push_cc_arg("-m64".into());
                     } else if target.contains("86") {
-                        cmd.args.push("-m32".into());
+                        cmd.push_cc_arg("-m32".into());
                         cmd.push_cc_arg("-arch:IA32".into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
