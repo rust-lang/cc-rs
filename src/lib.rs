@@ -2226,7 +2226,7 @@ impl Build {
         let default_ar = "ar".to_string();
         let program = if target.contains("android") {
             format!("{}-ar", target.replace("armv7", "arm"))
-        } else if target.contains("emscripten") {
+        } else if target.contains("emscripten") || target.contains("wasm32") {
             // Windows use bat files so we have to be a bit more specific
             if cfg!(windows) {
                 let mut cmd = self.cmd("cmd");
