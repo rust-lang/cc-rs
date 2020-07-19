@@ -1412,12 +1412,14 @@ impl Build {
             family.add_force_frame_pointer(cmd);
         }
 
+        let host = self.get_host()?;
+
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
                 if !(target.contains("android")
                     && android_clang_compiler_uses_target_arg_internally(&cmd.path))
-                    && (target != self.get_host()?)
+                    && (target != host)
                 {
                     cmd.args.push(format!("--target={}", target).into());
                 }
