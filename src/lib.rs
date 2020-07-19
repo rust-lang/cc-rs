@@ -1417,6 +1417,7 @@ impl Build {
             ToolFamily::Clang => {
                 if !(target.contains("android")
                     && android_clang_compiler_uses_target_arg_internally(&cmd.path))
+                    && (target != self.get_host()?)
                 {
                     cmd.args.push(format!("--target={}", target).into());
                 }
