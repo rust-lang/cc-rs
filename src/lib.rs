@@ -2288,6 +2288,7 @@ impl Build {
             "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
             "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
             "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
+            "hexagon-unknown-linux-musl" => Some("hexagon-linux-musl"),
             "i586-unknown-linux-musl" => Some("musl"),
             "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
             "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
