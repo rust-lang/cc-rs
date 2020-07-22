@@ -1469,6 +1469,9 @@ impl Build {
                     if target.contains("x86_64") {
                         cmd.args.push("-arch".into());
                         cmd.args.push("x86_64".into());
+                    } else if target.contains("arm64e") {
+                        cmd.args.push("-arch".into());
+                        cmd.args.push("arm64e".into());
                     } else if target.contains("aarch64") {
                         cmd.args.push("-arch".into());
                         cmd.args.push("arm64".into());
@@ -1852,6 +1855,7 @@ impl Build {
         let arch = match arch {
             "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
             "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
+            "arm64e" => ArchSpec::Device("arm64e"),
             "arm64" | "aarch64" => ArchSpec::Device("arm64"),
             "i386" | "i686" => ArchSpec::Simulator("-m32"),
             "x86_64" => ArchSpec::Simulator("-m64"),
