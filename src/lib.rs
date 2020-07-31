@@ -450,7 +450,7 @@ impl Build {
         let mut cmd = compiler.to_command();
         let is_msvc = target.contains("msvc");
         let clang = compiler.family == ToolFamily::Clang;
-        command_add_output_file(&mut cmd, &obj, !is_msvc && !clang && !self.cuda);
+        command_add_output_file(&mut cmd, &obj, is_msvc && !clang && !self.cuda);
 
         // We need to explicitly tell msvc not to link and create an exe
         // in the root directory of the crate
