@@ -120,6 +120,7 @@ pub struct Build {
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
+    apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -312,6 +313,7 @@ impl Build {
             extra_warnings: None,
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
+            apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1172,6 +1174,9 @@ impl Build {
             cmd.arg("-c");
         }
         cmd.arg(&obj.src);
+        if cfg!(target_os = "macos") {
+            self.fix_env_for_apple_os(&mut cmd)?;
+        }
 
         run(&mut cmd, &name)?;
         Ok(())
@@ -1887,27 +1892,9 @@ impl Build {
         };
 
         self.print(&format!("Detecting iOS SDK path for {}", sdk));
-        let sdk_path = self
-            .cmd("xcrun")
-            .arg("--show-sdk-path")
-            .arg("--sdk")
-            .arg(sdk)
-            .stderr(Stdio::inherit())
-            .output()?
-            .stdout;
-
-        let sdk_path = match String::from_utf8(sdk_path) {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(Error::new(
-                    ErrorKind::IOError,
-                    "Unable to determine iOS SDK path.",
-                ));
-            }
-        };
-
+        let sdk_path = self.apple_sdk_root(sdk)?;
         cmd.args.push("-isysroot".into());
-        cmd.args.push(sdk_path.trim().into());
+        cmd.args.push(sdk_path);
         cmd.args.push("-fembed-bitcode".into());
         /*
          * TODO we probably ultimately want the -fembed-bitcode-marker flag
@@ -2466,6 +2453,63 @@ impl Build {
         if self.cargo_metadata {
             println!("{}", s);
         }
+    }
+
+    fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
+        let target = self.get_target()?;
+        let host = self.get_host()?;
+        if host.contains("apple-darwin") && target.contains("apple-darwin") {
+            // If, for example, `cargo` runs during the build of an XCode project, then `SDKROOT` environment variable
+            // would represent the current target, and this is the problem for us, if we want to compile something
+            // for the host, when host != target.
+            // We can not just remove `SDKROOT`, because, again, for example, XCode add to PATH
+            // /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
+            // and `cc` from this path can not find system include files, like `pthread.h`, if `SDKROOT`
+            // is not set
+            if let Ok(sdkroot) = env::var("SDKROOT") {
+                if !sdkroot.contains("MacOSX") {
+                    let macos_sdk = self.apple_sdk_root("macosx")?;
+                    cmd.env("SDKROOT", macos_sdk);
+                }
+            }
+            // Additionally, `IPHONEOS_DEPLOYMENT_TARGET` must not be set when using the Xcode linker at
+            // "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
+            // although this is apparently ignored when using the linker at "/usr/bin/ld".
+            cmd.env_remove("IPHONEOS_DEPLOYMENT_TARGET");
+        }
+        Ok(())
+    }
+
+    fn apple_sdk_root(&self, sdk: &str) -> Result<OsString, Error> {
+        let mut cache = self
+            .apple_sdk_root_cache
+            .lock()
+            .expect("apple_sdk_root_cache lock failed");
+        if let Some(ret) = cache.get(sdk) {
+            return Ok(ret.clone());
+        }
+
+        let sdk_path = self
+            .cmd("xcrun")
+            .arg("--show-sdk-path")
+            .arg("--sdk")
+            .arg(sdk)
+            .stderr(Stdio::inherit())
+            .output()?
+            .stdout;
+
+        let sdk_path = match String::from_utf8(sdk_path) {
+            Ok(p) => p,
+            Err(_) => {
+                return Err(Error::new(
+                    ErrorKind::IOError,
+                    "Unable to determine iOS SDK path.",
+                ));
+            }
+        };
+        let ret: OsString = sdk_path.trim().into();
+        cache.insert(sdk.into(), ret.clone());
+        Ok(ret)
     }
 }
 
