@@ -2883,9 +2883,33 @@ static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
 // So to construct proper command line check if
 // `--target` argument would be passed or not to clang
 fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
-    NEW_STANDALONE_ANDROID_COMPILERS
-        .iter()
-        .any(|x| Some(x.as_ref()) == clang_path.file_name())
+    if let Some(filename) = clang_path.file_name() {
+        if let Some(filename_str) = filename.to_str() {
+            filename_str.contains("android")
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
+#[test]
+fn test_android_clang_compiler_uses_target_arg_internally() {
+    for version in 16..21 {
+        assert!(android_clang_compiler_uses_target_arg_internally(
+            &PathBuf::from(format!("armv7a-linux-androideabi{}-clang", version))
+        ));
+        assert!(android_clang_compiler_uses_target_arg_internally(
+            &PathBuf::from(format!("armv7a-linux-androideabi{}-clang++", version))
+        ));
+    }
+    assert!(!android_clang_compiler_uses_target_arg_internally(
+        &PathBuf::from("clang")
+    ));
+    assert!(!android_clang_compiler_uses_target_arg_internally(
+        &PathBuf::from("clang++")
+    ));
 }
 
 fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str) -> String {
