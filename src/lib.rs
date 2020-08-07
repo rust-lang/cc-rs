@@ -56,7 +56,6 @@
 #![allow(deprecated)]
 #![deny(missing_docs)]
 
-use regex::Regex;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -2840,8 +2839,15 @@ static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
 // So to construct proper command line check if
 // `--target` argument would be passed or not to clang
 fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
-    let re = Regex::new(r"^.*\d{2}-clang(\+\+)?$").unwrap();
-    re.is_match(clang_path.to_str().unwrap())
+    if let Some(filename) = clang_path.file_name() {
+        if let Some(filename_str) = filename.to_str() {
+            filename_str.contains("android")
+        } else {
+            false
+        }
+    } else {
+        false
+    }
 }
 
 #[test]
