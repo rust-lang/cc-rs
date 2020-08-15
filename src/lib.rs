@@ -416,7 +416,7 @@ impl Build {
     /// For a convenience method for setting flags conditionally,
     /// see `flag_if_supported()`.
     ///
-    /// It may return error if it's unable to run the compilier with a test file
+    /// It may return error if it's unable to run the compiler with a test file
     /// (e.g. the compiler is missing or a write to the `out_dir` failed).
     ///
     /// Note: Once computed, the result of this call is stored in the
@@ -970,7 +970,7 @@ impl Build {
     /// Run the compiler, generating the file `output`
     ///
     /// The name `output` should be the name of the library.  For backwards compatibility,
-    /// the `output` may start with `lib` and end with `.a`.  The Rust compilier will create
+    /// the `output` may start with `lib` and end with `.a`.  The Rust compiler will create
     /// the assembly with the lib prefix and .a extension.  MSVC will create a file without prefix,
     /// ending with `.lib`.
     ///
