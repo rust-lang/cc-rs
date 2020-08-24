@@ -929,7 +929,10 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
         self.compile_objects(&objects)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+
+        for chunk in objects.chunks(8191) {
+            self.assemble(lib_name, &dst.join(gnu_lib_name.clone()), &chunk)?;
+        }
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -1710,47 +1713,8 @@ impl Build {
             for flag in self.ar_flags.iter() {
                 cmd.arg(flag);
             }
+            cmd.args(&objects).args(&self.objects);
 
-            // Similar to https://github.com/rust-lang/rust/pull/47507
-            // and https://github.com/rust-lang/rust/pull/48548
-            let estimated_command_line_len = objects
-                .iter()
-                .chain(&self.objects)
-                .map(|a| a.as_os_str().len())
-                .sum::<usize>();
-            if estimated_command_line_len > 1024 * 6 {
-                let mut args = String::from("\u{FEFF}"); // BOM
-                for arg in objects.iter().chain(&self.objects) {
-                    args.push('"');
-                    for c in arg.to_str().unwrap().chars() {
-                        if c == '"' {
-                            args.push('\\')
-                        }
-                        args.push(c)
-                    }
-                    args.push('"');
-                    args.push('\n');
-                }
-
-                let mut utf16le = Vec::new();
-                for code_unit in args.encode_utf16() {
-                    utf16le.push(code_unit as u8);
-                    utf16le.push((code_unit >> 8) as u8);
-                }
-
-                let mut args_file = OsString::from(dst);
-                args_file.push(".args");
-                fs::File::create(&args_file)
-                    .unwrap()
-                    .write_all(&utf16le)
-                    .unwrap();
-
-                let mut args_file_arg = OsString::from("@");
-                args_file_arg.push(args_file);
-                cmd.arg(args_file_arg);
-            } else {
-                cmd.args(&objects).args(&self.objects);
-            }
             run(&mut cmd, &program)?;
 
             // The Rust compiler will look for libfoo.a and foo.lib, but the
