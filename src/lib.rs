@@ -1423,7 +1423,16 @@ impl Build {
                 if !(target.contains("android")
                     && android_clang_compiler_uses_target_arg_internally(&cmd.path))
                 {
-                    cmd.args.push(format!("--target={}", target).into());
+                    if target.contains("darwin") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            cmd.args
+                                .push(format!("--target={}-apple-darwin", arch).into());
+                        }
+                    } else {
+                        cmd.args.push(format!("--target={}", target).into());
+                    }
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -1471,15 +1480,10 @@ impl Build {
                 }
 
                 if target.contains("darwin") {
-                    if target.contains("x86_64") {
+                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
+                    {
                         cmd.args.push("-arch".into());
-                        cmd.args.push("x86_64".into());
-                    } else if target.contains("arm64e") {
-                        cmd.args.push("-arch".into());
-                        cmd.args.push("arm64e".into());
-                    } else if target.contains("aarch64") {
-                        cmd.args.push("-arch".into());
-                        cmd.args.push("arm64".into());
+                        cmd.args.push(arch.into());
                     }
                 }
 
@@ -2960,5 +2964,18 @@ fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str)
         clang_compiler_cmd
     } else {
         clang_compiler
+    }
+}
+
+// Rust and clang/cc don't agree on how to name the target.
+fn map_darwin_target_from_rust_to_compiler_architecture(target: &str) -> Option<&'static str> {
+    if target.contains("x86_64") {
+        Some("x86_64")
+    } else if target.contains("arm64e") {
+        Some("arm64e")
+    } else if target.contains("aarch64") {
+        Some("arm64")
+    } else {
+        None
     }
 }
