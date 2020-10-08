@@ -337,6 +337,35 @@ impl Build {
         self
     }
 
+    /// Add multiple directories to the `-I` include path.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use std::path::Path;
+    /// # let condition = true;
+    /// #
+    /// let mut extra_dir = None;
+    /// if condition {
+    ///     extra_dir = Some(Path::new("/path/to"));
+    /// }
+    ///
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .includes(extra_dir)
+    ///     .compile("foo");
+    /// ```
+    pub fn includes<P>(&mut self, dirs: P) -> &mut Build
+    where
+        P: IntoIterator,
+        P::Item: AsRef<Path>,
+    {
+        for dir in dirs {
+            self.include(dir);
+        }
+        self
+    }
+
     /// Specify a `-D` variable with an optional value.
     ///
     /// # Example
