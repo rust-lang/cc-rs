@@ -14,7 +14,7 @@ code.
 keywords = ["build-dependencies"]
 readme = "README.md"
 categories = ["development-tools::build-utils"]
-exclude = ["/.travis.yml", "/appveyor.yml"]
+exclude = ["/.github", "/.travis.yml", "/appveyor.yml"]
 edition = "2018"
 
 [dependencies]
