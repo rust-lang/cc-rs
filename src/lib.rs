@@ -2154,9 +2154,8 @@ impl Build {
     fn envflags(&self, name: &str) -> Vec<String> {
         self.get_var(name)
             .unwrap_or(String::new())
-            .split(|c: char| c.is_whitespace())
-            .filter(|s| !s.is_empty())
-            .map(|s| s.to_string())
+            .split_ascii_whitespace()
+            .map(|slice| slice.to_string())
             .collect()
     }
 
