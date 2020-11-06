@@ -2555,14 +2555,13 @@ impl Build {
             return Ok(ret.clone());
         }
 
-        let sdk_path = self
-            .cmd("xcrun")
-            .arg("--show-sdk-path")
-            .arg("--sdk")
-            .arg(sdk)
-            .stderr(Stdio::inherit())
-            .output()?
-            .stdout;
+        let sdk_path = run_output(
+            self.cmd("xcrun")
+                .arg("--show-sdk-path")
+                .arg("--sdk")
+                .arg(sdk),
+            "xcrun",
+        )?;
 
         let sdk_path = match String::from_utf8(sdk_path) {
             Ok(p) => p,
