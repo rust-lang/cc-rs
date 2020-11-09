@@ -81,7 +81,7 @@ mod setup_config;
 
 pub mod windows_registry;
 
-/// A builder for compilation of a native static library.
+/// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
 /// various configuration options and such of a compile. You'll find more
