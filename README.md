@@ -70,6 +70,7 @@ number of different environment variables.
          common is `-fPIC`).
 * `AR` - the `ar` (archiver) executable to use to build the static library.
 * `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in some cross compiling scenarios. Setting this variable will disable the generation of default compiler flags.
+* `CXX...` - see [C++ Support](#c-support).
 
 Each of these variables can also be supplied with certain prefixes and suffixes,
 in the following prioritized order:
@@ -144,9 +145,24 @@ fn main() {
 }
 ```
 
-When using C++ library compilation switch, the `CXX` and `CXXFLAGS` env
-variables are used instead of `CC` and `CFLAGS` and the C++ standard library is
-linked to the crate target.
+For C++ libraries, the `CXX` and `CXXFLAGS` environment variables are used instead of `CC` and `CFLAGS`.
+
+The C++ standard library may be linked to the crate target. By default it's `libc++` for OS X, FreeBSD, and OpenBSD, `libc++_shared` for Android, nothing for MSVC, and `libstdc++` for anything else. It can be changed in one of two ways:
+
+1. by using the `cpp_link_stdlib` method on `Build`:
+    ```rust,no-run
+    fn main() {
+        cc::Build::new()
+            .cpp(true)
+            .file("foo.cpp")
+            .cpp_link_stdlib("stdc++") // use libstdc++
+            .compile("libfoo.a");
+    }
+    ```
+2. by setting the `CXXSTDLIB` environment variable.
+
+In particular, for Android you may want to [use `c++_static` if you have at most one shared library](https://developer.android.com/ndk/guides/cpp-support).
+
 Remember that C++ does name mangling so `extern "C"` might be required to enable rust linker to find your functions.
 
 ## CUDA C++ support

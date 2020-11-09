@@ -684,11 +684,11 @@ impl Build {
     /// Set the standard library to link against when compiling with C++
     /// support.
     ///
-    /// The default value of this property depends on the current target: On
-    /// OS X `Some("c++")` is used, when compiling for a Visual Studio based
-    /// target `None` is used and for other targets `Some("stdc++")` is used.
+    /// See [`get_cpp_link_stdlib`](cc::Build::get_cpp_link_stdlib) documentation
+    /// for the default value.
     /// If the `CXXSTDLIB` environment variable is set, its value will
-    /// override the default value.
+    /// override the default value, but not the value explicitly set by calling
+    /// this function.
     ///
     /// A value of `None` indicates that no automatic linking should happen,
     /// otherwise cargo will link against the specified library.
@@ -698,6 +698,7 @@ impl Build {
     /// Common values:
     /// - `stdc++` for GNU
     /// - `c++` for Clang
+    /// - `c++_shared` or `c++_static` for Android
     ///
     /// # Example
     ///
@@ -2241,8 +2242,11 @@ impl Build {
         ))
     }
 
-    /// Returns the default C++ standard library for the current target: `libc++`
-    /// for OS X and `libstdc++` for anything else.
+    /// Returns the C++ standard library:
+    /// 1. If [cpp_link_stdlib](cc::Build::cpp_link_stdlib) is set, uses its value.
+    /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
+    /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
+    /// `None` for MSVC and `libstdc++` for anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<String>, Error> {
         match self.cpp_link_stdlib.clone() {
             Some(s) => Ok(s),
@@ -2263,6 +2267,8 @@ impl Build {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("openbsd") {
                         Ok(Some("c++".to_string()))
+                    } else if target.contains("android") {
+                        Ok(Some("c++_shared".to_string()))
                     } else {
                         Ok(Some("stdc++".to_string()))
                     }
