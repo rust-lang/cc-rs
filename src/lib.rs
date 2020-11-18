@@ -1784,21 +1784,7 @@ impl Build {
             .chain(self.objects.clone())
             .collect();
 
-        let chunk_size = if self.get_host()?.contains("msvc") {
-            let max_command_line_len = 1024 * 6;
-            let estimated_command_line_len =
-                objs.iter().map(|a| a.as_os_str().len()).sum::<usize>();
-            if estimated_command_line_len > max_command_line_len {
-                let average_chars = estimated_command_line_len / objs.len();
-                max_command_line_len / average_chars
-            } else {
-                objs.len()
-            }
-        } else {
-            objs.len()
-        };
-
-        for chunk in objs.chunks(chunk_size) {
+        for chunk in objs.chunks(100) {
             self.assemble_progressive(dst, chunk)?;
         }
 
