@@ -1859,7 +1859,7 @@ impl Build {
             for flag in self.ar_flags.iter() {
                 ar.arg(flag);
             }
-            run(ar.arg("crs").arg(dst).args(objs), &cmd)?;
+            run(ar.arg("cqs").arg(dst).args(objs), &cmd)?;
         }
 
         Ok(())
