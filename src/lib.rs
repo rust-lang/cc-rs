@@ -1777,17 +1777,20 @@ impl Build {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
         let _ = fs::remove_file(&dst);
-        let target = self.get_target()?;
+
+        // Add objects to the archive in limited-length batches. This helps keep
+        // the length of the command line within a reasonable length to avoid
+        // blowing system limits on limiting platforms like Windows.
         let objs: Vec<_> = objs
             .iter()
             .map(|o| o.dst.clone())
             .chain(self.objects.clone())
             .collect();
-
         for chunk in objs.chunks(100) {
             self.assemble_progressive(dst, chunk)?;
         }
 
+        let target = self.get_target()?;
         if target.contains("msvc") {
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
@@ -1807,6 +1810,12 @@ impl Build {
                     ));
                 }
             };
+        } else {
+            // Non-msvc targets (those using `ar`) need a separate step to add
+            // the symbol table to archives since our construction command of
+            // `cq` doesn't add it for us.
+            let (mut ar, cmd) = self.get_ar()?;
+            run(ar.arg("s").arg(dst), &cmd)?;
         }
 
         Ok(())
@@ -1859,7 +1868,7 @@ impl Build {
             for flag in self.ar_flags.iter() {
                 ar.arg(flag);
             }
-            run(ar.arg("cqs").arg(dst).args(objs), &cmd)?;
+            run(ar.arg("cq").arg(dst).args(objs), &cmd)?;
         }
 
         Ok(())
