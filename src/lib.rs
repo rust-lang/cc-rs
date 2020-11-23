@@ -121,6 +121,7 @@ pub struct Build {
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
+    response_file_cache: Arc<Mutex<HashMap<Vec<OsString>, OsString>>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -314,6 +315,7 @@ impl Build {
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
+            response_file_cache: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -1177,12 +1179,18 @@ impl Build {
     fn compile_object(&self, obj: &Object) -> Result<(), Error> {
         let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let target = self.get_target()?;
+        let host = self.get_host()?;
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
         let clang = compiler.family == ToolFamily::Clang;
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
+            let compiler = if host.contains("windows") && target.contains("android") {
+                self.generate_windows_to_android_response_file(compiler, obj)
+            } else {
+                compiler
+            };
             let mut cmd = compiler.to_command();
             for &(ref a, ref b) in self.env.iter() {
                 cmd.env(a, b);
@@ -2562,6 +2570,86 @@ impl Build {
         let ret: OsString = sdk_path.trim().into();
         cache.insert(sdk.into(), ret.clone());
         Ok(ret)
+    }
+
+    fn generate_windows_to_android_response_file(&self, compiler: Tool, obj: &Object) -> Tool {
+        let mut cache = self
+            .response_file_cache
+            .lock()
+            .expect("response_file_cache lock failed");
+        if let Some(response_file_path) = cache.get(&compiler.args) {
+            println!("CACHED!");
+            return Tool {
+                path: compiler.path,
+                cc_wrapper_path: compiler.cc_wrapper_path,
+                cc_wrapper_args: compiler.cc_wrapper_args,
+                args: vec![response_file_path.clone()],
+                env: compiler.env,
+                family: compiler.family,
+                cuda: compiler.cuda,
+                removed_args: Vec::default(),
+            };
+        }
+
+        // Similar to https://github.com/rust-lang/rust/pull/47507
+        // and https://github.com/rust-lang/rust/pull/48548
+        let estimated_command_line_len = compiler
+            .args
+            .iter()
+            .map(|a| a.as_os_str().len())
+            .sum::<usize>();
+
+        if estimated_command_line_len > 1024 * 6 {
+            let mut args = String::from("\u{FEFF}"); // BOM
+            for arg in compiler.args.iter() {
+                if compiler.removed_args.iter().any(|a| a == arg) {
+                    continue;
+                }
+
+                args.push('"');
+                for c in arg.to_str().unwrap().chars() {
+                    if c == ' ' {
+                        args.push('\\')
+                    }
+                    args.push(c)
+                }
+                args.push('"');
+                args.push(' ');
+            }
+
+            let args = args.replace("\\", "\\\\");
+            let mut utf16le = Vec::new();
+            for code_unit in args.encode_utf16() {
+                utf16le.push(code_unit as u8);
+                utf16le.push((code_unit >> 8) as u8);
+            }
+
+            let mut dst = obj.dst.clone();
+            dst.set_extension("args");
+            let args_file = OsString::from(dst);
+            fs::File::create(&args_file)
+                .unwrap()
+                .write_all(&utf16le)
+                .unwrap();
+
+            let mut args_file_arg = OsString::from("@");
+            args_file_arg.push(args_file);
+
+            cache.insert(compiler.args.clone(), args_file_arg.clone());
+
+            Tool {
+                path: compiler.path,
+                cc_wrapper_path: compiler.cc_wrapper_path,
+                cc_wrapper_args: compiler.cc_wrapper_args,
+                args: vec![args_file_arg],
+                env: compiler.env,
+                family: compiler.family,
+                cuda: compiler.cuda,
+                removed_args: Vec::default(),
+            }
+        } else {
+            compiler
+        }
     }
 }
 
