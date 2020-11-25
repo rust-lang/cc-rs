@@ -3029,9 +3029,6 @@ fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str)
     let gnu_compiler = format!("{}-{}", target, gnu);
     let clang_compiler = format!("{}-{}", target, clang);
 
-    println!("CLANG_COMPILER: {}", clang_compiler);
-    println!("TARGET: {}", target);
-
     // On Windows, the Android clang compiler is provided as a `.cmd` file instead
     // of a `.exe` file. `std::process::Command` won't run `.cmd` files unless the
     // `.cmd` is explicitly appended to the command name, so we do that here.
