@@ -2116,6 +2116,13 @@ impl Build {
                 tool.path.set_file_name(clang.trim_start_matches("-"));
                 tool.path.set_extension("exe");
                 tool.args.push(format!("--target={}", target).into());
+
+                for version in 16..=23 {
+                    if target.contains(&format!("i686-linux-android{}", version)) {
+                        tool.args.push("-mstackrealign".into());
+                    }           
+                }
+
                 Some(true)
             };
             f();
