@@ -2120,7 +2120,7 @@ impl Build {
                 for version in 16..=23 {
                     if target.contains(&format!("i686-linux-android{}", version)) {
                         tool.args.push("-mstackrealign".into());
-                    }           
+                    }
                 }
 
                 Some(true)
