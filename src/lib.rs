@@ -2117,6 +2117,8 @@ impl Build {
                 tool.path.set_extension("exe");
                 tool.args.push(format!("--target={}", target).into());
 
+                // Additionally, shell scripts for target i686-linux-android versions 16 to 24
+                // pass the `mstackrealign` option so we do that here as well.
                 for version in 16..=23 {
                     if target.contains(&format!("i686-linux-android{}", version)) {
                         tool.args.push("-mstackrealign".into());
