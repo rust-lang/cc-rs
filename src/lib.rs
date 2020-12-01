@@ -2109,9 +2109,9 @@ impl Build {
         // `--target=` ourselves.
         if host.contains("windows") && android_clang_compiler_uses_target_arg_internally(&tool.path)
         {
-            let mut f = || -> Option<bool> {
-                let file_name = tool.path.file_name()?.to_str()?.to_owned();
-                let (target, clang) = file_name.split_at(file_name.rfind("-")?);
+            if let Some(path) = tool.path.file_name() {
+                let file_name = path.to_str().unwrap().to_owned();
+                let (target, clang) = file_name.split_at(file_name.rfind("-").unwrap());
 
                 tool.path.set_file_name(clang.trim_start_matches("-"));
                 tool.path.set_extension("exe");
@@ -2122,10 +2122,7 @@ impl Build {
                         tool.args.push("-mstackrealign".into());
                     }
                 }
-
-                Some(true)
             };
-            f();
         }
 
         // If we found `cl.exe` in our environment, the tool we're returning is
