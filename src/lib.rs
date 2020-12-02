@@ -2096,6 +2096,40 @@ impl Build {
             tool
         };
 
+        // New "standalone" C/C++ cross-compiler executables from recent Android NDK
+        // are just shell scripts that call main clang binary (from Android NDK) with
+        // proper `--target` argument.
+        //
+        // For example, armv7a-linux-androideabi16-clang passes
+        // `--target=armv7a-linux-androideabi16` to clang.
+        //
+        // As the shell script calls the main clang binary, the command line limit length
+        // on Windows is restricted to around 8k characters instead of around 32k characters.
+        // To remove this limit, we call the main clang binary directly and contruct the
+        // `--target=` ourselves.
+        if host.contains("windows") && android_clang_compiler_uses_target_arg_internally(&tool.path)
+        {
+            if let Some(path) = tool.path.file_name() {
+                let file_name = path.to_str().unwrap().to_owned();
+                let (target, clang) = file_name.split_at(file_name.rfind("-").unwrap());
+
+                tool.path.set_file_name(clang.trim_start_matches("-"));
+                tool.path.set_extension("exe");
+                tool.args.push(format!("--target={}", target).into());
+
+                // Additionally, shell scripts for target i686-linux-android versions 16 to 24
+                // pass the `mstackrealign` option so we do that here as well.
+                if target.contains("i686-linux-android") {
+                    let (_, version) = target.split_at(target.rfind("d").unwrap() + 1);
+                    if let Ok(version) = version.parse::<u32>() {
+                        if version > 15 && version < 25 {
+                            tool.args.push("-mstackrealign".into());
+                        }
+                    }
+                }
+            };
+        }
+
         // If we found `cl.exe` in our environment, the tool we're returning is
         // an MSVC-like tool, *and* no env vars were set then set env vars for
         // the tool that we're returning.
