@@ -2119,8 +2119,11 @@ impl Build {
 
                 // Additionally, shell scripts for target i686-linux-android versions 16 to 24
                 // pass the `mstackrealign` option so we do that here as well.
-                for version in 16..=23 {
-                    if target.contains(&format!("i686-linux-android{}", version)) {
+                if target.contains("i686-linux-android") {
+                    let (_, version) = target.split_at(target.rfind("d").unwrap() + 1);
+                    let version: u32 = version.parse().unwrap();
+
+                    if version > 15 && version < 25 {
                         tool.args.push("-mstackrealign".into());
                     }
                 }
