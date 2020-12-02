@@ -2125,7 +2125,7 @@ impl Build {
                         if version > 15 && version < 25 {
                             tool.args.push("-mstackrealign".into());
                         }
-                    }          
+                    }
                 }
             };
         }
