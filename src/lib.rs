@@ -2121,11 +2121,11 @@ impl Build {
                 // pass the `mstackrealign` option so we do that here as well.
                 if target.contains("i686-linux-android") {
                     let (_, version) = target.split_at(target.rfind("d").unwrap() + 1);
-                    let version: u32 = version.parse().unwrap();
-
-                    if version > 15 && version < 25 {
-                        tool.args.push("-mstackrealign".into());
-                    }
+                    if let Ok(version) = version.parse::<u32>() {
+                        if version > 15 && version < 25 {
+                            tool.args.push("-mstackrealign".into());
+                        }
+                    }          
                 }
             };
         }
