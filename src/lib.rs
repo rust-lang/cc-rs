@@ -1490,10 +1490,11 @@ impl Build {
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
-                if self
-                    .pic
-                    .unwrap_or(!target.contains("windows") && !target.contains("-none-"))
-                {
+                if self.pic.unwrap_or(
+                    !target.contains("windows")
+                        && !target.contains("-none-")
+                        && !target.contains("uefi"),
+                ) {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
@@ -1556,6 +1557,12 @@ impl Build {
                         cmd.args.push(
                             format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
                         );
+                    } else if target.contains("uefi") {
+                        if target.contains("x86_64") {
+                            cmd.args.push("--target=x86_64-unknown-windows-gnu".into());
+                        } else if target.contains("i686") {
+                            cmd.args.push("--target=i686-unknown-windows-gnu".into())
+                        }
                     } else {
                         cmd.args.push(format!("--target={}", target).into());
                     }
