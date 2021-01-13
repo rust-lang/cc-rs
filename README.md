@@ -101,7 +101,7 @@ functions with hard requirements on some variables supplied by [cargo's
 build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
 and `HOST` variables.
 
-[cargo]: http://doc.crates.io/build-script.html#inputs-to-the-build-script
+[cargo]: https://doc.rust-lang.org/cargo/reference/build-scripts.html#inputs-to-the-build-script
 
 ## Optional features
 
@@ -128,7 +128,7 @@ is being run. This crate does not ship a C compiler with it. The compiler
 required varies per platform, but there are three broad categories:
 
 * Unix platforms require `cc` to be the C compiler. This can be found by
-  installing cc/clang on Linux distributions and Xcode on OSX, for example.
+  installing cc/clang on Linux distributions and Xcode on macOS, for example.
 * Windows platforms targeting MSVC (e.g. your target triple ends in `-msvc`)
   require `cl.exe` to be available and in `PATH`. This is typically found in
   standard Visual Studio installations and the `PATH` can be set up by running
@@ -138,12 +138,12 @@ required varies per platform, but there are three broad categories:
   [MinGW-w64](http://mingw-w64.org) distribution, which is using the
   [Win-builds](http://win-builds.org) installation system.
   You may also acquire it via
-  [MSYS2](http://msys2.github.io), as explained [here][msys2-help].  Make sure
+  [MSYS2](https://www.msys2.org/), as explained [here][msys2-help].  Make sure
   to install the appropriate architecture corresponding to your installation of
   rustc. GCC from older [MinGW](http://www.mingw.org) project is compatible
   only with 32-bit rust compiler.
 
-[msys2-help]: http://github.com/rust-lang/rust#building-on-windows
+[msys2-help]: https://github.com/rust-lang/rust#building-on-windows
 
 ## C++ support
 
@@ -161,7 +161,7 @@ fn main() {
 
 For C++ libraries, the `CXX` and `CXXFLAGS` environment variables are used instead of `CC` and `CFLAGS`.
 
-The C++ standard library may be linked to the crate target. By default it's `libc++` for OS X, FreeBSD, and OpenBSD, `libc++_shared` for Android, nothing for MSVC, and `libstdc++` for anything else. It can be changed in one of two ways:
+The C++ standard library may be linked to the crate target. By default it's `libc++` for macOS, FreeBSD, and OpenBSD, `libc++_shared` for Android, nothing for MSVC, and `libstdc++` for anything else. It can be changed in one of two ways:
 
 1. by using the `cpp_link_stdlib` method on `Build`:
     ```rust,no-run
@@ -209,9 +209,9 @@ fn main() {
 This project is licensed under either of
 
  * Apache License, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or
-   http://www.apache.org/licenses/LICENSE-2.0)
+   https://www.apache.org/licenses/LICENSE-2.0)
  * MIT license ([LICENSE-MIT](LICENSE-MIT) or
-   http://opensource.org/licenses/MIT)
+   https://opensource.org/licenses/MIT)
 
 at your option.
 
