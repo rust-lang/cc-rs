@@ -73,6 +73,7 @@ jobs:
         # install to fail. Similar issue:
         # https://github.com/scikit-learn/scikit-learn/issues/13928.
         sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
         sudo apt-get install g++-multilib
       if: matrix.build == 'linux32'
     - run: cargo build
