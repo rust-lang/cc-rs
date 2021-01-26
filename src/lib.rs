@@ -2044,7 +2044,7 @@ impl Build {
                     } else {
                         format!("{}.exe", gnu)
                     }
-                } else if target.contains("ios") {
+                } else if target.contains("apple-ios") {
                     clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(&target, &host, gnu, clang)
