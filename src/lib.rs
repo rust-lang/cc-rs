@@ -2645,11 +2645,7 @@ impl Tool {
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang-cl") {
                 ToolFamily::Msvc { clang_cl: true }
-            } else if fname.contains("cl")
-                && !fname.contains("cloudabi")
-                && !fname.contains("uclibc")
-                && !fname.contains("clang")
-            {
+            } else if fname.ends_with("cl") || fname == "cl.exe" {
                 ToolFamily::Msvc { clang_cl: false }
             } else if fname.contains("clang") {
                 match clang_driver {
