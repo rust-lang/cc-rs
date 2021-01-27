@@ -1414,7 +1414,7 @@ impl Build {
                     cmd.push_opt_unless_duplicate("-DANDROID".into());
                 }
 
-                if !target.contains("-ios") {
+                if !target.contains("apple-ios") {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
@@ -1693,9 +1693,7 @@ impl Build {
             }
         }
 
-        if target.contains("-ios") {
-            // FIXME: potential bug. iOS is always compiled with Clang, but Gcc compiler may be
-            // detected instead.
+        if target.contains("apple-ios") {
             self.ios_flags(cmd)?;
         }
 
