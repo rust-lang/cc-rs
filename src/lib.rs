@@ -1600,7 +1600,7 @@ impl Build {
                     cmd.args.push("-march=i686".into());
                 }
 
-                // Looks like `musl-gcc` makes is hard for `-m32` to make its way
+                // Looks like `musl-gcc` makes it hard for `-m32` to make its way
                 // all the way to the linker, so we need to actually instruct the
                 // linker that we're generating 32-bit executables as well. This'll
                 // typically only be used for build scripts which transitively use
