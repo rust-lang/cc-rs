@@ -1468,6 +1468,20 @@ impl Build {
                             cmd.args
                                 .push(format!("--target={}-apple-{}-macabi", arch, ios).into());
                         }
+                    } else if target.contains("ios-sim") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let deployment_target = env::var("IPHONEOS_DEPLOYMENT_TARGET")
+                                .unwrap_or_else(|_| "7.0".into());
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-ios{}-simulator",
+                                    arch, deployment_target
+                                )
+                                .into(),
+                            );
+                        }
                     } else {
                         cmd.args.push(format!("--target={}", target).into());
                     }
