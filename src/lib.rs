@@ -1691,14 +1691,17 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        cmd.args.push(("-march=rv".to_owned() + arch).into());
                         if target.contains("linux") && arch.starts_with("64") {
+                            cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
                         } else if target.contains("linux") && arch.starts_with("32") {
+                            cmd.args.push(("-march=rv32gc").into());
                             cmd.args.push("-mabi=ilp32d".into());
                         } else if arch.starts_with("64") {
+                            cmd.args.push(("-march=rv".to_owned() + arch).into());
                             cmd.args.push("-mabi=lp64".into());
                         } else {
+                            cmd.args.push(("-march=rv".to_owned() + arch).into());
                             cmd.args.push("-mabi=ilp32".into());
                         }
                         cmd.args.push("-mcmodel=medany".into());
