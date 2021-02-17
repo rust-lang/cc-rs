@@ -2967,6 +2967,9 @@ fn command_add_output_file(
     is_arm: bool,
 ) {
     if msvc && !clang && !cuda && !(is_asm && is_arm) {
+        cmd.arg("-sourceDependencies");
+        cmd.arg(&dst.with_extension("json"));
+
         let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
