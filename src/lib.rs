@@ -1691,14 +1691,17 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        cmd.args.push(("-march=rv".to_owned() + arch).into());
                         if target.contains("linux") && arch.starts_with("64") {
+                            cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
                         } else if target.contains("linux") && arch.starts_with("32") {
+                            cmd.args.push(("-march=rv32gc").into());
                             cmd.args.push("-mabi=ilp32d".into());
                         } else if arch.starts_with("64") {
+                            cmd.args.push(("-march=rv".to_owned() + arch).into());
                             cmd.args.push("-mabi=lp64".into());
                         } else {
+                            cmd.args.push(("-march=rv".to_owned() + arch).into());
                             cmd.args.push("-mabi=ilp32".into());
                         }
                         cmd.args.push("-mcmodel=medany".into());
@@ -2434,6 +2437,9 @@ impl Build {
                 "riscv-none-embed",
             ]),
             "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
+            "riscv32gc-unknown-linux-gnu" => Some("riscv32-linux-gnu"),
+            "riscv64gc-unknown-linux-musl" => Some("riscv64-linux-musl"),
+            "riscv32gc-unknown-linux-musl" => Some("riscv32-linux-musl"),
             "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
             "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
             "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
