@@ -121,6 +121,7 @@ pub struct Build {
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
+    track_dependencies: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -314,6 +315,7 @@ impl Build {
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
+            track_dependencies: false,
         }
     }
 
@@ -911,6 +913,14 @@ impl Build {
         self
     }
 
+    /// Configures the build to track dependencies of each c/cpp file and only rebuild it if necessary
+    ///
+    /// This option defaults to `false`
+    pub fn track_dependencies(&mut self, track_dependencies: bool) -> &mut Build {
+        self.track_dependencies = track_dependencies;
+        self
+    }
+
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
     where
@@ -1198,6 +1208,12 @@ impl Build {
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
+
+        if self.track_dependencies && msvc && !is_asm {
+            cmd.arg("-sourceDependencies");
+            cmd.arg(&obj.dst.with_extension("json"));
+        }
+
         command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, clang, is_asm, is_arm);
         // armasm and armasm64 don't requrie -c option
         if !msvc || !is_asm || !is_arm {
@@ -2967,9 +2983,6 @@ fn command_add_output_file(
     is_arm: bool,
 ) {
     if msvc && !clang && !cuda && !(is_asm && is_arm) {
-        cmd.arg("-sourceDependencies");
-        cmd.arg(&dst.with_extension("json"));
-
         let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
