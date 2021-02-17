@@ -19,9 +19,12 @@ edition = "2018"
 
 [dependencies]
 jobserver = { version = "0.1.16", optional = true }
+json = { version = "0.12", optional = true }
 
 [features]
+default = ["track-dependencies"]
 parallel = ["jobserver"]
+track-dependencies = ["json"]
 
 [dev-dependencies]
 tempfile = "3"

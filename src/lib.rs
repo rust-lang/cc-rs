@@ -1190,6 +1190,8 @@ impl Build {
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
         let clang = compiler.family == ToolFamily::Clang;
+        let track_dependencies =
+            self.track_dependencies && msvc && !is_asm && cfg!(feature = "track-dependencies");
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
@@ -1209,7 +1211,7 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
 
-        if self.track_dependencies && msvc && !is_asm {
+        if track_dependencies {
             cmd.arg("-sourceDependencies");
             cmd.arg(&obj.dst.with_extension("json"));
         }
@@ -1224,7 +1226,9 @@ impl Build {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
 
-        run(&mut cmd, &name)?;
+        if !track_dependencies || is_run_needed(&obj) {
+            run(&mut cmd, &name)?;
+        }
         Ok(())
     }
 
@@ -2989,6 +2993,53 @@ fn command_add_output_file(
     } else {
         cmd.arg("-o").arg(&dst);
     }
+}
+
+#[cfg(feature = "track-dependencies")]
+fn is_run_needed(obj: &Object) -> bool {
+    let deps_info_path = obj.dst.with_extension("json");
+
+    if !deps_info_path.is_file() {
+        return true;
+    }
+
+    let deps_info = match std::fs::read_to_string(deps_info_path) {
+        Ok(res) => res,
+        Err(_) => return true,
+    };
+
+    let deps = match json::parse(&deps_info) {
+        Ok(res) => res,
+        Err(_) => return true,
+    };
+
+    if !deps.has_key("Data") {
+        return true;
+    }
+
+    let data = &deps["Data"];
+
+    if !data.has_key("Includes") {
+        return true;
+    }
+
+    let includes = &data["Includes"];
+
+    for dep in includes.members() {
+        let dep_path = match dep.as_str() {
+            Some(res) => res,
+            None => return true,
+        };
+
+        println!("{}", dep_path);
+    }
+
+    false
+}
+
+#[cfg(not(feature = "track-dependencies"))]
+fn is_run_needed(obj: &Object) -> bool {
+    true
 }
 
 // Use by default minimum available API level
