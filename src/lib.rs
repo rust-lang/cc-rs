@@ -1234,12 +1234,15 @@ impl Build {
         }
 
         #[cfg(feature = "track-dependencies")]
-        if !track_dependencies || track_dependencies::is_run_needed(&obj) {
+        if !track_dependencies || track_dependencies::is_run_needed(&obj, &cmd) {
             run(&mut cmd, &name)?;
         }
 
         #[cfg(not(feature = "track-dependencies"))]
         run(&mut cmd, &name)?;
+
+        #[cfg(feature = "track-dependencies")]
+        track_dependencies::emit_rerun_directives(&obj);
 
         Ok(())
     }
