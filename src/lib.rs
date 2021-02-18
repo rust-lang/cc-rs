@@ -79,8 +79,10 @@ mod com;
 #[cfg(windows)]
 mod setup_config;
 
-mod track_dependencies;
 pub mod windows_registry;
+
+#[cfg(feature = "track-dependencies")]
+mod track_dependencies;
 
 /// A builder for compilation of a native library.
 ///
@@ -122,6 +124,7 @@ pub struct Build {
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
+    #[cfg(feature = "track-dependencies")]
     track_dependencies: bool,
 }
 
@@ -316,6 +319,7 @@ impl Build {
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
+            #[cfg(feature = "track-dependencies")]
             track_dependencies: false,
         }
     }
@@ -917,6 +921,7 @@ impl Build {
     /// Configures the build to track dependencies of each c/cpp file and only rebuild it if necessary
     ///
     /// This option defaults to `false`
+    #[cfg(feature = "track-dependencies")]
     pub fn track_dependencies(&mut self, track_dependencies: bool) -> &mut Build {
         self.track_dependencies = track_dependencies;
         self
@@ -1191,8 +1196,8 @@ impl Build {
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
         let clang = compiler.family == ToolFamily::Clang;
-        let track_dependencies =
-            self.track_dependencies && msvc && !is_asm && cfg!(feature = "track-dependencies");
+        #[cfg(feature = "track-dependencies")]
+        let track_dependencies = self.track_dependencies && msvc && !is_asm;
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
@@ -1212,6 +1217,7 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
 
+        #[cfg(feature = "track-dependencies")]
         if track_dependencies {
             cmd.arg("-sourceDependencies");
             cmd.arg(&obj.dst.with_extension("json"));
@@ -1227,9 +1233,14 @@ impl Build {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
 
+        #[cfg(feature = "track-dependencies")]
         if !track_dependencies || track_dependencies::is_run_needed(&obj) {
             run(&mut cmd, &name)?;
         }
+
+        #[cfg(not(feature = "track-dependencies"))]
+        run(&mut cmd, &name)?;
+
         Ok(())
     }
 

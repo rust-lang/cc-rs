@@ -33,7 +33,6 @@ pub fn is_any_input_newer_then_output<P1: AsRef<Path>, P2: AsRef<Path>>(
     false
 }
 
-#[cfg(feature = "track-dependencies")]
 pub(crate) fn is_run_needed(obj: &Object) -> bool {
     let deps_info_path = obj.dst.with_extension("json");
 
@@ -75,9 +74,4 @@ pub(crate) fn is_run_needed(obj: &Object) -> bool {
             .filter_map(|v| v.as_str())
             .chain(iter::once(src_file)),
     )
-}
-
-#[cfg(not(feature = "track-dependencies"))]
-pub(crate) fn is_run_needed(obj: &Object) -> bool {
-    true
 }
