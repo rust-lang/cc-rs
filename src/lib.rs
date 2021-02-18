@@ -79,6 +79,7 @@ mod com;
 #[cfg(windows)]
 mod setup_config;
 
+mod track_dependencies;
 pub mod windows_registry;
 
 /// A builder for compilation of a native library.
@@ -1226,7 +1227,7 @@ impl Build {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
 
-        if !track_dependencies || is_run_needed(&obj) {
+        if !track_dependencies || track_dependencies::is_run_needed(&obj) {
             run(&mut cmd, &name)?;
         }
         Ok(())
@@ -2993,53 +2994,6 @@ fn command_add_output_file(
     } else {
         cmd.arg("-o").arg(&dst);
     }
-}
-
-#[cfg(feature = "track-dependencies")]
-fn is_run_needed(obj: &Object) -> bool {
-    let deps_info_path = obj.dst.with_extension("json");
-
-    if !deps_info_path.is_file() {
-        return true;
-    }
-
-    let deps_info = match std::fs::read_to_string(deps_info_path) {
-        Ok(res) => res,
-        Err(_) => return true,
-    };
-
-    let deps = match json::parse(&deps_info) {
-        Ok(res) => res,
-        Err(_) => return true,
-    };
-
-    if !deps.has_key("Data") {
-        return true;
-    }
-
-    let data = &deps["Data"];
-
-    if !data.has_key("Includes") {
-        return true;
-    }
-
-    let includes = &data["Includes"];
-
-    for dep in includes.members() {
-        let dep_path = match dep.as_str() {
-            Some(res) => res,
-            None => return true,
-        };
-
-        println!("{}", dep_path);
-    }
-
-    false
-}
-
-#[cfg(not(feature = "track-dependencies"))]
-fn is_run_needed(obj: &Object) -> bool {
-    true
 }
 
 // Use by default minimum available API level
