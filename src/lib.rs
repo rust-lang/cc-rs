@@ -977,6 +977,12 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
         self.compile_objects(&objects)?;
+
+        #[cfg(feature = "track-dependencies")]
+        for obj in &objects {
+            track_dependencies::emit_rerun_directives(obj);
+        }
+
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
@@ -1240,9 +1246,6 @@ impl Build {
 
         #[cfg(not(feature = "track-dependencies"))]
         run(&mut cmd, &name)?;
-
-        #[cfg(feature = "track-dependencies")]
-        track_dependencies::emit_rerun_directives(&obj);
 
         Ok(())
     }
