@@ -1120,6 +1120,13 @@ impl Build {
             server.acquire_raw()?;
         }
 
+        if error.load(SeqCst) {
+            return Err(Error {
+                kind: ErrorKind::ToolExecError,
+                message: "Compilation failed".to_string(),
+            });
+        }
+
         return Ok(());
 
         /// Shared state from the parent thread to the child thread. This
@@ -1337,8 +1344,6 @@ impl Build {
 
         if !no_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
-        } else {
-            println!("Info: default compiler flags are disabled");
         }
 
         for arg in envflags {
@@ -2899,7 +2904,6 @@ fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
         }
     };
     print.join().unwrap();
-    println!("{}", status);
 
     if status.success() {
         Ok(())
@@ -2953,7 +2957,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
 }
 
 fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Error> {
-    println!("running: {:?}", cmd);
+    println!("{:?}", cmd);
 
     // Capture the standard error coming from these programs, and write it out
     // with cargo:warning= prefixes. Note that this is a bit wonky to avoid
