@@ -103,13 +103,13 @@ fn dependencies(obj: &Object) -> Option<Vec<String>> {
 }
 
 pub(crate) fn is_run_needed(obj: &Object, cmd: &Command) -> bool {
-    if !obj.dst.is_file() {
-        return true;
-    }
-
     match write_file_if_changed(obj.dst.with_extension("command"), &format!("{:?}", cmd)) {
         Ok(WriteFileStatus::NewContentsWriten) | Err(_) => return true,
         _ => (),
+    }
+
+    if !obj.dst.is_file() {
+        return true;
     }
 
     match dependencies(&obj) {
