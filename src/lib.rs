@@ -1210,7 +1210,7 @@ impl Build {
         let compiler = self.try_get_compiler()?;
         let clang = compiler.family == ToolFamily::Clang;
         #[cfg(feature = "track-dependencies")]
-        let track_dependencies = self.track_dependencies && msvc && !is_asm;
+        let track_dependencies = self.track_dependencies && !is_asm;
         let (mut cmd, name) = if msvc && is_asm {
             self.msvc_macro_assembler()?
         } else {
@@ -1232,8 +1232,14 @@ impl Build {
 
         #[cfg(feature = "track-dependencies")]
         if track_dependencies {
-            cmd.arg("-sourceDependencies");
-            cmd.arg(&obj.dst.with_extension("json"));
+            if msvc {
+                cmd.arg("-sourceDependencies");
+                cmd.arg(&obj.dst.with_extension("json"));
+            } else {
+                cmd.arg("-MD");
+                cmd.arg("-MF");
+                cmd.arg(&obj.dst.with_extension("dep"));
+            }
         }
 
         command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, clang, is_asm, is_arm);
