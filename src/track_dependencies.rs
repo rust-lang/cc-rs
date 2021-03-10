@@ -124,9 +124,10 @@ pub(crate) fn get_dependencies(obj: &Object, msvc: bool) -> Option<Vec<String>> 
 }
 
 pub(crate) fn is_run_needed(obj: &Object, cmd: &Command, msvc: bool) -> bool {
-    match write_file_if_changed(obj.dst.with_extension("command"), &format!("{:?}", cmd)) {
-        Ok(WriteFileStatus::NewContentsWriten) | Err(_) => return true,
-        _ => (),
+    if let Ok(WriteFileStatus::NewContentsWriten) | Err(_) =
+        write_file_if_changed(obj.dst.with_extension("command"), &format!("{:?}", cmd))
+    {
+        return true;
     }
 
     if !obj.dst.is_file() {
