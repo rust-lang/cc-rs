@@ -978,14 +978,32 @@ impl Build {
         }
         self.compile_objects(&objects)?;
 
+        let msvc = self.get_target()?.contains("msvc");
+
         #[cfg(feature = "track-dependencies")]
-        for obj in &objects {
-            track_dependencies::emit_rerun_directives(obj);
+        if self.track_dependencies {
+            let mut unique_deps = std::collections::HashSet::new();
+
+            for obj in &objects {
+                if !obj.dst.is_file() {
+                    panic!("Faild to build: {:?}", obj.dst);
+                }
+
+                if let Some(dependencies) = track_dependencies::get_dependencies(&obj, msvc) {
+                    for dep in dependencies {
+                        unique_deps.insert(dep);
+                    }
+                }
+            }
+
+            for dep in unique_deps {
+                println!("cargo:rerun-if-changed={}", dep);
+            }
         }
 
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
-        if self.get_target()?.contains("msvc") {
+        if msvc {
             let compiler = self.get_base_compiler()?;
             let atlmfc_lib = compiler
                 .env()
@@ -1253,7 +1271,7 @@ impl Build {
         }
 
         #[cfg(feature = "track-dependencies")]
-        if !track_dependencies || track_dependencies::is_run_needed(&obj, &cmd) {
+        if !track_dependencies || track_dependencies::is_run_needed(&obj, &cmd, msvc) {
             run(&mut cmd, &name)?;
         }
 
