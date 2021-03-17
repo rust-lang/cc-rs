@@ -170,7 +170,7 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 mod impl_ {
     use crate::com;
     use crate::registry::{RegistryKey, LOCAL_MACHINE};
-    use crate::setup_config::{EnumSetupInstances, SetupConfiguration, SetupInstance};
+    use crate::setup_config::{EnumSetupInstances, SetupConfiguration};
     use std::env;
     use std::ffi::OsString;
     use std::fs::File;
@@ -288,7 +288,8 @@ mod impl_ {
         iter.filter_map(|instance| {
             let instance = instance.ok()?;
             let version = parse_version(instance.installation_version().ok()?.to_str()?)?;
-            let tool = tool_from_vs15plus_instance(tool, target, &instance)?;
+            let instance_path: PathBuf = instance.installation_path().ok()?.into();
+            let tool = tool_from_vs15plus_instance(tool, target, &instance_path)?;
             Some((version, tool))
         })
         .max_by(|(a_version, _), (b_version, _)| a_version.cmp(b_version))
@@ -337,10 +338,10 @@ mod impl_ {
     fn tool_from_vs15plus_instance(
         tool: &str,
         target: &str,
-        instance: &SetupInstance,
+        instance_path: &PathBuf,
     ) -> Option<Tool> {
         let (bin_path, host_dylib_path, lib_path, include_path) =
-            vs15plus_vc_paths(target, instance)?;
+            vs15plus_vc_paths(target, instance_path)?;
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() {
             return None;
@@ -364,9 +365,8 @@ mod impl_ {
 
     fn vs15plus_vc_paths(
         target: &str,
-        instance: &SetupInstance,
+        instance_path: &PathBuf,
     ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf)> {
-        let instance_path: PathBuf = instance.installation_path().ok()?.into();
         let version_path =
             instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
         let mut version_file = File::open(version_path).ok()?;
