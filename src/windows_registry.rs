@@ -218,8 +218,8 @@ mod impl_ {
     }
 
     #[allow(bare_trait_objects)]
-    fn vs16_instances() -> Box<Iterator<Item = PathBuf>> {
-        let instances = if let Some(instances) = vs15plus_instances() {
+    fn vs16_instances(target: &str) -> Box<Iterator<Item = PathBuf>> {
+        let instances = if let Some(instances) = vs15plus_instances(target) {
             instances
         } else {
             return Box::new(iter::empty());
@@ -237,7 +237,7 @@ mod impl_ {
     }
 
     fn find_tool_in_vs16_path(tool: &str, target: &str) -> Option<Tool> {
-        vs16_instances()
+        vs16_instances(target)
             .filter_map(|path| {
                 let path = path.join(tool);
                 if !path.is_file() {
@@ -265,8 +265,11 @@ mod impl_ {
     // [online]: https://blogs.msdn.microsoft.com/vcblog/2017/03/06/finding-the-visual-c-compiler-tools-in-visual-studio-2017/
     //
     // Returns MSVC 15+ instances (15, 16 right now), the order should be consider undefined.
-    fn vs15plus_instances() -> Option<VsInstances> {
-        vs15plus_instances_using_com().or_else(vs15plus_instances_using_vswhere)
+    //
+    // However, on ARM64 this method doesn't work because VS Installer fails to register COM component on ARM64.
+    // Hence, as the last resort we try to use vswhere.exe to list available instances.
+    fn vs15plus_instances(target: &str) -> Option<VsInstances> {
+        vs15plus_instances_using_com().or_else(|| vs15plus_instances_using_vswhere(target))
     }
 
     fn vs15plus_instances_using_com() -> Option<VsInstances> {
@@ -274,15 +277,11 @@ mod impl_ {
 
         let config = SetupConfiguration::new().ok()?;
         let enum_setup_instances = config.enum_all_instances().ok()?;
-        
+
         Some(VsInstances::ComBased(enum_setup_instances))
     }
 
-    fn vs15plus_instances_using_vswhere() -> Option<VsInstances> {
-        // "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
-        // -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64
-        // -property installationPath -format value
-
+    fn vs15plus_instances_using_vswhere(target: &str) -> Option<VsInstances> {
         let program_files_path: PathBuf = env::var("ProgramFiles(x86)")
             .or_else(|_| env::var("ProgramFiles"))
             .ok()?
@@ -291,13 +290,21 @@ mod impl_ {
         let vswhere_path =
             program_files_path.join(r"Microsoft Visual Studio\Installer\vswhere.exe");
 
+        let arch = target.split('-').next().unwrap();
+        let tools_arch = match arch {
+            "i586" | "i686" | "x86_64" => Some("x86.x64"),
+            "arm" | "thumbv7a" => Some("ARM"),
+            "aarch64" => Some("ARM64"),
+            _ => None,
+        };
+
         let vswhere_output = Command::new(vswhere_path)
             .args(&[
-                // "-latest",
+                // "-latest", // TODO: using only the latest instance could make parsing code a bit simpler
                 "-products",
                 "*",
                 "-requires",
-                "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+                &format!("Microsoft.VisualStudio.Component.VC.Tools.{}", tools_arch?),
                 "-format",
                 "text",
                 "-nologo",
@@ -322,16 +329,16 @@ mod impl_ {
     }
 
     pub fn find_msvc_15plus(tool: &str, target: &str) -> Option<Tool> {
-        let iter = vs15plus_instances()?;
+        let iter = vs15plus_instances(target)?;
         iter.into_iter()
             .filter_map(|instance| {
-            let version = parse_version(&instance.installation_version()?)?;
-            let instance_path = instance.installation_path()?;
-            let tool = tool_from_vs15plus_instance(tool, target, &instance_path)?;
-            Some((version, tool))
-        })
-        .max_by(|(a_version, _), (b_version, _)| a_version.cmp(b_version))
-        .map(|(_version, tool)| tool)
+                let version = parse_version(&instance.installation_version()?)?;
+                let instance_path = instance.installation_path()?;
+                let tool = tool_from_vs15plus_instance(tool, target, &instance_path)?;
+                Some((version, tool))
+            })
+            .max_by(|(a_version, _), (b_version, _)| a_version.cmp(b_version))
+            .map(|(_version, tool)| tool)
     }
 
     // While the paths to Visual Studio 2017's devenv and MSBuild could
@@ -342,7 +349,7 @@ mod impl_ {
     //
     // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
     fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
-        let mut path = match vs15plus_instances() {
+        let mut path = match vs15plus_instances(target) {
             Some(instances) => instances
                 .into_iter()
                 .filter_map(|instance| instance.installation_path())
