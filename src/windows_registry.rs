@@ -170,7 +170,8 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 mod impl_ {
     use crate::com;
     use crate::registry::{RegistryKey, LOCAL_MACHINE};
-    use crate::setup_config::{EnumSetupInstances, SetupConfiguration};
+    use crate::setup_config::SetupConfiguration;
+    use crate::vswhere::{VsInstances, VswhereInstances};
     use std::env;
     use std::ffi::OsString;
     use std::fs::File;
@@ -178,6 +179,7 @@ mod impl_ {
     use std::iter;
     use std::mem;
     use std::path::{Path, PathBuf};
+    use std::process::Command;
     use std::str::FromStr;
 
     use super::MSVC_FAMILY;
@@ -222,16 +224,12 @@ mod impl_ {
         } else {
             return Box::new(iter::empty());
         };
-        Box::new(instances.filter_map(|instance| {
-            let instance = instance.ok()?;
-            let installation_name = instance.installation_name().ok()?;
-            if installation_name.to_str()?.starts_with("VisualStudio/16.") {
-                Some(PathBuf::from(instance.installation_path().ok()?))
-            } else if installation_name
-                .to_str()?
-                .starts_with("VisualStudioPreview/16.")
-            {
-                Some(PathBuf::from(instance.installation_path().ok()?))
+        Box::new(instances.into_iter().filter_map(|instance| {
+            let installation_name = instance.installation_name()?;
+            if installation_name.starts_with("VisualStudio/16.") {
+                Some(instance.installation_path()?)
+            } else if installation_name.starts_with("VisualStudioPreview/16.") {
+                Some(instance.installation_path()?)
             } else {
                 None
             }
@@ -267,11 +265,51 @@ mod impl_ {
     // [online]: https://blogs.msdn.microsoft.com/vcblog/2017/03/06/finding-the-visual-c-compiler-tools-in-visual-studio-2017/
     //
     // Returns MSVC 15+ instances (15, 16 right now), the order should be consider undefined.
-    fn vs15plus_instances() -> Option<EnumSetupInstances> {
+    fn vs15plus_instances() -> Option<VsInstances> {
+        vs15plus_instances_using_com().or_else(vs15plus_instances_using_vswhere)
+    }
+
+    fn vs15plus_instances_using_com() -> Option<VsInstances> {
         com::initialize().ok()?;
 
         let config = SetupConfiguration::new().ok()?;
-        config.enum_all_instances().ok()
+        let enum_setup_instances = config.enum_all_instances().ok()?;
+        
+        Some(VsInstances::ComBased(enum_setup_instances))
+    }
+
+    fn vs15plus_instances_using_vswhere() -> Option<VsInstances> {
+        // "%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe"
+        // -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64
+        // -property installationPath -format value
+
+        let program_files_path: PathBuf = env::var("ProgramFiles(x86)")
+            .or_else(|_| env::var("ProgramFiles"))
+            .ok()?
+            .into();
+
+        let vswhere_path =
+            program_files_path.join(r"Microsoft Visual Studio\Installer\vswhere.exe");
+
+        let vswhere_output = Command::new(vswhere_path)
+            .args(&[
+                // "-latest",
+                "-products",
+                "*",
+                "-requires",
+                "Microsoft.VisualStudio.Component.VC.Tools.ARM64",
+                "-format",
+                "text",
+                "-nologo",
+            ])
+            .stderr(std::process::Stdio::inherit())
+            .output()
+            .ok()?;
+
+        let vs_instances =
+            VsInstances::VswhereBased(VswhereInstances::from(&vswhere_output.stdout));
+
+        Some(vs_instances)
     }
 
     // Inspired from official microsoft/vswhere ParseVersionString
@@ -285,10 +323,10 @@ mod impl_ {
 
     pub fn find_msvc_15plus(tool: &str, target: &str) -> Option<Tool> {
         let iter = vs15plus_instances()?;
-        iter.filter_map(|instance| {
-            let instance = instance.ok()?;
-            let version = parse_version(instance.installation_version().ok()?.to_str()?)?;
-            let instance_path: PathBuf = instance.installation_path().ok()?.into();
+        iter.into_iter()
+            .filter_map(|instance| {
+            let version = parse_version(&instance.installation_version()?)?;
+            let instance_path = instance.installation_path()?;
             let tool = tool_from_vs15plus_instance(tool, target, &instance_path)?;
             Some((version, tool))
         })
@@ -306,12 +344,9 @@ mod impl_ {
     fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
         let mut path = match vs15plus_instances() {
             Some(instances) => instances
-                .filter_map(|instance| {
-                    instance
-                        .ok()
-                        .and_then(|instance| instance.installation_path().ok())
-                })
-                .map(|path| PathBuf::from(path).join(tool))
+                .into_iter()
+                .filter_map(|instance| instance.installation_path())
+                .map(|path| path.join(tool))
                 .find(|ref path| path.is_file()),
             None => None,
         };
