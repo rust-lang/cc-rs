@@ -403,7 +403,7 @@ mod impl_ {
     }
 
     fn atl_paths(target: &str, path: &Path) -> Option<(PathBuf, PathBuf)> {
-        let atl_path = path.join("atlfmc");
+        let atl_path = path.join("atlmfc");
         let sub = lib_subdir(target)?;
         if atl_path.exists() {
             Some((atl_path.join("lib").join(sub), atl_path.join("include")))
