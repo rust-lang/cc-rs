@@ -68,7 +68,7 @@ pub struct VswhereInstance {
 }
 
 impl TryFrom<&Vec<u8>> for VswhereInstance {
-    type Error = i32;
+    type Error = &'static str;
 
     fn try_from(output: &Vec<u8>) -> Result<Self, Self::Error> {
         let map: HashMap<_, _> = output
@@ -84,7 +84,7 @@ impl TryFrom<&Vec<u8>> for VswhereInstance {
             || !map.contains_key("installationPath")
             || !map.contains_key("installationVersion")
         {
-            return Err(2);
+            return Err("required properties not found");
         }
 
         Ok(Self { map })
