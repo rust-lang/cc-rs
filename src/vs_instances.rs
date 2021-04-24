@@ -163,7 +163,7 @@ properties_setupEngineFilePath: C:\Program Files (x86)\Microsoft Visual Studio\I
     }
 
     #[test]
-    fn it_returns_empty_list_for_empty_output() {
+    fn it_returns_an_error_for_empty_output() {
         let output = b"".to_vec();
 
         let vswhere_instance = super::VswhereInstance::try_from(&output);
@@ -172,9 +172,23 @@ properties_setupEngineFilePath: C:\Program Files (x86)\Microsoft Visual Studio\I
     }
 
     #[test]
-    fn it_returns_empty_list_for_output_consisting_of_empty_lines() {
+    fn it_returns_an_error_for_output_consisting_of_empty_lines() {
         let output = br"
 
+"
+        .to_vec();
+
+        let vswhere_instance = super::VswhereInstance::try_from(&output);
+
+        assert!(vswhere_instance.is_err());
+    }
+
+    #[test]
+    fn it_returns_an_error_for_output_without_required_properties() {
+        let output = br"instanceId: 58104422
+installDate: 21/02/2021 21:50:33
+productId: Microsoft.VisualStudio.Product.BuildTools
+productPath: C:\Program Files (x86)\Microsoft Visual Studio\2019\BuildTools\Common7\Tools\LaunchDevCmd.bat
 "
         .to_vec();
 
