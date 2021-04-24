@@ -79,7 +79,7 @@ mod com;
 #[cfg(windows)]
 mod setup_config;
 #[cfg(windows)]
-mod vswhere;
+mod vs_instances;
 
 pub mod windows_registry;
 

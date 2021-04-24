@@ -171,7 +171,7 @@ mod impl_ {
     use crate::com;
     use crate::registry::{RegistryKey, LOCAL_MACHINE};
     use crate::setup_config::SetupConfiguration;
-    use crate::vswhere::{VsInstances, VswhereInstance};
+    use crate::vs_instances::{VsInstances, VswhereInstance};
     use std::convert::TryFrom;
     use std::env;
     use std::ffi::OsString;
