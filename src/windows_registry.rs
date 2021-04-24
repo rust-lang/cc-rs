@@ -291,6 +291,10 @@ mod impl_ {
         let vswhere_path =
             program_files_path.join(r"Microsoft Visual Studio\Installer\vswhere.exe");
 
+        if !vswhere_path.exists() {
+            return None;
+        }
+
         let arch = target.split('-').next().unwrap();
         let tools_arch = match arch {
             "i586" | "i686" | "x86_64" => Some("x86.x64"),
