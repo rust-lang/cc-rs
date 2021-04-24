@@ -44,7 +44,7 @@ impl VsInstance {
 
 pub enum VsInstances {
     ComBased(EnumSetupInstances),
-    VswhereBased(VswhereInstances),
+    VswhereBased(VswhereInstance),
 }
 
 impl IntoIterator for VsInstances {
@@ -57,23 +57,8 @@ impl IntoIterator for VsInstances {
             VsInstances::ComBased(e) => {
                 Box::new(e.into_iter().filter_map(Result::ok).map(VsInstance::Com))
             }
-            VsInstances::VswhereBased(v) => Box::new(v.0.into_iter().map(VsInstance::Vswhere)),
+            VsInstances::VswhereBased(v) => Box::new(std::iter::once(VsInstance::Vswhere(v))),
         }
-    }
-}
-
-pub struct VswhereInstances(Vec<VswhereInstance>);
-
-impl<'a> From<&Vec<u8>> for VswhereInstances {
-    fn from(output: &Vec<u8>) -> Self {
-        let lines: Vec<_> = output.lines().filter_map(Result::ok).collect();
-
-        let instances = lines
-            .split(|s| s.is_empty())
-            .filter_map(|s| VswhereInstance::try_from(s).ok())
-            .collect();
-
-        Self(instances)
     }
 }
 
@@ -82,12 +67,13 @@ pub struct VswhereInstance {
     map: HashMap<String, String>,
 }
 
-impl TryFrom<&[String]> for VswhereInstance {
+impl TryFrom<&Vec<u8>> for VswhereInstance {
     type Error = i32;
 
-    fn try_from(lines: &[String]) -> Result<Self, Self::Error> {
-        let map: HashMap<_, _> = lines
-            .iter()
+    fn try_from(output: &Vec<u8>) -> Result<Self, Self::Error> {
+        let map: HashMap<_, _> = output
+            .lines()
+            .filter_map(Result::ok)
             .filter_map(|s| {
                 let mut splitn = s.splitn(2, ": ");
                 Some((splitn.next()?.to_owned(), splitn.next()?.to_owned()))
@@ -108,6 +94,7 @@ impl TryFrom<&[String]> for VswhereInstance {
 #[cfg(test)]
 mod tests_ {
     use std::borrow::Cow;
+    use std::convert::TryFrom;
     use std::path::PathBuf;
 
     #[test]
@@ -155,10 +142,10 @@ properties_setupEngineFilePath: C:\Program Files (x86)\Microsoft Visual Studio\I
 "
         .to_vec();
 
-        let mut vswhere_instances = super::VswhereInstances::from(&output);
-        assert_eq!(vswhere_instances.0.len(), 1);
+        let vswhere_instance = super::VswhereInstance::try_from(&output);
+        assert!(vswhere_instance.is_ok());
 
-        let vs_instance = super::VsInstance::Vswhere(vswhere_instances.0.pop().unwrap());
+        let vs_instance = super::VsInstance::Vswhere(vswhere_instance.unwrap());
         assert_eq!(
             vs_instance.installation_name(),
             Some(Cow::from("VisualStudio/16.9.2+31112.23"))
@@ -179,9 +166,9 @@ properties_setupEngineFilePath: C:\Program Files (x86)\Microsoft Visual Studio\I
     fn it_returns_empty_list_for_empty_output() {
         let output = b"".to_vec();
 
-        let vswhere_instances = super::VswhereInstances::from(&output);
+        let vswhere_instance = super::VswhereInstance::try_from(&output);
 
-        assert_eq!(vswhere_instances.0.len(), 0)
+        assert!(vswhere_instance.is_err());
     }
 
     #[test]
@@ -191,8 +178,8 @@ properties_setupEngineFilePath: C:\Program Files (x86)\Microsoft Visual Studio\I
 "
         .to_vec();
 
-        let vswhere_instances = super::VswhereInstances::from(&output);
+        let vswhere_instance = super::VswhereInstance::try_from(&output);
 
-        assert_eq!(vswhere_instances.0.len(), 0);
+        assert!(vswhere_instance.is_err());
     }
 }

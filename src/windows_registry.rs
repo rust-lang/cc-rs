@@ -171,7 +171,8 @@ mod impl_ {
     use crate::com;
     use crate::registry::{RegistryKey, LOCAL_MACHINE};
     use crate::setup_config::SetupConfiguration;
-    use crate::vswhere::{VsInstances, VswhereInstances};
+    use crate::vswhere::{VsInstances, VswhereInstance};
+    use std::convert::TryFrom;
     use std::env;
     use std::ffi::OsString;
     use std::fs::File;
@@ -300,7 +301,7 @@ mod impl_ {
 
         let vswhere_output = Command::new(vswhere_path)
             .args(&[
-                // "-latest", // TODO: using only the latest instance could make parsing code a bit simpler
+                "-latest",
                 "-products",
                 "*",
                 "-requires",
@@ -314,7 +315,7 @@ mod impl_ {
             .ok()?;
 
         let vs_instances =
-            VsInstances::VswhereBased(VswhereInstances::from(&vswhere_output.stdout));
+            VsInstances::VswhereBased(VswhereInstance::try_from(&vswhere_output.stdout).ok()?);
 
         Some(vs_instances)
     }
