@@ -2204,7 +2204,7 @@ impl Build {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        let valid_wrappers = ["sccache"];
+        let valid_wrappers = ["sccache", "cachepot"];
 
         let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
