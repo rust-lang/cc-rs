@@ -47,8 +47,6 @@ pub fn find_tool(_target: &str, _tool: &str) -> Option<Tool> {
 /// Documented above.
 #[cfg(windows)]
 pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
-    use std::env;
-
     // This logic is all tailored for MSVC, if we're not that then bail out
     // early.
     if !target.contains("msvc") {
@@ -66,18 +64,6 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         return impl_::find_devenv(target);
     }
 
-    // If VCINSTALLDIR is set, then someone's probably already run vcvars and we
-    // should just find whatever that indicates.
-    if env::var_os("VCINSTALLDIR").is_some() {
-        return env::var_os("PATH")
-            .and_then(|path| {
-                env::split_paths(&path)
-                    .map(|p| p.join(tool))
-                    .find(|p| p.exists())
-            })
-            .map(|path| Tool::with_family(path.into(), MSVC_FAMILY));
-    }
-
     // Ok, if we're here, now comes the fun part of the probing. Default shells
     // or shells like MSYS aren't really configured to execute `cl.exe` and the
     // various compiler tools shipped as part of Visual Studio. Here we try to
@@ -85,7 +71,8 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
     // the tool is actually usable.
 
-    return impl_::find_msvc_15plus(tool, target)
+    return impl_::find_msvc_environment(tool, target)
+        .or_else(|| impl_::find_msvc_15plus(tool, target))
         .or_else(|| impl_::find_msvc_14(tool, target))
         .or_else(|| impl_::find_msvc_12(tool, target))
         .or_else(|| impl_::find_msvc_11(tool, target));
@@ -215,6 +202,48 @@ mod impl_ {
             add_env(&mut tool, "PATH", path);
             add_env(&mut tool, "INCLUDE", include);
             tool
+        }
+    }
+
+    /// Checks to see if the `VSCMD_ARG_TGT_ARCH` environment variable matches the
+    /// given target's arch. Returns `None` if the variable does not exist.
+    #[cfg(windows)]
+    fn is_vscmd_target(target: &str) -> Option<bool> {
+        let vscmd_arch = env::var("VSCMD_ARG_TGT_ARCH").ok()?;
+        // Convert the Rust target arch to its VS arch equivalent.
+        let arch = match target.split("-").next() {
+            Some("x86_64") => "x64",
+            Some("aarch64") => "arm64",
+            Some("i686") | Some("i586") => "x86",
+            Some("thumbv7a") => "arm",
+            // An unrecognized arch.
+            _ => return Some(false),
+        };
+        Some(vscmd_arch == arch)
+    }
+
+    /// Attempt to find the tool using environment variables set by vcvars.
+    pub fn find_msvc_environment(target: &str, tool: &str) -> Option<Tool> {
+        // Early return if the environment doesn't contain a VC install.
+        if env::var_os("VCINSTALLDIR").is_none() {
+            return None;
+        }
+        let vs_install_dir = env::var_os("VSINSTALLDIR")?.into();
+
+        // If the vscmd target differs from the requested target then
+        // attempt to get the tool using the VS install directory.
+        if is_vscmd_target(target) == Some(false) {
+            // We will only get here with versions 15+.
+            tool_from_vs15plus_instance(tool, target, &vs_install_dir)
+        } else {
+            // Fallback to simply using the current environment.
+            env::var_os("PATH")
+                .and_then(|path| {
+                    env::split_paths(&path)
+                        .map(|p| p.join(tool))
+                        .find(|p| p.exists())
+                })
+                .map(|path| Tool::with_family(path.into(), MSVC_FAMILY))
         }
     }
 
