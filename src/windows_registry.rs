@@ -129,7 +129,7 @@ pub fn find_vs_version() -> Result<VsVers, String> {
             )),
         },
         _ => {
-            // Check for the presense of a specific registry key
+            // Check for the presence of a specific registry key
             // that indicates visual studio is installed.
             if impl_::has_msbuild_version("16.0") {
                 Ok(VsVers::Vs16)
@@ -676,7 +676,7 @@ mod impl_ {
 
     // Interestingly there are several subdirectories, `win7` `win8` and
     // `winv6.3`. Vcvars seems to only care about `winv6.3` though, so the same
-    // applies to us. Note that if we were targetting kernel mode drivers
+    // applies to us. Note that if we were targeting kernel mode drivers
     // instead of user mode applications, we would care.
     fn get_sdk81_dir() -> Option<PathBuf> {
         let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v8.1";
