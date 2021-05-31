@@ -277,6 +277,9 @@ mod impl_ {
                 if target.contains("x86_64") {
                     tool.env.push(("Platform".into(), "X64".into()));
                 }
+                if target.contains("aarch64") {
+                    tool.env.push(("Platform".into(), "ARM64".into()));
+                }
                 Some(tool)
             })
             .next()
@@ -406,6 +409,9 @@ mod impl_ {
             let mut tool = Tool::with_family(path, MSVC_FAMILY);
             if target.contains("x86_64") {
                 tool.env.push(("Platform".into(), "X64".into()));
+            }
+            if target.contains("aarch64") {
+                tool.env.push(("Platform".into(), "ARM64".into()));
             }
             tool
         })
@@ -810,10 +816,12 @@ mod impl_ {
             "16.0" => {
                 find_msbuild_vs16("x86_64-pc-windows-msvc").is_some()
                     || find_msbuild_vs16("i686-pc-windows-msvc").is_some()
+                    || find_msbuild_vs16("aarch64-pc-windows-msvc").is_some()
             }
             "15.0" => {
                 find_msbuild_vs15("x86_64-pc-windows-msvc").is_some()
                     || find_msbuild_vs15("i686-pc-windows-msvc").is_some()
+                    || find_msbuild_vs15("aarch64-pc-windows-msvc").is_some()
             }
             "12.0" | "14.0" => LOCAL_MACHINE
                 .open(&OsString::from(format!(
