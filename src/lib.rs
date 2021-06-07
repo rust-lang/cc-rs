@@ -3086,6 +3086,12 @@ fn map_darwin_target_from_rust_to_compiler_architecture(target: &str) -> Option<
         Some("arm64e")
     } else if target.contains("aarch64") {
         Some("arm64")
+    } else if target.contains("i686") {
+        Some("i386")
+    } else if target.contains("powerpc") {
+        Some("ppc")
+    } else if target.contains("powerpc64") {
+        Some("ppc64")
     } else {
         None
     }
