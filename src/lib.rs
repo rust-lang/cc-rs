@@ -1484,6 +1484,10 @@ impl Build {
                                 .into(),
                             );
                         }
+                    } else if target.starts_with("riscv64gc-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
+                        );
                     } else {
                         cmd.args.push(format!("--target={}", target).into());
                     }
