@@ -1416,7 +1416,7 @@ impl Build {
                     cmd.push_opt_unless_duplicate("-DANDROID".into());
                 }
 
-                if !target.contains("apple-ios") {
+                if !target.contains("apple-ios") && !target.contains("apple-watchos") {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
@@ -1482,6 +1482,19 @@ impl Build {
                                     arch, deployment_target
                                 )
                                 .into(),
+                            );
+                        }
+                    } else if target.contains("watchos-sim") {
+                        if let Some(arch) =
+                        map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let deployment_target = env::var("WATCHOS_DEPLOYMENT_TARGET")
+                                .unwrap_or_else(|_| "5.0".into());
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-watchos{}-simulator",
+                                    arch, deployment_target
+                                ).into(),
                             );
                         }
                     } else if target.starts_with("riscv64gc-") {
@@ -1718,6 +1731,10 @@ impl Build {
 
         if target.contains("apple-ios") {
             self.ios_flags(cmd)?;
+        }
+
+        if target.contains("apple-watchos") {
+            self.watchos_flags(cmd)?;
         }
 
         if self.static_flag.unwrap_or(false) {
@@ -1984,6 +2001,74 @@ impl Build {
         Ok(())
     }
 
+    fn watchos_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+        enum ArchSpec {
+            Device(&'static str),
+            Simulator(&'static str),
+        }
+
+        let target = self.get_target()?;
+        let arch = target.split('-').nth(0).ok_or_else(|| {
+            Error::new(
+                ErrorKind::ArchitectureInvalid,
+                "Unknown architecture for watchOS target.",
+            )
+        })?;
+
+        let arch = match arch {
+                "armv7k" => ArchSpec::Device("armv7k"),
+                "arm64_32" => ArchSpec::Device("arm64_32"),
+                "i386" | "i686" => ArchSpec::Simulator("-m32"),
+                "x86_64" => ArchSpec::Simulator("-m64"),
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::ArchitectureInvalid,
+                        "Unknown architecture for watchOS target.",
+                    ));
+                }
+
+        };
+
+        let min_version =
+            std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into());
+
+
+        let sdk = match arch {
+            ArchSpec::Device(arch) => {
+                cmd.args.push("-arch".into());
+                cmd.args.push(arch.into());
+                cmd.args
+                    .push(format!("-mwatchos-version-min={}", min_version).into());
+                "watchos"
+            }
+            ArchSpec::Simulator(arch) => {
+                cmd.args.push(arch.into());
+                cmd.args
+                    .push(format!("-mwatch-simulator-version-min={}", min_version).into());
+                "watchsimulator"
+            }
+        };
+
+        self.print(&format!("Detecting watchOS SDK path for {}", sdk));
+        let sdk_path = self.apple_sdk_root(sdk)?;
+        cmd.args.push("-isysroot".into());
+        cmd.args.push(sdk_path);
+        cmd.args.push("-fembed-bitcode".into());
+        /*
+         * TODO we probably ultimately want the -fembed-bitcode-marker flag
+         * but can't have it now because of an issue in LLVM:
+         * https://github.com/alexcrichton/cc-rs/issues/301
+         * https://github.com/rust-lang/rust/pull/48896#comment-372192660
+         */
+        /*
+        if self.get_opt_level()? == "0" {
+            cmd.args.push("-fembed-bitcode-marker".into());
+        }
+        */
+
+        Ok(())
+    }
+
     fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
         let mut cmd = Command::new(prog);
         for &(ref a, ref b) in self.env.iter() {
@@ -2066,6 +2151,8 @@ impl Build {
                         format!("{}.exe", gnu)
                     }
                 } else if target.contains("apple-ios") {
+                    clang.to_string()
+                } else if target.contains("apple-watchos") {
                     clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(&target, &host, gnu, clang)
@@ -2630,7 +2717,7 @@ impl Build {
             Err(_) => {
                 return Err(Error::new(
                     ErrorKind::IOError,
-                    "Unable to determine iOS SDK path.",
+                    "Unable to determine Apple SDK path.",
                 ));
             }
         };
