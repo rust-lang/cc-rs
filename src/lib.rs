@@ -1205,6 +1205,9 @@ impl Build {
         if !msvc || !is_asm || !is_arm {
             cmd.arg("-c");
         }
+        if self.cuda && self.files.len() > 1 {
+            cmd.arg("--device-c");
+        }
         cmd.arg(&obj.src);
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
@@ -1809,6 +1812,21 @@ impl Build {
             .collect();
         for chunk in objs.chunks(100) {
             self.assemble_progressive(dst, chunk)?;
+        }
+
+        if self.cuda {
+            // Link the device-side code and add it to the target library,
+            // so that non-CUDA linker can link the final binary.
+
+            let out_dir = self.get_out_dir()?;
+            let dlink = out_dir.join(lib_name.to_owned() + "_dlink.o");
+            let mut nvcc = self.get_compiler().to_command();
+            nvcc.arg("--device-link")
+                .arg("-o")
+                .arg(dlink.clone())
+                .arg(dst);
+            run(&mut nvcc, "nvcc")?;
+            self.assemble_progressive(dst, &[dlink])?;
         }
 
         let target = self.get_target()?;
