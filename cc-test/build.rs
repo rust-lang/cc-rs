@@ -35,6 +35,24 @@ fn main() {
         .cpp(true)
         .compile("baz");
 
+    if env::var("CARGO_FEATURE_TEST_CUDA").is_ok() {
+        // Detect if there is CUDA compiler and engage "cuda" feature.
+        let nvcc = match env::var("NVCC") {
+            Ok(var) => which::which(var),
+            Err(_) => which::which("nvcc"),
+        };
+        if nvcc.is_ok() {
+            cc::Build::new()
+                .cuda(true)
+                .cudart("static")
+                .file("src/cuda.cu")
+                .compile("libcuda.a");
+
+            // Communicate [cfg(feature = "cuda")] to test/all.rs.
+            println!("cargo:rustc-cfg=feature=\"cuda\"");
+        }
+    }
+
     if target.contains("windows") {
         cc::Build::new().file("src/windows.c").compile("windows");
     }
