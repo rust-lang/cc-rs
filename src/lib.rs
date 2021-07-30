@@ -613,19 +613,21 @@ impl Build {
         self.cuda = cuda;
         if cuda {
             self.cpp = true;
+            self.cudart = Some("static".to_string());
         }
         self
     }
 
     /// Link CUDA run-time.
     ///
-    /// This option mimics the `--cudart` nvcc command-line option. Just like
-    /// the original it accepts `{none|shared|static}`. However, in case you
-    /// don't use this method when instantiating the `Build` class, the outcome
-    /// is equivalent to `none`. This is different from nvcc's default 'static'.
+    /// This option mimics the `--cudart` NVCC command-line option. Just like
+    /// the original it accepts `{none|shared|static}`, with default being
+    /// `static`. The method has to be invoked after `.cuda(true)`, or not
+    /// at all, if the default is right for the project.
     pub fn cudart(&mut self, cudart: &str) -> &mut Build {
-        self.cuda(true);
-        self.cudart = Some(cudart.to_string());
+        if self.cuda {
+            self.cudart = Some(cudart.to_string());
+        }
         self
     }
 
