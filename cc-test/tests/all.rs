@@ -56,3 +56,14 @@ fn opt_linkage() {
         assert_eq!(answer(), 42);
     }
 }
+
+#[cfg(feature = "cuda")]
+#[test]
+fn cuda_here() {
+    extern "C" {
+        fn cuda_kernel();
+    }
+    unsafe {
+        cuda_kernel();
+    }
+}
