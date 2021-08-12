@@ -3041,9 +3041,12 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
                 &format!("Failed to find tool. Is `{}` installed?{}", program, extra),
             ))
         }
-        Err(_) => Err(Error::new(
+        Err(ref e) => Err(Error::new(
             ErrorKind::ToolExecError,
-            &format!("Command {:?} with args {:?} failed to start.", cmd, program),
+            &format!(
+                "Command {:?} with args {:?} failed to start: {:?}",
+                cmd, program, e
+            ),
         )),
     }
 }
