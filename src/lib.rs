@@ -1999,6 +1999,11 @@ impl Build {
             None => false,
         };
 
+        let is_sim = match target.split('-').nth(3) {
+            Some(v) => v == "sim",
+            None => false,
+        };
+
         let arch = if is_catalyst {
             match arch {
                 "arm64e" => ArchSpec::Catalyst("arm64e"),
@@ -2008,6 +2013,16 @@ impl Build {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
                         "Unknown architecture for iOS target.",
+                    ));
+                }
+            }
+        } else if is_sim {
+            match arch {
+                "arm64" | "aarch64" => ArchSpec::Simulator("-arch arm64"),
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::ArchitectureInvalid,
+                        "Unknown architecture for iOS simulator target.",
                     ));
                 }
             }
