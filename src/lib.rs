@@ -1535,9 +1535,19 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let ios = if arch == "arm64" { "ios" } else { "ios13.0" };
-                            cmd.args
-                                .push(format!("--target={}-apple-{}-macabi", arch, ios).into());
+                            let deployment_target = env::var("CATALYST_DEPLOYMENT_TARGET")
+                                .unwrap_or_else(|_| {
+                                    if arch == "arm64" {
+                                        "".into()
+                                    } else {
+                                        "13.0".into()
+                                    }
+                                });
+
+                            cmd.args.push(
+                                format!("--target={}-apple-ios{}-macabi", arch, deployment_target)
+                                    .into(),
+                            );
                         }
                     } else if target.contains("ios-sim") {
                         if let Some(arch) =
