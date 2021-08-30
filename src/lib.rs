@@ -1535,9 +1535,8 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let ios = if arch == "arm64" { "ios" } else { "ios13.0" };
                             cmd.args
-                                .push(format!("--target={}-apple-{}-macabi", arch, ios).into());
+                                .push(format!("--target={}-apple-ios13.0-macabi", arch).into());
                         }
                     } else if target.contains("ios-sim") {
                         if let Some(arch) =
@@ -1999,6 +1998,11 @@ impl Build {
             None => false,
         };
 
+        let is_sim = match target.split('-').nth(3) {
+            Some(v) => v == "sim",
+            None => false,
+        };
+
         let arch = if is_catalyst {
             match arch {
                 "arm64e" => ArchSpec::Catalyst("arm64e"),
@@ -2008,6 +2012,16 @@ impl Build {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
                         "Unknown architecture for iOS target.",
+                    ));
+                }
+            }
+        } else if is_sim {
+            match arch {
+                "arm64" | "aarch64" => ArchSpec::Simulator("-arch arm64"),
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::ArchitectureInvalid,
+                        "Unknown architecture for iOS simulator target.",
                     ));
                 }
             }
