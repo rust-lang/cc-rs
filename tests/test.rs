@@ -350,12 +350,18 @@ fn msvc_smoke() {
     let test = Test::msvc();
     test.gcc().file("foo.c").compile("foo");
 
-    test.cmd(0)
+    let execution = test.cmd(0);
+    execution
         .must_have("-O2")
         .must_have("foo.c")
         .must_not_have("-Z7")
-        .must_have("-c")
-        .must_have("-MD");
+        .must_have("-c");
+
+    #[cfg(target_feature = "crt-static")]
+    execution.must_have("-MT");
+    #[cfg(not(target_feature = "crt-static"))]
+    execution.must_have("-MD");
+
     test.cmd(1).must_have(test.td.path().join("foo.o"));
 }
 
