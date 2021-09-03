@@ -10,6 +10,17 @@ fn reset_env() {
     std::env::set_var("CXXFLAGS", "");
 }
 
+#[cfg(target_feature = "crt-static")]
+fn get_crt_static_feature() -> bool {
+    true
+}
+
+#[cfg(not(target_feature = "crt-static"))]
+fn get_crt_static_feature() -> bool {
+    std::env::var("CARGO_CFG_TARGET_FEATURE")
+        .map_or(false, |features| features.contains("crt-static"))
+}
+
 #[test]
 fn gnu_smoke() {
     reset_env();
@@ -350,17 +361,16 @@ fn msvc_smoke() {
     let test = Test::msvc();
     test.gcc().file("foo.c").compile("foo");
 
-    let execution = test.cmd(0);
-    execution
+    test.cmd(0)
         .must_have("-O2")
         .must_have("foo.c")
         .must_not_have("-Z7")
-        .must_have("-c");
-
-    #[cfg(target_feature = "crt-static")]
-    execution.must_have("-MT");
-    #[cfg(not(target_feature = "crt-static"))]
-    execution.must_have("-MD");
+        .must_have("-c")
+        .must_have(if get_crt_static_feature() {
+            "-MT"
+        } else {
+            "-MD"
+        });
 
     test.cmd(1).must_have(test.td.path().join("foo.o"));
 }
