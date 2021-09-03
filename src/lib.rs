@@ -1447,10 +1447,7 @@ impl Build {
                     Some(true) => "-MT",
                     Some(false) => "-MD",
                     None => {
-                        let features = self
-                            .getenv("CARGO_CFG_TARGET_FEATURE")
-                            .unwrap_or(String::new());
-                        if features.contains("crt-static") {
+                        if self.get_crt_static_feature() {
                             "-MT"
                         } else {
                             "-MD"
@@ -1613,13 +1610,8 @@ impl Build {
                     }
                 }
 
-                if self.static_flag.is_none() {
-                    let features = self
-                        .getenv("CARGO_CFG_TARGET_FEATURE")
-                        .unwrap_or(String::new());
-                    if features.contains("crt-static") {
-                        cmd.args.push("-static".into());
-                    }
+                if self.static_flag.is_none() && self.get_crt_static_feature() {
+                    cmd.args.push("-static".into());
                 }
 
                 // armv7 targets get to use armv7 instructions
@@ -2673,6 +2665,18 @@ impl Build {
                 &format!("Environment variable {} not defined.", v.to_string()),
             )),
         }
+    }
+
+    #[cfg(target_feature = "crt-static")]
+    fn get_crt_static_feature(&self) -> bool {
+        true
+    }
+
+    #[cfg(not(target_feature = "crt-static"))]
+    fn get_crt_static_feature(&self) -> bool {
+        self.getenv("CARGO_CFG_TARGET_FEATURE")
+            .unwrap_or(String::new())
+            .contains("crt-static")
     }
 
     fn print(&self, s: &str) {
