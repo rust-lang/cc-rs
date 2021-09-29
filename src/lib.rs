@@ -1620,6 +1620,10 @@ impl Build {
                     }
                 }
 
+                if target.contains("-kmc-solid_") {
+                    cmd.args.push("-finput-charset=utf-8".into());
+                }
+
                 if self.static_flag.is_none() {
                     let features = self
                         .getenv("CARGO_CFG_TARGET_FEATURE")
@@ -1631,7 +1635,7 @@ impl Build {
 
                 // armv7 targets get to use armv7 instructions
                 if (target.starts_with("armv7") || target.starts_with("thumbv7"))
-                    && target.contains("-linux-")
+                    && (target.contains("-linux-") || target.contains("-kmc-solid_"))
                 {
                     cmd.args.push("-march=armv7-a".into());
                 }
@@ -2187,6 +2191,10 @@ impl Build {
                     } else {
                         "wr-cc".to_string()
                     }
+                } else if target.starts_with("armv7a-kmc-solid_") {
+                    format!("arm-kmc-eabi-{}", gnu)
+                } else if target.starts_with("aarch64-kmc-solid_") {
+                    format!("aarch64-kmc-elf-{}", gnu)
                 } else if self.get_host()? != target {
                     let prefix = self.prefix_for_target(&target);
                     match prefix {
