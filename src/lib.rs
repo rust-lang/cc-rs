@@ -2370,7 +2370,7 @@ impl Build {
         //
         // It's true that everything here is a bit of a pain, but apparently if
         // you're not literally make or bash then you get a lot of bug reports.
-        let known_wrappers = ["ccache", "distcc", "sccache", "icecc"];
+        let known_wrappers = ["ccache", "distcc", "sccache", "icecc", "cachepot"];
 
         let mut parts = tool.split_whitespace();
         let maybe_wrapper = match parts.next() {
