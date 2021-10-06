@@ -2519,6 +2519,10 @@ impl Build {
             "i586-unknown-linux-musl" => Some("musl"),
             "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
             "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
+            "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
+                "i686-linux-gnu",
+                "x86_64-linux-gnu", // transparently support gcc-multilib
+            ]), // explicit None if not found, so caller knows to fall back
             "i686-unknown-linux-musl" => Some("musl"),
             "i686-unknown-netbsd" => Some("i486--netbsdelf"),
             "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
@@ -2586,6 +2590,9 @@ impl Build {
             "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
             "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
             "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
+            "x86_64-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
+                "x86_64-linux-gnu", // rustfmt wrap
+            ]), // explicit None if not found, so caller knows to fall back
             "x86_64-unknown-linux-musl" => Some("musl"),
             "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
             _ => None,
