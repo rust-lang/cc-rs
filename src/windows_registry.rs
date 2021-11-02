@@ -223,7 +223,7 @@ mod impl_ {
     }
 
     /// Attempt to find the tool using environment variables set by vcvars.
-    pub fn find_msvc_environment(target: &str, tool: &str) -> Option<Tool> {
+    pub fn find_msvc_environment(tool: &str, target: &str) -> Option<Tool> {
         // Early return if the environment doesn't contain a VC install.
         if env::var_os("VCINSTALLDIR").is_none() {
             return None;
