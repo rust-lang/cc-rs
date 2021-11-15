@@ -1619,8 +1619,15 @@ impl Build {
                 if target.contains("darwin") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
-                        cmd.args.push("-arch".into());
-                        cmd.args.push(arch.into());
+                        let is_target_arch_specific_compiler = cmd
+                            .path
+                            .file_name()
+                            .and_then(|f| f.to_str())
+                            .map_or(false, |f| f.starts_with(arch));
+                        if !is_target_arch_specific_compiler {
+                            cmd.args.push("-arch".into());
+                            cmd.args.push(arch.into());
+                        }
                     }
                 }
 
