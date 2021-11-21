@@ -2467,15 +2467,25 @@ impl Build {
         let default_ar = "ar".to_string();
         let program = if target.contains("android") {
             format!("{}-ar", target.replace("armv7", "arm"))
-        } else if target.contains("emscripten") {
+        } else if target.starts_with("wasm32") && !target.contains("wasi") {
             // Windows use bat files so we have to be a bit more specific
             if cfg!(windows) {
-                let mut cmd = self.cmd("cmd");
-                cmd.arg("/c").arg("emar.bat");
-                return Ok((cmd, "emar.bat".to_string()));
+                let emar = "emar.bat";
+                if target.contains("emscripten") || which(&PathBuf::from(&emar)).is_some() {
+                    let mut cmd = self.cmd("cmd");
+                    cmd.arg("/c").arg(emar);
+                    return Ok((cmd, emar.to_string()));
+                } else {
+                    default_ar
+                }
+            } else {
+                let emar = "emar";
+                if target.contains("emscripten") || which(&PathBuf::from(&emar)).is_some() {
+                    emar.to_string()
+                } else {
+                    default_ar
+                }
             }
-
-            "emar".to_string()
         } else if target.contains("msvc") {
             match windows_registry::find(&target, "lib.exe") {
                 Some(t) => return Ok((t, "lib.exe".to_string())),
