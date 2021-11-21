@@ -2157,16 +2157,26 @@ impl Build {
                 t
             })
             .or_else(|| {
-                if target.contains("emscripten") {
+                if target.starts_with("wasm32") && !target.contains("wasi") {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
-                        let mut t = Tool::new(PathBuf::from("cmd"));
-                        t.args.push("/c".into());
-                        t.args.push(format!("{}.bat", tool).into());
-                        Some(t)
+                        let bat = format!("{}.bat", tool);
+                        if target.contains("emscripten") || which(&PathBuf::from(&bat)).is_some() {
+                            let mut t = Tool::new(PathBuf::from("cmd"));
+                            t.args.push("/c".into());
+                            t.args.push(bat.into());
+                            Some(t)
+                        } else {
+                            None
+                        }
                     } else {
-                        Some(Tool::new(PathBuf::from(tool)))
+                        let tool = PathBuf::from(tool);
+                        if target.contains("emscripten") || which(&tool).is_some() {
+                            Some(Tool::new(tool))
+                        } else {
+                            None
+                        }
                     }
                 } else {
                     None
@@ -2189,11 +2199,12 @@ impl Build {
                     autodetect_android_compiler(&target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
-                } else if target == "wasm32-wasi"
-                    || target == "wasm32-unknown-wasi"
-                    || target == "wasm32-unknown-unknown"
-                {
-                    "clang".to_string()
+                } else if target.starts_with("wasm32") {
+                    if self.cpp {
+                        "clang++".to_string()
+                    } else {
+                        "clang".to_string()
+                    }
                 } else if target.contains("vxworks") {
                     if self.cpp {
                         "wr-c++".to_string()
