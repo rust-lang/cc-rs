@@ -1292,6 +1292,10 @@ impl Build {
         }
         cmd.arg("-E");
 
+        for flag in self.ar_flags.iter() {
+            cmd.arg(flag);
+        }
+
         assert!(
             self.files.len() <= 1,
             "Expand may only be called for a single file"
