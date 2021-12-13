@@ -408,7 +408,7 @@ impl Build {
         self
     }
 
-    /// Add an arbitrary flag to the invocation of the compiler
+    /// Add a flag to the invocation of the ar
     ///
     /// # Example
     ///
@@ -419,7 +419,6 @@ impl Build {
     ///     .ar_flag("/NODEFAULTLIB:libc.dll")
     ///     .compile("foo");
     /// ```
-
     pub fn ar_flag(&mut self, flag: &str) -> &mut Build {
         self.ar_flags.push(flag.to_string());
         self
