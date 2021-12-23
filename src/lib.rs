@@ -1565,6 +1565,8 @@ impl Build {
                             cmd.args.push("--target=x86_64-unknown-windows-gnu".into());
                         } else if target.contains("i686") {
                             cmd.args.push("--target=i686-unknown-windows-gnu".into())
+                        } else if target.contains("aarch64") {
+                            cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
                         }
                     } else {
                         cmd.args.push(format!("--target={}", target).into());
@@ -2506,6 +2508,8 @@ impl Build {
             .as_ref()
             .map(|s| s.trim_right_matches('-').to_owned());
         cross_compile.or(match &target[..] {
+            "aarch64-pc-windows-gnu" => Some("aarch64-w64-mingw32"),
+            "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
             "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
             "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
             "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
