@@ -663,7 +663,15 @@ mod impl_ {
     // only need to bother checking x64, making this code a tiny bit simpler.
     // Like we do for the Universal CRT, we sort the possibilities
     // asciibetically to find the newest one as that is what vcvars does.
+    // Before doing that, we check the "WindowsSdkDir" and "WindowsSDKVersion"
+    // environment variables set by vcvars to use the environment sdk version
+    // if one is already configured.
     fn get_sdk10_dir() -> Option<(PathBuf, String)> {
+        if let (Ok(root), Ok(version)) = (env::var("WindowsSdkDir"), env::var("WindowsSDKVersion"))
+        {
+            return Some((root.into(), version.trim_end_matches('\\').to_string()));
+        }
+
         let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v10.0";
         let key = LOCAL_MACHINE.open(key.as_ref()).ok()?;
         let root = key.query_str("InstallationFolder").ok()?;
