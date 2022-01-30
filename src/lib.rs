@@ -831,6 +831,37 @@ impl Build {
         self
     }
 
+    /// On release builds with `OPT_LEVEL` set to 3, this function sets all the optimization level for the fastest generated object files.
+    /// This sets `-Ofast` on Clang and GCC and enables all the optimizations on MSVC. This includes fast-math mode.
+    ///
+    /// It does not do anything on debug builds or when `OPT_LEVEL` is not set to 3
+    pub fn opt_fast_release(&mut self) -> &mut Build {
+        if self
+            .getenv_unwrap("OPT_LEVEL")
+            .unwrap_or_else(|_| "3".to_string())
+            == "3"
+        {
+            let compiler = self.get_compiler();
+            if compiler.is_like_msvc() {
+                // /O2 is set automatically as part of add_default_flags
+                self.flag("/Ob3") // aggressive inline
+                    .flag("/GF") // duplicate string elimination
+                    .flag("/GR-") // do not generate runtime type information
+                    .flag("/Gw") // optimize global data
+                    .flag("/GA") // optimize thread-local storage
+                    .flag("/fp:fast") // fast floating point
+                    .define("NDEBUG", None); // turn off debug asserts
+
+            // If lto is enabled, lld-link is invoked by Rust in the end, so these do not work
+            // .flag("/LTCG") // link time code generation
+            // .flag("/GL") // whole program optimization
+            } else if compiler.is_like_clang() || compiler.is_like_gnu() {
+                self.opt_level_str("fast").define("NDEBUG", None);
+            }
+        }
+        self
+    }
+
     /// Configures whether the compiler will emit debug information when
     /// generating object files.
     ///

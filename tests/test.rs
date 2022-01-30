@@ -53,6 +53,21 @@ fn gnu_opt_level_s() {
 }
 
 #[test]
+fn gnu_opt_fast_release() {
+    reset_env();
+
+    let test = Test::gnu();
+    test.gcc().opt_fast_release().file("foo.c").compile("foo");
+
+    test.cmd(0)
+        .must_have("-Ofast")
+        .must_not_have("-O1")
+        .must_not_have("-O2")
+        .must_not_have("-O3")
+        .must_not_have("-Oz");
+}
+
+#[test]
 fn gnu_debug_fp_auto() {
     let test = Test::gnu();
     test.gcc().debug(true).file("foo.c").compile("foo");
@@ -367,6 +382,24 @@ fn msvc_opt_level_0() {
     test.gcc().opt_level(0).file("foo.c").compile("foo");
 
     test.cmd(0).must_not_have("-O2");
+}
+
+#[test]
+fn msvc_opt_fast_release() {
+    reset_env();
+
+    let test = Test::msvc();
+    test.gcc().opt_fast_release().file("foo.c").compile("foo");
+
+    test.cmd(0)
+        .must_have("-O2")
+        .must_have("/Ob3")
+        .must_have("/GF")
+        .must_have("/GR-")
+        .must_have("/Gw")
+        .must_have("/GA")
+        .must_have("/fp:fast")
+        .must_have("-DNDEBUG");
 }
 
 #[test]
