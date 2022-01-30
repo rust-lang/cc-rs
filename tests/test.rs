@@ -1,4 +1,5 @@
 use crate::support::Test;
+use std::env;
 
 mod support;
 
@@ -54,6 +55,9 @@ fn gnu_opt_level_s() {
 
 #[test]
 fn gnu_opt_fast_release() {
+    if env::var("OPT_LEVEL").unwrap_or("0".to_string()) != "3" {
+        return;
+    }
     reset_env();
 
     let test = Test::gnu();
@@ -386,6 +390,9 @@ fn msvc_opt_level_0() {
 
 #[test]
 fn msvc_opt_fast_release() {
+    if env::var("OPT_LEVEL").unwrap_or("0".to_string()) != "3" {
+        return;
+    }
     reset_env();
 
     let test = Test::msvc();
