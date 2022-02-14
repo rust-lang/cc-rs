@@ -1119,7 +1119,7 @@ impl Build {
             None => "none",
         };
         if cudart != "none" {
-            if let Some(nvcc) = which(&self.get_compiler().path) {
+            if let Some(nvcc) = which(&self.get_compiler().path, None) {
                 // Try to figure out the -L search path. If it fails,
                 // it's on user to specify one by passing it through
                 // RUSTFLAGS environment variable.
@@ -2775,6 +2775,20 @@ impl Build {
                         name = format!("em{}", tool);
                         Some(self.cmd(&name))
                     }
+                } else if target.starts_with("wasm32") {
+                    // Formally speaking one should be able to use this approach,
+                    // parsing -print-search-dirs output, to cover all clang targets,
+                    // including Android SDKs and other cross-compilation scenarios...
+                    // And even extend it to gcc targets by seaching for "ar" instead
+                    // of "llvm-ar"...
+                    let compiler = self.get_base_compiler().ok()?;
+                    if compiler.family == ToolFamily::Clang {
+                        name = format!("llvm-{}", tool);
+                        search_programs(&mut self.cmd(&compiler.path), &name)
+                            .map(|name| self.cmd(&name))
+                    } else {
+                        None
+                    }
                 } else {
                     None
                 }
@@ -2801,10 +2815,10 @@ impl Build {
                         // next to 'clang-cl' and use 'search_programs()' to locate
                         // 'llvm-lib'. This is because 'clang-cl' doesn't support
                         // the -print-search-dirs option.
-                        if let Some(mut cmd) = which(&compiler.path) {
+                        if let Some(mut cmd) = which(&compiler.path, None) {
                             cmd.pop();
                             cmd.push("llvm-lib.exe");
-                            if let Some(llvm_lib) = which(&cmd) {
+                            if let Some(llvm_lib) = which(&cmd, None) {
                                 lib = llvm_lib.to_str().unwrap().to_owned();
                             }
                         }
@@ -3657,7 +3671,7 @@ fn map_darwin_target_from_rust_to_compiler_architecture(target: &str) -> Option<
     }
 }
 
-fn which(tool: &Path) -> Option<PathBuf> {
+fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
     fn check_exe(exe: &mut PathBuf) -> bool {
         let exe_ext = std::env::consts::EXE_EXTENSION;
         exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists())
@@ -3670,11 +3684,25 @@ fn which(tool: &Path) -> Option<PathBuf> {
     }
 
     // Loop through PATH entries searching for the |tool|.
-    let path_entries = env::var_os("PATH")?;
+    let path_entries = path_entries.or(env::var_os("PATH"))?;
     env::split_paths(&path_entries).find_map(|path_entry| {
         let mut exe = path_entry.join(tool);
         return if check_exe(&mut exe) { Some(exe) } else { None };
     })
+}
+
+// search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
+fn search_programs(cc: &mut Command, prog: &str) -> Option<PathBuf> {
+    let search_dirs = run_output(cc.arg("-print-search-dirs"), "cc").ok()?;
+    // clang driver appears to be forcing UTF-8 output even on Windows,
+    // hence from_utf8 is assumed to be usable in all cases.
+    let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
+    for dirs in search_dirs.split(|c| c == '\r' || c == '\n') {
+        if let Some(path) = dirs.strip_prefix("programs: =") {
+            return which(Path::new(prog), Some(OsString::from(path)));
+        }
+    }
+    None
 }
 
 #[derive(Clone, Copy, PartialEq)]
