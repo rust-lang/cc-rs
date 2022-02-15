@@ -62,7 +62,7 @@ use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display};
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
@@ -139,6 +139,8 @@ enum ErrorKind {
     ToolExecError,
     /// Error occurred due to missing external tools.
     ToolNotFound,
+    /// One of the function arguments failed validation.
+    InvalidArgument,
 }
 
 /// Represents an internal error that occurred, with an explanation.
@@ -943,6 +945,17 @@ impl Build {
     ///
     /// This will return a result instead of panicing; see compile() for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
+        let mut output_components = Path::new(output).components();
+        match (output_components.next(), output_components.next()) {
+            (Some(Component::Normal(_)), None) => {}
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::InvalidArgument,
+                    "argument of `compile` must be a single normal path component",
+                ));
+            }
+        }
+
         let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
             (&output[3..output.len() - 2], output.to_owned())
         } else {
