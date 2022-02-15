@@ -1066,10 +1066,35 @@ impl Build {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// The name `output` should be the name of the library.  For backwards compatibility,
-    /// the `output` may start with `lib` and end with `.a`.  The Rust compiler will create
-    /// the assembly with the lib prefix and .a extension.  MSVC will create a file without prefix,
-    /// ending with `.lib`.
+    /// # Library name
+    ///
+    /// The `output` string argument determines the file name for the compiled
+    /// library. The Rust compiler will create an assembly named "lib"+output+".a".
+    /// MSVC will create a file named output+".lib".
+    ///
+    /// The choice of `output` is close to arbitrary, but:
+    ///
+    /// - must be nonempty,
+    /// - must not contain a path separator (`/`),
+    /// - must be unique across all `compile` invocations made by the same build
+    ///   script.
+    ///
+    /// If your build script compiles a single source file, the base name of
+    /// that source file would usually be reasonable:
+    ///
+    /// ```no_run
+    /// cc::Build::new().file("blobstore.c").compile("blobstore");
+    /// ```
+    ///
+    /// Compiling multiple source files, some people use their crate's name, or
+    /// their crate's name + "-cc".
+    ///
+    /// Otherwise, please use your imagination.
+    ///
+    /// For backwards compatibility, if `output` starts with "lib" *and* ends
+    /// with ".a", a second "lib" prefix and ".a" suffix do not get added on,
+    /// but this usage is deprecated; please omit `lib` and `.a` in the argument
+    /// that you pass.
     ///
     /// # Panics
     ///
