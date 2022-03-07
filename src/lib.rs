@@ -2181,7 +2181,12 @@ impl Build {
         };
 
         self.print(&format!("Detecting {} SDK path for {}", os, sdk));
-        let sdk_path = self.apple_sdk_root(sdk.as_str())?;
+        let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
+            sdkroot
+        } else {
+            self.apple_sdk_root(sdk.as_str())?
+        };
+
         cmd.args.push("-isysroot".into());
         cmd.args.push(sdk_path);
         cmd.args.push("-fembed-bitcode".into());
