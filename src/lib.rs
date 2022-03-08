@@ -2148,8 +2148,16 @@ impl Build {
         };
 
         let (sdk_prefix, sim_prefix, min_version) = match os {
-            Os::Ios => ("iphone", "ios-", std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into())),
-            Os::WatchOs => ("watch", "watch", std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into())),
+            Os::Ios => (
+                "iphone",
+                "ios-",
+                std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into()),
+            ),
+            Os::WatchOs => (
+                "watch",
+                "watch",
+                std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into()),
+            ),
         };
 
         let sdk = match arch {
