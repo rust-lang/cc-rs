@@ -1863,11 +1863,7 @@ impl Build {
             }
         }
 
-        if target.contains("apple-ios") {
-            self.ios_watchos_flags(cmd)?;
-        }
-
-        if target.contains("apple-watchos") {
+        if target.contains("apple-ios") || target.contains("apple-watchos") {
             self.ios_watchos_flags(cmd)?;
         }
 
