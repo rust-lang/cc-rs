@@ -59,7 +59,7 @@
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
-use std::fmt::{self, Display};
+use std::fmt::{self, Display, Formatter};
 use std::fs;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -1864,11 +1864,11 @@ impl Build {
         }
 
         if target.contains("apple-ios") {
-            self.ios_flags(cmd)?;
+            self.ios_watchos_flags(cmd)?;
         }
 
         if target.contains("apple-watchos") {
-            self.watchos_flags(cmd)?;
+            self.ios_watchos_flags(cmd)?;
         }
 
         if self.static_flag.unwrap_or(false) {
@@ -2061,18 +2061,37 @@ impl Build {
         Ok(())
     }
 
-    fn ios_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+    fn ios_watchos_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
             Catalyst(&'static str),
         }
 
+        enum Os {
+            Ios,
+            WatchOs,
+        }
+        impl Display for Os {
+            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+                match self {
+                    Os::Ios => f.write_str("iOS"),
+                    Os::WatchOs => f.write_str("WatchOS"),
+                }
+            }
+        }
+
         let target = self.get_target()?;
+        let os = if target.contains("-watchos") {
+            Os::WatchOs
+        } else {
+            Os::Ios
+        };
+
         let arch = target.split('-').nth(0).ok_or_else(|| {
             Error::new(
                 ErrorKind::ArchitectureInvalid,
-                "Unknown architecture for iOS target.",
+                format!("Unknown architecture for {} target.", os).as_str(),
             )
         })?;
 
@@ -2101,6 +2120,7 @@ impl Build {
         } else if is_sim {
             match arch {
                 "arm64" | "aarch64" => ArchSpec::Simulator("-arch arm64"),
+                "x86_64" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2111,108 +2131,46 @@ impl Build {
         } else {
             match arch {
                 "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
+                "armv7k" => ArchSpec::Device("armv7k"),
                 "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
                 "arm64e" => ArchSpec::Device("arm64e"),
                 "arm64" | "aarch64" => ArchSpec::Device("arm64"),
+                "arm64_32" => ArchSpec::Device("arm64_32"),
                 "i386" | "i686" => ArchSpec::Simulator("-m32"),
                 "x86_64" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
-                        "Unknown architecture for iOS target.",
+                        format!("Unknown architecture for {} target.", os).as_str(),
                     ));
                 }
             }
         };
 
-        let min_version =
-            std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into());
+        let (sdk_prefix, sim_prefix, min_version) = match os {
+            Os::Ios => ("iphone", "ios-", std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into())),
+            Os::WatchOs => ("watch", "watch", std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into())),
+        };
 
         let sdk = match arch {
             ArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
                 cmd.args
-                    .push(format!("-miphoneos-version-min={}", min_version).into());
-                "iphoneos"
+                    .push(format!("-m{}os-version-min={}", sdk_prefix, min_version).into());
+                format!("{}os", sdk_prefix)
             }
             ArchSpec::Simulator(arch) => {
                 cmd.args.push(arch.into());
                 cmd.args
-                    .push(format!("-mios-simulator-version-min={}", min_version).into());
-                "iphonesimulator"
+                    .push(format!("-m{}simulator-version-min={}", sim_prefix, min_version).into());
+                format!("{}simulator", sdk_prefix)
             }
-            ArchSpec::Catalyst(_) => "macosx",
+            ArchSpec::Catalyst(_) => "macosx".to_owned(),
         };
 
-        self.print(&format!("Detecting iOS SDK path for {}", sdk));
-        let sdk_path = self.apple_sdk_root(sdk)?;
-        cmd.args.push("-isysroot".into());
-        cmd.args.push(sdk_path);
-        cmd.args.push("-fembed-bitcode".into());
-        /*
-         * TODO we probably ultimately want the -fembed-bitcode-marker flag
-         * but can't have it now because of an issue in LLVM:
-         * https://github.com/alexcrichton/cc-rs/issues/301
-         * https://github.com/rust-lang/rust/pull/48896#comment-372192660
-         */
-        /*
-        if self.get_opt_level()? == "0" {
-            cmd.args.push("-fembed-bitcode-marker".into());
-        }
-        */
-
-        Ok(())
-    }
-
-    fn watchos_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
-        enum ArchSpec {
-            Device(&'static str),
-            Simulator(&'static str),
-        }
-
-        let target = self.get_target()?;
-        let arch = target.split('-').nth(0).ok_or_else(|| {
-            Error::new(
-                ErrorKind::ArchitectureInvalid,
-                "Unknown architecture for watchOS target.",
-            )
-        })?;
-
-        let arch = match arch {
-            "armv7k" => ArchSpec::Device("armv7k"),
-            "arm64_32" => ArchSpec::Device("arm64_32"),
-            "i386" | "i686" => ArchSpec::Simulator("-m32"),
-            "x86_64" => ArchSpec::Simulator("-m64"),
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::ArchitectureInvalid,
-                    "Unknown architecture for watchOS target.",
-                ));
-            }
-        };
-
-        let min_version =
-            std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into());
-
-        let sdk = match arch {
-            ArchSpec::Device(arch) => {
-                cmd.args.push("-arch".into());
-                cmd.args.push(arch.into());
-                cmd.args
-                    .push(format!("-mwatchos-version-min={}", min_version).into());
-                "watchos"
-            }
-            ArchSpec::Simulator(arch) => {
-                cmd.args.push(arch.into());
-                cmd.args
-                    .push(format!("-mwatchsimulator-version-min={}", min_version).into());
-                "watchsimulator"
-            }
-        };
-
-        self.print(&format!("Detecting watchOS SDK path for {}", sdk));
-        let sdk_path = self.apple_sdk_root(sdk)?;
+        self.print(&format!("Detecting {} SDK path for {}", os, sdk));
+        let sdk_path = self.apple_sdk_root(sdk.as_str())?;
         cmd.args.push("-isysroot".into());
         cmd.args.push(sdk_path);
         cmd.args.push("-fembed-bitcode".into());
