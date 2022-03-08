@@ -1592,7 +1592,7 @@ impl Build {
                         }
                     } else if target.contains("watchos-sim") {
                         if let Some(arch) =
-                        map_darwin_target_from_rust_to_compiler_architecture(target)
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
                             let deployment_target = env::var("WATCHOS_DEPLOYMENT_TARGET")
                                 .unwrap_or_else(|_| "5.0".into());
@@ -1600,7 +1600,8 @@ impl Build {
                                 format!(
                                     "--target={}-apple-watchos{}-simulator",
                                     arch, deployment_target
-                                ).into(),
+                                )
+                                .into(),
                             );
                         }
                     } else if target.starts_with("riscv64gc-") {
@@ -2179,22 +2180,20 @@ impl Build {
         })?;
 
         let arch = match arch {
-                "armv7k" => ArchSpec::Device("armv7k"),
-                "arm64_32" => ArchSpec::Device("arm64_32"),
-                "i386" | "i686" => ArchSpec::Simulator("-m32"),
-                "x86_64" => ArchSpec::Simulator("-m64"),
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::ArchitectureInvalid,
-                        "Unknown architecture for watchOS target.",
-                    ));
-                }
-
+            "armv7k" => ArchSpec::Device("armv7k"),
+            "arm64_32" => ArchSpec::Device("arm64_32"),
+            "i386" | "i686" => ArchSpec::Simulator("-m32"),
+            "x86_64" => ArchSpec::Simulator("-m64"),
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::ArchitectureInvalid,
+                    "Unknown architecture for watchOS target.",
+                ));
+            }
         };
 
         let min_version =
             std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into());
-
 
         let sdk = match arch {
             ArchSpec::Device(arch) => {
