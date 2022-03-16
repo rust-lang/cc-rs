@@ -1403,7 +1403,7 @@ impl Build {
         let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" });
 
         // Disable default flag generation via `no_default_flags` or environment variable
-        let no_defaults = self.no_default_flags || self.getenv("CRATE_CC_NO_DEFAULTS").is_some();
+        let no_defaults = self.no_default_flags || self.get_var("CRATE_CC_NO_DEFAULTS").is_ok();
 
         if !no_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
@@ -2541,7 +2541,7 @@ impl Build {
 
     fn prefix_for_target(&self, target: &str) -> Option<String> {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
-        let cc_env = self.getenv("CROSS_COMPILE");
+        let cc_env = self.get_var("CROSS_COMPILE").ok();
         let cross_compile = cc_env
             .as_ref()
             .map(|s| s.trim_right_matches('-').to_owned());
