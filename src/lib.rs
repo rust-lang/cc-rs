@@ -2577,7 +2577,10 @@ impl Build {
             "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
             "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
                 "i686-linux-gnu",
-                "x86_64-linux-gnu", // transparently support gcc-multilib
+                "i686-redhat-linux",
+                // transparently support gcc-multilib
+                "x86_64-linux-gnu",
+                "x86_64-redhat-linux",
             ]), // explicit None if not found, so caller knows to fall back
             "i686-unknown-linux-musl" => Some("musl"),
             "i686-unknown-netbsd" => Some("i486--netbsdelf"),
