@@ -1991,10 +1991,10 @@ impl Build {
     }
 
     fn assemble_progressive(&self, dst: &Path, objs: &[PathBuf]) -> Result<(), Error> {
-        let target = self.get_target()?;
+        let (mut cmd, program) = self.get_ar()?;
 
-        if target.contains("msvc") {
-            let (mut cmd, program) = self.get_ar()?;
+        // `get_ar()` will never return "lib" or such
+        if program.eq_ignore_ascii_case("lib.exe") {
             let mut out = OsString::from("-out:");
             out.push(dst);
             cmd.arg(out).arg("-nologo");
@@ -2009,8 +2009,6 @@ impl Build {
             cmd.args(objs);
             run(&mut cmd, &program)?;
         } else {
-            let (mut ar, cmd) = self.get_ar()?;
-
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
             // determinism of builds. AFAIK there's not really official
@@ -2033,11 +2031,11 @@ impl Build {
             //
             // In any case if this doesn't end up getting read, it shouldn't
             // cause that many issues!
-            ar.env("ZERO_AR_DATE", "1");
+            cmd.env("ZERO_AR_DATE", "1");
             for flag in self.ar_flags.iter() {
-                ar.arg(flag);
+                cmd.arg(flag);
             }
-            run(ar.arg("cq").arg(dst).args(objs), &cmd)?;
+            run(cmd.arg("cq").arg(dst).args(objs), &program)?;
         }
 
         Ok(())
