@@ -2226,7 +2226,8 @@ impl Build {
                     if target.contains("msvc") {
                         msvc.to_string()
                     } else {
-                        format!("{}.exe", gnu)
+                        let cc = if target.contains("llvm") { clang } else { gnu };
+                        format!("{}.exe", cc)
                     }
                 } else if target.contains("apple-ios") {
                     clang.to_string()
@@ -2252,7 +2253,10 @@ impl Build {
                 } else if self.get_host()? != target {
                     let prefix = self.prefix_for_target(&target);
                     match prefix {
-                        Some(prefix) => format!("{}-{}", prefix, gnu),
+                        Some(prefix) => {
+                            let cc = if target.contains("llvm") { clang } else { gnu };
+                            format!("{}-{}", prefix, cc)
+                        }
                         None => default.to_string(),
                     }
                 } else {
@@ -2546,7 +2550,7 @@ impl Build {
             .as_ref()
             .map(|s| s.trim_right_matches('-').to_owned());
         cross_compile.or(match &target[..] {
-            "aarch64-pc-windows-gnu" => Some("aarch64-w64-mingw32"),
+            "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
             "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
             "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
             "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
@@ -2644,6 +2648,7 @@ impl Build {
             "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
             "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
             "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
+            "x86_64-pc-windows-gnullvm" => Some("x86_64-w64-mingw32"),
             "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
             "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
             "x86_64-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
