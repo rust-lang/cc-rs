@@ -1311,6 +1311,10 @@ impl Build {
         if self.cuda && self.files.len() > 1 {
             cmd.arg("--device-c");
         }
+        // Ensure src is not treated as a clang-cl argument, like /U.
+        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
+            cmd.arg("--");
+        }
         cmd.arg(&obj.src);
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
