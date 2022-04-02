@@ -114,6 +114,7 @@ pub struct Build {
     compiler: Option<PathBuf>,
     archiver: Option<PathBuf>,
     cargo_metadata: bool,
+    link_lib_modifiers: Vec<String>,
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
@@ -312,6 +313,7 @@ impl Build {
             compiler: None,
             archiver: None,
             cargo_metadata: true,
+            link_lib_modifiers: Vec::new(),
             pic: None,
             use_plt: None,
             static_crt: None,
@@ -898,6 +900,16 @@ impl Build {
         self
     }
 
+    /// Adds a native library modifier that will be added to the
+    /// `rustc-link-lib=static:MODIFIERS=LIBRARY_NAME` metadata line
+    /// emitted for cargo if `cargo_metadata` is enabled.
+    /// See https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library
+    /// for the list of modifiers accepted by rustc.
+    pub fn link_lib_modifier(&mut self, link_lib_modifier: &str) -> &mut Build {
+        self.link_lib_modifiers.push(link_lib_modifier.to_string());
+        self
+    }
+
     /// Configures whether the compiler will emit position independent code.
     ///
     /// This option defaults to `false` for `windows-gnu` and bare metal targets and
@@ -1014,7 +1026,12 @@ impl Build {
             }
         }
 
-        self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
+        if self.link_lib_modifiers.is_empty() {
+            self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
+        } else {
+            let m = self.link_lib_modifiers.join(",");
+            self.print(&format!("cargo:rustc-link-lib=static:{}={}", m, lib_name));
+        }
         self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
 
         // Add specific C++ libraries, if enabled.
