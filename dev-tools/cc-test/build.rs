@@ -80,10 +80,10 @@ fn main() {
         cc::Build::new().file("src/windows.c").compile("windows");
     }
 
-    // Test that the `windows_registry` module will set PATH by looking for
-    // nmake which runs vanilla cl, and then also test it after we remove all
-    // the relevant env vars from our own process.
     if target.contains("msvc") {
+        // Test that the `windows_registry` module will set PATH by looking for
+        // nmake which runs vanilla cl, and then also test it after we remove all
+        // the relevant env vars from our own process.
         let out = out.join("tmp");
         fs::create_dir(&out).unwrap();
         println!("nmake 1");
@@ -114,6 +114,28 @@ fn main() {
         assert!(status.success());
         println!("cargo:rustc-link-lib=msvc");
         println!("cargo:rustc-link-search={}", out.display());
+
+        // Test that the `windows_registry` module detects if we're in a "spectre
+        // mode" VS environment.
+        fn has_spectre(target: &str) -> bool {
+            cc::windows_registry::find_tool(target, "cl.exe")
+                .unwrap()
+                .env()
+                .iter()
+                .any(|(k, v)| (k == "LIB") && v.to_str().unwrap().contains(r"\lib\spectre\"))
+        }
+
+        std::env::set_var("VSCMD_ARG_VCVARS_SPECTRE", "spectre");
+        assert!(
+            has_spectre(&target),
+            "LIB should use spectre-mitigated libs when VSCMD_ARG_VCVARS_SPECTRE is set"
+        );
+
+        std::env::remove_var("VSCMD_ARG_VCVARS_SPECTRE");
+        assert!(
+            !has_spectre(&target),
+            "LIB should not use spectre-mitigated libs when VSCMD_ARG_VCVARS_SPECTRE is not set"
+        );
     }
 
     // This tests whether we  can build a library but not link it to the main
