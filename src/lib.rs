@@ -477,6 +477,9 @@ impl Build {
             .debug(false)
             .cpp(self.cpp)
             .cuda(self.cuda);
+        if let Some(ref c) = self.compiler {
+            cfg.compiler(c.clone());
+        }
         let mut compiler = cfg.try_get_compiler()?;
 
         // Clang uses stderr for verbose output, which yields a false positive
