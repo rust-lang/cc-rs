@@ -1575,8 +1575,10 @@ impl Build {
                         {
                             let deployment_target = env::var("IPHONEOS_DEPLOYMENT_TARGET")
                                 .unwrap_or_else(|_| "13.0".into());
-                            cmd.args
-                                .push(format!("--target={}-apple-ios{}-macabi", arch, deployment_target).into());
+                            cmd.args.push(
+                                format!("--target={}-apple-ios{}-macabi", arch, deployment_target)
+                                    .into(),
+                            );
                         }
                     } else if target.contains("ios-sim") {
                         if let Some(arch) =
