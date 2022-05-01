@@ -1573,8 +1573,10 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
+                            let deployment_target = env::var("IPHONEOS_DEPLOYMENT_TARGET")
+                                .unwrap_or_else(|_| "13.0".into());
                             cmd.args
-                                .push(format!("--target={}-apple-ios13.0-macabi", arch).into());
+                                .push(format!("--target={}-apple-ios{}-macabi", arch, deployment_target).into());
                         }
                     } else if target.contains("ios-sim") {
                         if let Some(arch) =
