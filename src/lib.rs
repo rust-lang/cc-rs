@@ -56,6 +56,10 @@
 #![allow(deprecated)]
 #![deny(missing_docs)]
 
+#[cfg(not(feature = "compile_commands"))]
+use crate::json_compilation_database::CompileCommand;
+#[cfg(feature = "compile_commands")]
+pub use crate::json_compilation_database::{store_json_compilation_database, CompileCommand};
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -81,6 +85,7 @@ mod setup_config;
 #[cfg(windows)]
 mod vs_instances;
 
+mod json_compilation_database;
 pub mod windows_registry;
 
 /// A builder for compilation of a native library.
@@ -943,8 +948,17 @@ impl Build {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// This will return a result instead of panicing; see compile() for the complete description.
+    /// This will return a result instead of panicing; see [compile()](Build::compile) for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
+        self.try_recorded_compile(output)?;
+        Ok(())
+    }
+
+    /// Run the compiler, generating the file `output` and provides compile commands for creating
+    /// [JSON Compilation Database](https://clang.llvm.org/docs/JSONCompilationDatabase.html).
+    ///
+    /// This will return a result instead of panicing; see [recorded_compile()](Build::recorded_compile) for the complete description.
+    pub fn try_recorded_compile(&self, output: &str) -> Result<Vec<CompileCommand>, Error> {
         let mut output_components = Path::new(output).components();
         match (output_components.next(), output_components.next()) {
             (Some(Component::Normal(_)), None) => {}
@@ -990,7 +1004,7 @@ impl Build {
 
             objects.push(Object::new(file.to_path_buf(), obj));
         }
-        self.compile_objects(&objects)?;
+        let entries = self.compile_objects(&objects)?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         if self.get_target()?.contains("msvc") {
@@ -1074,7 +1088,7 @@ impl Build {
             }
         }
 
-        Ok(())
+        Ok(entries)
     }
 
     /// Run the compiler, generating the file `output`
@@ -1120,8 +1134,30 @@ impl Build {
         }
     }
 
+    /// Run the compiler, generating the file `output` and provides compile commands for creating
+    /// [JSON Compilation Database](https://clang.llvm.org/docs/JSONCompilationDatabase.html),
+    ///
+    /// ```no_run
+    /// let compile_commands = cc::Build::new().file("blobstore.c")
+    ///    .recorded_compile("blobstore");
+    ///
+    /// #[cfg(feature = "compile_commands")]
+    /// cc::store_json_compilation_database(&compile_commands, "target/compilation_database.json");
+    /// ```
+    ///
+    /// See [compile()](Build::compile) for the further description.
+    #[cfg(feature = "compile_commands")]
+    pub fn recorded_compile(&self, output: &str) -> Vec<CompileCommand> {
+        match self.try_recorded_compile(output) {
+            Ok(entries) => entries,
+            Err(e) => {
+                fail(&e.message);
+            }
+        }
+    }
+
     #[cfg(feature = "parallel")]
-    fn compile_objects<'me>(&'me self, objs: &[Object]) -> Result<(), Error> {
+    fn compile_objects<'me>(&'me self, objs: &[Object]) -> Result<Vec<CompileCommand>, Error> {
         use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
         use std::sync::Once;
 
@@ -1191,9 +1227,11 @@ impl Build {
             threads.push(JoinOnDrop(Some(thread)));
         }
 
+        let mut entries = Vec::new();
+
         for mut thread in threads {
             if let Some(thread) = thread.0.take() {
-                thread.join().expect("thread should not panic")?;
+                entries.push(thread.join().expect("thread should not panic")?);
             }
         }
 
@@ -1203,7 +1241,7 @@ impl Build {
             server.acquire_raw()?;
         }
 
-        return Ok(());
+        return Ok(entries);
 
         /// Shared state from the parent thread to the child thread. This
         /// package of pointers is temporarily transmuted to a `'static`
@@ -1260,7 +1298,7 @@ impl Build {
             return client;
         }
 
-        struct JoinOnDrop(Option<thread::JoinHandle<Result<(), Error>>>);
+        struct JoinOnDrop(Option<thread::JoinHandle<Result<CompileCommand, Error>>>);
 
         impl Drop for JoinOnDrop {
             fn drop(&mut self) {
@@ -1272,14 +1310,15 @@ impl Build {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object]) -> Result<Vec<CompileCommand>, Error> {
+        let mut entries = Vec::new();
         for obj in objs {
-            self.compile_object(obj)?;
+            entries.push(self.compile_object(obj)?);
         }
-        Ok(())
+        Ok(entries)
     }
 
-    fn compile_object(&self, obj: &Object) -> Result<(), Error> {
+    fn compile_object(&self, obj: &Object) -> Result<CompileCommand, Error> {
         let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
@@ -1324,7 +1363,7 @@ impl Build {
         }
 
         run(&mut cmd, &name)?;
-        Ok(())
+        Ok(CompileCommand::new(&cmd, obj.src.clone(), obj.dst.clone()))
     }
 
     /// This will return a result instead of panicing; see expand() for the complete description.
@@ -3335,22 +3374,29 @@ fn map_darwin_target_from_rust_to_compiler_architecture(target: &str) -> Option<
     }
 }
 
-fn which(tool: &Path) -> Option<PathBuf> {
+pub(crate) fn which<P>(tool: P) -> Option<PathBuf>
+where
+    P: AsRef<Path>,
+{
     fn check_exe(exe: &mut PathBuf) -> bool {
         let exe_ext = std::env::consts::EXE_EXTENSION;
         exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists())
     }
 
-    // If |tool| is not just one "word," assume it's an actual path...
-    if tool.components().count() > 1 {
-        let mut exe = PathBuf::from(tool);
-        return if check_exe(&mut exe) { Some(exe) } else { None };
+    fn non_generic_which(tool: &Path) -> Option<PathBuf> {
+        // If |tool| is not just one "word," assume it's an actual path...
+        if tool.components().count() > 1 {
+            let mut exe = PathBuf::from(tool);
+            return if check_exe(&mut exe) { Some(exe) } else { None };
+        }
+
+        // Loop through PATH entries searching for the |tool|.
+        let path_entries = env::var_os("PATH")?;
+        env::split_paths(&path_entries).find_map(|path_entry| {
+            let mut exe = path_entry.join(tool);
+            return if check_exe(&mut exe) { Some(exe) } else { None };
+        })
     }
 
-    // Loop through PATH entries searching for the |tool|.
-    let path_entries = env::var_os("PATH")?;
-    env::split_paths(&path_entries).find_map(|path_entry| {
-        let mut exe = path_entry.join(tool);
-        return if check_exe(&mut exe) { Some(exe) } else { None };
-    })
+    non_generic_which(tool.as_ref())
 }
