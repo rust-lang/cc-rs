@@ -1023,7 +1023,26 @@ impl Build {
 
         let mut objects = Vec::new();
         for file in self.files.iter() {
-            let obj = dst.join(file).with_extension("o");
+            let obj = if file.has_root() {
+                // If `file` is an absolute path, try to remove the part
+                // common with the destination directory, and graft the
+                // remaining part. Most common outcome would be removal
+                // of the home directory, next common - removal of the root
+                // directory.
+                let mut pre = dst.components();
+                let mut dst = dst.clone();
+                for comp in file.components() {
+                    if comp != pre.next().unwrap_or(Component::CurDir) {
+                        match comp {
+                            Component::Normal(c) => dst.push(c),
+                            _ => (),
+                        };
+                    }
+                }
+                dst.with_extension("o")
+            } else {
+                dst.join(file).with_extension("o")
+            };
             let obj = if !obj.starts_with(&dst) {
                 dst.join(obj.file_name().ok_or_else(|| {
                     Error::new(ErrorKind::IOError, "Getting object file details failed.")
