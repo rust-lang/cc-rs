@@ -2617,11 +2617,22 @@ impl Build {
     }
 
     fn prefix_for_target(&self, target: &str) -> Option<String> {
+        // Put aside RUSTC_LINKER's prefix to be used as last resort
+        let rustc_linker = self.getenv("RUSTC_LINKER").unwrap_or("".to_string());
+        // let linker_prefix = rustc_linker.strip_suffix("-gcc"); // >=1.45.0
+        let linker_prefix = if rustc_linker.len() > 4 {
+            let (prefix, suffix) = rustc_linker.split_at(rustc_linker.len() - 4);
+            if suffix == "-gcc" {
+                Some(prefix)
+            } else {
+                None
+            }
+        } else {
+            None
+        };
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         let cc_env = self.getenv("CROSS_COMPILE");
-        let cross_compile = cc_env
-            .as_ref()
-            .map(|s| s.trim_right_matches('-').to_owned());
+        let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-').to_owned());
         cross_compile.or(match &target[..] {
             "aarch64-pc-windows-gnu" => Some("aarch64-w64-mingw32"),
             "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
@@ -2728,7 +2739,7 @@ impl Build {
             ]), // explicit None if not found, so caller knows to fall back
             "x86_64-unknown-linux-musl" => Some("musl"),
             "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-            _ => None,
+            _ => linker_prefix,
         }
         .map(|x| x.to_owned()))
     }
