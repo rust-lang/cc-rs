@@ -1041,6 +1041,29 @@ impl Build {
                     atlmfc_lib.display()
                 ));
             }
+
+            let compiler = self.try_get_compiler()?;
+            for arg in compiler.args.iter() {
+                if arg.to_str().unwrap().contains("Qspectre") {
+                    for (var, val) in compiler.env.iter() {
+                        if var == "LIB" {
+                            for path in env::split_paths(&val) {
+                                if let Some(last) = path.iter().last() {
+                                    // check upon .../lib/{platform}/../spectre/{platform}
+                                    let spectre = path.parent().unwrap().join("spectre").join(last);
+                                    if spectre.exists() {
+                                        self.print(&format!(
+                                            "cargo:rustc-link-search=native={}",
+                                            spectre.display()
+                                        ));
+                                    }
+                                }
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
         if self.link_lib_modifiers.is_empty() {
