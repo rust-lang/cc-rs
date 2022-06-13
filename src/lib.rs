@@ -114,6 +114,7 @@ pub struct Build {
     compiler: Option<PathBuf>,
     archiver: Option<PathBuf>,
     cargo_metadata: bool,
+    whole_archive: Option<bool>,
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
@@ -312,6 +313,7 @@ impl Build {
             compiler: None,
             archiver: None,
             cargo_metadata: true,
+            whole_archive: None,
             pic: None,
             use_plt: None,
             static_crt: None,
@@ -883,6 +885,7 @@ impl Build {
         self.archiver = Some(archiver.as_ref().to_owned());
         self
     }
+
     /// Define whether metadata should be emitted for cargo allowing it to
     /// automatically link the binary. Defaults to `true`.
     ///
@@ -895,6 +898,22 @@ impl Build {
     ///
     pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
         self.cargo_metadata = cargo_metadata;
+        self
+    }
+
+    /// Configures whether "+whole-archive" will be emitted in the Cargo linking
+    /// metadata. This option does nothing if `cargo_metadata` is `false`.
+    ///
+    /// Without `whole_archive`, the emitted `rustc-link-lib` directive is:
+    ///
+    ///  - `rustc-link-lib=static=`*compiled lib*
+    ///
+    /// With `whole_archive`, the emitted `rustc-link-lib` directive is:
+    ///
+    ///  - `rustc-link-lib=static:+whole-archive=`*compiled lib*
+    ///
+    pub fn whole_archive(&mut self, whole_archive: bool) -> &mut Build {
+        self.whole_archive = Some(whole_archive);
         self
     }
 
@@ -1014,7 +1033,14 @@ impl Build {
             }
         }
 
-        self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
+        if self.whole_archive.unwrap_or_default() {
+            self.print(&format!(
+                "cargo:rustc-link-lib=static:+whole-archive={}",
+                lib_name
+            ));
+        } else {
+            self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
+        }
         self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
 
         // Add specific C++ libraries, if enabled.
