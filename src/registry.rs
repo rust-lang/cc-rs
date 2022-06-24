@@ -120,15 +120,15 @@ impl RegistryKey {
         let name = name.encode_wide().chain(Some(0)).collect::<Vec<_>>();
         let mut len = 0;
         let mut kind = 0;
-        unsafe {
-            let err = RegQueryValueExW(
+        
+            let err = unsafe { RegQueryValueExW(
                 self.raw(),
                 name.as_ptr(),
                 0 as *mut _,
                 &mut kind,
                 0 as *mut _,
                 &mut len,
-            );
+            ) };
             if err != ERROR_SUCCESS as LONG {
                 return Err(io::Error::from_raw_os_error(err as i32));
             }
@@ -143,18 +143,18 @@ impl RegistryKey {
             // characters so we need to be sure to halve it for the capacity
             // passed in.
             let mut v = Vec::with_capacity(len as usize / 2);
-            let err = RegQueryValueExW(
+            let err = unsafe { RegQueryValueExW(
                 self.raw(),
                 name.as_ptr(),
                 0 as *mut _,
                 0 as *mut _,
                 v.as_mut_ptr() as *mut _,
                 &mut len,
-            );
+            ) };
             if err != ERROR_SUCCESS as LONG {
                 return Err(io::Error::from_raw_os_error(err as i32));
             }
-            v.set_len(len as usize / 2);
+            unsafe { v.set_len(len as usize / 2) };
 
             // Some registry keys may have a terminating nul character, but
             // we're not interested in that, so chop it off if it's there.
@@ -162,7 +162,7 @@ impl RegistryKey {
                 v.pop();
             }
             Ok(OsString::from_wide(&v))
-        }
+        
     }
 }
 
@@ -178,10 +178,10 @@ impl<'a> Iterator for Iter<'a> {
     type Item = io::Result<OsString>;
 
     fn next(&mut self) -> Option<io::Result<OsString>> {
-        self.idx.next().and_then(|i| unsafe {
+        self.idx.next().and_then(|i| {
             let mut v = Vec::with_capacity(256);
             let mut len = v.capacity() as DWORD;
-            let ret = RegEnumKeyExW(
+            let ret = unsafe { RegEnumKeyExW(
                 self.key.raw(),
                 i,
                 v.as_mut_ptr(),
@@ -190,13 +190,13 @@ impl<'a> Iterator for Iter<'a> {
                 0 as *mut _,
                 0 as *mut _,
                 0 as *mut _,
-            );
+            ) };
             if ret == ERROR_NO_MORE_ITEMS as LONG {
                 None
             } else if ret != ERROR_SUCCESS as LONG {
                 Some(Err(io::Error::from_raw_os_error(ret as i32)))
             } else {
-                v.set_len(len as usize);
+                unsafe { v.set_len(len as usize) };
                 Some(Ok(OsString::from_wide(&v)))
             }
         })
