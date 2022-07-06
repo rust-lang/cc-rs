@@ -2340,10 +2340,6 @@ impl Build {
                     } else {
                         "wr-cc".to_string()
                     }
-                } else if target.starts_with("armv7a-kmc-solid_") {
-                    format!("arm-kmc-eabi-{}", gnu)
-                } else if target.starts_with("aarch64-kmc-solid_") {
-                    format!("aarch64-kmc-elf-{}", gnu)
                 } else if self.get_host()? != target {
                     let prefix = self.prefix_for_target(&target);
                     match prefix {
@@ -2669,6 +2665,7 @@ impl Build {
             "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
             "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
             "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
+            "aarch64-kmc-solid_asp3" => Some("aarch64-kmc-elf"),
             "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
             "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
             "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
@@ -2684,6 +2681,7 @@ impl Build {
             "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
             "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
             "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+            "armv7a-kmc-solid_asp3-eabi" | "armv7a-kmc-solid_asp3-eabihf" => Some("arm-kmc-eabi"),
             "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
             "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
             "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
