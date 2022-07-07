@@ -20,7 +20,7 @@ fn gnu_smoke() {
     test.cmd(0)
         .must_have("-O2")
         .must_have("foo.c")
-        .must_not_have("-g")
+        .must_not_have("-gdwarf-4")
         .must_have("-c")
         .must_have("-ffunction-sections")
         .must_have("-fdata-sections");
@@ -53,10 +53,25 @@ fn gnu_opt_level_s() {
 }
 
 #[test]
+fn gnu_debug() {
+    let test = Test::gnu();
+    test.gcc().debug(true).file("foo.c").compile("foo");
+    test.cmd(0).must_have("-gdwarf-4");
+
+    let test = Test::gnu();
+    test.gcc()
+        .target("x86_64-apple-darwin")
+        .debug(true)
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-gdwarf-2");
+}
+
+#[test]
 fn gnu_debug_fp_auto() {
     let test = Test::gnu();
     test.gcc().debug(true).file("foo.c").compile("foo");
-    test.cmd(0).must_have("-g");
+    test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_have("-fno-omit-frame-pointer");
 }
 
@@ -64,7 +79,7 @@ fn gnu_debug_fp_auto() {
 fn gnu_debug_fp() {
     let test = Test::gnu();
     test.gcc().debug(true).file("foo.c").compile("foo");
-    test.cmd(0).must_have("-g");
+    test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_have("-fno-omit-frame-pointer");
 }
 
@@ -78,7 +93,7 @@ fn gnu_debug_nofp() {
         .force_frame_pointer(false)
         .file("foo.c")
         .compile("foo");
-    test.cmd(0).must_have("-g");
+    test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_not_have("-fno-omit-frame-pointer");
 
     let test = Test::gnu();
@@ -87,7 +102,7 @@ fn gnu_debug_nofp() {
         .debug(true)
         .file("foo.c")
         .compile("foo");
-    test.cmd(0).must_have("-g");
+    test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_not_have("-fno-omit-frame-pointer");
 }
 
