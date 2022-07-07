@@ -214,13 +214,17 @@ enum ToolFamily {
 
 impl ToolFamily {
     /// What the flag to request debug info for this family of tools look like
-    fn add_debug_flags(&self, cmd: &mut Tool) {
+    fn add_debug_flags(&self, cmd: &mut Tool, dwarf_version: Option<u32>) {
         match *self {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-Z7".into());
             }
             ToolFamily::Gnu | ToolFamily::Clang => {
-                cmd.push_cc_arg("-g".into());
+                cmd.push_cc_arg(
+                    dwarf_version
+                        .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{}", v))
+                        .into(),
+                );
             }
         }
     }
@@ -1589,7 +1593,7 @@ impl Build {
                 cmd.args.push("-G".into());
             }
             let family = cmd.family;
-            family.add_debug_flags(cmd);
+            family.add_debug_flags(cmd, self.get_dwarf_version());
         }
 
         if self.get_force_frame_pointer() {
@@ -2846,6 +2850,25 @@ impl Build {
             Some(s) => s != "false",
             None => false,
         })
+    }
+
+    fn get_dwarf_version(&self) -> Option<u32> {
+        // Tentatively matches the DWARF version defaults as of rustc 1.62.
+        let target = self.get_target().ok()?;
+        if target.contains("android")
+            || target.contains("apple")
+            || target.contains("dragonfly")
+            || target.contains("freebsd")
+            || target.contains("netbsd")
+            || target.contains("openbsd")
+            || target.contains("windows-gnu")
+        {
+            Some(2)
+        } else if target.contains("linux") {
+            Some(4)
+        } else {
+            None
+        }
     }
 
     fn get_force_frame_pointer(&self) -> bool {
