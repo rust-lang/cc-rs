@@ -48,7 +48,11 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: mingw32
-            os: windows-latest
+            # windows-latest, a.k.a. windows-2022, runner is equipped with
+            # a newer mingw toolchain, which appears to produce unexecutable
+            # mixed-language binaries in debug builds. Fall back to
+            # windows-2019 for now and revisit it later...
+            os: windows-2019
             rust: stable-i686-gnu
             target: i686-pc-windows-gnu
           - build: mingw64
