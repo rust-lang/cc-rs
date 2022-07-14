@@ -431,7 +431,7 @@ mod impl_ {
         target: &str,
         instance_path: &PathBuf,
     ) -> Option<Tool> {
-        let (bin_path, host_dylib_path, lib_path, include_path) =
+        let (root_path, bin_path, host_dylib_path, lib_path, include_path) =
             vs15plus_vc_paths(target, instance_path)?;
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() {
@@ -444,7 +444,7 @@ mod impl_ {
         tool.libs.push(lib_path);
         tool.include.push(include_path);
 
-        if let Some((atl_lib_path, atl_include_path)) = atl_paths(target, &bin_path) {
+        if let Some((atl_lib_path, atl_include_path)) = atl_paths(target, &root_path) {
             tool.libs.push(atl_lib_path);
             tool.include.push(atl_include_path);
         }
@@ -457,7 +457,7 @@ mod impl_ {
     fn vs15plus_vc_paths(
         target: &str,
         instance_path: &PathBuf,
-    ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf)> {
+    ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf, PathBuf)> {
         let version_path =
             instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
         let mut version_file = File::open(version_path).ok()?;
@@ -490,7 +490,7 @@ mod impl_ {
             .join(&host.to_lowercase());
         let lib_path = path.join("lib").join(&target);
         let include_path = path.join("include");
-        Some((bin_path, host_dylib_path, lib_path, include_path))
+        Some((path, bin_path, host_dylib_path, lib_path, include_path))
     }
 
     fn atl_paths(target: &str, path: &Path) -> Option<(PathBuf, PathBuf)> {
