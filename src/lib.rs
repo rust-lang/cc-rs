@@ -125,6 +125,7 @@ pub struct Build {
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
+    emit_rerun_if_env_changed: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -322,6 +323,7 @@ impl Build {
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
+            emit_rerun_if_env_changed: false,
         }
     }
 
@@ -897,6 +899,7 @@ impl Build {
     ///  - `rustc-link-search=native=`*target folder*
     ///  - When target is MSVC, the ATL-MFC libs are added via `rustc-link-search=native=`
     ///  - When C++ is enabled, the C++ stdlib is added via `rustc-link-lib`
+    ///  - If `emit_rerun_if_env_changed` is `true`, `rerun-if-env-changed=`*env*
     ///
     pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
         self.cargo_metadata = cargo_metadata;
@@ -934,6 +937,17 @@ impl Build {
     /// This only applies to ELF targets. It has no effect on other platforms.
     pub fn use_plt(&mut self, use_plt: bool) -> &mut Build {
         self.use_plt = Some(use_plt);
+        self
+    }
+    
+    /// Define whether metadata should be emitted for cargo to detect environment 
+    /// changes that should trigger a rebuild.
+    ///
+    /// This has no effect if the `cargo_metadata` option is `false`.
+    ///
+    /// This option defaults to `false`.
+    pub fn emit_rerun_if_env_changed(&mut self, emit_rerun_if_env_changed: bool) -> &mut Build {
+        self.emit_rerun_if_env_changed = emit_rerun_if_env_changed;
         self
     }
 
@@ -2840,6 +2854,9 @@ impl Build {
     }
 
     fn getenv(&self, v: &str) -> Option<String> {
+        if self.emit_rerun_if_env_changed {
+            self.print(&format!("cargo:rerun-if-env-changed={}", v));
+        }
         let mut cache = self.env_cache.lock().unwrap();
         if let Some(val) = cache.get(v) {
             return val.clone();
