@@ -924,8 +924,8 @@ impl Build {
         self.use_plt = Some(use_plt);
         self
     }
-    
-    /// Define whether metadata should be emitted for cargo to detect environment 
+
+    /// Define whether metadata should be emitted for cargo to detect environment
     /// changes that should trigger a rebuild.
     ///
     /// This has no effect if the `cargo_metadata` option is `false`.
