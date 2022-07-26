@@ -1025,23 +1025,8 @@ impl Build {
         let mut objects = Vec::new();
         for file in self.files.iter() {
             let obj = if file.has_root() {
-                // If `file` is an absolute path, try to remove the part
-                // common with the destination directory, and graft the
-                // remaining part. Most common outcome would be removal
-                // of the home directory, next common - removal of the root
-                // directory.
-                let mut pre = dst.components();
-                let mut dst = dst.clone();
-                for comp in file.components() {
-                    if comp != pre.next().unwrap_or(Component::CurDir) {
-                        match comp {
-                            Component::Normal(c) => dst.push(c),
-                            _ => (),
-                        };
-                    }
-                }
-                // ... and prefix the `basename` with the `dirname`'s hash
-                // to ensure name uniqueness.
+                // If `file` is an absolute path, prefix the `basename`
+                // with the `dirname`'s hash to ensure name uniqueness.
                 let basename = file
                     .file_name()
                     .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
@@ -1052,10 +1037,8 @@ impl Build {
                     .to_string_lossy();
                 let mut hasher = hash_map::DefaultHasher::new();
                 hasher.write(dirname.to_string().as_bytes());
-                if dst.pop() {
-                    dst.push(format!("{:016x}-{}", hasher.finish(), basename));
-                }
-                dst.with_extension("o")
+                dst.join(format!("{:016x}-{}", hasher.finish(), basename))
+                    .with_extension("o")
             } else {
                 dst.join(file).with_extension("o")
             };
