@@ -1774,7 +1774,10 @@ impl Build {
                     cmd.push_opt_unless_duplicate("-DANDROID".into());
                 }
 
-                if !target.contains("apple-ios") && !target.contains("apple-watchos") {
+                if !target.contains("apple-ios")
+                    && !target.contains("apple-watchos")
+                    && !target.contains("apple-tvos")
+                {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
@@ -1851,6 +1854,20 @@ impl Build {
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-watchos{}-simulator",
+                                    arch, deployment_target
+                                )
+                                .into(),
+                            );
+                        }
+                    } else if target.contains("x86_64-apple-tvos") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::TvOs, target, None);
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-tvos{}-simulator",
                                     arch, deployment_target
                                 )
                                 .into(),
@@ -2382,6 +2399,8 @@ impl Build {
             AppleOs::MacOs
         } else if target.contains("-watchos") {
             AppleOs::WatchOs
+        } else if target.contains("-tvos") {
+            AppleOs::TvOs
         } else {
             AppleOs::Ios
         };
@@ -2402,7 +2421,7 @@ impl Build {
             None => false,
         };
 
-        let is_sim = match target.split('-').nth(3) {
+        let is_arm_sim = match target.split('-').nth(3) {
             Some(v) => v == "sim",
             None => false,
         };
@@ -2430,14 +2449,14 @@ impl Build {
                     ));
                 }
             }
-        } else if is_sim {
+        } else if is_arm_sim {
             match arch_str {
                 "arm64" | "aarch64" => ArchSpec::Simulator("arm64"),
                 "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
-                        "Unknown architecture for iOS simulator target.",
+                        "Unknown architecture for simulator target.",
                     ));
                 }
             }
@@ -2465,6 +2484,7 @@ impl Build {
             AppleOs::MacOs => ("macosx", ""),
             AppleOs::Ios => ("iphone", "ios-"),
             AppleOs::WatchOs => ("watch", "watch"),
+            AppleOs::TvOs => ("appletv", "appletv"),
         };
 
         let sdk = match arch {
@@ -3468,6 +3488,10 @@ impl Build {
                 .ok()
                 .or_else(|| rustc_provided_target(rustc, target))
                 .unwrap_or_else(|| "5.0".into()),
+            AppleOs::TvOs => env::var("TVOS_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| "9.0".into()),
         }
     }
 
@@ -3863,6 +3887,7 @@ enum AppleOs {
     MacOs,
     Ios,
     WatchOs,
+    TvOs,
 }
 impl std::fmt::Debug for AppleOs {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -3870,6 +3895,7 @@ impl std::fmt::Debug for AppleOs {
             AppleOs::MacOs => f.write_str("macOS"),
             AppleOs::Ios => f.write_str("iOS"),
             AppleOs::WatchOs => f.write_str("WatchOS"),
+            AppleOs::TvOs => f.write_str("AppleTVOS"),
         }
     }
 }
