@@ -200,6 +200,7 @@ pub struct Tool {
     family: ToolFamily,
     cuda: bool,
     removed_args: Vec<OsString>,
+    has_internal_target_arg: bool,
 }
 
 /// Represents the family of tools this tool belongs to.
@@ -1824,9 +1825,7 @@ impl Build {
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
-                if !(target.contains("android")
-                    && android_clang_compiler_uses_target_arg_internally(&cmd.path))
-                {
+                if !(target.contains("android") && cmd.has_internal_target_arg) {
                     if target.contains("darwin") {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
@@ -2696,6 +2695,7 @@ impl Build {
                 let file_name = path.to_str().unwrap().to_owned();
                 let (target, clang) = file_name.split_at(file_name.rfind("-").unwrap());
 
+                tool.has_internal_target_arg = true;
                 tool.path.set_file_name(clang.trim_start_matches("-"));
                 tool.path.set_extension("exe");
                 tool.args.push(format!("--target={}", target).into());
@@ -3522,6 +3522,7 @@ impl Tool {
             family: family,
             cuda: false,
             removed_args: Vec::new(),
+            has_internal_target_arg: false,
         }
     }
 
@@ -3582,6 +3583,7 @@ impl Tool {
             family: family,
             cuda: cuda,
             removed_args: Vec::new(),
+            has_internal_target_arg: false,
         }
     }
 
