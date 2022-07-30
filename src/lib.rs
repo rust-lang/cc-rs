@@ -3386,19 +3386,6 @@ impl Build {
         let target = self.get_target()?;
         let host = self.get_host()?;
         if host.contains("apple-darwin") && target.contains("apple-darwin") {
-            // If, for example, `cargo` runs during the build of an XCode project, then `SDKROOT` environment variable
-            // would represent the current target, and this is the problem for us, if we want to compile something
-            // for the host, when host != target.
-            // We can not just remove `SDKROOT`, because, again, for example, XCode add to PATH
-            // /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
-            // and `cc` from this path can not find system include files, like `pthread.h`, if `SDKROOT`
-            // is not set
-            if let Ok(sdkroot) = env::var("SDKROOT") {
-                if !sdkroot.contains("MacOSX") {
-                    let macos_sdk = self.apple_sdk_root("macosx")?;
-                    cmd.env("SDKROOT", macos_sdk);
-                }
-            }
             // Additionally, `IPHONEOS_DEPLOYMENT_TARGET` must not be set when using the Xcode linker at
             // "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
             // although this is apparently ignored when using the linker at "/usr/bin/ld".
