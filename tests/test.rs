@@ -475,3 +475,21 @@ fn asm_flags() {
     test.cmd(1).must_have("--abc");
     test.cmd(2).must_have("--abc");
 }
+
+#[test]
+fn gnu_apple_darwin() {
+    for (arch, version) in &[("x86_64", "10.7"), ("aarch64", "11.0")] {
+        let target = format!("{}-apple-darwin", arch);
+        let test = Test::gnu();
+        test.gcc()
+            .target(&target)
+            .host(&target)
+            // Avoid test maintainence when minimum supported OSes change.
+            .__set_env("MACOSX_DEPLOYMENT_TARGET", version)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0)
+            .must_have(format!("-mmacosx-version-min={}", version));
+    }
+}

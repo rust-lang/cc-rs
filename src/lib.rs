@@ -2141,8 +2141,8 @@ impl Build {
             }
         }
 
-        if target.contains("apple-ios") || target.contains("apple-watchos") {
-            self.ios_watchos_flags(cmd)?;
+        if target.contains("-apple-") {
+            self.apple_flags(cmd)?;
         }
 
         if self.static_flag.unwrap_or(false) {
@@ -2360,7 +2360,7 @@ impl Build {
         Ok(())
     }
 
-    fn ios_watchos_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+    fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
@@ -2368,12 +2368,14 @@ impl Build {
         }
 
         enum Os {
+            MacOs,
             Ios,
             WatchOs,
         }
-        impl Display for Os {
+        impl std::fmt::Debug for Os {
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
                 match self {
+                    Os::MacOs => f.write_str("macOS"),
                     Os::Ios => f.write_str("iOS"),
                     Os::WatchOs => f.write_str("WatchOS"),
                 }
@@ -2381,16 +2383,22 @@ impl Build {
         }
 
         let target = self.get_target()?;
-        let os = if target.contains("-watchos") {
+        let os = if target.contains("-darwin") {
+            Os::MacOs
+        } else if target.contains("-watchos") {
             Os::WatchOs
         } else {
             Os::Ios
         };
+        let is_mac = match os {
+            Os::MacOs => true,
+            _ => false,
+        };
 
-        let arch = target.split('-').nth(0).ok_or_else(|| {
+        let arch_str = target.split('-').nth(0).ok_or_else(|| {
             Error::new(
                 ErrorKind::ArchitectureInvalid,
-                format!("Unknown architecture for {} target.", os),
+                format!("Unknown architecture for {:?} target.", os),
             )
         })?;
 
@@ -2404,11 +2412,22 @@ impl Build {
             None => false,
         };
 
-        let arch = if is_catalyst {
-            match arch {
+        let arch = if is_mac {
+            match arch_str {
+                "i686" => ArchSpec::Device("-m32"),
+                "x86_64" | "x86_64h" | "aarch64" => ArchSpec::Device("-m64"),
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::ArchitectureInvalid,
+                        "Unknown architecture for macOS target.",
+                    ));
+                }
+            }
+        } else if is_catalyst {
+            match arch_str {
                 "arm64e" => ArchSpec::Catalyst("arm64e"),
                 "arm64" | "aarch64" => ArchSpec::Catalyst("arm64"),
-                "x86_64" => ArchSpec::Catalyst("-m64"),
+                "x86_64" | "x86_64h" => ArchSpec::Catalyst("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2417,9 +2436,9 @@ impl Build {
                 }
             }
         } else if is_sim {
-            match arch {
+            match arch_str {
                 "arm64" | "aarch64" => ArchSpec::Simulator("arm64"),
-                "x86_64" => ArchSpec::Simulator("-m64"),
+                "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2428,7 +2447,7 @@ impl Build {
                 }
             }
         } else {
-            match arch {
+            match arch_str {
                 "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
                 "armv7k" => ArchSpec::Device("armv7k"),
                 "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
@@ -2436,17 +2455,29 @@ impl Build {
                 "arm64" | "aarch64" => ArchSpec::Device("arm64"),
                 "arm64_32" => ArchSpec::Device("arm64_32"),
                 "i386" | "i686" => ArchSpec::Simulator("-m32"),
-                "x86_64" => ArchSpec::Simulator("-m64"),
+                "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
-                        format!("Unknown architecture for {} target.", os),
+                        format!("Unknown architecture for {:?} target.", os),
                     ));
                 }
             }
         };
 
         let (sdk_prefix, sim_prefix, min_version) = match os {
+            Os::MacOs => (
+                "macosx",
+                "",
+                std::env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| {
+                    (if arch_str == "aarch64" {
+                        "11.0"
+                    } else {
+                        "10.7"
+                    })
+                    .into()
+                }),
+            ),
             Os::Ios => (
                 "iphone",
                 "ios-",
@@ -2460,6 +2491,11 @@ impl Build {
         };
 
         let sdk = match arch {
+            ArchSpec::Device(_) if is_mac => {
+                cmd.args
+                    .push(format!("-mmacosx-version-min={}", min_version).into());
+                "macosx".to_owned()
+            }
             ArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
@@ -2482,17 +2518,19 @@ impl Build {
             ArchSpec::Catalyst(_) => "macosx".to_owned(),
         };
 
-        self.print(&format_args!("Detecting {} SDK path for {}", os, sdk));
-        let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
-            sdkroot
-        } else {
-            self.apple_sdk_root(sdk.as_str())?
-        };
+        if !is_mac {
+            self.print(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
+            let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
+                sdkroot
+            } else {
+                self.apple_sdk_root(sdk.as_str())?
+            };
 
-        cmd.args.push("-isysroot".into());
-        cmd.args.push(sdk_path);
-        // TODO: Remove this once Apple stops accepting apps built with Xcode 13
-        cmd.args.push("-fembed-bitcode".into());
+            cmd.args.push("-isysroot".into());
+            cmd.args.push(sdk_path);
+            // TODO: Remove this once Apple stops accepting apps built with Xcode 13
+            cmd.args.push("-fembed-bitcode".into());
+        }
 
         Ok(())
     }
