@@ -2515,7 +2515,8 @@ impl Build {
             ArchSpec::Catalyst(_) => "macosx".to_owned(),
         };
 
-        if !is_mac {
+        // AppleClang sometimes requires sysroot even for darwin
+        if cmd.is_xctoolchain_clang() || !target.ends_with("-darwin") {
             self.print(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
             let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
                 sdkroot
@@ -2525,7 +2526,10 @@ impl Build {
 
             cmd.args.push("-isysroot".into());
             cmd.args.push(sdk_path);
-            // TODO: Remove this once Apple stops accepting apps built with Xcode 13
+        }
+
+        // TODO: Remove this once Apple stops accepting apps built with Xcode 13
+        if !is_mac {
             cmd.args.push("-fembed-bitcode".into());
         }
 
@@ -3716,6 +3720,17 @@ impl Tool {
     /// Whether the tool is Clang-like.
     pub fn is_like_clang(&self) -> bool {
         self.family == ToolFamily::Clang
+    }
+
+    /// Whether the tool is AppleClang under .xctoolchain
+    #[cfg(target_vendor = "apple")]
+    fn is_xctoolchain_clang(&self) -> bool {
+        let path = self.path.to_string_lossy();
+        path.contains(".xctoolchain/")
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    fn is_xctoolchain_clang(&self) -> bool {
+        false
     }
 
     /// Whether the tool is MSVC-like.

@@ -489,8 +489,10 @@ fn gnu_apple_darwin() {
             .file("foo.c")
             .compile("foo");
 
+        let cmd = test.cmd(0);
         test.cmd(0)
             .must_have(format!("-mmacosx-version-min={}", version));
+        cmd.must_not_have("-isysroot");
     }
 }
 
