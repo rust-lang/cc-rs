@@ -1808,6 +1808,16 @@ impl Build {
             family.add_force_frame_pointer(cmd);
         }
 
+        if !cmd.is_like_msvc() {
+            if target.contains("i686") || target.contains("i586") {
+                cmd.args.push("-m32".into());
+            } else if target == "x86_64-unknown-linux-gnux32" {
+                cmd.args.push("-mx32".into());
+            } else if target.contains("x86_64") || target.contains("powerpc64") {
+                cmd.args.push("-m64".into());
+            }
+        }
+
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
@@ -1937,14 +1947,6 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
-                if target.contains("i686") || target.contains("i586") {
-                    cmd.args.push("-m32".into());
-                } else if target == "x86_64-unknown-linux-gnux32" {
-                    cmd.args.push("-mx32".into());
-                } else if target.contains("x86_64") || target.contains("powerpc64") {
-                    cmd.args.push("-m64".into());
-                }
-
                 if target.contains("darwin") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
