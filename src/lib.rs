@@ -3440,6 +3440,35 @@ impl Tool {
     }
 
     fn with_features(path: PathBuf, clang_driver: Option<&str>, cuda: bool) -> Self {
+        fn detect_family(path: &Path) -> ToolFamily {
+            let mut cmd = Command::new(path);
+            cmd.arg("--version");
+
+            let stdout = match run_output(&mut cmd, &path.to_string_lossy())
+                .ok()
+                .and_then(|o| String::from_utf8(o).ok())
+            {
+                Some(s) => s,
+                None => {
+                    // --version failed. fallback to gnu
+                    println!("cargo-warning:Running failed: {:?}", cmd);
+                    return ToolFamily::Gnu;
+                }
+            };
+            if stdout.contains("clang") {
+                ToolFamily::Clang
+            } else if stdout.contains("GCC") {
+                ToolFamily::Gnu
+            } else {
+                // --version doesn't include clang for GCC
+                println!(
+                    "cargo-warning:Compiler version doesn't include clang or GCC: {:?}",
+                    cmd
+                );
+                ToolFamily::Gnu
+            }
+        }
+
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang-cl") {
@@ -3452,10 +3481,10 @@ impl Tool {
                     _ => ToolFamily::Clang,
                 }
             } else {
-                ToolFamily::Gnu
+                detect_family(&path)
             }
         } else {
-            ToolFamily::Gnu
+            detect_family(&path)
         };
 
         Tool {
