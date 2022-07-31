@@ -55,7 +55,11 @@ fn gnu_opt_level_s() {
 #[test]
 fn gnu_debug() {
     let test = Test::gnu();
-    test.gcc().debug(true).file("foo.c").compile("foo");
+    test.gcc()
+        .target("x86_64-unknown-linux")
+        .debug(true)
+        .file("foo.c")
+        .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
 
     let test = Test::gnu();
@@ -70,7 +74,11 @@ fn gnu_debug() {
 #[test]
 fn gnu_debug_fp_auto() {
     let test = Test::gnu();
-    test.gcc().debug(true).file("foo.c").compile("foo");
+    test.gcc()
+        .target("x86_64-unknown-linux")
+        .debug(true)
+        .file("foo.c")
+        .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_have("-fno-omit-frame-pointer");
 }
@@ -78,7 +86,11 @@ fn gnu_debug_fp_auto() {
 #[test]
 fn gnu_debug_fp() {
     let test = Test::gnu();
-    test.gcc().debug(true).file("foo.c").compile("foo");
+    test.gcc()
+        .target("x86_64-unknown-linux")
+        .debug(true)
+        .file("foo.c")
+        .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_have("-fno-omit-frame-pointer");
 }
@@ -89,6 +101,7 @@ fn gnu_debug_nofp() {
 
     let test = Test::gnu();
     test.gcc()
+        .target("x86_64-unknown-linux")
         .debug(true)
         .force_frame_pointer(false)
         .file("foo.c")
@@ -98,6 +111,7 @@ fn gnu_debug_nofp() {
 
     let test = Test::gnu();
     test.gcc()
+        .target("x86_64-unknown-linux")
         .force_frame_pointer(false)
         .debug(true)
         .file("foo.c")
