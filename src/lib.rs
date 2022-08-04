@@ -1692,7 +1692,7 @@ impl Build {
                             cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
                         }
                     } else {
-                        cmd.args.push(format!("--target={}", target).into());
+                        cmd.push_cc_arg(format!("--target={}", target).into());
                     }
                 }
             }
