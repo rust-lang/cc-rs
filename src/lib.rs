@@ -1369,7 +1369,7 @@ impl Build {
         if !msvc || !is_asm || !is_arm {
             cmd.arg("-c");
         }
-        if self.cuda && self.files.len() > 1 {
+        if self.cuda && self.cuda_file_count() > 1 {
             cmd.arg("--device-c");
         }
         if is_asm {
@@ -2037,7 +2037,7 @@ impl Build {
             self.assemble_progressive(dst, chunk)?;
         }
 
-        if self.cuda {
+        if self.cuda && self.cuda_file_count() > 0 {
             // Link the device-side code and add it to the target library,
             // so that non-CUDA linker can link the final binary.
 
@@ -3011,6 +3011,13 @@ impl Build {
         let ret: OsString = sdk_path.trim().into();
         cache.insert(sdk.into(), ret.clone());
         Ok(ret)
+    }
+
+    fn cuda_file_count(&self) -> usize {
+        self.files
+            .iter()
+            .filter(|file| file.extension() == Some(OsStr::new("cu")))
+            .count()
     }
 }
 
