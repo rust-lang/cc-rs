@@ -1643,13 +1643,31 @@ impl Build {
                         cmd.push_cc_arg("-m64".into());
                     } else if target.contains("86") {
                         cmd.push_cc_arg("-m32".into());
-                        cmd.push_cc_arg("-arch:IA32".into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
-                } else {
-                    if target.contains("i586") {
-                        cmd.push_cc_arg("-arch:IA32".into());
+                }
+
+                let is_x86 = target.contains("i686") || target.contains("i586");
+                let is_x64 = target.contains("x86_64");
+
+                if is_x86 || is_x64 {
+                    let features = self
+                        .getenv("CARGO_CFG_TARGET_FEATURE")
+                        .unwrap_or(String::new());
+
+                    if features.contains("avx2") {
+                        cmd.push_cc_arg("-arch:AVX2".into());
+                    } else if features.contains("avx") {
+                        cmd.push_cc_arg("-arch:AVX".into());
+                    } else if is_x86 {
+                        if features.contains("sse2") {
+                            cmd.push_cc_arg("-arch:SSE2".into());
+                        } else if features.contains("sse") {
+                            cmd.push_cc_arg("-arch:SSE".into());
+                        } else {
+                            cmd.push_cc_arg("-arch:IA32".into());
+                        }
                     }
                 }
 
