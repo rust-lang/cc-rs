@@ -1487,7 +1487,7 @@ impl Build {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-nologo".into());
 
-                let crt_flag = match self.static_crt {
+                let mut crt_flag: OsString = match self.static_crt {
                     Some(true) => "-MT",
                     Some(false) => "-MD",
                     None => {
@@ -1500,8 +1500,14 @@ impl Build {
                             "-MD"
                         }
                     }
-                };
-                cmd.push_cc_arg(crt_flag.into());
+                }
+                .into();
+
+                if self.get_debug() {
+                    crt_flag.push("d");
+                }
+
+                cmd.push_cc_arg(crt_flag);
 
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
