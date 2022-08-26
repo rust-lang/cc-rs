@@ -577,7 +577,9 @@ impl Build {
 
     /// Add a file which will be compiled
     pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Build {
-        self.files.push(p.as_ref().to_path_buf());
+        let p = p.as_ref();
+        println!("cargo:rerun-if-changed={}", p.display());
+        self.files.push(p.to_path_buf());
         self
     }
 
