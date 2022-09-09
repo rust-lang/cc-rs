@@ -1217,12 +1217,12 @@ impl Build {
 
         /// Returns a suitable `jobserver::Client` used to coordinate
         /// parallelism between build scripts.
-        fn jobserver() -> &'static jobserver::Client {
+        fn jobserver() -> &'static jobslot::Client {
             static INIT: Once = Once::new();
-            static mut JOBSERVER: Option<jobserver::Client> = None;
+            static mut JOBSERVER: Option<jobslot::Client> = None;
 
             fn _assert_sync<T: Sync>() {}
-            _assert_sync::<jobserver::Client>();
+            _assert_sync::<jobslot::Client>();
 
             unsafe {
                 INIT.call_once(|| {
@@ -1233,10 +1233,10 @@ impl Build {
             }
         }
 
-        unsafe fn default_jobserver() -> jobserver::Client {
+        unsafe fn default_jobserver() -> jobslot::Client {
             // Try to use the environmental jobserver which Cargo typically
             // initializes for us...
-            if let Some(client) = jobserver::Client::from_env() {
+            if let Some(client) = jobslot::Client::from_env() {
                 return client;
             }
 
@@ -1255,9 +1255,9 @@ impl Build {
 
             // If we create our own jobserver then be sure to reserve one token
             // for ourselves.
-            let client = jobserver::Client::new(parallelism).expect("failed to create jobserver");
+            let client = jobslot::Client::new(parallelism).expect("failed to create jobserver");
             client.acquire_raw().expect("failed to acquire initial");
-            return client;
+            client
         }
 
         struct JoinOnDrop(Option<thread::JoinHandle<Result<(), Error>>>);

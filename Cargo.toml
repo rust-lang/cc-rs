@@ -18,10 +18,10 @@ exclude = ["/.github"]
 edition = "2018"
 
 [dependencies]
-jobserver = { version = "0.1.16", optional = true }
+jobslot = { version = "0.2.0", optional = true }
 
 [features]
-parallel = ["jobserver"]
+parallel = ["jobslot"]
 
 [dev-dependencies]
 tempfile = "3"
