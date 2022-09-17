@@ -976,9 +976,20 @@ impl Build {
         self
     }
 
-    /// Configures whether the /MT flag or the /MD flag will be passed to msvc build tools.
+    /// No-op option retained for backward compatibility.
     ///
-    /// This option defaults to `false`, and affect only msvc targets.
+    /// Originally the method was introduced to harmonize with externally
+    /// enforced `-MT` flag and resolve warnings in Rust bootstrap procedure
+    /// on `*-windows-msvc` targets. It's argued that a more versatile approach
+    /// is to **not** specify any of the `-M*` flags in cc-rs, but rely on
+    /// the default MSVC compiler behaviour or externally enforced flag[s].
+    /// The default behaviour allows forced linking with either VCCRT library,
+    /// static or dynamic, whichever chosen by rustc at link time.
+    ///
+    /// On a related note, if you compile Rust static library for use with an
+    /// external application, it's likely to be appropriate to pass `-Zl` flag
+    /// in order to not interfere with the target application's linking
+    /// procedure.
     pub fn static_crt(&mut self, static_crt: bool) -> &mut Build {
         self.static_crt = Some(static_crt);
         self
@@ -1548,22 +1559,6 @@ impl Build {
         match cmd.family {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-nologo".into());
-
-                let crt_flag = match self.static_crt {
-                    Some(true) => "-MT",
-                    Some(false) => "-MD",
-                    None => {
-                        let features = self
-                            .getenv("CARGO_CFG_TARGET_FEATURE")
-                            .unwrap_or(String::new());
-                        if features.contains("crt-static") {
-                            "-MT"
-                        } else {
-                            "-MD"
-                        }
-                    }
-                };
-                cmd.push_cc_arg(crt_flag.into());
 
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
