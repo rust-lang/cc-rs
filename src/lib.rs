@@ -1491,10 +1491,7 @@ impl Build {
                     Some(true) => "-MT",
                     Some(false) => "-MD",
                     None => {
-                        let features = self
-                            .getenv("CARGO_CFG_TARGET_FEATURE")
-                            .unwrap_or(String::new());
-                        if features.contains("crt-static") {
+                        if cfg!(target_feature = "crt-static") {
                             "-MT"
                         } else {
                             "-MD"
