@@ -1581,7 +1581,7 @@ impl Build {
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
                             cmd.args
-                                .push(format!("--target={}-apple-ios13.0-macabi", arch).into());
+                                .push(format!("--target={}-apple-ios-macabi", arch).into());
                         }
                     } else if target.contains("ios-sim") {
                         if let Some(arch) =
