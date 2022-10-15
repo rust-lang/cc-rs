@@ -482,28 +482,31 @@ mod impl_ {
     ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf, Option<PathBuf>, PathBuf)> {
         let version = vs15plus_vc_read_version(instance_path)?;
 
-        let host = match host_arch() {
-            X86 => "X86",
-            X86_64 => "X64",
-            // There is no natively hosted compiler on ARM64.
-            // Instead, use the x86 toolchain under emulation (there is no x64 emulation).
-            AARCH64 => "X86",
+        let hosts = match host_arch() {
+            X86 => vec!["X86"],
+            X86_64 => vec!["X64"],
+            // Starting with VS 17.3, there is a natively hosted compiler on ARM64.
+            // On older versions of VS, we use the x86 toolchain under emulation.
+            // We don't want to overcomplicate compatibility checks, so we ignore x64 emulation.
+            AARCH64 => vec!["ARM64", "X86"],
             _ => return None,
         };
         let target = lib_subdir(target)?;
         // The directory layout here is MSVC/bin/Host$host/$target/
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
+        // We use the first available host architecture
+        let (host_path, host) = hosts.iter().find_map(|&x| {
+            let candidate = path.join("bin").join(&format!("Host{}", x));
+            candidate.exists().then_some((candidate, x))
+        })?;
         // This is the path to the toolchain for a particular target, running
         // on a given host
-        let bin_path = path.join("bin").join(format!("Host{}", host)).join(target);
+        let bin_path = host_path.join(&target);
         // But! we also need PATH to contain the target directory for the host
         // architecture, because it contains dlls like mspdb140.dll compiled for
         // the host architecture.
-        let host_dylib_path = path
-            .join("bin")
-            .join(format!("Host{}", host))
-            .join(host.to_lowercase());
-        let lib_path = path.join("lib").join(target);
+        let host_dylib_path = host_path.join(&host.to_lowercase());
+        let lib_path = path.join("lib").join(&target);
         let alt_lib_path = (target == "arm64ec").then(|| path.join("lib").join("arm64ec"));
         let include_path = path.join("include");
         Some((
