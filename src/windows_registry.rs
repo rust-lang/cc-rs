@@ -466,10 +466,10 @@ mod impl_ {
         let target = lib_subdir(target)?;
         // The directory layout here is MSVC/bin/Host$host/$target/
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
-        // We use the first available host architecture
+        // We use the first available host architecture that can build for the target
         let (host_path, host) = hosts.iter().find_map(|&x| {
             let candidate = path.join("bin").join(&format!("Host{}", x));
-            candidate.exists().then_some((candidate, x))
+            candidate.join(&target).exists().then_some((candidate, x))
         })?;
         // This is the path to the toolchain for a particular target, running
         // on a given host
