@@ -2601,7 +2601,7 @@ impl Build {
         } else if self.get_host()? != target {
             match self.prefix_for_target(&target) {
                 Some(p) => {
-                    let target_ar = format!("{}-ar", p);
+                    let target_ar = format!("{}-gcc-ar", p);
                     if Command::new(&target_ar).output().is_ok() {
                         target_ar
                     } else {
