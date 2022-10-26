@@ -2605,12 +2605,17 @@ impl Build {
         } else if self.get_host()? != target {
             match self.prefix_for_target(&target) {
                 Some(p) => {
-                    let target_ar = format!("{}-gcc-ar", p);
-                    if Command::new(&target_ar).output().is_ok() {
-                        target_ar
-                    } else {
-                        default_ar
+                    // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
+                    // Prefer -gcc-ar if it exists, since that matches what we'll use for $CC.
+                    let mut ar = default_ar;
+                    for &infix in &["-gcc", ""] {
+                        let target_ar = format!("{}{}-ar", p, infix);
+                        if Command::new(&target_ar).output().is_ok() {
+                            ar = target_ar;
+                            break;
+                        }
                     }
+                    ar
                 }
                 None => default_ar,
             }
