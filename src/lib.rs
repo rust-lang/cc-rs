@@ -2802,12 +2802,12 @@ impl Build {
     }
 
     fn getenv(&self, v: &str) -> Option<String> {
-        if self.emit_rerun_if_env_changed {
-            self.print(&format!("cargo:rerun-if-env-changed={}", v));
-        }
         let mut cache = self.env_cache.lock().unwrap();
         if let Some(val) = cache.get(v) {
             return val.clone();
+        }
+        if self.emit_rerun_if_env_changed {
+            self.print(&format!("cargo:rerun-if-env-changed={}", v));
         }
         let r = env::var(v).ok();
         self.print(&format!("{} = {:?}", v, r));
