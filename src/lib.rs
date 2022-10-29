@@ -2854,11 +2854,25 @@ impl Build {
     }
 
     fn getenv(&self, v: &str) -> Option<String> {
+        // Returns true for environment variables cargo sets for build scripts:
+        // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
+        //
+        // This handles more of the vars than we actually use (it tries to check
+        // complete-ish set), just to avoid needing maintenance if/when new
+        // calls to `getenv`/`getenv_unwrap` are added.
+        fn provided_by_cargo(envvar: &str) -> bool {
+            match envvar {
+                v if v.starts_with("CARGO") || v.starts_with("RUSTC") => true,
+                "HOST" | "TARGET" | "RUSTDOC" | "OUT_DIR" | "OPT_LEVEL" | "DEBUG" | "PROFILE"
+                | "NUM_JOBS" | "RUSTFLAGS" => true,
+                _ => false,
+            }
+        }
         let mut cache = self.env_cache.lock().unwrap();
         if let Some(val) = cache.get(v) {
             return val.clone();
         }
-        if self.emit_rerun_if_env_changed {
+        if self.emit_rerun_if_env_changed && !provided_by_cargo(v) {
             self.print(&format!("cargo:rerun-if-env-changed={}", v));
         }
         let r = env::var(v).ok();
