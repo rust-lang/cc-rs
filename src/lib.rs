@@ -323,7 +323,7 @@ impl Build {
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
-            emit_rerun_if_env_changed: false,
+            emit_rerun_if_env_changed: true,
         }
     }
 
@@ -899,7 +899,7 @@ impl Build {
     ///  - `rustc-link-search=native=`*target folder*
     ///  - When target is MSVC, the ATL-MFC libs are added via `rustc-link-search=native=`
     ///  - When C++ is enabled, the C++ stdlib is added via `rustc-link-lib`
-    ///  - If `emit_rerun_if_env_changed` is `true`, `rerun-if-env-changed=`*env*
+    ///  - If `emit_rerun_if_env_changed` is not `false`, `rerun-if-env-changed=`*env*
     ///
     pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
         self.cargo_metadata = cargo_metadata;
@@ -945,7 +945,7 @@ impl Build {
     ///
     /// This has no effect if the `cargo_metadata` option is `false`.
     ///
-    /// This option defaults to `false`.
+    /// This option defaults to `true`.
     pub fn emit_rerun_if_env_changed(&mut self, emit_rerun_if_env_changed: bool) -> &mut Build {
         self.emit_rerun_if_env_changed = emit_rerun_if_env_changed;
         self
