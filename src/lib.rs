@@ -2623,9 +2623,12 @@ impl Build {
             match self.prefix_for_target(&target) {
                 Some(p) => {
                     // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
-                    // Prefer -gcc-ar if it exists, since that matches what we'll use for $CC.
+                    // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
+                    // outright broken (such as when targetting freebsd with `--disable-lto`
+                    // toolchain where the archiver attempts to load the LTO plugin anyway but
+                    // fails to find one).
                     let mut ar = default_ar;
-                    for &infix in &["-gcc", ""] {
+                    for &infix in &["", "-gcc"] {
                         let target_ar = format!("{}{}-ar", p, infix);
                         if Command::new(&target_ar).output().is_ok() {
                             ar = target_ar;
