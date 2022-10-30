@@ -3,8 +3,8 @@
 // http://rust-lang.org/COPYRIGHT.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
@@ -393,7 +393,7 @@ mod impl_ {
     // according to Microsoft. To help head off potential regressions though,
     // we keep the registry method as a fallback option.
     //
-    // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
+    // [more reliable]: https://github.com/rust-lang/cc-rs/pull/331
     fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
         let mut path = match vs15plus_instances(target) {
             Some(instances) => instances
