@@ -2227,7 +2227,7 @@ impl Build {
         /*
          * TODO we probably ultimately want the -fembed-bitcode-marker flag
          * but can't have it now because of an issue in LLVM:
-         * https://github.com/alexcrichton/cc-rs/issues/301
+         * https://github.com/rust-lang/cc-rs/issues/301
          * https://github.com/rust-lang/rust/pull/48896#comment-372192660
          */
         /*
@@ -3261,7 +3261,7 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
         }
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
-                " (see https://github.com/alexcrichton/cc-rs#compile-time-requirements \
+                " (see https://github.com/rust-lang/cc-rs#compile-time-requirements \
                  for help)"
             } else {
                 ""
