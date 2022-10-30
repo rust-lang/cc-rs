@@ -30,7 +30,7 @@ type REGSAM = u32;
 
 const ERROR_SUCCESS: DWORD = 0;
 const ERROR_NO_MORE_ITEMS: DWORD = 259;
-// Sign-extend into 64 bits if needed (although it seems to work even if not).
+// Sign-extend into 64 bits if needed.
 const HKEY_LOCAL_MACHINE: HKEY = 0x80000002u32 as i32 as isize as HKEY;
 const REG_SZ: DWORD = 1;
 const KEY_READ: DWORD = 0x20019;
