@@ -1961,8 +1961,16 @@ impl Build {
             cmd.arg("-I").arg(directory);
         }
         if target.contains("aarch64") || target.contains("arm") {
+            if self.get_debug() {
+                cmd.arg("-g");
+            }
+
             println!("cargo:warning=The MSVC ARM assemblers do not support -D flags");
         } else {
+            if self.get_debug() {
+                cmd.arg("-Zi");
+            }
+
             for &(ref key, ref value) in self.definitions.iter() {
                 if let Some(ref value) = *value {
                     cmd.arg(&format!("-D{}={}", key, value));
