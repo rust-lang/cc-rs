@@ -1345,7 +1345,7 @@ impl Build {
         if self.cuda && self.files.len() > 1 {
             cmd.arg("--device-c");
         }
-        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
+        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
