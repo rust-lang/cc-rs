@@ -87,6 +87,7 @@ jobs:
     - run: cargo build
     - run: cargo test ${{ matrix.no_run }}
     - run: cargo test ${{ matrix.no_run }} --features parallel
+    - run: cargo test ${{ matrix.no_run }} --features compile_commands
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }}
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --features parallel
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --release
