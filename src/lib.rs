@@ -97,6 +97,7 @@ pub struct Build {
     flags_supported: Vec<String>,
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
     ar_flags: Vec<String>,
+    asm_flags: Vec<String>,
     no_default_flags: bool,
     files: Vec<PathBuf>,
     cpp: bool,
@@ -299,6 +300,7 @@ impl Build {
             flags_supported: Vec::new(),
             known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
             ar_flags: Vec::new(),
+            asm_flags: Vec::new(),
             no_default_flags: false,
             files: Vec::new(),
             shared_flag: None,
@@ -431,6 +433,25 @@ impl Build {
     /// ```
     pub fn ar_flag(&mut self, flag: &str) -> &mut Build {
         self.ar_flags.push(flag.to_string());
+        self
+    }
+
+    /// Add a flag that will only be used with assembly files.
+    ///
+    /// The flag will be applied to input files with either a `.s` or
+    /// `.asm` extension (case insensitive).
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .asm_flag("-Wa,-defsym,abc=1")
+    ///     .file("src/foo.S")  // The asm flag will be applied here
+    ///     .file("src/bar.c")  // The asm flag will not be applied here
+    ///     .compile("foo");
+    /// ```
+    pub fn asm_flag(&mut self, flag: &str) -> &mut Build {
+        self.asm_flags.push(flag.to_string());
         self
     }
 
@@ -1318,7 +1339,7 @@ impl Build {
     }
 
     fn compile_object(&self, obj: &Object) -> Result<(), Error> {
-        let is_asm = obj.src.extension().and_then(|s| s.to_str()) == Some("asm");
+        let is_asm = is_asm(&obj.src);
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
@@ -1348,6 +1369,9 @@ impl Build {
         }
         if self.cuda && self.files.len() > 1 {
             cmd.arg("--device-c");
+        }
+        if is_asm {
+            cmd.args(&self.asm_flags);
         }
         if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
             // #513: For `clang-cl`, separate flags/options from the input file.
@@ -3470,4 +3494,16 @@ fn which(tool: &Path) -> Option<PathBuf> {
         let mut exe = path_entry.join(tool);
         return if check_exe(&mut exe) { Some(exe) } else { None };
     })
+}
+
+/// Check if the file's extension is either "asm" or "s", case insensitive.
+fn is_asm(file: &Path) -> bool {
+    if let Some(ext) = file.extension() {
+        if let Some(ext) = ext.to_str() {
+            let ext = ext.to_lowercase();
+            return ext == "asm" || ext == "s";
+        }
+    }
+
+    false
 }

@@ -442,3 +442,20 @@ fn msvc_no_dash_dash() {
 
     test.cmd(0).must_not_have("--");
 }
+
+// Disable this test with the parallel feature because the execution
+// order is not deterministic.
+#[cfg(not(feature = "parallel"))]
+#[test]
+fn asm_flags() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("foo.c")
+        .file("x86_64.asm")
+        .file("x86_64.S")
+        .asm_flag("--abc")
+        .compile("foo");
+    test.cmd(0).must_not_have("--abc");
+    test.cmd(1).must_have("--abc");
+    test.cmd(2).must_have("--abc");
+}
