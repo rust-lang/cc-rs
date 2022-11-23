@@ -1339,12 +1339,14 @@ impl Build {
     }
 
     fn compile_object(&self, obj: &Object) -> Result<(), Error> {
-        let is_asm = is_asm(&obj.src);
+        let asm_ext = AsmFileExt::from_path(&obj.src);
+        let is_asm = asm_ext.is_some();
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
         let clang = compiler.family == ToolFamily::Clang;
-        let (mut cmd, name) = if msvc && is_asm {
+
+        let (mut cmd, name) = if msvc && asm_ext == Some(AsmFileExt::DotAsm) {
             self.msvc_macro_assembler()?
         } else {
             let mut cmd = compiler.to_command();
@@ -3496,14 +3498,27 @@ fn which(tool: &Path) -> Option<PathBuf> {
     })
 }
 
-/// Check if the file's extension is either "asm" or "s", case insensitive.
-fn is_asm(file: &Path) -> bool {
-    if let Some(ext) = file.extension() {
-        if let Some(ext) = ext.to_str() {
-            let ext = ext.to_lowercase();
-            return ext == "asm" || ext == "s";
-        }
-    }
+#[derive(Clone, Copy, PartialEq)]
+enum AsmFileExt {
+    /// `.asm` files. On MSVC targets, we assume these should be passed to MASM
+    /// (`ml{,64}.exe`).
+    DotAsm,
+    /// `.s` or `.S` files, which do not have the special handling on MSVC targets.
+    DotS,
+}
 
-    false
+impl AsmFileExt {
+    fn from_path(file: &Path) -> Option<Self> {
+        if let Some(ext) = file.extension() {
+            if let Some(ext) = ext.to_str() {
+                let ext = ext.to_lowercase();
+                match &*ext {
+                    "asm" => return Some(AsmFileExt::DotAsm),
+                    "s" => return Some(AsmFileExt::DotS),
+                    _ => return None,
+                }
+            }
+        }
+        None
+    }
 }
