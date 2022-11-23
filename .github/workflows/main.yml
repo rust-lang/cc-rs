@@ -96,16 +96,14 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@master
-    - name: Install cuda-minimal-build-11-6
+    - name: Install cuda-minimal-build-11-8
       shell: bash
       run: |
         # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
-        sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
-        sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
-        sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+        sudo dpkg -i cuda-keyring_1.0-1_all.deb
         sudo apt-get update
-        sudo apt-get -y install cuda-minimal-build-11-6
+        sudo apt-get -y install cuda-minimal-build-11-8
     - name: Test 'cudart' feature
       shell: bash
       run: env PATH=/usr/local/cuda/bin:$PATH cargo test --manifest-path cc-test/Cargo.toml --features test_cuda
