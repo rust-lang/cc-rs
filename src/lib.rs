@@ -56,11 +56,12 @@
 #![allow(deprecated)]
 #![deny(missing_docs)]
 
-use std::collections::HashMap;
+use std::collections::{hash_map, HashMap};
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display, Formatter};
 use std::fs;
+use std::hash::Hasher;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
@@ -1023,7 +1024,24 @@ impl Build {
 
         let mut objects = Vec::new();
         for file in self.files.iter() {
-            let obj = dst.join(file).with_extension("o");
+            let obj = if file.has_root() {
+                // If `file` is an absolute path, prefix the `basename`
+                // with the `dirname`'s hash to ensure name uniqueness.
+                let basename = file
+                    .file_name()
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
+                    .to_string_lossy();
+                let dirname = file
+                    .parent()
+                    .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "parent() failure"))?
+                    .to_string_lossy();
+                let mut hasher = hash_map::DefaultHasher::new();
+                hasher.write(dirname.to_string().as_bytes());
+                dst.join(format!("{:016x}-{}", hasher.finish(), basename))
+                    .with_extension("o")
+            } else {
+                dst.join(file).with_extension("o")
+            };
             let obj = if !obj.starts_with(&dst) {
                 dst.join(obj.file_name().ok_or_else(|| {
                     Error::new(ErrorKind::IOError, "Getting object file details failed.")
