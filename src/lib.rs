@@ -2665,10 +2665,29 @@ impl Build {
 
             "emar".to_string()
         } else if target.contains("msvc") {
-            match windows_registry::find(&target, "lib.exe") {
-                Some(t) => return Ok((t, "lib.exe".to_string())),
-                None => "lib.exe".to_string(),
+            let compiler = self.get_base_compiler()?;
+            let mut lib = String::new();
+            if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
+                // See if there is 'llvm-lib' next to 'clang-cl'
+                // Another possibility could be to see if there is 'clang'
+                // next to 'clang-cl' and use 'search_programs()' to locate
+                // 'llvm-lib'. This is because 'clang-cl' doesn't support
+                // the -print-search-dirs option.
+                if let Some(mut cmd) = which(&compiler.path) {
+                    cmd.pop();
+                    cmd.push("llvm-lib.exe");
+                    if let Some(llvm_lib) = which(&cmd) {
+                        lib = llvm_lib.to_str().unwrap().to_owned();
+                    }
+                }
             }
+            if lib.is_empty() {
+                lib = match windows_registry::find(&target, "lib.exe") {
+                    Some(t) => return Ok((t, "lib.exe".to_string())),
+                    None => "lib.exe".to_string(),
+                }
+            }
+            lib
         } else if target.contains("illumos") {
             // The default 'ar' on illumos uses a non-standard flags,
             // but the OS comes bundled with a GNU-compatible variant.
