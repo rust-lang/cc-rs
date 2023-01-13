@@ -2493,8 +2493,10 @@ impl Build {
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
         let target_u = target.replace("-", "_");
+        let target_e = envify(&target);
         let res = self
             .getenv(&format!("{}_{}", var_base, target))
+            .or_else(|| self.getenv(&format!("{}_{}", var_base, target_e)))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
             .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))
             .or_else(|| self.getenv(var_base));
@@ -3530,6 +3532,13 @@ fn which(tool: &Path) -> Option<PathBuf> {
         let mut exe = path_entry.join(tool);
         return if check_exe(&mut exe) { Some(exe) } else { None };
     })
+}
+
+fn envify(name: &str) -> String {
+    name.chars()
+        .map(|c| c.to_ascii_uppercase())
+        .map(|c| if c == '-' { '_' } else { c })
+        .collect()
 }
 
 #[derive(Clone, Copy, PartialEq)]
