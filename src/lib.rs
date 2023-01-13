@@ -2494,8 +2494,10 @@ impl Build {
         let kind = if host == target { "HOST" } else { "TARGET" };
         let target_u = target.replace("-", "_");
         let target_e = envify(&target);
+        let name = self.getenv_unwrap("CARGO_PKG_NAME").map(|n| envify(&n))?;
         let res = self
-            .getenv(&format!("{}_{}", var_base, target))
+            .getenv(&format!("{}_{}", name, var_base))
+            .or_else(|| self.getenv(&format!("{}_{}", var_base, target)))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_e)))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
             .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))

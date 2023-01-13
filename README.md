@@ -89,6 +89,7 @@ number of different environment variables.
 Each of these variables can also be supplied with certain prefixes and suffixes,
 in the following prioritized order:
 
+0. `<PKG_NAME>_<var>` - for example `LIBSSH2_SYS_CFLAGS`
 1. `<var>_<target>` - for example, `CC_x86_64-unknown-linux-gnu`
 2. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu`
 3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
