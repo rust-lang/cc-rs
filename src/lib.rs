@@ -2107,7 +2107,11 @@ impl Build {
             // Non-msvc targets (those using `ar`) need a separate step to add
             // the symbol table to archives since our construction command of
             // `cq` doesn't add it for us.
-            let (mut ar, cmd) = self.get_ar()?;
+            let (mut ar, cmd, _any_flags) = self.get_ar()?;
+
+            // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
+            // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
+            // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
             run(ar.arg("s").arg(dst), &cmd)?;
         }
 
@@ -2118,10 +2122,17 @@ impl Build {
         let target = self.get_target()?;
 
         if target.contains("msvc") {
-            let (mut cmd, program) = self.get_ar()?;
+            let (mut cmd, program, any_flags) = self.get_ar()?;
+            // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
+            // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
+            // the caller has explicitly dictated the flags they want. See
+            // https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
             let mut out = OsString::from("-out:");
             out.push(dst);
-            cmd.arg(out).arg("-nologo");
+            cmd.arg(out);
+            if !any_flags {
+                cmd.arg("-nologo");
+            }
             // If the library file already exists, add the library name
             // as an argument to let lib.exe know we are appending the objs.
             if dst.exists() {
@@ -2130,7 +2141,7 @@ impl Build {
             cmd.args(objs);
             run(&mut cmd, &program)?;
         } else {
-            let (mut ar, cmd) = self.get_ar()?;
+            let (mut ar, cmd, _any_flags) = self.get_ar()?;
 
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
@@ -2155,6 +2166,10 @@ impl Build {
             // In any case if this doesn't end up getting read, it shouldn't
             // cause that many issues!
             ar.env("ZERO_AR_DATE", "1");
+
+            // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
+            // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
+            // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
             run(ar.arg("cq").arg(dst).args(objs), &cmd)?;
         }
 
@@ -2650,14 +2665,14 @@ impl Build {
         }
     }
 
-    fn get_ar(&self) -> Result<(Command, String), Error> {
-        let cmd = self.try_get_archiver()?;
+    fn get_ar(&self) -> Result<(Command, String, bool), Error> {
+        let (cmd, any_flags) = self.try_get_archiver_and_flags()?;
         let name = Path::new(cmd.get_program())
             .file_name()
             .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get archiver path."))?
             .to_string_lossy()
             .into_owned();
-        Ok((cmd, name))
+        Ok((cmd, name, any_flags))
     }
 
     /// Get the archiver (ar) that's in use for this configuration.
@@ -2686,12 +2701,19 @@ impl Build {
     /// This will return a result instead of panicing;
     /// see [`get_archiver()`] for the complete description.
     pub fn try_get_archiver(&self) -> Result<Command, Error> {
+        Ok(self.try_get_archiver_and_flags()?.0)
+    }
+
+    fn try_get_archiver_and_flags(&self) -> Result<(Command, bool), Error> {
         let mut cmd = self.get_base_archiver()?;
-        cmd.args(self.envflags("ARFLAGS"));
+        let flags = self.envflags("ARFLAGS");
+        let mut any_flags = !flags.is_empty();
+        cmd.args(flags);
         for flag in &self.ar_flags {
+            any_flags = true;
             cmd.arg(flag);
         }
-        Ok(cmd)
+        Ok((cmd, any_flags))
     }
 
     fn get_base_archiver(&self) -> Result<Command, Error> {
