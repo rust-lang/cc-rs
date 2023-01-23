@@ -115,6 +115,7 @@ pub struct Build {
     env: Vec<(OsString, OsString)>,
     compiler: Option<PathBuf>,
     archiver: Option<PathBuf>,
+    ranlib: Option<PathBuf>,
     cargo_metadata: bool,
     link_lib_modifiers: Vec<String>,
     pic: Option<bool>,
@@ -320,6 +321,7 @@ impl Build {
             env: Vec::new(),
             compiler: None,
             archiver: None,
+            ranlib: None,
             cargo_metadata: true,
             link_lib_modifiers: Vec::new(),
             pic: None,
@@ -916,6 +918,17 @@ impl Build {
         self.archiver = Some(archiver.as_ref().to_owned());
         self
     }
+
+    /// Configures the tool used to index archives.
+    ///
+    /// This option is automatically determined from the target platform or a
+    /// number of environment variables, so it's not required to call this
+    /// function.
+    pub fn ranlib<P: AsRef<Path>>(&mut self, ranlib: P) -> &mut Build {
+        self.ranlib = Some(ranlib.as_ref().to_owned());
+        self
+    }
+
     /// Define whether metadata should be emitted for cargo allowing it to
     /// automatically link the binary. Defaults to `true`.
     ///
@@ -2094,7 +2107,11 @@ impl Build {
             // Non-msvc targets (those using `ar`) need a separate step to add
             // the symbol table to archives since our construction command of
             // `cq` doesn't add it for us.
-            let (mut ar, cmd) = self.get_ar()?;
+            let (mut ar, cmd, _any_flags) = self.get_ar()?;
+
+            // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
+            // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
+            // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
             run(ar.arg("s").arg(dst), &cmd)?;
         }
 
@@ -2105,12 +2122,16 @@ impl Build {
         let target = self.get_target()?;
 
         if target.contains("msvc") {
-            let (mut cmd, program) = self.get_ar()?;
+            let (mut cmd, program, any_flags) = self.get_ar()?;
+            // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
+            // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
+            // the caller has explicitly dictated the flags they want. See
+            // https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
             let mut out = OsString::from("-out:");
             out.push(dst);
-            cmd.arg(out).arg("-nologo");
-            for flag in self.ar_flags.iter() {
-                cmd.arg(flag);
+            cmd.arg(out);
+            if !any_flags {
+                cmd.arg("-nologo");
             }
             // If the library file already exists, add the library name
             // as an argument to let lib.exe know we are appending the objs.
@@ -2120,7 +2141,7 @@ impl Build {
             cmd.args(objs);
             run(&mut cmd, &program)?;
         } else {
-            let (mut ar, cmd) = self.get_ar()?;
+            let (mut ar, cmd, _any_flags) = self.get_ar()?;
 
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
@@ -2145,9 +2166,10 @@ impl Build {
             // In any case if this doesn't end up getting read, it shouldn't
             // cause that many issues!
             ar.env("ZERO_AR_DATE", "1");
-            for flag in self.ar_flags.iter() {
-                ar.arg(flag);
-            }
+
+            // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
+            // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
+            // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
             run(ar.arg("cq").arg(dst).args(objs), &cmd)?;
         }
 
@@ -2639,81 +2661,206 @@ impl Build {
         }
     }
 
-    fn get_ar(&self) -> Result<(Command, String), Error> {
-        if let Some(ref p) = self.archiver {
-            let name = p.file_name().and_then(|s| s.to_str()).unwrap_or("ar");
-            return Ok((self.cmd(p), name.to_string()));
-        }
-        if let Ok(p) = self.get_var("AR") {
-            return Ok((self.cmd(&p), p));
-        }
-        let target = self.get_target()?;
-        let default_ar = "ar".to_string();
-        let program = if target.contains("android") {
-            format!("{}-ar", target.replace("armv7", "arm"))
-        } else if target.contains("emscripten") {
-            // Windows use bat files so we have to be a bit more specific
-            if cfg!(windows) {
-                let mut cmd = self.cmd("cmd");
-                cmd.arg("/c").arg("emar.bat");
-                return Ok((cmd, "emar.bat".to_string()));
-            }
+    fn get_ar(&self) -> Result<(Command, String, bool), Error> {
+        self.try_get_archiver_and_flags()
+    }
 
-            "emar".to_string()
-        } else if target.contains("msvc") {
-            let compiler = self.get_base_compiler()?;
-            let mut lib = String::new();
-            if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
-                // See if there is 'llvm-lib' next to 'clang-cl'
-                // Another possibility could be to see if there is 'clang'
-                // next to 'clang-cl' and use 'search_programs()' to locate
-                // 'llvm-lib'. This is because 'clang-cl' doesn't support
-                // the -print-search-dirs option.
-                if let Some(mut cmd) = which(&compiler.path) {
-                    cmd.pop();
-                    cmd.push("llvm-lib.exe");
-                    if let Some(llvm_lib) = which(&cmd) {
-                        lib = llvm_lib.to_str().unwrap().to_owned();
+    /// Get the archiver (ar) that's in use for this configuration.
+    ///
+    /// You can use [`Command::get_program`] to get just the path to the command.
+    ///
+    /// This method will take into account all configuration such as debug
+    /// information, optimization level, include directories, defines, etc.
+    /// Additionally, the compiler binary in use follows the standard
+    /// conventions for this path, e.g. looking at the explicitly set compiler,
+    /// environment variables (a number of which are inspected here), and then
+    /// falling back to the default configuration.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error occurred while determining the architecture.
+    pub fn get_archiver(&self) -> Command {
+        match self.try_get_archiver() {
+            Ok(tool) => tool,
+            Err(e) => fail(&e.message),
+        }
+    }
+
+    /// Get the archiver that's in use for this configuration.
+    ///
+    /// This will return a result instead of panicing;
+    /// see [`get_archiver()`] for the complete description.
+    pub fn try_get_archiver(&self) -> Result<Command, Error> {
+        Ok(self.try_get_archiver_and_flags()?.0)
+    }
+
+    fn try_get_archiver_and_flags(&self) -> Result<(Command, String, bool), Error> {
+        let (mut cmd, name) = self.get_base_archiver()?;
+        let flags = self.envflags("ARFLAGS");
+        let mut any_flags = !flags.is_empty();
+        cmd.args(flags);
+        for flag in &self.ar_flags {
+            any_flags = true;
+            cmd.arg(flag);
+        }
+        Ok((cmd, name, any_flags))
+    }
+
+    fn get_base_archiver(&self) -> Result<(Command, String), Error> {
+        if let Some(ref a) = self.archiver {
+            return Ok((self.cmd(a), a.to_string_lossy().into_owned()));
+        }
+
+        self.get_base_archiver_variant("AR", "ar")
+    }
+
+    /// Get the ranlib that's in use for this configuration.
+    ///
+    /// You can use [`Command::get_program`] to get just the path to the command.
+    ///
+    /// This method will take into account all configuration such as debug
+    /// information, optimization level, include directories, defines, etc.
+    /// Additionally, the compiler binary in use follows the standard
+    /// conventions for this path, e.g. looking at the explicitly set compiler,
+    /// environment variables (a number of which are inspected here), and then
+    /// falling back to the default configuration.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an error occurred while determining the architecture.
+    pub fn get_ranlib(&self) -> Command {
+        match self.try_get_ranlib() {
+            Ok(tool) => tool,
+            Err(e) => fail(&e.message),
+        }
+    }
+
+    /// Get the ranlib that's in use for this configuration.
+    ///
+    /// This will return a result instead of panicing;
+    /// see [`get_ranlib()`] for the complete description.
+    pub fn try_get_ranlib(&self) -> Result<Command, Error> {
+        let mut cmd = self.get_base_ranlib()?;
+        cmd.args(self.envflags("RANLIBFLAGS"));
+        Ok(cmd)
+    }
+
+    fn get_base_ranlib(&self) -> Result<Command, Error> {
+        if let Some(ref r) = self.ranlib {
+            return Ok(self.cmd(r));
+        }
+
+        Ok(self.get_base_archiver_variant("RANLIB", "ranlib")?.0)
+    }
+
+    fn get_base_archiver_variant(&self, env: &str, tool: &str) -> Result<(Command, String), Error> {
+        let target = self.get_target()?;
+        let mut name = String::new();
+        let tool_opt: Option<Command> = self
+            .env_tool(env)
+            .map(|(tool, _wrapper, args)| {
+                let mut cmd = self.cmd(tool);
+                cmd.args(args);
+                cmd
+            })
+            .or_else(|| {
+                if target.contains("emscripten") {
+                    // Windows use bat files so we have to be a bit more specific
+                    if cfg!(windows) {
+                        let mut cmd = self.cmd("cmd");
+                        name = format!("em{}.bat", tool);
+                        cmd.arg("/c").arg(&name);
+                        Some(cmd)
+                    } else {
+                        name = format!("em{}", tool);
+                        Some(self.cmd(&name))
                     }
+                } else {
+                    None
                 }
-            }
-            if lib.is_empty() {
-                lib = match windows_registry::find(&target, "lib.exe") {
-                    Some(t) => return Ok((t, "lib.exe".to_string())),
-                    None => "lib.exe".to_string(),
-                }
-            }
-            lib
-        } else if target.contains("illumos") {
-            // The default 'ar' on illumos uses a non-standard flags,
-            // but the OS comes bundled with a GNU-compatible variant.
-            //
-            // Use the GNU-variant to match other Unix systems.
-            "gar".to_string()
-        } else if self.get_host()? != target {
-            match self.prefix_for_target(&target) {
-                Some(p) => {
-                    // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
-                    // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
-                    // outright broken (such as when targetting freebsd with `--disable-lto`
-                    // toolchain where the archiver attempts to load the LTO plugin anyway but
-                    // fails to find one).
-                    let mut ar = default_ar;
-                    for &infix in &["", "-gcc"] {
-                        let target_ar = format!("{}{}-ar", p, infix);
-                        if Command::new(&target_ar).output().is_ok() {
-                            ar = target_ar;
-                            break;
+            });
+
+        let default = tool.to_string();
+        let tool = match tool_opt {
+            Some(t) => t,
+            None => {
+                if target.contains("android") {
+                    name = format!("{}-{}", target.replace("armv7", "arm"), tool);
+                    self.cmd(&name)
+                } else if target.contains("msvc") {
+                    // NOTE: There isn't really a ranlib on msvc, so arguably we should return
+                    // `None` somehow here. But in general, callers will already have to be aware
+                    // of not running ranlib on Windows anyway, so it feels okay to return lib.exe
+                    // here.
+
+                    let compiler = self.get_base_compiler()?;
+                    let mut lib = String::new();
+                    if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
+                        // See if there is 'llvm-lib' next to 'clang-cl'
+                        // Another possibility could be to see if there is 'clang'
+                        // next to 'clang-cl' and use 'search_programs()' to locate
+                        // 'llvm-lib'. This is because 'clang-cl' doesn't support
+                        // the -print-search-dirs option.
+                        if let Some(mut cmd) = which(&compiler.path) {
+                            cmd.pop();
+                            cmd.push("llvm-lib.exe");
+                            if let Some(llvm_lib) = which(&cmd) {
+                                lib = llvm_lib.to_str().unwrap().to_owned();
+                            }
                         }
                     }
-                    ar
+
+                    if lib.is_empty() {
+                        name = String::from("lib.exe");
+                        match windows_registry::find(&target, "lib.exe") {
+                            Some(t) => t,
+                            None => self.cmd("lib.exe"),
+                        }
+                    } else {
+                        name = lib;
+                        self.cmd(&name)
+                    }
+                } else if target.contains("illumos") {
+                    // The default 'ar' on illumos uses a non-standard flags,
+                    // but the OS comes bundled with a GNU-compatible variant.
+                    //
+                    // Use the GNU-variant to match other Unix systems.
+                    name = format!("g{}", tool);
+                    self.cmd(&name)
+                } else if self.get_host()? != target {
+                    match self.prefix_for_target(&target) {
+                        Some(p) => {
+                            // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
+                            // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
+                            // outright broken (such as when targetting freebsd with `--disable-lto`
+                            // toolchain where the archiver attempts to load the LTO plugin anyway but
+                            // fails to find one).
+                            //
+                            // The same applies to ranlib.
+                            let mut chosen = default;
+                            for &infix in &["", "-gcc"] {
+                                let target_p = format!("{}{}-{}", p, infix, tool);
+                                if Command::new(&target_p).output().is_ok() {
+                                    chosen = target_p;
+                                    break;
+                                }
+                            }
+                            name = chosen;
+                            self.cmd(&name)
+                        }
+                        None => {
+                            name = default;
+                            self.cmd(&name)
+                        }
+                    }
+                } else {
+                    name = default;
+                    self.cmd(&name)
                 }
-                None => default_ar,
             }
-        } else {
-            default_ar
         };
-        Ok((self.cmd(&program), program))
+
+        Ok((tool, name))
     }
 
     fn prefix_for_target(&self, target: &str) -> Option<String> {
