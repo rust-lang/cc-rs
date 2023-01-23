@@ -2666,13 +2666,7 @@ impl Build {
     }
 
     fn get_ar(&self) -> Result<(Command, String, bool), Error> {
-        let (cmd, any_flags) = self.try_get_archiver_and_flags()?;
-        let name = Path::new(cmd.get_program())
-            .file_name()
-            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get archiver path."))?
-            .to_string_lossy()
-            .into_owned();
-        Ok((cmd, name, any_flags))
+        self.try_get_archiver_and_flags()
     }
 
     /// Get the archiver (ar) that's in use for this configuration.
@@ -2704,8 +2698,8 @@ impl Build {
         Ok(self.try_get_archiver_and_flags()?.0)
     }
 
-    fn try_get_archiver_and_flags(&self) -> Result<(Command, bool), Error> {
-        let mut cmd = self.get_base_archiver()?;
+    fn try_get_archiver_and_flags(&self) -> Result<(Command, String, bool), Error> {
+        let (mut cmd, name) = self.get_base_archiver()?;
         let flags = self.envflags("ARFLAGS");
         let mut any_flags = !flags.is_empty();
         cmd.args(flags);
@@ -2713,12 +2707,12 @@ impl Build {
             any_flags = true;
             cmd.arg(flag);
         }
-        Ok((cmd, any_flags))
+        Ok((cmd, name, any_flags))
     }
 
-    fn get_base_archiver(&self) -> Result<Command, Error> {
+    fn get_base_archiver(&self) -> Result<(Command, String), Error> {
         if let Some(ref a) = self.archiver {
-            return Ok(self.cmd(a));
+            return Ok((self.cmd(a), a.to_string_lossy().into_owned()));
         }
 
         self.get_base_archiver_variant("AR", "ar")
@@ -2760,11 +2754,12 @@ impl Build {
             return Ok(self.cmd(r));
         }
 
-        self.get_base_archiver_variant("RANLIB", "ranlib")
+        Ok(self.get_base_archiver_variant("RANLIB", "ranlib")?.0)
     }
 
-    fn get_base_archiver_variant(&self, env: &str, tool: &str) -> Result<Command, Error> {
+    fn get_base_archiver_variant(&self, env: &str, tool: &str) -> Result<(Command, String), Error> {
         let target = self.get_target()?;
+        let mut name = String::new();
         let tool_opt: Option<Command> = self
             .env_tool(env)
             .map(|(tool, _wrapper, args)| {
@@ -2777,10 +2772,12 @@ impl Build {
                     // Windows use bat files so we have to be a bit more specific
                     if cfg!(windows) {
                         let mut cmd = self.cmd("cmd");
-                        cmd.arg("/c").arg(format!("em{}.bat", tool));
+                        name = format!("em{}.bat", tool);
+                        cmd.arg("/c").arg(&name);
                         Some(cmd)
                     } else {
-                        Some(self.cmd(format!("em{}", tool)))
+                        name = format!("em{}", tool);
+                        Some(self.cmd(&name))
                     }
                 } else {
                     None
@@ -2792,7 +2789,8 @@ impl Build {
             Some(t) => t,
             None => {
                 if target.contains("android") {
-                    self.cmd(format!("{}-{}", target.replace("armv7", "arm"), tool))
+                    name = format!("{}-{}", target.replace("armv7", "arm"), tool);
+                    self.cmd(&name)
                 } else if target.contains("msvc") {
                     // NOTE: There isn't really a ranlib on msvc, so arguably we should return
                     // `None` somehow here. But in general, callers will already have to be aware
@@ -2817,19 +2815,22 @@ impl Build {
                     }
 
                     if lib.is_empty() {
+                        name = String::from("lib.exe");
                         match windows_registry::find(&target, "lib.exe") {
                             Some(t) => t,
                             None => self.cmd("lib.exe"),
                         }
                     } else {
-                        self.cmd(lib)
+                        name = lib;
+                        self.cmd(&name)
                     }
                 } else if target.contains("illumos") {
                     // The default 'ar' on illumos uses a non-standard flags,
                     // but the OS comes bundled with a GNU-compatible variant.
                     //
                     // Use the GNU-variant to match other Unix systems.
-                    self.cmd(format!("g{}", tool))
+                    name = format!("g{}", tool);
+                    self.cmd(&name)
                 } else if self.get_host()? != target {
                     match self.prefix_for_target(&target) {
                         Some(p) => {
@@ -2848,17 +2849,22 @@ impl Build {
                                     break;
                                 }
                             }
-                            self.cmd(chosen)
+                            name = chosen;
+                            self.cmd(&name)
                         }
-                        None => self.cmd(default),
+                        None => {
+                            name = default;
+                            self.cmd(&name)
+                        }
                     }
                 } else {
-                    self.cmd(default)
+                    name = default;
+                    self.cmd(&name)
                 }
             }
         };
 
-        Ok(tool)
+        Ok((tool, name))
     }
 
     fn prefix_for_target(&self, target: &str) -> Option<String> {
