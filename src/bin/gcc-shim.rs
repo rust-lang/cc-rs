@@ -18,7 +18,6 @@ trait EnumUnwrapExt {
 /// https://doc.rust-lang.org/src/core/result.rs.html#1785-1792
 #[inline(never)]
 #[cold]
-#[track_caller]
 fn unwrap_failed(msg: fmt::Arguments<'_>, error: &dyn fmt::Debug) -> ! {
     panic!("{}: {:?}", msg, error)
 }
@@ -32,7 +31,6 @@ where
     /// Adapted from libstd
     /// https://doc.rust-lang.org/src/core/result.rs.html#1064-1066
     #[inline]
-    #[track_caller]
     fn expect_fmt(self, msg: fmt::Arguments<'_>) -> T {
         match self {
             Ok(t) => t,
@@ -47,7 +45,6 @@ where
 /// https://doc.rust-lang.org/src/core/option.rs.html#1872-1880
 #[inline(never)]
 #[cold]
-#[track_caller]
 fn expect_failed(msg: fmt::Arguments<'_>) -> ! {
     panic!("{}", msg)
 }
@@ -58,7 +55,6 @@ impl<T> EnumUnwrapExt for Option<T> {
     /// Adapted from libstd
     /// https://doc.rust-lang.org/src/core/option.rs.html#734-743
     #[inline]
-    #[track_caller]
     fn expect_fmt(self, msg: fmt::Arguments<'_>) -> T {
         match self {
             Some(val) => val,
