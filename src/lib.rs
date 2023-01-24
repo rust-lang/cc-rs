@@ -3518,6 +3518,7 @@ fn command_add_output_file(
     is_asm: bool,
     is_arm: bool,
 ) {
+    #[allow(clippy::nonminimal_bool)]
     if msvc && !clang && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
         s.push(dst);
