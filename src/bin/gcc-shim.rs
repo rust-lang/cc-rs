@@ -3,7 +3,7 @@
 use std::env;
 use std::fmt;
 use std::fs::File;
-use std::io::prelude::*;
+use std::io::{self, prelude::*};
 use std::path::PathBuf;
 
 trait EnumUnwrapExt {
@@ -89,18 +89,29 @@ fn main() {
     }).expect_fmt(format_args!("Cannot find the first nonexistent candidate file to which the program's args can be written under out_dir '{}'", out_dir.display()));
 
     // Create a file and record the args passed to the command.
-    let mut f = File::create(&candidate).expect_fmt(format_args!(
+    let f = File::create(&candidate).expect_fmt(format_args!(
         "{}: can't create candidate: {}",
         program,
         candidate.display()
     ));
-    for arg in args {
-        writeln!(f, "{}", arg).expect_fmt(format_args!(
-            "{}: can't write to candidate: {}",
-            program,
-            candidate.display()
-        ));
-    }
+    let mut f = io::BufWriter::new(f);
+
+    (|| {
+        for arg in args {
+            writeln!(f, "{}", arg)?;
+        }
+
+        f.flush()?;
+
+        let mut f = f.into_inner()?;
+        f.flush()?;
+        f.sync_all()
+    })()
+    .expect_fmt(format_args!(
+        "{}: can't write to candidate: {}",
+        program,
+        candidate.display()
+    ));
 
     // Create a file used by some tests.
     let path = &out_dir.join("libfoo.a");
