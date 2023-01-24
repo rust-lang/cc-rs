@@ -1928,13 +1928,11 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        if target.contains("linux") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("freebsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("openbsd") && arch.starts_with("64") {
+                        if arch.starts_with("64")
+                            && (target.contains("linux")
+                                || target.contains("freebsd")
+                                || target.contains("openbsd"))
+                        {
                             cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
                         } else if target.contains("linux") && arch.starts_with("32") {
@@ -2379,9 +2377,7 @@ impl Build {
                         let cc = if target.contains("llvm") { clang } else { gnu };
                         format!("{}.exe", cc)
                     }
-                } else if target.contains("apple-ios") {
-                    clang.to_string()
-                } else if target.contains("apple-watchos") {
+                } else if target.contains("apple-ios") || target.contains("apple-watchos") {
                     clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(&target, &host, gnu, clang)
@@ -2629,11 +2625,10 @@ impl Build {
                     let target = self.get_target()?;
                     if target.contains("msvc") {
                         Ok(None)
-                    } else if target.contains("apple") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("freebsd") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("openbsd") {
+                    } else if target.contains("apple")
+                        || target.contains("freebsd")
+                        || target.contains("openbsd")
+                    {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
                         Ok(Some("c++_shared".to_string()))
