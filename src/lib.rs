@@ -3509,6 +3509,7 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
+#[allow(clippy::nonminimal_bool)]
 fn command_add_output_file(
     cmd: &mut Command,
     dst: &Path,
@@ -3518,7 +3519,6 @@ fn command_add_output_file(
     is_asm: bool,
     is_arm: bool,
 ) {
-    #[allow(clippy::nonminimal_bool)]
     if msvc && !clang && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
         s.push(dst);
