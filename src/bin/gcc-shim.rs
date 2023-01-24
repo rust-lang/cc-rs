@@ -89,13 +89,13 @@ fn main() {
         let mut f = File::create(candidate).expect_fmt(format_args!(
             "{}: can't create candidate: {}",
             program,
-            candidate.to_string_lossy()
+            candidate.display()
         ));
         for arg in args {
             writeln!(f, "{}", arg).expect_fmt(format_args!(
                 "{}: can't write to candidate: {}",
                 program,
-                candidate.to_string_lossy()
+                candidate.display()
             ));
         }
         break;
@@ -106,6 +106,6 @@ fn main() {
     File::create(path).expect_fmt(format_args!(
         "{}: can't create libfoo.a: {}",
         program,
-        path.to_string_lossy()
+        path.display()
     ));
 }
