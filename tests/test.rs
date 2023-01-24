@@ -245,8 +245,8 @@ fn gnu_x86_64_no_plt() {
     test.gcc()
         .pic(true)
         .use_plt(false)
-        .target(&target)
-        .host(&target)
+        .target(target)
+        .host(target)
         .file("foo.c")
         .compile("foo");
     test.cmd(0).must_have("-fno-plt");

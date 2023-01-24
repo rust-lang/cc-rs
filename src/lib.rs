@@ -160,7 +160,7 @@ pub struct Error {
 impl Error {
     fn new(kind: ErrorKind, message: &str) -> Error {
         Error {
-            kind: kind,
+            kind,
             message: message.to_owned(),
         }
     }
@@ -283,7 +283,7 @@ struct Object {
 impl Object {
     /// Create a new source file -> object file pair.
     fn new(src: PathBuf, dst: PathBuf) -> Object {
-        Object { src: src, dst: dst }
+        Object { src, dst }
     }
 }
 
@@ -1029,7 +1029,7 @@ impl Build {
         } else {
             let mut gnu = String::with_capacity(5 + output.len());
             gnu.push_str("lib");
-            gnu.push_str(&output);
+            gnu.push_str(output);
             gnu.push_str(".a");
             (output, gnu)
         };
@@ -1130,7 +1130,7 @@ impl Build {
                 let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
                 if cfg!(target_os = "linux") {
                     libdir.push("targets");
-                    libdir.push(target_arch.to_owned() + "-linux");
+                    libdir.push(target_arch + "-linux");
                     libdir.push("lib");
                     libtst = true;
                 } else if cfg!(target_env = "msvc") {
@@ -1447,7 +1447,7 @@ impl Build {
             .to_string_lossy()
             .into_owned();
 
-        Ok(run_output(&mut cmd, &name)?)
+        run_output(&mut cmd, &name)
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
@@ -1527,18 +1527,12 @@ impl Build {
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
 
-        if self
-            .warnings
-            .unwrap_or(if self.has_flags() { false } else { true })
-        {
+        if self.warnings.unwrap_or(!self.has_flags()) {
             let wflags = cmd.family.warnings_flags().into();
             cmd.push_cc_arg(wflags);
         }
 
-        if self
-            .extra_warnings
-            .unwrap_or(if self.has_flags() { false } else { true })
-        {
+        if self.extra_warnings.unwrap_or(!self.has_flags()) {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
                 cmd.push_cc_arg(wflags.into());
             }
@@ -1586,9 +1580,7 @@ impl Build {
                     Some(true) => "-MT",
                     Some(false) => "-MD",
                     None => {
-                        let features = self
-                            .getenv("CARGO_CFG_TARGET_FEATURE")
-                            .unwrap_or(String::new());
+                        let features = self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
                         if features.contains("crt-static") {
                             "-MT"
                         } else {
@@ -1598,7 +1590,7 @@ impl Build {
                 };
                 cmd.push_cc_arg(crt_flag.into());
 
-                match &opt_level[..] {
+                match opt_level {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
                     "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
@@ -1742,10 +1734,8 @@ impl Build {
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
-                } else {
-                    if target.contains("i586") {
-                        cmd.push_cc_arg("-arch:IA32".into());
-                    }
+                } else if target.contains("i586") {
+                    cmd.push_cc_arg("-arch:IA32".into());
                 }
 
                 // There is a check in corecrt.h that will generate a
@@ -1784,9 +1774,7 @@ impl Build {
                 }
 
                 if self.static_flag.is_none() {
-                    let features = self
-                        .getenv("CARGO_CFG_TARGET_FEATURE")
-                        .unwrap_or(String::new());
+                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE").unwrap_or_default();
                     if features.contains("crt-static") {
                         cmd.args.push("-static".into());
                     }
@@ -1998,11 +1986,7 @@ impl Build {
     fn has_flags(&self) -> bool {
         let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
         let flags_env_var_value = self.get_var(flags_env_var_name);
-        if let Ok(_) = flags_env_var_value {
-            true
-        } else {
-            false
-        }
+        flags_env_var_value.is_ok()
     }
 
     fn msvc_macro_assembler(&self) -> Result<(Command, String), Error> {
@@ -2054,7 +2038,7 @@ impl Build {
     fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
-        let _ = fs::remove_file(&dst);
+        let _ = fs::remove_file(dst);
 
         // Add objects to the archive in limited-length batches. This helps keep
         // the length of the command line within a reasonable length to avoid
@@ -2091,9 +2075,9 @@ impl Build {
 
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            match fs::hard_link(&dst, &lib_dst).or_else(|_| {
+            match fs::hard_link(dst, &lib_dst).or_else(|_| {
                 // if hard-link fails, just copy (ignoring the number of bytes written)
-                fs::copy(&dst, &lib_dst).map(|_| ())
+                fs::copy(dst, &lib_dst).map(|_| ())
             }) {
                 Ok(_) => (),
                 Err(_) => {
@@ -2203,7 +2187,7 @@ impl Build {
             Os::Ios
         };
 
-        let arch = target.split('-').nth(0).ok_or_else(|| {
+        let arch = target.split('-').next().ok_or_else(|| {
             Error::new(
                 ErrorKind::ArchitectureInvalid,
                 format!("Unknown architecture for {} target.", os).as_str(),
@@ -2473,16 +2457,16 @@ impl Build {
         {
             if let Some(path) = tool.path.file_name() {
                 let file_name = path.to_str().unwrap().to_owned();
-                let (target, clang) = file_name.split_at(file_name.rfind("-").unwrap());
+                let (target, clang) = file_name.split_at(file_name.rfind('-').unwrap());
 
-                tool.path.set_file_name(clang.trim_start_matches("-"));
+                tool.path.set_file_name(clang.trim_start_matches('-'));
                 tool.path.set_extension("exe");
                 tool.args.push(format!("--target={}", target).into());
 
                 // Additionally, shell scripts for target i686-linux-android versions 16 to 24
                 // pass the `mstackrealign` option so we do that here as well.
                 if target.contains("i686-linux-android") {
-                    let (_, version) = target.split_at(target.rfind("d").unwrap() + 1);
+                    let (_, version) = target.split_at(target.rfind('d').unwrap() + 1);
                     if let Ok(version) = version.parse::<u32>() {
                         if version > 15 && version < 25 {
                             tool.args.push("-mstackrealign".into());
@@ -2504,7 +2488,7 @@ impl Build {
         // of the box" experience.
         if let Some(cl_exe) = cl_exe {
             if tool.family == (ToolFamily::Msvc { clang_cl: true })
-                && tool.env.len() == 0
+                && tool.env.is_empty()
                 && target.contains("msvc")
             {
                 for &(ref k, ref v) in cl_exe.env.iter() {
@@ -2520,7 +2504,7 @@ impl Build {
         let target = self.get_target()?;
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
-        let target_u = target.replace("-", "_");
+        let target_u = target.replace('-', "_");
         let res = self
             .getenv(&format!("{}_{}", var_base, target))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
@@ -2538,7 +2522,7 @@ impl Build {
 
     fn envflags(&self, name: &str) -> Vec<String> {
         self.get_var(name)
-            .unwrap_or(String::new())
+            .unwrap_or_default()
             .split_ascii_whitespace()
             .map(|slice| slice.to_string())
             .collect()
@@ -2549,7 +2533,7 @@ impl Build {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        const VALID_WRAPPERS: &[&'static str] = &["sccache", "cachepot"];
+        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot"];
 
         let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
@@ -2880,7 +2864,7 @@ impl Build {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         let cc_env = self.getenv("CROSS_COMPILE");
         let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-').to_owned());
-        cross_compile.or(match &target[..] {
+        cross_compile.or(match target {
             // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
             "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
             "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
@@ -3014,20 +2998,20 @@ impl Build {
                 env::split_paths(path_entries).find_map(|path_entry| {
                     for prefix in prefixes {
                         let target_compiler = format!("{}{}{}", prefix, suffix, extension);
-                        if path_entry.join(&target_compiler).exists() {
+                        if path_entry.join(target_compiler).exists() {
                             return Some(prefix);
                         }
                     }
                     None
                 })
             })
-            .map(|prefix| *prefix)
+            .copied()
             .or_else(||
             // If no toolchain was found, provide the first toolchain that was passed in.
             // This toolchain has been shown not to exist, however it will appear in the
             // error that is shown to the user which should make it easier to search for
             // where it should be obtained.
-            prefixes.first().map(|prefix| *prefix))
+            prefixes.first().copied())
     }
 
     fn get_target(&self) -> Result<String, Error> {
@@ -3126,7 +3110,7 @@ impl Build {
             Some(s) => Ok(s),
             None => Err(Error::new(
                 ErrorKind::EnvVarNotFound,
-                &format!("Environment variable {} not defined.", v.to_string()),
+                &format!("Environment variable {} not defined.", v),
             )),
         }
     }
@@ -3251,13 +3235,13 @@ impl Tool {
         };
 
         Tool {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
-            cuda: cuda,
+            family,
+            cuda,
             removed_args: Vec::new(),
         }
     }
@@ -3288,10 +3272,8 @@ impl Tool {
             if chars.next() != Some('/') {
                 return false;
             }
-        } else if self.is_like_gnu() || self.is_like_clang() {
-            if chars.next() != Some('-') {
-                return false;
-            }
+        } else if (self.is_like_gnu() || self.is_like_clang()) && chars.next() != Some('-') {
+            return false;
         }
 
         // Check for existing optimization flags (-O, /O)
@@ -3299,11 +3281,11 @@ impl Tool {
             return self
                 .args()
                 .iter()
-                .any(|ref a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
+                .any(|a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
         }
 
         // TODO Check for existing -m..., -m...=..., /arch:... flags
-        return false;
+        false
     }
 
     /// Don't push optimization arg if it conflicts with existing args
@@ -3323,7 +3305,7 @@ impl Tool {
     pub fn to_command(&self) -> Command {
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
-                let mut cmd = Command::new(&cc_wrapper_path);
+                let mut cmd = Command::new(cc_wrapper_path);
                 cmd.arg(&self.path);
                 cmd
             }
@@ -3501,7 +3483,7 @@ fn spawn(cmd: &mut Command, program: &str) -> Result<(Child, JoinHandle<()>), Er
                 for line in stderr.split(b'\n').filter_map(|l| l.ok()) {
                     print!("cargo:warning=");
                     std::io::stdout().write_all(&line).unwrap();
-                    println!("");
+                    println!();
                 }
             });
             Ok((child, print))
@@ -3544,10 +3526,10 @@ fn command_add_output_file(
 ) {
     if msvc && !clang && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
-        s.push(&dst);
+        s.push(dst);
         cmd.arg(s);
     } else {
-        cmd.arg("-o").arg(&dst);
+        cmd.arg("-o").arg(dst);
     }
 }
 
@@ -3681,7 +3663,11 @@ fn which(tool: &Path) -> Option<PathBuf> {
     let path_entries = env::var_os("PATH")?;
     env::split_paths(&path_entries).find_map(|path_entry| {
         let mut exe = path_entry.join(tool);
-        return if check_exe(&mut exe) { Some(exe) } else { None };
+        if check_exe(&mut exe) {
+            Some(exe)
+        } else {
+            None
+        }
     })
 }
 

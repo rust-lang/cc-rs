@@ -106,7 +106,7 @@ pub enum VsVers {
 /// generator.
 #[cfg(not(windows))]
 pub fn find_vs_version() -> Result<VsVers, String> {
-    Err(format!("not windows"))
+    Err("not windows".to_string())
 }
 
 /// Documented above
