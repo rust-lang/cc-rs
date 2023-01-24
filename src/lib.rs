@@ -562,6 +562,40 @@ impl Build {
         self
     }
 
+    /// Find the first flag in `flags` that is supported
+    /// and add that to the invocation of the compiler.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     // -Oz is only supported by clang, -Os is supported by both
+    ///     // gcc and clang, while -O2 is universally supported.
+    ///     .flag_if_supported_with_fallbacks(["-Oz", "-Os", "-O2"])
+    ///     .compile("foo");
+    /// ```
+    pub fn flag_if_supported_with_fallbacks<'flag, It>(&mut self, flags: It) -> &mut Build
+    where
+        It: IntoIterator<Item = &'flag str>,
+    {
+        fn inner(this: &mut Build, mut flags: &mut dyn Iterator<Item = &str>) {
+            // Take mutable reference of flags so that it is Sized
+            // and we can invoke `Iterator::find` on it.
+            let flags = &mut flags;
+
+            let option = flags.find(|flag| this.is_flag_supported(flag).unwrap_or(false));
+
+            if let Some(flag) = option {
+                this.flag(flag);
+            }
+        }
+
+        inner(self, &mut flags.into_iter());
+
+        self
+    }
+
     /// Set the `-shared` flag.
     ///
     /// When enabled, the compiler will produce a shared object which can
