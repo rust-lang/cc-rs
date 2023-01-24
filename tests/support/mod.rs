@@ -7,7 +7,6 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
-
 use tempfile::{Builder, TempDir};
 
 pub struct Test {
