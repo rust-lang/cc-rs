@@ -540,7 +540,7 @@ impl Build {
         cmd.arg(&src);
 
         let output = cmd.output()?;
-        let is_supported = output.stderr.is_empty();
+        let is_supported = output.status.success() && output.stderr.is_empty();
 
         known_status.insert(flag.to_owned(), is_supported);
         Ok(is_supported)
