@@ -3002,13 +3002,13 @@ impl Build {
                     None
                 })
             })
-            .copied()
+            .cloned()
             .or_else(||
             // If no toolchain was found, provide the first toolchain that was passed in.
             // This toolchain has been shown not to exist, however it will appear in the
             // error that is shown to the user which should make it easier to search for
             // where it should be obtained.
-            prefixes.first().copied())
+            prefixes.first().cloned())
     }
 
     fn get_target(&self) -> Result<String, Error> {
@@ -3391,7 +3391,10 @@ impl Tool {
 
     /// Whether the tool is MSVC-like.
     pub fn is_like_msvc(&self) -> bool {
-        matches!(self.family, ToolFamily::Msvc { .. })
+        match self.family {
+            ToolFamily::Msvc { .. } => true,
+            _ => false,
+        }
     }
 }
 
