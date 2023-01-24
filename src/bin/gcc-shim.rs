@@ -77,28 +77,29 @@ fn main() {
     );
 
     // Find the first nonexistent candidate file to which the program's args can be written.
-    for i in 0.. {
-        let candidate = &out_dir.join(format!("out{}", i));
+    let candidate = (0..).find_map(|i| {
+        let candidate = out_dir.join(format!("out{}", i));
 
-        // If the file exists, commands have already run. Try again.
         if candidate.exists() {
-            continue;
+            // If the file exists, commands have already run. Try again.
+            None
+        } else {
+            Some(candidate)
         }
+    }).expect_fmt(format_args!("Cannot find the first nonexistent candidate file to which the program's args can be written under out_dir '{}'", out_dir.display()));
 
-        // Create a file and record the args passed to the command.
-        let mut f = File::create(candidate).expect_fmt(format_args!(
-            "{}: can't create candidate: {}",
+    // Create a file and record the args passed to the command.
+    let mut f = File::create(&candidate).expect_fmt(format_args!(
+        "{}: can't create candidate: {}",
+        program,
+        candidate.display()
+    ));
+    for arg in args {
+        writeln!(f, "{}", arg).expect_fmt(format_args!(
+            "{}: can't write to candidate: {}",
             program,
             candidate.display()
         ));
-        for arg in args {
-            writeln!(f, "{}", arg).expect_fmt(format_args!(
-                "{}: can't write to candidate: {}",
-                program,
-                candidate.display()
-            ));
-        }
-        break;
     }
 
     // Create a file used by some tests.
