@@ -866,7 +866,9 @@ mod impl_ {
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
     pub fn find_msbuild(target: &str) -> Option<Tool> {
         // VS 15 (2017) changed how to locate msbuild
-        if let Some(r) = find_msbuild_vs16(target) {
+        if let Some(r) = find_msbuild_vs17(target) {
+            return Some(r);
+        } else if let Some(r) = find_msbuild_vs16(target) {
             return Some(r);
         } else if let Some(r) = find_msbuild_vs15(target) {
             return Some(r);
