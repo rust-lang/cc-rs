@@ -1221,13 +1221,8 @@ impl Build {
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use std::sync::Once;
 
-        // Limit our parallelism globally with a jobserver. Start off by
-        // releasing our own token for this process so we can have a bit of an
-        // easier to write loop below. If this fails, though, then we're likely
-        // on Windows with the main implicit token, so we just have a bit extra
-        // parallelism for a bit and don't reacquire later.
+        // Limit our parallelism globally with a jobserver.
         let server = jobserver();
-        let reacquire = server.release_raw().is_ok();
 
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
@@ -1265,29 +1260,24 @@ impl Build {
             wait_on_child(&cmd, &program, &mut child.0)?;
         }
 
-        // Reacquire our process's token before we proceed, which we released
-        // before entering the loop above.
-        if reacquire {
-            server.acquire_raw()?;
-        }
-
         return Ok(());
 
         /// Returns a suitable `jobserver::Client` used to coordinate
         /// parallelism between build scripts.
         fn jobserver() -> &'static jobserver::Client {
+            use std::mem::MaybeUninit;
+
             static INIT: Once = Once::new();
-            static mut JOBSERVER: Option<jobserver::Client> = None;
+            static mut JOBSERVER: MaybeUninit<jobserver::Client> = MaybeUninit::uninit();
 
             fn _assert_sync<T: Sync>() {}
             _assert_sync::<jobserver::Client>();
 
             unsafe {
                 INIT.call_once(|| {
-                    let server = default_jobserver();
-                    JOBSERVER = Some(server);
+                    JOBSERVER.write(default_jobserver());
                 });
-                JOBSERVER.as_ref().unwrap()
+                JOBSERVER.assume_init_ref()
             }
         }
 
@@ -1295,6 +1285,18 @@ impl Build {
             // Try to use the environmental jobserver which Cargo typically
             // initializes for us...
             if let Some(client) = jobserver::Client::from_env() {
+                match client.available() {
+                    Ok(0) | Err(_) => {
+                        // There is no available tokens.
+                        // This is probably because `cc::Build::compile_objects` is called in
+                        // `build.rs` where the `cargo` holds the token.
+                        //
+                        // In that case, we will release one raw token just to prevent deadlock,
+                        // but this will increase the allowed global concurrency by one.
+                        let _ = client.release_raw();
+                    }
+                    _ => (),
+                }
                 return client;
             }
 
@@ -1307,15 +1309,15 @@ impl Build {
             let mut parallelism = 4;
             if let Ok(amt) = env::var("NUM_JOBS") {
                 if let Ok(amt) = amt.parse() {
-                    parallelism = amt;
+                    if amt > 0 {
+                        parallelism = amt;
+                    }
                 }
             }
 
             // If we create our own jobserver then be sure to reserve one token
             // for ourselves.
-            let client = jobserver::Client::new(parallelism).expect("failed to create jobserver");
-            client.acquire_raw().expect("failed to acquire initial");
-            return client;
+            jobserver::Client::new(parallelism).expect("failed to create jobserver")
         }
 
         struct KillOnDrop(Child);
