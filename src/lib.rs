@@ -570,9 +570,7 @@ impl Build {
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
-    ///     // -Oz is only supported by clang, -Os is supported by both
-    ///     // gcc and clang, while -O2 is universally supported.
-    ///     .flag_if_supported_with_fallbacks(["-Oz", "-Os", "-O2"])
+    ///     .flag_if_supported_with_fallbacks(["-flto=thin", "-flto"])
     ///     .compile("foo");
     /// ```
     pub fn flag_if_supported_with_fallbacks<'flag, It>(&mut self, flags: It) -> &mut Build
