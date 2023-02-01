@@ -1722,6 +1722,20 @@ impl Build {
                         } else if target.contains("aarch64") {
                             cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
                         }
+                    } else if target.ends_with("-freebsd") {
+                        // clang 13 on FreeBSD doesn't support a target triple without at least the
+                        // major os version number appended; e.g. use x86_64-unknown-freebsd13
+                        // instead of x86-64-unknown-freebsd
+                        let uname_r = String::from_utf8(
+                            std::process::Command::new("uname")
+                                .args(&["-r"])
+                                .output()
+                                .expect("Failed to execute uname!")
+                                .stdout,
+                        )
+                        .expect("Failure parsing uname output as UTF-8!");
+                        let os_ver = uname_r.as_str().split('-').next().unwrap();
+                        cmd.push_cc_arg(format!("--target={}{}", target, os_ver).into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
