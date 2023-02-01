@@ -499,18 +499,40 @@ impl Build {
         let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
         let host = self.get_host()?;
+
+        // Use a new Build instance here
         let mut cfg = Build::new();
-        cfg.flag(flag)
-            .target(&target)
-            .opt_level(0)
+        cfg.target(&target)
             .host(&host)
             .debug(false)
             .cpp(self.cpp)
             .cuda(self.cuda);
-        if let Some(ref c) = self.compiler {
-            cfg.compiler(c.clone());
+
+        cfg.compiler = self.compiler.clone();
+
+        // Call Build::get_base_compiler compiler here instead of
+        // Build::try_get_compiler to avoid pulling in environment variables
+        // CXXFLAGS or CFLAGS.
+        let mut compiler = cfg.get_base_compiler()?;
+
+        // Disable default flag generation via environment variable
+        let no_defaults = cfg.getenv("CRATE_CC_NO_DEFAULTS").is_some();
+
+        if !no_defaults {
+            cfg.add_default_flags(&mut compiler, &target, "0")?;
+        } else {
+            println!("Info: default compiler flags are disabled");
         }
-        let mut compiler = cfg.try_get_compiler()?;
+
+        // Enable all warnings
+        compiler.push_cc_arg(compiler.family.warnings_flags().into());
+
+        if let Some(wflags) = compiler.family.extra_warnings_flags() {
+            compiler.push_cc_arg(wflags.into());
+        }
+
+        // And turn these warnings into errors
+        compiler.push_cc_arg(compiler.family.warnings_to_errors_flag().into());
 
         // Clang uses stderr for verbose output, which yields a false positive
         // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
@@ -519,6 +541,7 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
+
         let is_arm = target.contains("aarch64") || target.contains("arm");
         let clang = compiler.family == ToolFamily::Clang;
         command_add_output_file(
@@ -537,7 +560,10 @@ impl Build {
             cmd.arg("-c");
         }
 
-        cmd.arg(&src);
+        cmd.arg(&src).stdout(Stdio::null());
+
+        // Add the flag to be tested
+        cmd.arg(flag);
 
         let output = cmd.output()?;
         let is_supported = output.status.success() && output.stderr.is_empty();
