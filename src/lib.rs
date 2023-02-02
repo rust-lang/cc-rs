@@ -1720,6 +1720,23 @@ impl Build {
                         } else if target.contains("aarch64") {
                             cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
                         }
+                    } else if target.ends_with("-freebsd") && self.get_host()?.eq(target) {
+                        // clang <= 13 on FreeBSD doesn't support a target triple without at least
+                        // the major os version number appended; e.g. use x86_64-unknown-freebsd13
+                        // or x86_64-unknown-freebsd13.0 instead of x86_64-unknown-freebsd.
+                        let stdout = std::process::Command::new("freebsd-version")
+                            .output()
+                            .map_err(|e| {
+                                Error::new(
+                                    ErrorKind::ToolNotFound,
+                                    &format!("Error executing freebsd-version: {}", e),
+                                )
+                            })?
+                            .stdout;
+                        let stdout = String::from_utf8_lossy(&stdout);
+                        let os_ver = stdout.split('-').next().unwrap();
+
+                        cmd.push_cc_arg(format!("--target={}{}", target, os_ver).into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
