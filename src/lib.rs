@@ -91,33 +91,33 @@ pub mod windows_registry;
 /// documentation on each method itself.
 #[derive(Clone, Debug)]
 pub struct Build {
-    include_directories: Vec<PathBuf>,
-    definitions: Vec<(String, Option<String>)>,
-    objects: Vec<PathBuf>,
-    flags: Vec<String>,
-    flags_supported: Vec<String>,
+    include_directories: Vec<Arc<Path>>,
+    definitions: Vec<(Arc<str>, Option<Arc<str>>)>,
+    objects: Vec<Arc<Path>>,
+    flags: Vec<Arc<str>>,
+    flags_supported: Vec<Arc<str>>,
     known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
-    ar_flags: Vec<String>,
-    asm_flags: Vec<String>,
+    ar_flags: Vec<Arc<str>>,
+    asm_flags: Vec<Arc<str>>,
     no_default_flags: bool,
-    files: Vec<PathBuf>,
+    files: Vec<Arc<Path>>,
     cpp: bool,
-    cpp_link_stdlib: Option<Option<String>>,
-    cpp_set_stdlib: Option<String>,
+    cpp_link_stdlib: Option<Option<Arc<str>>>,
+    cpp_set_stdlib: Option<Arc<str>>,
     cuda: bool,
-    cudart: Option<String>,
-    target: Option<String>,
-    host: Option<String>,
-    out_dir: Option<PathBuf>,
-    opt_level: Option<String>,
+    cudart: Option<Arc<str>>,
+    target: Option<Arc<str>>,
+    host: Option<Arc<str>>,
+    out_dir: Option<Arc<Path>>,
+    opt_level: Option<Arc<str>>,
     debug: Option<bool>,
     force_frame_pointer: Option<bool>,
-    env: Vec<(OsString, OsString)>,
-    compiler: Option<PathBuf>,
-    archiver: Option<PathBuf>,
-    ranlib: Option<PathBuf>,
+    env: Vec<(Arc<OsStr>, Arc<OsStr>)>,
+    compiler: Option<Arc<Path>>,
+    archiver: Option<Arc<Path>>,
+    ranlib: Option<Arc<Path>>,
     cargo_metadata: bool,
-    link_lib_modifiers: Vec<String>,
+    link_lib_modifiers: Vec<Arc<str>>,
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
@@ -352,7 +352,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn include<P: AsRef<Path>>(&mut self, dir: P) -> &mut Build {
-        self.include_directories.push(dir.as_ref().to_path_buf());
+        self.include_directories.push(dir.as_ref().into());
         self
     }
 
@@ -398,13 +398,13 @@ impl Build {
     /// ```
     pub fn define<'a, V: Into<Option<&'a str>>>(&mut self, var: &str, val: V) -> &mut Build {
         self.definitions
-            .push((var.to_string(), val.into().map(|s| s.to_string())));
+            .push((var.into(), val.into().map(Into::into)));
         self
     }
 
     /// Add an arbitrary object file to link in
     pub fn object<P: AsRef<Path>>(&mut self, obj: P) -> &mut Build {
-        self.objects.push(obj.as_ref().to_path_buf());
+        self.objects.push(obj.as_ref().into());
         self
     }
 
@@ -419,7 +419,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn flag(&mut self, flag: &str) -> &mut Build {
-        self.flags.push(flag.to_string());
+        self.flags.push(flag.into());
         self
     }
 
@@ -435,7 +435,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn ar_flag(&mut self, flag: &str) -> &mut Build {
-        self.ar_flags.push(flag.to_string());
+        self.ar_flags.push(flag.into());
         self
     }
 
@@ -454,7 +454,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn asm_flag(&mut self, flag: &str) -> &mut Build {
-        self.asm_flags.push(flag.to_string());
+        self.asm_flags.push(flag.into());
         self
     }
 
@@ -558,7 +558,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
-        self.flags_supported.push(flag.to_string());
+        self.flags_supported.push(flag.into());
         self
     }
 
@@ -612,7 +612,7 @@ impl Build {
 
     /// Add a file which will be compiled
     pub fn file<P: AsRef<Path>>(&mut self, p: P) -> &mut Build {
-        self.files.push(p.as_ref().to_path_buf());
+        self.files.push(p.as_ref().into());
         self
     }
 
@@ -649,7 +649,7 @@ impl Build {
         self.cuda = cuda;
         if cuda {
             self.cpp = true;
-            self.cudart = Some("static".to_string());
+            self.cudart = Some("static".into());
         }
         self
     }
@@ -662,7 +662,7 @@ impl Build {
     /// at all, if the default is right for the project.
     pub fn cudart(&mut self, cudart: &str) -> &mut Build {
         if self.cuda {
-            self.cudart = Some(cudart.to_string());
+            self.cudart = Some(cudart.into());
         }
         self
     }
@@ -828,7 +828,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn target(&mut self, target: &str) -> &mut Build {
-        self.target = Some(target.to_string());
+        self.target = Some(target.into());
         self
     }
 
@@ -846,7 +846,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn host(&mut self, host: &str) -> &mut Build {
-        self.host = Some(host.to_string());
+        self.host = Some(host.into());
         self
     }
 
@@ -855,7 +855,7 @@ impl Build {
     /// This option is automatically scraped from the `OPT_LEVEL` environment
     /// variable by build scripts, so it's not required to call this function.
     pub fn opt_level(&mut self, opt_level: u32) -> &mut Build {
-        self.opt_level = Some(opt_level.to_string());
+        self.opt_level = Some(opt_level.to_string().into());
         self
     }
 
@@ -864,7 +864,7 @@ impl Build {
     /// This option is automatically scraped from the `OPT_LEVEL` environment
     /// variable by build scripts, so it's not required to call this function.
     pub fn opt_level_str(&mut self, opt_level: &str) -> &mut Build {
-        self.opt_level = Some(opt_level.to_string());
+        self.opt_level = Some(opt_level.into());
         self
     }
 
@@ -895,7 +895,7 @@ impl Build {
     /// This option is automatically scraped from the `OUT_DIR` environment
     /// variable by build scripts, so it's not required to call this function.
     pub fn out_dir<P: AsRef<Path>>(&mut self, out_dir: P) -> &mut Build {
-        self.out_dir = Some(out_dir.as_ref().to_owned());
+        self.out_dir = Some(out_dir.as_ref().into());
         self
     }
 
@@ -905,7 +905,7 @@ impl Build {
     /// number of environment variables, so it's not required to call this
     /// function.
     pub fn compiler<P: AsRef<Path>>(&mut self, compiler: P) -> &mut Build {
-        self.compiler = Some(compiler.as_ref().to_owned());
+        self.compiler = Some(compiler.as_ref().into());
         self
     }
 
@@ -915,7 +915,7 @@ impl Build {
     /// number of environment variables, so it's not required to call this
     /// function.
     pub fn archiver<P: AsRef<Path>>(&mut self, archiver: P) -> &mut Build {
-        self.archiver = Some(archiver.as_ref().to_owned());
+        self.archiver = Some(archiver.as_ref().into());
         self
     }
 
@@ -925,7 +925,7 @@ impl Build {
     /// number of environment variables, so it's not required to call this
     /// function.
     pub fn ranlib<P: AsRef<Path>>(&mut self, ranlib: P) -> &mut Build {
-        self.ranlib = Some(ranlib.as_ref().to_owned());
+        self.ranlib = Some(ranlib.as_ref().into());
         self
     }
 
@@ -951,7 +951,7 @@ impl Build {
     /// See https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library
     /// for the list of modifiers accepted by rustc.
     pub fn link_lib_modifier(&mut self, link_lib_modifier: &str) -> &mut Build {
-        self.link_lib_modifiers.push(link_lib_modifier.to_string());
+        self.link_lib_modifiers.push(link_lib_modifier.into());
         self
     }
 
@@ -1004,8 +1004,7 @@ impl Build {
         A: AsRef<OsStr>,
         B: AsRef<OsStr>,
     {
-        self.env
-            .push((a.as_ref().to_owned(), b.as_ref().to_owned()));
+        self.env.push((a.as_ref().into(), b.as_ref().into()));
         self
     }
 
@@ -1116,7 +1115,7 @@ impl Build {
         }
 
         let cudart = match &self.cudart {
-            Some(opt) => opt.as_str(), // {none|shared|static}
+            Some(opt) => &*opt, // {none|shared|static}
             None => "none",
         };
         if cudart != "none" {
@@ -1405,7 +1404,7 @@ impl Build {
             cmd.arg("--device-c");
         }
         if is_asm {
-            cmd.args(&self.asm_flags);
+            cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
         }
         if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
             // #513: For `clang-cl`, separate flags/options from the input file.
@@ -1437,9 +1436,7 @@ impl Build {
             "Expand may only be called for a single file"
         );
 
-        for file in self.files.iter() {
-            cmd.arg(file);
-        }
+        cmd.args(self.files.iter().map(std::ops::Deref::deref));
 
         let name = compiler
             .path
@@ -1520,7 +1517,7 @@ impl Build {
 
         for directory in self.include_directories.iter() {
             cmd.args.push("-I".into());
-            cmd.args.push(directory.into());
+            cmd.args.push((**directory).into());
         }
 
         // If warnings and/or extra_warnings haven't been explicitly set,
@@ -1546,12 +1543,12 @@ impl Build {
         }
 
         for flag in self.flags.iter() {
-            cmd.args.push(flag.into());
+            cmd.args.push((**flag).into());
         }
 
         for flag in self.flags_supported.iter() {
             if self.is_flag_supported(flag).unwrap_or(false) {
-                cmd.push_cc_arg(flag.into());
+                cmd.push_cc_arg((**flag).into());
             }
         }
 
@@ -2020,7 +2017,7 @@ impl Build {
         let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| self.cmd(tool));
         cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
-            cmd.arg("-I").arg(directory);
+            cmd.arg("-I").arg(&**directory);
         }
         if target.contains("aarch64") || target.contains("arm") {
             if self.get_debug() {
@@ -2046,7 +2043,7 @@ impl Build {
             cmd.arg("-safeseh");
         }
         for flag in self.flags.iter() {
-            cmd.arg(flag);
+            cmd.arg(&**flag);
         }
 
         Ok((cmd, tool.to_string()))
@@ -2063,7 +2060,7 @@ impl Build {
         let objs: Vec<_> = objs
             .iter()
             .map(|o| o.dst.clone())
-            .chain(self.objects.clone())
+            .chain(self.objects.iter().map(|path| (**path).to_owned()))
             .collect();
         for chunk in objs.chunks(100) {
             self.assemble_progressive(dst, chunk)?;
@@ -2323,8 +2320,8 @@ impl Build {
     }
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
-        if let Some(ref c) = self.compiler {
-            return Ok(Tool::new(c.clone()));
+        if let Some(c) = &self.compiler {
+            return Ok(Tool::new((**c).to_owned()));
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
@@ -2633,8 +2630,8 @@ impl Build {
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<String>, Error> {
-        match self.cpp_link_stdlib.clone() {
-            Some(s) => Ok(s),
+        match &self.cpp_link_stdlib {
+            Some(s) => Ok(s.as_ref().map(|s| (*s).to_string())),
             None => {
                 if let Ok(stdlib) = self.get_var("CXXSTDLIB") {
                     if stdlib.is_empty() {
@@ -2702,14 +2699,14 @@ impl Build {
         cmd.args(flags);
         for flag in &self.ar_flags {
             any_flags = true;
-            cmd.arg(flag);
+            cmd.arg(&**flag);
         }
         Ok((cmd, name, any_flags))
     }
 
     fn get_base_archiver(&self) -> Result<(Command, String), Error> {
         if let Some(ref a) = self.archiver {
-            return Ok((self.cmd(a), a.to_string_lossy().into_owned()));
+            return Ok((self.cmd(&**a), a.to_string_lossy().into_owned()));
         }
 
         self.get_base_archiver_variant("AR", "ar")
@@ -2748,7 +2745,7 @@ impl Build {
 
     fn get_base_ranlib(&self) -> Result<Command, Error> {
         if let Some(ref r) = self.ranlib {
-            return Ok(self.cmd(r));
+            return Ok(self.cmd(&**r));
         }
 
         Ok(self.get_base_archiver_variant("RANLIB", "ranlib")?.0)
@@ -3024,22 +3021,22 @@ impl Build {
     }
 
     fn get_target(&self) -> Result<String, Error> {
-        match self.target.clone() {
-            Some(t) => Ok(t),
+        match self.target {
+            Some(ref t) => Ok((*t).to_string()),
             None => Ok(self.getenv_unwrap("TARGET")?),
         }
     }
 
     fn get_host(&self) -> Result<String, Error> {
-        match self.host.clone() {
-            Some(h) => Ok(h),
+        match &self.host {
+            Some(h) => Ok((**h).to_string()),
             None => Ok(self.getenv_unwrap("HOST")?),
         }
     }
 
     fn get_opt_level(&self) -> Result<String, Error> {
-        match self.opt_level.as_ref().cloned() {
-            Some(ol) => Ok(ol),
+        match &self.opt_level {
+            Some(ol) => Ok((**ol).to_string()),
             None => Ok(self.getenv_unwrap("OPT_LEVEL")?),
         }
     }
@@ -3075,8 +3072,8 @@ impl Build {
     }
 
     fn get_out_dir(&self) -> Result<PathBuf, Error> {
-        match self.out_dir.clone() {
-            Some(p) => Ok(p),
+        match &self.out_dir {
+            Some(p) => Ok((**p).into()),
             None => Ok(env::var_os("OUT_DIR").map(PathBuf::from).ok_or_else(|| {
                 Error::new(
                     ErrorKind::EnvVarNotFound,
