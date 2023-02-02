@@ -1037,9 +1037,10 @@ impl Build {
 
         let mut objects = Vec::new();
         for file in self.files.iter() {
-            let obj = if file.has_root() {
-                // If `file` is an absolute path, prefix the `basename`
-                // with the `dirname`'s hash to ensure name uniqueness.
+            let obj = if file.has_root() || file.components().any(|x| x == Component::ParentDir) {
+                // If `file` is an absolute path or might not be usable directly as a suffix due to
+                // using "..", use the `basename` prefixed with the `dirname`'s hash to ensure name
+                // uniqueness.
                 let basename = file
                     .file_name()
                     .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
