@@ -84,12 +84,27 @@ mod vs_instances;
 
 pub mod windows_registry;
 
+#[derive(Clone, Debug)]
+struct BuildCargoMetadataConfig {
+    cargo_metadata: bool,
+    emit_rerun_if_env_changed: bool,
+}
+
+impl Default for BuildCargoMetadataConfig {
+    fn default() -> Self {
+        Self {
+            cargo_metadata: true,
+            emit_rerun_if_env_changed: true,
+        }
+    }
+}
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
 /// various configuration options and such of a compile. You'll find more
 /// documentation on each method itself.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Build {
     include_directories: Vec<Arc<Path>>,
     definitions: Vec<(Arc<str>, Option<Arc<str>>)>,
@@ -116,7 +131,6 @@ pub struct Build {
     compiler: Option<Arc<Path>>,
     archiver: Option<Arc<Path>>,
     ranlib: Option<Arc<Path>>,
-    cargo_metadata: bool,
     link_lib_modifiers: Vec<Arc<str>>,
     pic: Option<bool>,
     use_plt: Option<bool>,
@@ -128,7 +142,8 @@ pub struct Build {
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
-    emit_rerun_if_env_changed: bool,
+
+    cargo_metadata_config: BuildCargoMetadataConfig,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -294,46 +309,7 @@ impl Build {
     ///
     /// [`compile`]: struct.Build.html#method.compile
     pub fn new() -> Build {
-        Build {
-            include_directories: Vec::new(),
-            definitions: Vec::new(),
-            objects: Vec::new(),
-            flags: Vec::new(),
-            flags_supported: Vec::new(),
-            known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
-            ar_flags: Vec::new(),
-            asm_flags: Vec::new(),
-            no_default_flags: false,
-            files: Vec::new(),
-            shared_flag: None,
-            static_flag: None,
-            cpp: false,
-            cpp_link_stdlib: None,
-            cpp_set_stdlib: None,
-            cuda: false,
-            cudart: None,
-            target: None,
-            host: None,
-            out_dir: None,
-            opt_level: None,
-            debug: None,
-            force_frame_pointer: None,
-            env: Vec::new(),
-            compiler: None,
-            archiver: None,
-            ranlib: None,
-            cargo_metadata: true,
-            link_lib_modifiers: Vec::new(),
-            pic: None,
-            use_plt: None,
-            static_crt: None,
-            warnings: None,
-            extra_warnings: None,
-            warnings_into_errors: false,
-            env_cache: Arc::new(Mutex::new(HashMap::new())),
-            apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
-            emit_rerun_if_env_changed: true,
-        }
+        Build::default()
     }
 
     /// Add a directory to the `-I` or include path for headers
@@ -941,7 +917,7 @@ impl Build {
     ///  - If `emit_rerun_if_env_changed` is not `false`, `rerun-if-env-changed=`*env*
     ///
     pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
-        self.cargo_metadata = cargo_metadata;
+        self.cargo_metadata_config.cargo_metadata = cargo_metadata;
         self
     }
 
@@ -986,7 +962,7 @@ impl Build {
     ///
     /// This option defaults to `true`.
     pub fn emit_rerun_if_env_changed(&mut self, emit_rerun_if_env_changed: bool) -> &mut Build {
-        self.emit_rerun_if_env_changed = emit_rerun_if_env_changed;
+        self.cargo_metadata_config.emit_rerun_if_env_changed = emit_rerun_if_env_changed;
         self
     }
 
@@ -3102,7 +3078,7 @@ impl Build {
         if let Some(val) = cache.get(v) {
             return val.clone();
         }
-        if self.emit_rerun_if_env_changed && !provided_by_cargo(v) {
+        if self.cargo_metadata_config.emit_rerun_if_env_changed && !provided_by_cargo(v) {
             self.print(&format!("cargo:rerun-if-env-changed={}", v));
         }
         let r = env::var(v).ok();
@@ -3122,7 +3098,7 @@ impl Build {
     }
 
     fn print(&self, s: &str) {
-        if self.cargo_metadata {
+        if self.cargo_metadata_config.cargo_metadata {
             println!("{}", s);
         }
     }
@@ -3188,12 +3164,6 @@ impl Build {
             .iter()
             .filter(|file| file.extension() == Some(OsStr::new("cu")))
             .count()
-    }
-}
-
-impl Default for Build {
-    fn default() -> Build {
-        Build::new()
     }
 }
 
