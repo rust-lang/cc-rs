@@ -1720,10 +1720,13 @@ impl Build {
                         } else if target.contains("aarch64") {
                             cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
                         }
-                    } else if target.ends_with("-freebsd") && self.get_host()?.eq(target) {
+                    } else if target.ends_with("-freebsd") && self.get_host()?.ends_with("-freebsd")
+                    {
                         // clang <= 13 on FreeBSD doesn't support a target triple without at least
                         // the major os version number appended; e.g. use x86_64-unknown-freebsd13
                         // or x86_64-unknown-freebsd13.0 instead of x86_64-unknown-freebsd.
+                        // The current version is appended. If it doesn't align with your goals, pass
+                        // .flag("--target=...") in the build script or adjust CXXFLAGS accordingly.
                         let stdout = std::process::Command::new("freebsd-version")
                             .output()
                             .map_err(|e| {
