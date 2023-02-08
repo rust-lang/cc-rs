@@ -499,6 +499,7 @@ impl Build {
         let obj = out_dir.join("flag_check");
         let target = self.get_target()?;
         let host = self.get_host()?;
+
         let mut cfg = Build::new();
         cfg.flag(flag)
             .target(&target)
@@ -507,6 +508,11 @@ impl Build {
             .debug(false)
             .cpp(self.cpp)
             .cuda(self.cuda);
+
+        if !cfg.has_flags() {
+            cfg.warnings_into_errors(true);
+        }
+
         if let Some(ref c) = self.compiler {
             cfg.compiler(c.clone());
         }
@@ -537,10 +543,13 @@ impl Build {
             cmd.arg("-c");
         }
 
-        cmd.arg(&src);
+        cmd.arg(&src)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
 
-        let output = cmd.output()?;
-        let is_supported = output.status.success() && output.stderr.is_empty();
+        let status = cmd.status()?;
+        let is_supported = status.success();
 
         known_status.insert(flag.to_owned(), is_supported);
         Ok(is_supported)

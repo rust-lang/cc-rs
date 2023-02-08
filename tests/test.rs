@@ -6,8 +6,8 @@ mod support;
 // CFLAGS or CXXFLAGS environment variables.  This function clears the CFLAGS and CXXFLAGS
 // variables to make sure that the tests can run correctly.
 fn reset_env() {
-    std::env::set_var("CFLAGS", "");
-    std::env::set_var("CXXFLAGS", "");
+    std::env::remove_var("CFLAGS");
+    std::env::remove_var("CXXFLAGS");
 }
 
 #[test]
