@@ -1781,6 +1781,19 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
+                if self.static_flag.is_none()
+                    && self
+                        .getenv("CARGO_CFG_TARGET_FEATURE")
+                        .map(|feature| feature.contains("crt-static"))
+                        .unwrap_or(false)
+                {
+                    cmd.args.push("-static".into());
+                };
+
+                if target.contains("-kmc-solid_") {
+                    cmd.args.push("-finput-charset=utf-8".into());
+                }
+
                 if target.contains("i686") || target.contains("i586") {
                     cmd.args.push("-m32".into());
                 } else if target == "x86_64-unknown-linux-gnux32" {
@@ -1797,62 +1810,17 @@ impl Build {
                     }
                 }
 
-                if target.contains("-kmc-solid_") {
-                    cmd.args.push("-finput-charset=utf-8".into());
-                }
-
-                if self.static_flag.is_none() {
-                    let features = self
-                        .getenv("CARGO_CFG_TARGET_FEATURE")
-                        .unwrap_or(String::new());
-                    if features.contains("crt-static") {
-                        cmd.args.push("-static".into());
-                    }
-                }
-
-                // armv7 targets get to use armv7 instructions
-                if (target.starts_with("armv7") || target.starts_with("thumbv7"))
-                    && (target.contains("-linux-") || target.contains("-kmc-solid_"))
-                {
-                    cmd.args.push("-march=armv7-a".into());
-
-                    if target.ends_with("eabihf") {
-                        // lowest common denominator FPU
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
-                    }
-                }
-
-                // (x86 Android doesn't say "eabi")
-                if target.contains("-androideabi") && target.contains("v7") {
-                    // -march=armv7-a handled above
-                    cmd.args.push("-mthumb".into());
-                    if !target.contains("neon") {
-                        // On android we can guarantee some extra float instructions
-                        // (specified in the android spec online)
-                        // NEON guarantees even more; see below.
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
-                    }
-                    cmd.args.push("-mfloat-abi=softfp".into());
-                }
-
-                if target.contains("neon") {
-                    cmd.args.push("-mfpu=neon-vfpv4".into());
-                }
-
                 if target.starts_with("armv4t-unknown-linux-") {
                     cmd.args.push("-march=armv4t".into());
                     cmd.args.push("-marm".into());
                     cmd.args.push("-mfloat-abi=soft".into());
-                }
-
-                if target.starts_with("armv5te-unknown-linux-") {
+                } else if target.starts_with("armv5te-unknown-linux-") {
                     cmd.args.push("-march=armv5te".into());
                     cmd.args.push("-marm".into());
                     cmd.args.push("-mfloat-abi=soft".into());
                 }
-
                 // For us arm == armv6 by default
-                if target.starts_with("arm-unknown-linux-") {
+                else if target.starts_with("arm-unknown-linux-") {
                     cmd.args.push("-march=armv6".into());
                     cmd.args.push("-marm".into());
                     if target.ends_with("hf") {
@@ -1860,67 +1828,14 @@ impl Build {
                     } else {
                         cmd.args.push("-mfloat-abi=soft".into());
                     }
-                }
-
-                // We can guarantee some settings for FRC
-                if target.starts_with("arm-frc-") {
+                } else if target.starts_with("armv7a") {
                     cmd.args.push("-march=armv7-a".into());
-                    cmd.args.push("-mcpu=cortex-a9".into());
-                    cmd.args.push("-mfpu=vfpv3".into());
-                    cmd.args.push("-mfloat-abi=softfp".into());
-                    cmd.args.push("-marm".into());
-                }
-
-                // Turn codegen down on i586 to avoid some instructions.
-                if target.starts_with("i586-unknown-linux-") {
-                    cmd.args.push("-march=pentium".into());
-                }
-
-                // Set codegen level for i686 correctly
-                if target.starts_with("i686-unknown-linux-") {
-                    cmd.args.push("-march=i686".into());
-                }
-
-                // Looks like `musl-gcc` makes it hard for `-m32` to make its way
-                // all the way to the linker, so we need to actually instruct the
-                // linker that we're generating 32-bit executables as well. This'll
-                // typically only be used for build scripts which transitively use
-                // these flags that try to compile executables.
-                if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
-                    cmd.args.push("-Wl,-melf_i386".into());
-                }
-
-                if target.starts_with("thumb") {
-                    cmd.args.push("-mthumb".into());
 
                     if target.ends_with("eabihf") {
-                        cmd.args.push("-mfloat-abi=hard".into())
+                        // lowest common denominator FPU
+                        cmd.args.push("-mfpu=vfpv3-d16".into());
                     }
-                }
-                if target.starts_with("thumbv6m") {
-                    cmd.args.push("-march=armv6s-m".into());
-                }
-                if target.starts_with("thumbv7em") {
-                    cmd.args.push("-march=armv7e-m".into());
-
-                    if target.ends_with("eabihf") {
-                        cmd.args.push("-mfpu=fpv4-sp-d16".into())
-                    }
-                }
-                if target.starts_with("thumbv7m") {
-                    cmd.args.push("-march=armv7-m".into());
-                }
-                if target.starts_with("thumbv8m.base") {
-                    cmd.args.push("-march=armv8-m.base".into());
-                }
-                if target.starts_with("thumbv8m.main") {
-                    cmd.args.push("-march=armv8-m.main".into());
-
-                    if target.ends_with("eabihf") {
-                        cmd.args.push("-mfpu=fpv5-sp-d16".into())
-                    }
-                }
-                if target.starts_with("armebv7r") | target.starts_with("armv7r") {
+                } else if target.starts_with("armebv7r") || target.starts_with("armv7r") {
                     if target.starts_with("armeb") {
                         cmd.args.push("-mbig-endian".into());
                     } else {
@@ -1929,7 +1844,6 @@ impl Build {
 
                     // ARM mode
                     cmd.args.push("-marm".into());
-
                     // R Profile
                     cmd.args.push("-march=armv7-r".into());
 
@@ -1945,15 +1859,50 @@ impl Build {
                         cmd.args.push("-mfloat-abi=soft".into());
                     }
                 }
-                if target.starts_with("armv7a") {
+                // We can guarantee some settings for FRC
+                else if target.starts_with("arm-frc-") {
                     cmd.args.push("-march=armv7-a".into());
+                    cmd.args.push("-mcpu=cortex-a9".into());
+                    cmd.args.push("-mfpu=vfpv3".into());
+                    cmd.args.push("-mfloat-abi=softfp".into());
+                    cmd.args.push("-marm".into());
+                }
+                // Turn codegen down on i586 to avoid some instructions.
+                else if target.starts_with("i586-unknown-linux-") {
+                    cmd.args.push("-march=pentium".into());
+                }
+                // Set codegen level for i686 correctly
+                else if target.starts_with("i686-unknown-linux-") {
+                    cmd.args.push("-march=i686".into());
+                }
+                // Shared branch for all thumb targets
+                else if target.starts_with("thumb") {
+                    cmd.args.push("-mthumb".into());
 
                     if target.ends_with("eabihf") {
-                        // lowest common denominator FPU
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                        cmd.args.push("-mfloat-abi=hard".into())
                     }
-                }
-                if target.starts_with("riscv32") || target.starts_with("riscv64") {
+
+                    if target.starts_with("thumbv6m") {
+                        cmd.args.push("-march=armv6s-m".into());
+                    } else if target.starts_with("thumbv7em") {
+                        cmd.args.push("-march=armv7e-m".into());
+
+                        if target.ends_with("eabihf") {
+                            cmd.args.push("-mfpu=fpv4-sp-d16".into())
+                        }
+                    } else if target.starts_with("thumbv7m") {
+                        cmd.args.push("-march=armv7-m".into());
+                    } else if target.starts_with("thumbv8m.base") {
+                        cmd.args.push("-march=armv8-m.base".into());
+                    } else if target.starts_with("thumbv8m.main") {
+                        cmd.args.push("-march=armv8-m.main".into());
+
+                        if target.ends_with("eabihf") {
+                            cmd.args.push("-mfpu=fpv5-sp-d16".into())
+                        }
+                    }
+                } else if target.starts_with("riscv32") || target.starts_with("riscv64") {
                     // get the 32i/32imac/32imc/64gc/64imac/... part
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
@@ -1980,6 +1929,32 @@ impl Build {
                         cmd.args.push("-mcmodel=medany".into());
                     }
                 }
+
+                // (x86 Android doesn't say "eabi")
+                if target.contains("-androideabi") && target.contains("v7") {
+                    // -march=armv7-a handled above
+                    cmd.args.push("-mthumb".into());
+                    if !target.contains("neon") {
+                        // On android we can guarantee some extra float instructions
+                        // (specified in the android spec online)
+                        // NEON guarantees even more; see below.
+                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                    }
+                    cmd.args.push("-mfloat-abi=softfp".into());
+                }
+
+                // Looks like `musl-gcc` makes it hard for `-m32` to make its way
+                // all the way to the linker, so we need to actually instruct the
+                // linker that we're generating 32-bit executables as well. This'll
+                // typically only be used for build scripts which transitively use
+                // these flags that try to compile executables.
+                if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
+                    cmd.args.push("-Wl,-melf_i386".into());
+                }
+
+                if target.contains("neon") {
+                    cmd.args.push("-mfpu=neon-vfpv4".into());
+                }
             }
         }
 
@@ -1990,6 +1965,7 @@ impl Build {
         if self.static_flag.unwrap_or(false) {
             cmd.args.push("-static".into());
         }
+
         if self.shared_flag.unwrap_or(false) {
             cmd.args.push("-shared".into());
         }
