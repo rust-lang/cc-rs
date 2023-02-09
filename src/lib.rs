@@ -1720,26 +1720,30 @@ impl Build {
                         } else if target.contains("aarch64") {
                             cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
                         }
-                    } else if target.ends_with("-freebsd") && self.get_host()?.ends_with("-freebsd")
-                    {
-                        // clang <= 13 on FreeBSD doesn't support a target triple without at least
-                        // the major os version number appended; e.g. use x86_64-unknown-freebsd13
-                        // or x86_64-unknown-freebsd13.0 instead of x86_64-unknown-freebsd.
-                        // The current version is appended. If it doesn't align with your goals, pass
-                        // .flag("--target=...") in the build script or adjust CXXFLAGS accordingly.
-                        let stdout = std::process::Command::new("freebsd-version")
-                            .output()
-                            .map_err(|e| {
-                                Error::new(
-                                    ErrorKind::ToolNotFound,
-                                    &format!("Error executing freebsd-version: {}", e),
-                                )
-                            })?
-                            .stdout;
-                        let stdout = String::from_utf8_lossy(&stdout);
-                        let os_ver = stdout.split('-').next().unwrap();
+                    } else if target.ends_with("-freebsd") {
+                        // FreeBSD only supports C++11 and above when compiling against libc++
+                        // (available from FreeBSD 10 onwards). Under FreeBSD, clang uses libc++ by
+                        // default on FreeBSD 10 and newer unless `--target` is manually passed to
+                        // the compiler, in which case its default behavior differs:
+                        // * If --target=xxx-unknown-freebsdX(.Y) is specified and X is greater than
+                        //   or equal to 10, clang++ uses libc++
+                        // * If --target=xxx-unknown-freebsd is specified (without a version),
+                        //   clang++ cannot assume libc++ is available and reverts to a default of
+                        //   libstdc++ (this behavior was changed in llvm 14).
+                        //
+                        // This breaks C++11 (or greater) builds if targeting FreeBSD with the
+                        // generic xxx-unknown-freebsd triple on clang 13 or below *without*
+                        // explicitly specifying that libc++ should be used.
+                        // When cross-compiling, we can't infer from the rust/cargo target triple
+                        // which major version of FreeBSD we are targeting, so we need to make sure
+                        // that libc++ is used (unless the user has explicitly specified otherwise).
+                        // There's no compelling reason to use a different approach when compiling
+                        // natively.
+                        if self.cpp && self.cpp_set_stdlib.is_none() {
+                            cmd.push_cc_arg("-stdlib=libc++".into());
+                        }
 
-                        cmd.push_cc_arg(format!("--target={}{}", target, os_ver).into());
+                        cmd.push_cc_arg(format!("--target={}", target).into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
