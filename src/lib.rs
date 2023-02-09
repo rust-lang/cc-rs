@@ -1930,17 +1930,34 @@ impl Build {
                     }
                 }
 
-                // (x86 Android doesn't say "eabi")
-                if target.contains("-androideabi") && target.contains("v7") {
-                    // -march=armv7-a handled above
+                // -march=armv7-a (handled above) and -mthumb (handled above) can be
+                // present separately or together. In the absence of an explicit --target,
+                // only -march=armv7-a targets armv7-none-linux-androideabi, only -mthumb
+                // targets thumb-none-linux-androideabi, while supplying both targets
+                // thumbv7-none-linux-androideabi. It is recommended to supply -mthumb to
+                // force the use of 16-bit Thumb-2 instructions instead of 32-bit ARM
+                // instructions.
+                // Source: https://developer.android.com/ndk/guides/standalone_toolchain
+                if (target.starts_with("thumbv7") || target.starts_with("armv7"))
+                    && target.contains("-androideabi")
+                {
                     cmd.args.push("-mthumb".into());
                     if !target.contains("neon") {
-                        // On android we can guarantee some extra float instructions
-                        // (specified in the android spec online)
-                        // NEON guarantees even more; see below.
+                        // On android we can guarantee some extra float instructions (per
+                        // the online spec). NEON guarantees even more; see below.
                         cmd.args.push("-mfpu=vfpv3-d16".into());
                     }
                     cmd.args.push("-mfloat-abi=softfp".into());
+
+                    // Android NDK link above says to make sure the following flag is
+                    // passed to the linker to work around a CPU bug on some Cortex-A8
+                    // implementations.
+                    cmd.args.push("-Wl,--fix-cortex-a8".into());
+                }
+
+                if target.contains("neon") {
+                    // This automatically forces the use of VFPv3-D32, per ARM specifications
+                    cmd.args.push("-mfpu=neon-vfpv4".into());
                 }
 
                 // Looks like `musl-gcc` makes it hard for `-m32` to make its way
@@ -1950,10 +1967,6 @@ impl Build {
                 // these flags that try to compile executables.
                 if target == "i686-unknown-linux-musl" || target == "i586-unknown-linux-musl" {
                     cmd.args.push("-Wl,-melf_i386".into());
-                }
-
-                if target.contains("neon") {
-                    cmd.args.push("-mfpu=neon-vfpv4".into());
                 }
             }
         }
