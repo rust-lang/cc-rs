@@ -507,11 +507,8 @@ impl Build {
             .host(&host)
             .debug(false)
             .cpp(self.cpp)
-            .cuda(self.cuda);
-
-        if !cfg.has_flags() {
-            cfg.warnings_into_errors(true);
-        }
+            .cuda(self.cuda)
+            .warnings_into_errors(true);
 
         if let Some(ref c) = self.compiler {
             cfg.compiler(c.clone());
