@@ -3277,11 +3277,12 @@ impl Tool {
         self.removed_args.push(flag);
     }
 
-    /// Add a flag, and optionally prepend the NVCC wrapper flag "-Xcompiler".
+    /// Push a flag to the end of the compiler's arguments list.
     ///
-    /// Currently this is only used for compiling CUDA sources, since NVCC only
-    /// accepts a limited set of GNU-like flags, and the rest must be prefixed
-    /// with a "-Xcompiler" flag to get passed to the underlying C++ compiler.
+    /// Currently `-Xcompiler` is inserted before the passed flag when compiling
+    /// CUDA sources since NVCC only accepts a limited set of GNU-like flags,
+    /// while the rest must be prefixed with the `-Xcompiler` flag to get passed
+    /// to the underlying C++ compiler.
     fn push_cc_arg(&mut self, flag: OsString) {
         if self.cuda {
             self.args.push("-Xcompiler".into());
@@ -3289,6 +3290,9 @@ impl Tool {
         self.args.push(flag);
     }
 
+    /// Checks if an argument or flag has already been specified or conflicts.
+    ///
+    /// Currently only checks optimization flags.
     fn is_duplicate_opt_arg(&self, flag: &OsString) -> bool {
         let flag = flag.to_str().unwrap();
         let mut chars = flag.chars();
@@ -3316,7 +3320,7 @@ impl Tool {
         return false;
     }
 
-    /// Don't push optimization arg if it conflicts with existing args
+    /// Don't push optimization arg if it conflicts with existing args.
     fn push_opt_unless_duplicate(&mut self, flag: OsString) {
         if self.is_duplicate_opt_arg(&flag) {
             println!("Info: Ignoring duplicate arg {:?}", &flag);
