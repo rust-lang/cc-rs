@@ -3,8 +3,8 @@
 // http://rust-lang.org/COPYRIGHT.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
-// http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
-// <LICENSE-MIT or http://opensource.org/licenses/MIT>, at your
+// https://www.apache.org/licenses/LICENSE-2.0> or the MIT license
+// <LICENSE-MIT or https://opensource.org/licenses/MIT>, at your
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
@@ -80,6 +80,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
 
 /// A version of Visual Studio
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
+#[non_exhaustive]
 pub enum VsVers {
     /// Visual Studio 12 (2013)
     Vs12,
@@ -91,13 +92,6 @@ pub enum VsVers {
     Vs16,
     /// Visual Studio 17 (2022)
     Vs17,
-
-    /// Hidden variant that should not be matched on. Callers that want to
-    /// handle an enumeration of `VsVers` instances should always have a default
-    /// case meaning that it's a VS version they don't understand.
-    #[doc(hidden)]
-    #[allow(bad_style)]
-    __Nonexhaustive_do_not_match_this_or_your_code_will_break,
 }
 
 /// Find the most recent installed version of Visual Studio
@@ -106,7 +100,7 @@ pub enum VsVers {
 /// generator.
 #[cfg(not(windows))]
 pub fn find_vs_version() -> Result<VsVers, String> {
-    Err(format!("not windows"))
+    Err("not windows".to_string())
 }
 
 /// Documented above
@@ -393,7 +387,7 @@ mod impl_ {
     // according to Microsoft. To help head off potential regressions though,
     // we keep the registry method as a fallback option.
     //
-    // [more reliable]: https://github.com/alexcrichton/cc-rs/pull/331
+    // [more reliable]: https://github.com/rust-lang/cc-rs/pull/331
     fn find_tool_in_vs15_path(tool: &str, target: &str) -> Option<Tool> {
         let mut path = match vs15plus_instances(target) {
             Some(instances) => instances
@@ -431,7 +425,7 @@ mod impl_ {
         target: &str,
         instance_path: &PathBuf,
     ) -> Option<Tool> {
-        let (bin_path, host_dylib_path, lib_path, include_path) =
+        let (root_path, bin_path, host_dylib_path, lib_path, include_path) =
             vs15plus_vc_paths(target, instance_path)?;
         let tool_path = bin_path.join(tool);
         if !tool_path.exists() {
@@ -444,7 +438,7 @@ mod impl_ {
         tool.libs.push(lib_path);
         tool.include.push(include_path);
 
-        if let Some((atl_lib_path, atl_include_path)) = atl_paths(target, &bin_path) {
+        if let Some((atl_lib_path, atl_include_path)) = atl_paths(target, &root_path) {
             tool.libs.push(atl_lib_path);
             tool.include.push(atl_include_path);
         }
@@ -457,7 +451,7 @@ mod impl_ {
     fn vs15plus_vc_paths(
         target: &str,
         instance_path: &PathBuf,
-    ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf)> {
+    ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf, PathBuf)> {
         let version_path =
             instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
         let mut version_file = File::open(version_path).ok()?;
@@ -490,7 +484,7 @@ mod impl_ {
             .join(&host.to_lowercase());
         let lib_path = path.join("lib").join(&target);
         let include_path = path.join("include");
-        Some((bin_path, host_dylib_path, lib_path, include_path))
+        Some((path, bin_path, host_dylib_path, lib_path, include_path))
     }
 
     fn atl_paths(target: &str, path: &Path) -> Option<(PathBuf, PathBuf)> {
@@ -866,7 +860,9 @@ mod impl_ {
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
     pub fn find_msbuild(target: &str) -> Option<Tool> {
         // VS 15 (2017) changed how to locate msbuild
-        if let Some(r) = find_msbuild_vs16(target) {
+        if let Some(r) = find_msbuild_vs17(target) {
+            return Some(r);
+        } else if let Some(r) = find_msbuild_vs16(target) {
             return Some(r);
         } else if let Some(r) = find_msbuild_vs15(target) {
             return Some(r);

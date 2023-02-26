@@ -7,7 +7,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [stable, beta, nightly, linux32, macos, aarch64-ios, win32, win64, mingw32, mingw64, windows-2016]
+        build: [stable, beta, nightly, linux32, macos, aarch64-ios, win32, win64, mingw32, mingw64, windows-2019]
         include:
           - build: stable
             os: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
             target: aarch64-pc-windows-msvc
             no_run: --no-run
           - build: win32
-            os: windows-2016
+            os: windows-2019
             rust: stable-i686-msvc
             target: i686-pc-windows-msvc
           - build: win64
@@ -48,15 +48,19 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: mingw32
-            os: windows-latest
+            # windows-latest, a.k.a. windows-2022, runner is equipped with
+            # a newer mingw toolchain, which appears to produce unexecutable
+            # mixed-language binaries in debug builds. Fall back to
+            # windows-2019 for now and revisit it later...
+            os: windows-2019
             rust: stable-i686-gnu
             target: i686-pc-windows-gnu
           - build: mingw64
             os: windows-latest
             rust: stable-x86_64-gnu
             target: x86_64-pc-windows-gnu
-          - build: windows-2016
-            os: windows-2016
+          - build: windows-2019
+            os: windows-2019
             rust: stable-x86_64
             target: x86_64-pc-windows-msvc
     steps:
@@ -92,16 +96,14 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@master
-    - name: Install cuda-minimal-build-11-4
+    - name: Install cuda-minimal-build-11-8
       shell: bash
       run: |
         # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
-        sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
-        sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/7fa2af80.pub
-        sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+        sudo dpkg -i cuda-keyring_1.0-1_all.deb
         sudo apt-get update
-        sudo apt-get -y install cuda-minimal-build-11-4
+        sudo apt-get -y install cuda-minimal-build-11-8
     - name: Test 'cudart' feature
       shell: bash
       run: env PATH=/usr/local/cuda/bin:$PATH cargo test --manifest-path cc-test/Cargo.toml --features test_cuda
@@ -115,7 +117,7 @@ jobs:
     steps:
     - uses: actions/checkout@master
     - name: Install Rust
-      run: rustup update 1.34.0 --no-self-update && rustup default 1.34.0
+      run: rustup update 1.46.0 --no-self-update && rustup default 1.46.0
       shell: bash
     - run: cargo build
 
@@ -127,21 +129,3 @@ jobs:
     - name: Install Rust
       run: rustup update stable && rustup default stable && rustup component add rustfmt
     - run: cargo fmt -- --check
-
-  publish_docs:
-    name: Publish Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@master
-      - name: Install Rust
-        run: rustup update stable && rustup default stable
-      - name: Build documentation
-        run: cargo doc --no-deps --all-features
-      - name: Publish documentation
-        run: |
-          cd target/doc
-          git init
-          git add .
-          git -c user.name='ci' -c user.email='ci' commit -m init
-          git push -f -q https://git:${{ secrets.github_token }}@github.com/${{ github.repository }} HEAD:gh-pages
-        if: github.event_name == 'push' && github.event.ref == 'refs/heads/main'
