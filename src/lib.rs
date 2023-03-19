@@ -1958,25 +1958,38 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        if target.contains("linux") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("freebsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("openbsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("linux") && arch.starts_with("32") {
-                            cmd.args.push(("-march=rv32gc").into());
-                            cmd.args.push("-mabi=ilp32d".into());
-                        } else if arch.starts_with("64") {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=lp64".into());
+
+                        // Assume that "rv{arch}" is a valid RISC-V ISA string.
+                        // The compiler would error out otherwise, and we fix
+                        // that later.
+                        cmd.args.push(("-march=rv".to_owned() + arch).into());
+
+                        // Detect single-letter extensions from `arch`, assuming
+                        // no version numbers and canonical order
+                        let riscv_implements = |ext: &str| -> bool {
+                            let pattern = |c| ['_', 'z', 's'].contains(&c);
+                            let single_letter =
+                                arch.split(pattern).next().expect("Empty arch string?");
+                            single_letter.contains(ext)
+                        };
+
+                        let float_abi = if riscv_implements("g") || riscv_implements("d") {
+                            // Implements "d" (double-float), use double-float ABI
+                            "d"
+                        } else if riscv_implements("f") {
+                            // Implements "f" (single-float), use single-float ABI
+                            "f"
                         } else {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=ilp32".into());
+                            // No floating support, use soft-float ABI
+                            ""
+                        };
+
+                        if arch.starts_with("64") {
+                            cmd.args.push(("-mabi=lp64".to_owned() + float_abi).into());
+                        } else {
+                            cmd.args.push(("-mabi=ilp32".to_owned() + float_abi).into());
                         }
+
                         cmd.args.push("-mcmodel=medany".into());
                     }
                 }
