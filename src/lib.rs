@@ -56,6 +56,7 @@
 #![allow(deprecated)]
 #![deny(missing_docs)]
 
+use std::borrow::Cow;
 use std::collections::{hash_map, HashMap};
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -3040,24 +3041,24 @@ impl Build {
             prefixes.first().map(|prefix| *prefix))
     }
 
-    fn get_target(&self) -> Result<String, Error> {
-        match self.target {
-            Some(ref t) => Ok((*t).to_string()),
-            None => Ok(self.getenv_unwrap("TARGET")?),
+    fn get_target(&self) -> Result<Cow<str>, Error> {
+        match &self.target {
+            Some(t) => Ok(Cow::Borrowed(&t)),
+            None => Ok(Cow::Owned(self.getenv_unwrap("TARGET")?)),
         }
     }
 
-    fn get_host(&self) -> Result<String, Error> {
+    fn get_host(&self) -> Result<Cow<str>, Error> {
         match &self.host {
-            Some(h) => Ok((**h).to_string()),
-            None => Ok(self.getenv_unwrap("HOST")?),
+            Some(h) => Ok(Cow::Borrowed(&h)),
+            None => Ok(Cow::Owned(self.getenv_unwrap("HOST")?)),
         }
     }
 
-    fn get_opt_level(&self) -> Result<String, Error> {
+    fn get_opt_level(&self) -> Result<Cow<str>, Error> {
         match &self.opt_level {
-            Some(ol) => Ok((**ol).to_string()),
-            None => Ok(self.getenv_unwrap("OPT_LEVEL")?),
+            Some(ol) => Ok(Cow::Borrowed(&ol)),
+            None => Ok(Cow::Owned(self.getenv_unwrap("OPT_LEVEL")?)),
         }
     }
 
