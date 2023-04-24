@@ -640,10 +640,12 @@ impl Build {
 
     /// Set CUDA C++ support.
     ///
-    /// Enabling CUDA will pass the detected C/C++ toolchain as an argument to
-    /// the CUDA compiler, NVCC. NVCC itself accepts some limited GNU-like args;
-    /// any other arguments for the C/C++ toolchain will be redirected using
-    /// "-Xcompiler" flags.
+    /// Enabling CUDA will invoke the CUDA compiler, NVCC. While NVCC accepts
+    /// the most common compiler flags, e.g. `-std=c++17`, some project-specific
+    /// flags might have to be prefixed with "-Xcompiler" flag, for example as
+    /// `.flag("-Xcompiler").flag("-fpermissive")`. See the documentation for
+    /// `nvcc`, the CUDA compiler driver, at https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/
+    /// for more information.
     ///
     /// If enabled, this also implicitly enables C++ support.
     pub fn cuda(&mut self, cuda: bool) -> &mut Build {
@@ -3297,12 +3299,14 @@ impl Tool {
         self.removed_args.push(flag);
     }
 
-    /// Push a flag to the end of the compiler's arguments list.
+    /// Push an "exotic" flag to the end of the compiler's arguments list.
     ///
-    /// Currently `-Xcompiler` is inserted before the passed flag when compiling
-    /// CUDA sources since NVCC only accepts a limited set of GNU-like flags,
-    /// while the rest must be prefixed with the `-Xcompiler` flag to get passed
-    /// to the underlying C++ compiler.
+    /// Nvidia compiler accepts only the most common compiler flags like `-D`,
+    /// `-I`, `-c`, etc. Options meant specifically for the underlying
+    /// host C++ compiler have to be prefixed with '-Xcompiler`.
+    /// [Another possible future application for this function is passing
+    /// clang-specific flags to clang-cl, which otherwise accepts only
+    /// MSVC-specific options.]
     fn push_cc_arg(&mut self, flag: OsString) {
         if self.cuda {
             self.args.push("-Xcompiler".into());
