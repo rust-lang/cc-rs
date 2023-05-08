@@ -2680,6 +2680,8 @@ impl Build {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("openbsd") {
                         Ok(Some("c++".to_string()))
+                    } else if target.contains("aix") {
+                        Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
                         Ok(Some("c++_shared".to_string()))
                     } else {
