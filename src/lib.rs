@@ -3616,13 +3616,12 @@ static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
 fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
     if let Some(filename) = clang_path.file_name() {
         if let Some(filename_str) = filename.to_str() {
-            filename_str.contains("android")
-        } else {
-            false
+            if let Some(idx) = filename_str.rfind("-") {
+                return filename_str.split_at(idx).0.contains("android");
+            }
         }
-    } else {
-        false
     }
+    false
 }
 
 #[test]
@@ -3635,6 +3634,9 @@ fn test_android_clang_compiler_uses_target_arg_internally() {
             &PathBuf::from(format!("armv7a-linux-androideabi{}-clang++", version))
         ));
     }
+    assert!(!android_clang_compiler_uses_target_arg_internally(
+        &PathBuf::from("clang-i686-linux-android")
+    ));
     assert!(!android_clang_compiler_uses_target_arg_internally(
         &PathBuf::from("clang")
     ));
