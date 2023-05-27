@@ -1587,22 +1587,6 @@ impl Build {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-nologo".into());
 
-                let crt_flag = match self.static_crt {
-                    Some(true) => "-MT",
-                    Some(false) => "-MD",
-                    None => {
-                        let features = self
-                            .getenv("CARGO_CFG_TARGET_FEATURE")
-                            .unwrap_or(String::new());
-                        if features.contains("crt-static") {
-                            "-MT"
-                        } else {
-                            "-MD"
-                        }
-                    }
-                };
-                cmd.push_cc_arg(crt_flag.into());
-
                 match &opt_level[..] {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
                     "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
@@ -1647,6 +1631,24 @@ impl Build {
                     }
                 }
             }
+        }
+
+        if target.contains("msvc") {
+            let crt_flag = match self.static_crt {
+                Some(true) => "-MT",
+                Some(false) => "-MD",
+                None => {
+                    let features = self
+                        .getenv("CARGO_CFG_TARGET_FEATURE")
+                        .unwrap_or(String::new());
+                    if features.contains("crt-static") {
+                        "-MT"
+                    } else {
+                        "-MD"
+                    }
+                }
+            };
+            cmd.push_cc_arg(crt_flag.into());
         }
 
         if self.get_debug() {
