@@ -1975,6 +1975,9 @@ impl Build {
                         } else if target.contains("freebsd") && arch.starts_with("64") {
                             cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
+                       } else if target.contains("netbsd") && arch.starts_with("64") {
+                            cmd.args.push(("-march=rv64gc").into());
+                            cmd.args.push("-mabi=lp64d".into());
                         } else if target.contains("openbsd") && arch.starts_with("64") {
                             cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
@@ -3004,6 +3007,7 @@ impl Build {
             "riscv32gc-unknown-linux-gnu" => Some("riscv32-linux-gnu"),
             "riscv64gc-unknown-linux-musl" => Some("riscv64-linux-musl"),
             "riscv32gc-unknown-linux-musl" => Some("riscv32-linux-musl"),
+            "riscv64gc-unknown-netbsd" => Some("riscv64--netbsd"),
             "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
             "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
             "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
