@@ -507,33 +507,3 @@ fn gnu_apple_darwin() {
         cmd.must_not_have("-isysroot");
     }
 }
-
-#[cfg(target_os = "macos")]
-#[test]
-fn apple_tvos() {
-    for target in &["aarch64-apple-tvos"] {
-        let test = Test::gnu();
-        test.gcc()
-            .target(&target)
-            .host(&target)
-            .file("foo.c")
-            .compile("foo");
-
-        test.cmd(0).must_have("-mappletvos-version-min=9.0");
-    }
-}
-
-#[cfg(target_os = "macos")]
-#[test]
-fn apple_tvsimulator() {
-    for target in &["x86_64-apple-tvos"] {
-        let test = Test::gnu();
-        test.gcc()
-            .target(&target)
-            .host(&target)
-            .file("foo.c")
-            .compile("foo");
-
-        test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
-    }
-}

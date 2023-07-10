@@ -2620,6 +2620,8 @@ impl Build {
                     clang.to_string()
                 } else if target.contains("apple-watchos") {
                     clang.to_string()
+                } else if target.contains("apple-tvos") {
+                    clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(&target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
