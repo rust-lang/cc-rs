@@ -1840,6 +1840,16 @@ impl Build {
                                 .into(),
                             );
                         }
+                    } else if target.contains("aarch64-apple-tvos") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::TvOs, target, None);
+                            cmd.args.push(
+                                format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
+                            );
+                        }
                     } else if target.starts_with("riscv64gc-") {
                         cmd.args.push(
                             format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
@@ -2576,6 +2586,8 @@ impl Build {
                 } else if target.contains("apple-ios") {
                     clang.to_string()
                 } else if target.contains("apple-watchos") {
+                    clang.to_string()
+                } else if target.contains("apple-tvos") {
                     clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(&target, &host, gnu, clang)

@@ -510,9 +510,9 @@ fn gnu_apple_darwin() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn apple_tvos() {
+fn clang_apple_tvos() {
     for target in &["aarch64-apple-tvos"] {
-        let test = Test::gnu();
+        let test = Test::clang();
         test.gcc()
             .target(&target)
             .host(&target)
@@ -525,9 +525,9 @@ fn apple_tvos() {
 
 #[cfg(target_os = "macos")]
 #[test]
-fn apple_tvsimulator() {
+fn clang_apple_tvsimulator() {
     for target in &["x86_64-apple-tvos"] {
-        let test = Test::gnu();
+        let test = Test::clang();
         test.gcc()
             .target(&target)
             .host(&target)
