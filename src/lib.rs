@@ -563,6 +563,35 @@ impl Build {
         self
     }
 
+    /// Add flags from the specified environment variable.
+    ///
+    /// Normally the `cc` crate will consult with the standard set of environment
+    /// variables (such as `CFLAGS` and `CXXFLAGS`) to construct the compiler invocation. Use of
+    /// this method provides additional levers for the end user to use when configuring the build
+    /// process.
+    ///
+    /// Just like the standard variables, this method will search for an environment variable with
+    /// appropriate target prefixes, when appropriate.
+    ///
+    /// # Examples
+    ///
+    /// This method is particularly beneficial in introducing the ability to specify crate-specific
+    /// flags.
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .try_flags_from_environment(concat!(env!("CARGO_PKG_NAME"), "_CFLAGS"))
+    ///     .expect("the environment variable must be specified and UTF-8")
+    ///     .compile("foo");
+    /// ```
+    ///
+    pub fn try_flags_from_environment(&mut self, environ_key: &str) -> Result<&mut Build, Error> {
+        let flags = self.envflags(environ_key)?;
+        self.flags.extend(flags.into_iter().map(Into::into));
+        Ok(self)
+    }
+
     /// Set the `-shared` flag.
     ///
     /// When enabled, the compiler will produce a shared object which can
@@ -1471,7 +1500,6 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
-        let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" });
 
         // Disable default flag generation via `no_default_flags` or environment variable
         let no_defaults = self.no_default_flags || self.getenv("CRATE_CC_NO_DEFAULTS").is_some();
@@ -1482,8 +1510,10 @@ impl Build {
             println!("Info: default compiler flags are disabled");
         }
 
-        for arg in envflags {
-            cmd.push_cc_arg(arg.into());
+        if let Ok(flags) = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
+            for arg in flags {
+                cmd.push_cc_arg(arg.into());
+            }
         }
 
         for directory in self.include_directories.iter() {
@@ -1990,7 +2020,7 @@ impl Build {
 
     fn has_flags(&self) -> bool {
         let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
-        let flags_env_var_value = self.get_var(flags_env_var_name);
+        let flags_env_var_value = self.getenv_with_target_prefixes(flags_env_var_name);
         if let Ok(_) = flags_env_var_value {
             true
         } else {
@@ -2437,7 +2467,7 @@ impl Build {
                 tool.args.is_empty(),
                 "CUDA compilation currently assumes empty pre-existing args"
             );
-            let nvcc = match self.get_var("NVCC") {
+            let nvcc = match self.getenv_with_target_prefixes("NVCC") {
                 Err(_) => "nvcc".into(),
                 Ok(nvcc) => nvcc,
             };
@@ -2509,34 +2539,6 @@ impl Build {
         Ok(tool)
     }
 
-    fn get_var(&self, var_base: &str) -> Result<String, Error> {
-        let target = self.get_target()?;
-        let host = self.get_host()?;
-        let kind = if host == target { "HOST" } else { "TARGET" };
-        let target_u = target.replace("-", "_");
-        let res = self
-            .getenv(&format!("{}_{}", var_base, target))
-            .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
-            .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))
-            .or_else(|| self.getenv(var_base));
-
-        match res {
-            Some(res) => Ok(res),
-            None => Err(Error::new(
-                ErrorKind::EnvVarNotFound,
-                &format!("Could not find environment variable {}.", var_base),
-            )),
-        }
-    }
-
-    fn envflags(&self, name: &str) -> Vec<String> {
-        self.get_var(name)
-            .unwrap_or(String::new())
-            .split_ascii_whitespace()
-            .map(|slice| slice.to_string())
-            .collect()
-    }
-
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
     fn rustc_wrapper_fallback() -> Option<String> {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
@@ -2557,7 +2559,7 @@ impl Build {
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
     fn env_tool(&self, name: &str) -> Option<(String, Option<String>, Vec<String>)> {
-        let tool = match self.get_var(name) {
+        let tool = match self.getenv_with_target_prefixes(name) {
             Ok(tool) => tool,
             Err(_) => return None,
         };
@@ -2628,7 +2630,7 @@ impl Build {
         match &self.cpp_link_stdlib {
             Some(s) => Ok(s.as_ref().map(|s| (*s).to_string())),
             None => {
-                if let Ok(stdlib) = self.get_var("CXXSTDLIB") {
+                if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
                     if stdlib.is_empty() {
                         Ok(None)
                     } else {
@@ -2691,9 +2693,11 @@ impl Build {
 
     fn try_get_archiver_and_flags(&self) -> Result<(Command, String, bool), Error> {
         let (mut cmd, name) = self.get_base_archiver()?;
-        let flags = self.envflags("ARFLAGS");
-        let mut any_flags = !flags.is_empty();
-        cmd.args(flags);
+        let mut any_flags = false;
+        if let Ok(flags) = self.envflags("ARFLAGS") {
+            any_flags = any_flags | !flags.is_empty();
+            cmd.args(flags);
+        }
         for flag in &self.ar_flags {
             any_flags = true;
             cmd.arg(&**flag);
@@ -2736,7 +2740,9 @@ impl Build {
     /// see [`get_ranlib()`] for the complete description.
     pub fn try_get_ranlib(&self) -> Result<Command, Error> {
         let mut cmd = self.get_base_ranlib()?;
-        cmd.args(self.envflags("RANLIBFLAGS"));
+        if let Ok(flags) = self.envflags("RANLIBFLAGS") {
+            cmd.args(flags);
+        }
         Ok(cmd)
     }
 
@@ -3131,6 +3137,34 @@ impl Build {
                 &format!("Environment variable {} not defined.", v.to_string()),
             )),
         }
+    }
+
+    fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<String, Error> {
+        let target = self.get_target()?;
+        let host = self.get_host()?;
+        let kind = if host == target { "HOST" } else { "TARGET" };
+        let target_u = target.replace("-", "_");
+        let res = self
+            .getenv(&format!("{}_{}", var_base, target))
+            .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
+            .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))
+            .or_else(|| self.getenv(var_base));
+
+        match res {
+            Some(res) => Ok(res),
+            None => Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                &format!("Could not find environment variable {}.", var_base),
+            )),
+        }
+    }
+
+    fn envflags(&self, name: &str) -> Result<Vec<String>, Error> {
+        Ok(self
+            .getenv_with_target_prefixes(name)?
+            .split_ascii_whitespace()
+            .map(|slice| slice.to_string())
+            .collect())
     }
 
     fn print(&self, s: &str) {
