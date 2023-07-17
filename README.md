@@ -83,8 +83,16 @@ number of different environment variables.
          certain `TARGET`s, it also is assumed to know about other flags (most
          common is `-fPIC`).
 * `AR` - the `ar` (archiver) executable to use to build the static library.
-* `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in some cross compiling scenarios. Setting this variable will disable the generation of default compiler flags.
+* `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in
+                           some cross compiling scenarios. Setting this variable
+                           will disable the generation of default compiler
+                           flags.
 * `CXX...` - see [C++ Support](#c-support).
+
+Furthermore, projects using this crate may specify custom environment variables
+to be inspected, for example via the `Build::try_flags_from_environment`
+function. Consult the project’s own documentation or its use of the `cc` crate
+for any additional variables it may use.
 
 Each of these variables can also be supplied with certain prefixes and suffixes,
 in the following prioritized order:
@@ -94,7 +102,7 @@ in the following prioritized order:
 3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
 4. `<var>` - a plain `CC`, `AR` as above.
 
-If none of these variables exist, cc-rs uses built-in defaults
+If none of these variables exist, cc-rs uses built-in defaults.
 
 In addition to the above optional environment variables, `cc-rs` has some
 functions with hard requirements on some variables supplied by [cargo's
