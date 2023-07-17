@@ -1370,7 +1370,9 @@ impl Build {
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(&mut cmd, &obj.dst, self.cuda, msvc, clang, gnu, is_asm, is_arm);
+        command_add_output_file(
+            &mut cmd, &obj.dst, self.cuda, msvc, clang, gnu, is_asm, is_arm,
+        );
         // armasm and armasm64 don't requrie -c option
         if !msvc || !is_asm || !is_arm {
             cmd.arg("-c");
