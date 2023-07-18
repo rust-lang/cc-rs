@@ -1130,7 +1130,7 @@ impl Build {
                 });
 
             if let Some(atlmfc_lib) = atlmfc_lib {
-                self.print(&format!(
+                self.print(&format_args!(
                     "cargo:rustc-link-search=native={}",
                     atlmfc_lib.display()
                 ));
@@ -1138,17 +1138,23 @@ impl Build {
         }
 
         if self.link_lib_modifiers.is_empty() {
-            self.print(&format!("cargo:rustc-link-lib=static={}", lib_name));
+            self.print(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
         } else {
             let m = self.link_lib_modifiers.join(",");
-            self.print(&format!("cargo:rustc-link-lib=static:{}={}", m, lib_name));
+            self.print(&format_args!(
+                "cargo:rustc-link-lib=static:{}={}",
+                m, lib_name
+            ));
         }
-        self.print(&format!("cargo:rustc-link-search=native={}", dst.display()));
+        self.print(&format_args!(
+            "cargo:rustc-link-search=native={}",
+            dst.display()
+        ));
 
         // Add specific C++ libraries, if enabled.
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
-                self.print(&format!("cargo:rustc-link-lib={}", stdlib));
+                self.print(&format_args!("cargo:rustc-link-lib={}", stdlib));
             }
         }
 
@@ -2326,7 +2332,7 @@ impl Build {
             ArchSpec::Catalyst(_) => "macosx".to_owned(),
         };
 
-        self.print(&format!("Detecting {} SDK path for {}", os, sdk));
+        self.print(&format_args!("Detecting {} SDK path for {}", os, sdk));
         let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
             sdkroot
         } else {
@@ -3126,10 +3132,10 @@ impl Build {
             return val.clone();
         }
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) {
-            self.print(&format!("cargo:rerun-if-env-changed={}", v));
+            self.print(&format_args!("cargo:rerun-if-env-changed={}", v));
         }
         let r = env::var(v).ok();
-        self.print(&format!("{} = {:?}", v, r));
+        self.print(&format_args!("{} = {:?}", v, r));
         cache.insert(v.to_string(), r.clone());
         r
     }
@@ -3172,7 +3178,7 @@ impl Build {
             .collect())
     }
 
-    fn print(&self, s: &str) {
+    fn print(&self, s: &dyn Display) {
         if self.cargo_metadata {
             println!("{}", s);
         }
