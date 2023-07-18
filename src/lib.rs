@@ -155,21 +155,21 @@ pub struct Error {
     /// Describes the kind of error that occurred.
     kind: ErrorKind,
     /// More explanation of error that occurred.
-    message: String,
+    message: Cow<'static, str>,
 }
 
 impl Error {
-    fn new(kind: ErrorKind, message: &str) -> Error {
+    fn new(kind: ErrorKind, message: impl Into<Cow<'static, str>>) -> Error {
         Error {
-            kind: kind,
-            message: message.to_owned(),
+            kind,
+            message: message.into(),
         }
     }
 }
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
-        Error::new(ErrorKind::IOError, &format!("{}", e))
+        Error::new(ErrorKind::IOError, format!("{}", e))
     }
 }
 
@@ -2234,7 +2234,7 @@ impl Build {
         let arch = target.split('-').nth(0).ok_or_else(|| {
             Error::new(
                 ErrorKind::ArchitectureInvalid,
-                format!("Unknown architecture for {} target.", os).as_str(),
+                format!("Unknown architecture for {} target.", os),
             )
         })?;
 
@@ -2284,7 +2284,7 @@ impl Build {
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
-                        format!("Unknown architecture for {} target.", os).as_str(),
+                        format!("Unknown architecture for {} target.", os),
                     ));
                 }
             }
@@ -3139,7 +3139,7 @@ impl Build {
             Some(s) => Ok(s),
             None => Err(Error::new(
                 ErrorKind::EnvVarNotFound,
-                &format!("Environment variable {} not defined.", v.to_string()),
+                format!("Environment variable {} not defined.", v),
             )),
         }
     }
@@ -3159,7 +3159,7 @@ impl Build {
             Some(res) => Ok(res),
             None => Err(Error::new(
                 ErrorKind::EnvVarNotFound,
-                &format!("Could not find environment variable {}.", var_base),
+                format!("Could not find environment variable {}.", var_base),
             )),
         }
     }
@@ -3472,7 +3472,7 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
         Err(e) => {
             return Err(Error::new(
                 ErrorKind::ToolExecError,
-                &format!(
+                format!(
                     "Failed to wait on spawned child process, command {:?} with args {:?}: {}.",
                     cmd, program, e
                 ),
@@ -3486,7 +3486,7 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
     } else {
         Err(Error::new(
             ErrorKind::ToolExecError,
-            &format!(
+            format!(
                 "Command {:?} with args {:?} did not execute successfully (status code {}).",
                 cmd, program, status
             ),
@@ -3559,12 +3559,12 @@ fn spawn(
             };
             Err(Error::new(
                 ErrorKind::ToolNotFound,
-                &format!("Failed to find tool. Is `{}` installed?{}", program, extra),
+                format!("Failed to find tool. Is `{}` installed?{}", program, extra),
             ))
         }
         Err(e) => Err(Error::new(
             ErrorKind::ToolExecError,
-            &format!(
+            format!(
                 "Command {:?} with args {:?} failed to start: {:?}",
                 cmd.0, program, e
             ),
