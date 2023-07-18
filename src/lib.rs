@@ -69,6 +69,8 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
+mod os_pipe;
+
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
