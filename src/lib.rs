@@ -1258,7 +1258,7 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::sync::Once;
+        use std::sync::{mpsc::channel, Once};
 
         // Limit our parallelism globally with a jobserver. Start off by
         // releasing our own token for this process so we can have a bit of an
@@ -1266,7 +1266,8 @@ impl Build {
         // on Windows with the main implicit token, so we just have a bit extra
         // parallelism for a bit and don't reacquire later.
         let server = jobserver();
-        let reacquire = server.release_raw().is_ok();
+        // Reacquire our process's token on drop
+        let _reacquire = server.release_raw().ok().map(|_| JobserverToken(server));
 
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
@@ -1287,29 +1288,31 @@ impl Build {
         // acquire the appropriate tokens, Once all objects have been compiled
         // we wait on all the processes and propagate the results of compilation.
 
-        let children = objs
-            .iter()
-            .map(|obj| {
-                let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
-                let token = server.acquire()?;
+        let (tx, rx) = channel::<(_, String, KillOnDrop, _)>();
 
-                let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
+        // Since jobserver::Client::acquire can block, waiting
+        // must be done in parallel so that acquire won't block forever.
+        let wait_thread = thread::Builder::new().spawn(move || {
+            for (cmd, program, mut child, _token) in rx {
+                wait_on_child(&cmd, &program, &mut child.0)?;
+            }
 
-                Ok((cmd, program, KillOnDrop(child), token))
-            })
-            .collect::<Result<Vec<_>, Error>>()?;
+            Ok(())
+        })?;
 
-        for (cmd, program, mut child, _token) in children {
-            wait_on_child(&cmd, &program, &mut child.0)?;
+        for obj in objs {
+            let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
+            let token = server.acquire()?;
+
+            let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
+
+            if tx.send((cmd, program, KillOnDrop(child), token)).is_err() {
+                break;
+            }
         }
+        drop(tx);
 
-        // Reacquire our process's token before we proceed, which we released
-        // before entering the loop above.
-        if reacquire {
-            server.acquire_raw()?;
-        }
-
-        return Ok(());
+        return wait_thread.join().expect("wait_thread panics");
 
         /// Returns a suitable `jobserver::Client` used to coordinate
         /// parallelism between build scripts.
@@ -1363,6 +1366,13 @@ impl Build {
                 let child = &mut self.0;
 
                 child.kill().ok();
+            }
+        }
+
+        struct JobserverToken(&'static jobserver::Client);
+        impl Drop for JobserverToken {
+            fn drop(&mut self) {
+                let _ = self.0.acquire_raw();
             }
         }
     }
