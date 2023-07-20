@@ -1115,8 +1115,11 @@ impl Build {
 
             objects.push(Object::new(file.to_path_buf(), obj));
         }
-        self.compile_objects(&objects)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+
+        let print = PrintThread::new()?;
+
+        self.compile_objects(&objects, &print)?;
+        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, &print)?;
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -1257,7 +1260,7 @@ impl Build {
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
         use std::sync::Once;
 
         // Limit our parallelism globally with a jobserver. Start off by
@@ -1286,7 +1289,6 @@ impl Build {
         // With all that in mind we compile all objects in a loop here, after we
         // acquire the appropriate tokens, Once all objects have been compiled
         // we wait on all the processes and propagate the results of compilation.
-        let print = PrintThread::new()?;
 
         let children = objs
             .iter()
@@ -1369,12 +1371,10 @@ impl Build {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
-        let print = PrintThread::new()?;
-
+    fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
         for obj in objs {
             let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
-            run_inner(&mut cmd, &name, print.pipe_writer_cloned()?.unwrap())?;
+            run(&mut cmd, &name, print)?;
         }
 
         Ok(())
@@ -2087,21 +2087,27 @@ impl Build {
         Ok((cmd, tool.to_string()))
     }
 
-    fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
+    fn assemble(
+        &self,
+        lib_name: &str,
+        dst: &Path,
+        objs: &[Object],
+        print: &PrintThread,
+    ) -> Result<(), Error> {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
-        let _ = fs::remove_file(&dst);
+        let _ = fs::remove_file(dst);
 
         // Add objects to the archive in limited-length batches. This helps keep
         // the length of the command line within a reasonable length to avoid
         // blowing system limits on limiting platforms like Windows.
         let objs: Vec<_> = objs
             .iter()
-            .map(|o| o.dst.clone())
-            .chain(self.objects.iter().map(|path| (**path).to_owned()))
+            .map(|o| o.dst.as_path())
+            .chain(self.objects.iter().map(std::ops::Deref::deref))
             .collect();
         for chunk in objs.chunks(100) {
-            self.assemble_progressive(dst, chunk)?;
+            self.assemble_progressive(dst, chunk, print)?;
         }
 
         if self.cuda && self.cuda_file_count() > 0 {
@@ -2111,12 +2117,9 @@ impl Build {
             let out_dir = self.get_out_dir()?;
             let dlink = out_dir.join(lib_name.to_owned() + "_dlink.o");
             let mut nvcc = self.get_compiler().to_command();
-            nvcc.arg("--device-link")
-                .arg("-o")
-                .arg(dlink.clone())
-                .arg(dst);
-            run(&mut nvcc, "nvcc")?;
-            self.assemble_progressive(dst, &[dlink])?;
+            nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
+            run(&mut nvcc, "nvcc", print)?;
+            self.assemble_progressive(dst, &[dlink.as_path()], print)?;
         }
 
         let target = self.get_target()?;
@@ -2148,13 +2151,18 @@ impl Build {
             // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
             // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
             // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
-            run(ar.arg("s").arg(dst), &cmd)?;
+            run(ar.arg("s").arg(dst), &cmd, print)?;
         }
 
         Ok(())
     }
 
-    fn assemble_progressive(&self, dst: &Path, objs: &[PathBuf]) -> Result<(), Error> {
+    fn assemble_progressive(
+        &self,
+        dst: &Path,
+        objs: &[&Path],
+        print: &PrintThread,
+    ) -> Result<(), Error> {
         let target = self.get_target()?;
 
         if target.contains("msvc") {
@@ -2175,7 +2183,7 @@ impl Build {
                 cmd.arg(dst);
             }
             cmd.args(objs);
-            run(&mut cmd, &program)?;
+            run(&mut cmd, &program, print)?;
         } else {
             let (mut ar, cmd, _any_flags) = self.get_ar()?;
 
@@ -2206,7 +2214,7 @@ impl Build {
             // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
             // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
             // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
-            run(ar.arg("cq").arg(dst).args(objs), &cmd)?;
+            run(ar.arg("cq").arg(dst).args(objs), &cmd, print)?;
         }
 
         Ok(())
@@ -3507,9 +3515,8 @@ fn run_inner(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<(), 
     wait_on_child(cmd, program, &mut child)
 }
 
-fn run(cmd: &mut Command, program: &str) -> Result<(), Error> {
-    let mut print = PrintThread::new()?;
-    run_inner(cmd, program, print.pipe_writer().take().unwrap())?;
+fn run(cmd: &mut Command, program: &str, print: &PrintThread) -> Result<(), Error> {
+    run_inner(cmd, program, print.pipe_writer_cloned()?.unwrap())?;
 
     Ok(())
 }
