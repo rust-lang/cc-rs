@@ -3496,11 +3496,7 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
     }
 }
 
-fn run_inner(
-    cmd: &mut Command,
-    program: &str,
-    pipe_writer: File,
-) -> Result<(), Error> {
+fn run_inner(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<(), Error> {
     let mut child = spawn(cmd, program, pipe_writer)?;
     wait_on_child(cmd, program, &mut child)
 }
@@ -3531,11 +3527,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     Ok(stdout)
 }
 
-fn spawn(
-    cmd: &mut Command,
-    program: &str,
-    pipe_writer: File,
-) -> Result<Child, Error> {
+fn spawn(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<Child, Error> {
     struct ResetStderr<'cmd>(&'cmd mut Command);
 
     impl Drop for ResetStderr<'_> {
