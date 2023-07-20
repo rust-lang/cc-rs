@@ -61,13 +61,15 @@ use std::collections::{hash_map, HashMap};
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display, Formatter};
-use std::fs;
+use std::fs::{self, File};
 use std::hash::Hasher;
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
+
+mod os_pipe;
 
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
@@ -3494,11 +3496,7 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
     }
 }
 
-fn run_inner(
-    cmd: &mut Command,
-    program: &str,
-    pipe_writer: os_pipe::PipeWriter,
-) -> Result<(), Error> {
+fn run_inner(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<(), Error> {
     let mut child = spawn(cmd, program, pipe_writer)?;
     wait_on_child(cmd, program, &mut child)
 }
@@ -3529,11 +3527,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     Ok(stdout)
 }
 
-fn spawn(
-    cmd: &mut Command,
-    program: &str,
-    pipe_writer: os_pipe::PipeWriter,
-) -> Result<Child, Error> {
+fn spawn(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<Child, Error> {
     struct ResetStderr<'cmd>(&'cmd mut Command);
 
     impl Drop for ResetStderr<'_> {
@@ -3773,7 +3767,7 @@ impl AsmFileExt {
 
 struct PrintThread {
     handle: Option<JoinHandle<()>>,
-    pipe_writer: Option<os_pipe::PipeWriter>,
+    pipe_writer: Option<File>,
 }
 
 impl PrintThread {
@@ -3804,14 +3798,14 @@ impl PrintThread {
         })
     }
 
-    fn pipe_writer(&mut self) -> &mut Option<os_pipe::PipeWriter> {
+    fn pipe_writer(&mut self) -> &mut Option<File> {
         &mut self.pipe_writer
     }
 
-    fn pipe_writer_cloned(&self) -> Result<Option<os_pipe::PipeWriter>, Error> {
+    fn pipe_writer_cloned(&self) -> Result<Option<File>, Error> {
         self.pipe_writer
             .as_ref()
-            .map(os_pipe::PipeWriter::try_clone)
+            .map(File::try_clone)
             .transpose()
             .map_err(From::from)
     }
