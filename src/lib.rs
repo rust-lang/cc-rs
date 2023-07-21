@@ -3121,15 +3121,18 @@ impl Build {
         self.force_frame_pointer.unwrap_or_else(|| self.get_debug())
     }
 
-    fn get_out_dir(&self) -> Result<PathBuf, Error> {
+    fn get_out_dir(&self) -> Result<Cow<'_, Path>, Error> {
         match &self.out_dir {
-            Some(p) => Ok((**p).into()),
-            None => Ok(env::var_os("OUT_DIR").map(PathBuf::from).ok_or_else(|| {
-                Error::new(
-                    ErrorKind::EnvVarNotFound,
-                    "Environment variable OUT_DIR not defined.",
-                )
-            })?),
+            Some(p) => Ok(Cow::Borrowed(&**p)),
+            None => env::var_os("OUT_DIR")
+                .map(PathBuf::from)
+                .map(Cow::Owned)
+                .ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::EnvVarNotFound,
+                        "Environment variable OUT_DIR not defined.",
+                    )
+                }),
         }
     }
 
