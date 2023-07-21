@@ -126,7 +126,7 @@ pub struct Build {
     warnings_into_errors: bool,
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
-    env_cache: Arc<Mutex<HashMap<String, Option<String>>>>,
+    env_cache: Arc<Mutex<HashMap<String, Option<Arc<str>>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
     emit_rerun_if_env_changed: bool,
 }
@@ -1605,9 +1605,8 @@ impl Build {
                     Some(true) => "-MT",
                     Some(false) => "-MD",
                     None => {
-                        let features = self
-                            .getenv("CARGO_CFG_TARGET_FEATURE")
-                            .unwrap_or(String::new());
+                        let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
+                        let features = features.as_deref().unwrap_or_default();
                         if features.contains("crt-static") {
                             "-MT"
                         } else {
@@ -1827,9 +1826,8 @@ impl Build {
                 }
 
                 if self.static_flag.is_none() {
-                    let features = self
-                        .getenv("CARGO_CFG_TARGET_FEATURE")
-                        .unwrap_or(String::new());
+                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
+                    let features = features.as_deref().unwrap_or_default();
                     if features.contains("crt-static") {
                         cmd.args.push("-static".into());
                     }
@@ -2381,6 +2379,7 @@ impl Build {
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
+        let target = &*target;
         let (env, msvc, gnu, traditional, clang) = if self.cpp {
             ("CXX", "cl.exe", "g++", "c++", "clang++")
         } else {
@@ -2412,7 +2411,7 @@ impl Build {
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::with_clang_driver(PathBuf::from(tool.trim()), driver_mode);
+                let mut t = Tool::with_clang_driver(tool, driver_mode);
                 if let Some(cc_wrapper) = wrapper {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2472,7 +2471,7 @@ impl Build {
                     format!("arm-kmc-eabi-{}", gnu)
                 } else if target.starts_with("aarch64-kmc-solid_") {
                     format!("aarch64-kmc-elf-{}", gnu)
-                } else if self.get_host()? != target {
+                } else if &*self.get_host()? != target {
                     let prefix = self.prefix_for_target(&target);
                     match prefix {
                         Some(prefix) => {
@@ -2499,10 +2498,10 @@ impl Build {
                 "CUDA compilation currently assumes empty pre-existing args"
             );
             let nvcc = match self.getenv_with_target_prefixes("NVCC") {
-                Err(_) => "nvcc".into(),
-                Ok(nvcc) => nvcc,
+                Err(_) => PathBuf::from("nvcc"),
+                Ok(nvcc) => PathBuf::from(&*nvcc),
             };
-            let mut nvcc_tool = Tool::with_features(PathBuf::from(nvcc), None, self.cuda);
+            let mut nvcc_tool = Tool::with_features(nvcc, None, self.cuda);
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());
@@ -2589,7 +2588,7 @@ impl Build {
     }
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
-    fn env_tool(&self, name: &str) -> Option<(String, Option<String>, Vec<String>)> {
+    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<String>, Vec<String>)> {
         let tool = match self.getenv_with_target_prefixes(name) {
             Ok(tool) => tool,
             Err(_) => return None,
@@ -2598,8 +2597,8 @@ impl Build {
         // If this is an exact path on the filesystem we don't want to do any
         // interpretation at all, just pass it on through. This'll hopefully get
         // us to support spaces-in-paths.
-        if Path::new(&tool).exists() {
-            return Some((tool, None, Vec::new()));
+        if Path::new(&*tool).exists() {
+            return Some((PathBuf::from(&*tool), None, Vec::new()));
         }
 
         // Ok now we want to handle a couple of scenarios. We'll assume from
@@ -2638,7 +2637,7 @@ impl Build {
         if known_wrappers.contains(&file_stem) {
             if let Some(compiler) = parts.next() {
                 return Some((
-                    compiler.to_string(),
+                    compiler.into(),
                     Some(maybe_wrapper.to_string()),
                     parts.map(|s| s.to_string()).collect(),
                 ));
@@ -2646,7 +2645,7 @@ impl Build {
         }
 
         Some((
-            maybe_wrapper.to_string(),
+            maybe_wrapper.into(),
             Self::rustc_wrapper_fallback(),
             parts.map(|s| s.to_string()).collect(),
         ))
@@ -2665,7 +2664,7 @@ impl Build {
                     if stdlib.is_empty() {
                         Ok(None)
                     } else {
-                        Ok(Some(stdlib))
+                        Ok(Some(stdlib.to_string()))
                     }
                 } else {
                     let target = self.get_target()?;
@@ -3070,30 +3069,30 @@ impl Build {
             prefixes.first().map(|prefix| *prefix))
     }
 
-    fn get_target(&self) -> Result<Cow<str>, Error> {
+    fn get_target(&self) -> Result<Arc<str>, Error> {
         match &self.target {
-            Some(t) => Ok(Cow::Borrowed(&t)),
-            None => Ok(Cow::Owned(self.getenv_unwrap("TARGET")?)),
+            Some(t) => Ok(t.clone()),
+            None => self.getenv_unwrap("TARGET"),
         }
     }
 
-    fn get_host(&self) -> Result<Cow<str>, Error> {
+    fn get_host(&self) -> Result<Arc<str>, Error> {
         match &self.host {
-            Some(h) => Ok(Cow::Borrowed(&h)),
-            None => Ok(Cow::Owned(self.getenv_unwrap("HOST")?)),
+            Some(h) => Ok(h.clone()),
+            None => self.getenv_unwrap("HOST"),
         }
     }
 
-    fn get_opt_level(&self) -> Result<Cow<str>, Error> {
+    fn get_opt_level(&self) -> Result<Arc<str>, Error> {
         match &self.opt_level {
-            Some(ol) => Ok(Cow::Borrowed(&ol)),
-            None => Ok(Cow::Owned(self.getenv_unwrap("OPT_LEVEL")?)),
+            Some(ol) => Ok(ol.clone()),
+            None => self.getenv_unwrap("OPT_LEVEL"),
         }
     }
 
     fn get_debug(&self) -> bool {
         self.debug.unwrap_or_else(|| match self.getenv("DEBUG") {
-            Some(s) => s != "false",
+            Some(s) => &*s != "false",
             None => false,
         })
     }
@@ -3136,7 +3135,7 @@ impl Build {
         }
     }
 
-    fn getenv(&self, v: &str) -> Option<String> {
+    fn getenv(&self, v: &str) -> Option<Arc<str>> {
         // Returns true for environment variables cargo sets for build scripts:
         // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
         //
@@ -3158,13 +3157,13 @@ impl Build {
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) {
             self.print(&format_args!("cargo:rerun-if-env-changed={}", v));
         }
-        let r = env::var(v).ok();
+        let r = env::var(v).ok().map(Arc::from);
         self.print(&format_args!("{} = {:?}", v, r));
         cache.insert(v.to_string(), r.clone());
         r
     }
 
-    fn getenv_unwrap(&self, v: &str) -> Result<String, Error> {
+    fn getenv_unwrap(&self, v: &str) -> Result<Arc<str>, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
             None => Err(Error::new(
@@ -3174,7 +3173,7 @@ impl Build {
         }
     }
 
-    fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<String, Error> {
+    fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<Arc<str>, Error> {
         let target = self.get_target()?;
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
