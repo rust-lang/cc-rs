@@ -1260,6 +1260,15 @@ impl Build {
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
         use std::sync::{mpsc::channel, Once};
 
+        if objs.len() <= 1 {
+            for obj in objs {
+                let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
+                run(&mut cmd, &name, print)?;
+            }
+
+            return Ok(());
+        }
+
         // Limit our parallelism globally with a jobserver. Start off by
         // releasing our own token for this process so we can have a bit of an
         // easier to write loop below. If this fails, though, then we're likely
