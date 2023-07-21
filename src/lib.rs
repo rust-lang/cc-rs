@@ -1642,6 +1642,13 @@ impl Build {
                     cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
                 }
 
+                if cmd.family == ToolFamily::Clang && target.contains("windows") {
+                    // Disambiguate mingw and msvc on Windows. Problem is that
+                    // depending on the origin clang can default to a mismatchig
+                    // run-time.
+                    cmd.push_cc_arg(format!("--target={}", target).into());
+                }
+
                 if cmd.family == ToolFamily::Clang && target.contains("android") {
                     // For compatibility with code that doesn't use pre-defined `__ANDROID__` macro.
                     // If compiler used via ndk-build or cmake (officially supported build methods)
@@ -2573,6 +2580,10 @@ impl Build {
                     tool.env.push((k.to_owned(), v.to_owned()));
                 }
             }
+        }
+
+        if target.contains("msvc") && tool.family == ToolFamily::Gnu {
+            println!("cargo:warning=GNU compiler is not supported for this target");
         }
 
         Ok(tool)
