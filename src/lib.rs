@@ -2549,13 +2549,7 @@ impl Build {
         }
 
         if target.contains("msvc") && tool.family == ToolFamily::Gnu {
-            println!(
-                concat!(
-                    "cargo:warning=GNU compiler is not supported for this target, ",
-                    "consider --target={} instead."
-                ),
-                target.replace("msvc", "gnu")
-            );
+            println!("cargo:warning=GNU compiler is not supported for this target");
         }
 
         Ok(tool)
