@@ -81,6 +81,8 @@ mod com;
 mod setup_config;
 #[cfg(windows)]
 mod vs_instances;
+#[cfg(windows)]
+mod windows_sys;
 
 pub mod windows_registry;
 

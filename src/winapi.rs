@@ -11,19 +11,12 @@ use std::os::raw;
 
 pub type wchar_t = u16;
 
-pub use windows_sys::{
-    core::GUID,
-    Win32::{
-        Foundation::FILETIME,
-        System::Com::{SAFEARRAY, SAFEARRAYBOUND},
-    },
-};
+pub use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY, SAFEARRAYBOUND};
 
 pub type REFIID = *const IID;
 pub type IID = GUID;
 pub type ULONG = raw::c_ulong;
 pub type DWORD = u32;
-pub type HRESULT = raw::c_long;
 pub type LPFILETIME = *mut FILETIME;
 pub type OLECHAR = WCHAR;
 pub type WCHAR = wchar_t;

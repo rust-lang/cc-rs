@@ -14,18 +14,12 @@ use crate::{
         IUnknown, IUnknownVtbl, Interface, LCID, LPCOLESTR, LPCWSTR, LPFILETIME, LPSAFEARRAY,
         PULONGLONG, ULONG,
     },
+    windows_sys::{CoCreateInstance, BSTR, CLSCTX_ALL, HRESULT, S_FALSE},
 };
 
 use std::{
     ffi::OsString,
     ptr::{null, null_mut},
-};
-use windows_sys::{
-    core::{BSTR, HRESULT},
-    Win32::{
-        Foundation::S_FALSE,
-        System::Com::{CoCreateInstance, CLSCTX_ALL},
-    },
 };
 
 // Bindings to the Setup.Configuration stuff
