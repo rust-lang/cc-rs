@@ -8,19 +8,16 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use crate::windows_sys::{
+    RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, ERROR_NO_MORE_ITEMS,
+    ERROR_SUCCESS, HKEY, HKEY_LOCAL_MACHINE, KEY_READ, KEY_WOW64_32KEY, REG_SZ,
+};
 use std::{
     ffi::{OsStr, OsString},
     io,
     ops::RangeFrom,
     os::windows::prelude::*,
     ptr::null_mut,
-};
-use windows_sys::Win32::{
-    Foundation::{ERROR_NO_MORE_ITEMS, ERROR_SUCCESS},
-    System::Registry::{
-        RegCloseKey, RegEnumKeyExW, RegOpenKeyExW, RegQueryValueExW, HKEY, HKEY_LOCAL_MACHINE,
-        KEY_READ, KEY_WOW64_32KEY, REG_SZ,
-    },
 };
 
 /// Must never be `HKEY_PERFORMANCE_DATA`.
@@ -59,7 +56,7 @@ impl RegistryKey {
     /// Open a sub-key of `self`.
     pub fn open(&self, key: &OsStr) -> io::Result<RegistryKey> {
         let key = key.encode_wide().chain(Some(0)).collect::<Vec<_>>();
-        let mut ret = 0;
+        let mut ret = null_mut();
         let err = unsafe {
             RegOpenKeyExW(
                 self.raw(),

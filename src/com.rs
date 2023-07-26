@@ -7,7 +7,13 @@
 
 #![allow(unused)]
 
-use crate::winapi::{IUnknown, Interface};
+use crate::{
+    winapi::{IUnknown, Interface},
+    windows_sys::{
+        CoInitializeEx, SysFreeString, SysStringLen, BSTR, COINIT_MULTITHREADED, HRESULT, S_FALSE,
+        S_OK,
+    },
+};
 use std::{
     ffi::{OsStr, OsString},
     mem::ManuallyDrop,
@@ -15,13 +21,6 @@ use std::{
     os::windows::ffi::{OsStrExt, OsStringExt},
     ptr::{null, null_mut},
     slice::from_raw_parts,
-};
-use windows_sys::{
-    core::{BSTR, HRESULT},
-    Win32::{
-        Foundation::{SysFreeString, SysStringLen, S_FALSE, S_OK},
-        System::Com::{CoInitializeEx, COINIT_MULTITHREADED},
-    },
 };
 
 pub fn initialize() -> Result<(), HRESULT> {
