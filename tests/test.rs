@@ -293,20 +293,6 @@ fn gnu_compile_assembly() {
 }
 
 #[test]
-fn gnu_shared() {
-    reset_env();
-
-    let test = Test::gnu();
-    test.gcc()
-        .file("foo.c")
-        .shared_flag(true)
-        .static_flag(false)
-        .compile("foo");
-
-    test.cmd(0).must_have("-shared").must_not_have("-static");
-}
-
-#[test]
 fn gnu_flag_if_supported() {
     reset_env();
 
@@ -342,20 +328,6 @@ fn gnu_flag_if_supported_cpp() {
         .compile("foo");
 
     test.cmd(0).must_have("-std=c++11");
-}
-
-#[test]
-fn gnu_static() {
-    reset_env();
-
-    let test = Test::gnu();
-    test.gcc()
-        .file("foo.c")
-        .shared_flag(false)
-        .static_flag(true)
-        .compile("foo");
-
-    test.cmd(0).must_have("-static").must_not_have("-shared");
 }
 
 #[test]

@@ -597,8 +597,8 @@ impl Build {
 
     /// Set the `-shared` flag.
     ///
-    /// When enabled, the compiler will produce a shared object which can
-    /// then be linked with other objects to form an executable.
+    /// The method is reserved for linking a shared library, currently
+    /// a no-op.
     ///
     /// # Example
     ///
@@ -615,18 +615,8 @@ impl Build {
 
     /// Set the `-static` flag.
     ///
-    /// When enabled on systems that support dynamic linking, this prevents
-    /// linking with the shared libraries.
+    /// This is a no-op method retained for backward compatibility.
     ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// cc::Build::new()
-    ///     .file("src/foo.c")
-    ///     .shared_flag(true)
-    ///     .static_flag(true)
-    ///     .compile("foo");
-    /// ```
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
         self.static_flag = Some(static_flag);
         self
@@ -798,9 +788,8 @@ impl Build {
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
-    ///     .shared_flag(true)
     ///     .cpp_link_stdlib("stdc++")
-    ///     .compile("libfoo.so");
+    ///     .compile("foo");
     /// ```
     pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
         &mut self,
@@ -1843,14 +1832,6 @@ impl Build {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
 
-                if self.static_flag.is_none() {
-                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
-                    let features = features.as_deref().unwrap_or_default();
-                    if features.contains("crt-static") {
-                        cmd.args.push("-static".into());
-                    }
-                }
-
                 // armv7 targets get to use armv7 instructions
                 if (target.starts_with("armv7") || target.starts_with("thumbv7"))
                     && (target.contains("-linux-") || target.contains("-kmc-solid_"))
@@ -2029,13 +2010,6 @@ impl Build {
 
         if target.contains("apple-ios") || target.contains("apple-watchos") {
             self.ios_watchos_flags(cmd)?;
-        }
-
-        if self.static_flag.unwrap_or(false) {
-            cmd.args.push("-static".into());
-        }
-        if self.shared_flag.unwrap_or(false) {
-            cmd.args.push("-shared".into());
         }
 
         if self.cpp {
