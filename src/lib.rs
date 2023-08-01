@@ -3737,7 +3737,9 @@ fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str)
 
 // Rust and clang/cc don't agree on how to name the target.
 fn map_darwin_target_from_rust_to_compiler_architecture(target: &str) -> Option<&'static str> {
-    if target.contains("x86_64") {
+    if target.contains("x86_64h") {
+        Some("x86_64h")
+    } else if target.contains("x86_64") {
         Some("x86_64")
     } else if target.contains("arm64e") {
         Some("arm64e")
