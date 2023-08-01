@@ -535,11 +535,8 @@ impl Build {
             is_arm,
         );
 
-        // We need to explicitly tell msvc not to link and create an exe
-        // in the root directory of the crate
-        if target.contains("msvc") && !self.cuda {
-            cmd.arg("-c");
-        }
+        // Checking for compiler flags does not require linking
+        cmd.arg("-c");
 
         cmd.arg(&src);
 
