@@ -3828,14 +3828,20 @@ impl PrintThread {
         // location to another.
         let print = thread::spawn(move || {
             let mut stderr = BufReader::with_capacity(4096, pipe_reader);
-            let mut line = String::with_capacity(20);
-            let mut stdout = io::stdout();
+            let mut line = Vec::with_capacity(20);
+            let stdout = io::stdout();
 
-            // read_line returns 0 on Eof
-            while stderr.read_line(&mut line).unwrap() != 0 {
-                writeln!(&mut stdout, "cargo:warning={}", line).ok();
+            // read_until returns 0 on Eof
+            while stderr.read_until(b'\n', &mut line).unwrap() != 0 {
+                {
+                    let mut stdout = stdout.lock();
 
-                // read_line does not clear the buffer
+                    stdout.write_all(b"cargo:warning=").unwrap();
+                    stdout.write_all(&line).unwrap();
+                    stdout.write_all(b"\n").unwrap();
+                }
+
+                // read_until does not clear the buffer
                 line.clear();
             }
         });
