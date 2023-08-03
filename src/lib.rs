@@ -1304,11 +1304,22 @@ impl Build {
         // Since jobserver::Client::acquire can block, waiting
         // must be done in parallel so that acquire won't block forever.
         let wait_thread = thread::Builder::new().spawn(move || {
+            let mut error = None;
+
             for (cmd, program, mut child, _token) in rx {
-                wait_on_child(&cmd, &program, &mut child.0)?;
+                if let Err(err) = wait_on_child(&cmd, &program, &mut child.0) {
+                    // Since we can only return one error, log the error to make
+                    // sure users always see all the compilation failures.
+                    println!("cargo:warning={}", err);
+                    error = Some(err);
+                }
             }
 
-            Ok(())
+            if let Some(err) = error {
+                Err(err)
+            } else {
+                Ok(())
+            }
         })?;
 
         for obj in objs {
@@ -1317,10 +1328,10 @@ impl Build {
 
             let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
 
-            if tx.send((cmd, program, KillOnDrop(child), token)).is_err() {
-                break;
-            }
+            tx.send((cmd, program, KillOnDrop(child), token))
+                .expect("Wait thread must be alive until all compilation jobs are done, otherwise we risk deadlock");
         }
+        // Drop tx so that the wait_thread could return
         drop(tx);
 
         return wait_thread.join().expect("wait_thread panics");
