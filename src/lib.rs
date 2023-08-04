@@ -1832,8 +1832,8 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target = env::var("IPHONEOS_DEPLOYMENT_TARGET")
-                                .unwrap_or_else(|_| "7.0".into());
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::Ios, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-ios{}-simulator",
@@ -1846,8 +1846,8 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target = env::var("WATCHOS_DEPLOYMENT_TARGET")
-                                .unwrap_or_else(|_| "5.0".into());
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::WatchOs, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-watchos{}-simulator",
@@ -2450,7 +2450,7 @@ impl Build {
             }
         };
 
-        let min_version = self.apple_deployment_version(os, &target, arch_str);
+        let min_version = self.apple_deployment_version(os, &target, Some(arch_str));
         let (sdk_prefix, sim_prefix) = match os {
             AppleOs::MacOs => ("macosx", ""),
             AppleOs::Ios => ("iphone", "ios-"),
@@ -3404,7 +3404,12 @@ impl Build {
         Ok(ret)
     }
 
-    fn apple_deployment_version(&self, os: AppleOs, target: &str, arch_str: &str) -> String {
+    fn apple_deployment_version(
+        &self,
+        os: AppleOs,
+        target: &str,
+        arch_str: Option<&str>,
+    ) -> String {
         fn rustc_provided_target(rustc: Option<&str>, target: &str) -> Option<String> {
             let rustc = rustc?;
             let output = Command::new(rustc)
@@ -3438,7 +3443,7 @@ impl Build {
                 .ok()
                 .or_else(|| rustc_provided_target(rustc, target))
                 .unwrap_or_else(|| {
-                    if arch_str == "aarch64" {
+                    if arch_str == Some("aarch64") {
                         "11.0"
                     } else {
                         "10.7"
@@ -3452,7 +3457,7 @@ impl Build {
             AppleOs::WatchOs => env::var("WATCHOS_DEPLOYMENT_TARGET")
                 .ok()
                 .or_else(|| rustc_provided_target(rustc, target))
-                .unwrap_or_else(|| "2.0".into()),
+                .unwrap_or_else(|| "5.0".into()),
         }
     }
 
