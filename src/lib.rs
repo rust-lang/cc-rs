@@ -2367,31 +2367,16 @@ impl Build {
             Catalyst(&'static str),
         }
 
-        enum Os {
-            MacOs,
-            Ios,
-            WatchOs,
-        }
-        impl std::fmt::Debug for Os {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                match self {
-                    Os::MacOs => f.write_str("macOS"),
-                    Os::Ios => f.write_str("iOS"),
-                    Os::WatchOs => f.write_str("WatchOS"),
-                }
-            }
-        }
-
         let target = self.get_target()?;
         let os = if target.contains("-darwin") {
-            Os::MacOs
+            AppleOs::MacOs
         } else if target.contains("-watchos") {
-            Os::WatchOs
+            AppleOs::WatchOs
         } else {
-            Os::Ios
+            AppleOs::Ios
         };
         let is_mac = match os {
-            Os::MacOs => true,
+            AppleOs::MacOs => true,
             _ => false,
         };
 
@@ -2465,29 +2450,11 @@ impl Build {
             }
         };
 
-        let (sdk_prefix, sim_prefix, min_version) = match os {
-            Os::MacOs => (
-                "macosx",
-                "",
-                std::env::var("MACOSX_DEPLOYMENT_TARGET").unwrap_or_else(|_| {
-                    (if arch_str == "aarch64" {
-                        "11.0"
-                    } else {
-                        "10.7"
-                    })
-                    .into()
-                }),
-            ),
-            Os::Ios => (
-                "iphone",
-                "ios-",
-                std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into()),
-            ),
-            Os::WatchOs => (
-                "watch",
-                "watch",
-                std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into()),
-            ),
+        let min_version = self.apple_deployment_version(os, &target, arch_str);
+        let (sdk_prefix, sim_prefix) = match os {
+            AppleOs::MacOs => ("macosx", ""),
+            AppleOs::Ios => ("iphone", "ios-"),
+            AppleOs::WatchOs => ("watch", "watch"),
         };
 
         let sdk = match arch {
@@ -3437,6 +3404,58 @@ impl Build {
         Ok(ret)
     }
 
+    fn apple_deployment_version(&self, os: AppleOs, target: &str, arch_str: &str) -> String {
+        fn rustc_provided_target(rustc: Option<&str>, target: &str) -> Option<String> {
+            let rustc = rustc?;
+            let output = Command::new(rustc)
+                .args(&["--target", target])
+                .args(&["--print", "deployment-target"])
+                .output()
+                .ok()?;
+
+            if output.status.success() {
+                std::str::from_utf8(&output.stdout)
+                    .unwrap()
+                    .strip_prefix("deployment_target=")
+                    .map(|v| v.trim())
+                    .map(ToString::to_string)
+            } else {
+                // rustc is < 1.71
+                None
+            }
+        }
+
+        let rustc = self.getenv("RUSTC");
+        let rustc = rustc.as_deref();
+        // note the hardcoded minimums here are subject to change in a future compiler release,
+        // so the ones rustc knows about are preferred. For any compiler version that has bumped them
+        // though, `--print deployment-target` will be present and the fallbacks won't be used.
+        //
+        // the ordering of env -> rustc -> old defaults is intentional for performance when using
+        // an explicit target
+        match os {
+            AppleOs::MacOs => env::var("MACOSX_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| {
+                    if arch_str == "aarch64" {
+                        "11.0"
+                    } else {
+                        "10.7"
+                    }
+                    .into()
+                }),
+            AppleOs::Ios => env::var("IPHONEOS_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| "7.0".into()),
+            AppleOs::WatchOs => env::var("WATCHOS_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| "2.0".into()),
+        }
+    }
+
     fn cuda_file_count(&self) -> usize {
         self.files
             .iter()
@@ -3821,6 +3840,22 @@ fn command_add_output_file(
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(&dst);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AppleOs {
+    MacOs,
+    Ios,
+    WatchOs,
+}
+impl std::fmt::Debug for AppleOs {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            AppleOs::MacOs => f.write_str("macOS"),
+            AppleOs::Ios => f.write_str("iOS"),
+            AppleOs::WatchOs => f.write_str("WatchOS"),
+        }
     }
 }
 
