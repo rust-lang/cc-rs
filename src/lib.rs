@@ -108,6 +108,7 @@ pub struct Build {
     cpp_set_stdlib: Option<Arc<str>>,
     cuda: bool,
     cudart: Option<Arc<str>>,
+    std: Option<Arc<str>>,
     target: Option<Arc<str>>,
     host: Option<Arc<str>>,
     out_dir: Option<Arc<Path>>,
@@ -314,6 +315,7 @@ impl Build {
             cpp_set_stdlib: None,
             cuda: false,
             cudart: None,
+            std: None,
             target: None,
             host: None,
             out_dir: None,
@@ -705,6 +707,37 @@ impl Build {
         if self.cuda {
             self.cudart = Some(cudart.into());
         }
+        self
+    }
+
+    /// Specify the C or C++ language standard version.
+    ///
+    /// These values are common to modern versions of GCC, Clang and MSVC:
+    /// - `c11` for ISO/IEC 9899:2011
+    /// - `c17` for ISO/IEC 9899:2018
+    /// - `c++14` for ISO/IEC 14882:2014
+    /// - `c++17` for ISO/IEC 14882:2017
+    /// - `c++20` for ISO/IEC 14882:2020
+    ///
+    /// Other values have less broad support, e.g. MSVC does not support `c++11`
+    /// (`c++14` is the minimum), `c89` (omit the flag instead) or `c99`.
+    ///
+    /// For compiling C++ code, you should also set `.cpp(true)`.
+    ///
+    /// The default is that no standard flag is passed to the compiler, so the
+    /// language version will be the compiler's default.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/modern.cpp")
+    ///     .cpp(true)
+    ///     .std("c++17")
+    ///     .compile("modern");
+    /// ```
+    pub fn std(&mut self, std: &str) -> &mut Build {
+        self.std = Some(std.into());
         self
     }
 
@@ -1611,6 +1644,14 @@ impl Build {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
         } else {
             println!("Info: default compiler flags are disabled");
+        }
+
+        if let Some(ref std) = self.std {
+            let separator = match cmd.family {
+                ToolFamily::Msvc { .. } => ':',
+                ToolFamily::Gnu | ToolFamily::Clang => '=',
+            };
+            cmd.push_cc_arg(format!("-std{}{}", separator, std).into());
         }
 
         if let Ok(flags) = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {

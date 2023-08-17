@@ -367,6 +367,14 @@ fn gnu_no_dash_dash() {
 }
 
 #[test]
+fn gnu_std_c() {
+    let test = Test::gnu();
+    test.gcc().file("foo.c").std("c11").compile("foo");
+
+    test.cmd(0).must_have("-std=c11");
+}
+
+#[test]
 fn msvc_smoke() {
     reset_env();
 
@@ -441,6 +449,14 @@ fn msvc_no_dash_dash() {
     test.gcc().file("foo.c").compile("foo");
 
     test.cmd(0).must_not_have("--");
+}
+
+#[test]
+fn msvc_std_c() {
+    let test = Test::msvc();
+    test.gcc().file("foo.c").std("c11").compile("foo");
+
+    test.cmd(0).must_have("-std:c11");
 }
 
 // Disable this test with the parallel feature because the execution
