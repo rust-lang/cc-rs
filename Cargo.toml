@@ -21,7 +21,9 @@ edition = "2018"
 jobserver = { version = "0.1.16", optional = true }
 
 [target.'cfg(unix)'.dependencies]
-libc = "0.2.62"
+# Don't turn on the feature "std" for this, see https://github.com/rust-lang/cargo/issues/4866
+# which is still an issue with `resolver = "1"`.
+libc = { version = "0.2.62", default-features = false }
 
 [features]
 parallel = ["jobserver"]
