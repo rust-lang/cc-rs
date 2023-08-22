@@ -1,6 +1,10 @@
 name: CI
 on: [push, pull_request]
 
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+
 jobs:
   test:
     name: Test
@@ -64,15 +68,13 @@ jobs:
             rust: stable-x86_64
             target: x86_64-pc-windows-msvc
     steps:
-    - uses: actions/checkout@master
-    - name: Update Rustup (temporary workaround)
-      run: rustup self update
-      shell: bash
-      if: startsWith(matrix.os, 'windows')
+    - uses: actions/checkout@v3
     - name: Install Rust (rustup)
-      run: rustup update ${{ matrix.rust }} --no-self-update && rustup default ${{ matrix.rust }}
+      run: |
+        set -euxo pipefail
+        rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal --target ${{ matrix.target }}
+        rustup default ${{ matrix.rust }}
       shell: bash
-    - run: rustup target add ${{ matrix.target }}
     - name: Install g++-multilib
       run: |
         set -e
@@ -84,7 +86,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install g++-multilib
       if: matrix.build == 'linux32'
-    - run: cargo build
     - run: cargo test ${{ matrix.no_run }}
     - run: cargo test ${{ matrix.no_run }} --features parallel
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }}
@@ -95,20 +96,19 @@ jobs:
     name: Test CUDA support
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@master
-    - name: Install cuda-minimal-build-11-6
+    - uses: actions/checkout@v3
+    - name: Install cuda-minimal-build-11-8
       shell: bash
       run: |
         # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-ubuntu2004.pin
-        sudo mv cuda-ubuntu2004.pin /etc/apt/preferences.d/cuda-repository-pin-600
-        sudo apt-key adv --fetch-keys https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/3bf863cc.pub
-        sudo add-apt-repository "deb https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/ /"
+        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+        sudo dpkg -i cuda-keyring_1.0-1_all.deb
         sudo apt-get update
-        sudo apt-get -y install cuda-minimal-build-11-6
+        sudo apt-get -y install cuda-minimal-build-11-8
     - name: Test 'cudart' feature
       shell: bash
-      run: env PATH=/usr/local/cuda/bin:$PATH cargo test --manifest-path cc-test/Cargo.toml --features test_cuda
+      run: |
+        PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path cc-test/Cargo.toml --features test_cuda
 
   msrv:
     name: MSRV
@@ -117,17 +117,22 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v3
     - name: Install Rust
-      run: rustup update 1.34.0 --no-self-update && rustup default 1.34.0
+      run: |
+        rustup toolchain install 1.46.0 --no-self-update --profile minimal
+        rustup default 1.46.0
       shell: bash
-    - run: cargo build
+    - run: cargo check --lib
 
   rustfmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@master
+    - uses: actions/checkout@v3
     - name: Install Rust
-      run: rustup update stable && rustup default stable && rustup component add rustfmt
+      run: |
+        rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
+        rustup default stable
+      shell: bash
     - run: cargo fmt -- --check

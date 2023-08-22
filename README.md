@@ -49,7 +49,7 @@ you can call them from Rust by declaring them in
 your Rust code like so:
 
 ```rust,no_run
-extern {
+extern "C" {
     fn foo_function();
     fn bar_function(x: i32) -> i32;
 }
@@ -83,8 +83,16 @@ number of different environment variables.
          certain `TARGET`s, it also is assumed to know about other flags (most
          common is `-fPIC`).
 * `AR` - the `ar` (archiver) executable to use to build the static library.
-* `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in some cross compiling scenarios. Setting this variable will disable the generation of default compiler flags.
+* `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in
+                           some cross compiling scenarios. Setting this variable
+                           will disable the generation of default compiler
+                           flags.
 * `CXX...` - see [C++ Support](#c-support).
+
+Furthermore, projects using this crate may specify custom environment variables
+to be inspected, for example via the `Build::try_flags_from_environment`
+function. Consult the project’s own documentation or its use of the `cc` crate
+for any additional variables it may use.
 
 Each of these variables can also be supplied with certain prefixes and suffixes,
 in the following prioritized order:
@@ -94,7 +102,7 @@ in the following prioritized order:
 3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
 4. `<var>` - a plain `CC`, `AR` as above.
 
-If none of these variables exist, cc-rs uses built-in defaults
+If none of these variables exist, cc-rs uses built-in defaults.
 
 In addition to the above optional environment variables, `cc-rs` has some
 functions with hard requirements on some variables supplied by [cargo's
@@ -130,9 +138,9 @@ required varies per platform, but there are three broad categories:
 * Unix platforms require `cc` to be the C compiler. This can be found by
   installing cc/clang on Linux distributions and Xcode on macOS, for example.
 * Windows platforms targeting MSVC (e.g. your target triple ends in `-msvc`)
-  require `cl.exe` to be available and in `PATH`. This is typically found in
-  standard Visual Studio installations and the `PATH` can be set up by running
-  the appropriate developer tools shell.
+  require Visual Studio to be installed. `cc-rs` attempts to locate it, and
+  if it fails, `cl.exe` is expected to be available in `PATH`. This can be
+  set up by running the appropriate developer tools shell.
 * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
   require `cc` to be available in `PATH`. We recommend the
   [MinGW-w64](https://www.mingw-w64.org/) distribution, which is using the
@@ -155,7 +163,7 @@ fn main() {
     cc::Build::new()
         .cpp(true) // Switch to C++ library compilation.
         .file("foo.cpp")
-        .compile("libfoo.a");
+        .compile("foo");
 }
 ```
 
@@ -170,7 +178,7 @@ The C++ standard library may be linked to the crate target. By default it's `lib
             .cpp(true)
             .file("foo.cpp")
             .cpp_link_stdlib("stdc++") // use libstdc++
-            .compile("libfoo.a");
+            .compile("foo");
     }
     ```
 2. by setting the `CXXSTDLIB` environment variable.
@@ -182,7 +190,7 @@ Remember that C++ does name mangling so `extern "C"` might be required to enable
 ## CUDA C++ support
 
 `cc-rs` also supports compiling CUDA C++ libraries by using the `cuda` method
-on `Build` (currently for GNU/Clang toolchains only):
+on `Build`:
 
 ```rust,no_run
 fn main() {
@@ -200,8 +208,10 @@ fn main() {
         .flag("-gencode").flag("arch=compute_60,code=sm_60")
         // Generate code for Pascal (Jetson TX2).
         .flag("-gencode").flag("arch=compute_62,code=sm_62")
+        // Generate code in parallel
+        .flag("-t0")
         .file("bar.cu")
-        .compile("libbar.a");
+        .compile("bar");
 }
 ```
 
