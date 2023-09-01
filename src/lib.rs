@@ -1512,7 +1512,8 @@ impl Build {
         let clang = compiler.family == ToolFamily::Clang;
         let gnu = compiler.family == ToolFamily::Gnu;
 
-        let (mut cmd, name) = if msvc && asm_ext == Some(AsmFileExt::DotAsm) {
+        let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
+        let (mut cmd, name) = if is_assembler_msvc {
             self.msvc_macro_assembler()?
         } else {
             let mut cmd = compiler.to_command();
@@ -1543,7 +1544,7 @@ impl Build {
         if is_asm {
             cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
         }
-        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
+        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_assembler_msvc {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
