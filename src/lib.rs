@@ -2585,7 +2585,7 @@ impl Build {
                 } else if target.contains("apple-watchos") {
                     clang.to_string()
                 } else if target.contains("android") {
-                    autodetect_android_compiler(&target, &host, gnu, clang)
+                    autodetect_android_compiler(&target, &host, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if target == "wasm32-wasi"
@@ -3786,16 +3786,6 @@ fn command_add_output_file(
     }
 }
 
-// Use by default minimum available API level
-// See note about naming here
-// https://android.googlesource.com/platform/ndk/+/refs/heads/ndk-release-r21/docs/BuildSystemMaintainers.md#Clang
-static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
-    "aarch64-linux-android21-clang",
-    "armv7a-linux-androideabi16-clang",
-    "i686-linux-android16-clang",
-    "x86_64-linux-android21-clang",
-];
-
 // New "standalone" C/C++ cross-compiler executables from recent Android NDK
 // are just shell scripts that call main clang binary (from Android NDK) with
 // proper `--target` argument.
@@ -3817,7 +3807,7 @@ fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool 
 
 #[test]
 fn test_android_clang_compiler_uses_target_arg_internally() {
-    for version in 16..21 {
+    for version in 16..33 {
         assert!(android_clang_compiler_uses_target_arg_internally(
             &PathBuf::from(format!("armv7a-linux-androideabi{}-clang", version))
         ));
@@ -3836,50 +3826,39 @@ fn test_android_clang_compiler_uses_target_arg_internally() {
     ));
 }
 
-fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str) -> String {
-    let new_clang_key = match target {
-        "aarch64-linux-android" => Some("aarch64"),
-        "armv7-linux-androideabi" => Some("armv7a"),
-        "i686-linux-android" => Some("i686"),
-        "x86_64-linux-android" => Some("x86_64"),
-        _ => None,
+fn autodetect_android_compiler(target: &str, host: &str, clang: &str) -> String {
+    let mut triple_iter = target.split("-");
+    let triple_translated = if let Some(arch) = triple_iter.next() {
+        let arch_new = match arch {
+            "arm" | "armv7" | "armv7neon" | "thumbv7" | "thumbv7neon" => "armv7a",
+            other => other,
+        };
+        std::iter::once(arch_new)
+            .chain(triple_iter)
+            .collect::<Vec<&str>>()
+            .join("-")
+    } else {
+        target.to_string()
     };
 
-    let new_clang = new_clang_key
-        .map(|key| {
-            NEW_STANDALONE_ANDROID_COMPILERS
-                .iter()
-                .find(|x| x.starts_with(key))
-        })
-        .unwrap_or(None);
-
-    if let Some(new_clang) = new_clang {
-        if Command::new(new_clang).output().is_ok() {
-            return (*new_clang).into();
-        }
-    }
-
-    let target = target
-        .replace("armv7neon", "arm")
-        .replace("armv7", "arm")
-        .replace("thumbv7neon", "arm")
-        .replace("thumbv7", "arm");
-    let gnu_compiler = format!("{}-{}", target, gnu);
-    let clang_compiler = format!("{}-{}", target, clang);
+    // API 19 is the earliest API level supported by NDK r25b but AArch64 and x86_64 support
+    // begins at API level 21.
+    let api_level = if target.contains("aarch64") || target.contains("x86_64") {
+        "21"
+    } else {
+        "19"
+    };
+    let compiler = format!("{}{}-{}", triple_translated, api_level, clang);
 
     // On Windows, the Android clang compiler is provided as a `.cmd` file instead
     // of a `.exe` file. `std::process::Command` won't run `.cmd` files unless the
     // `.cmd` is explicitly appended to the command name, so we do that here.
-    let clang_compiler_cmd = format!("{}-{}.cmd", target, clang);
+    let windows_compiler_cmd = format!("{}.cmd", compiler);
 
-    // Check if gnu compiler is present
-    // if not, use clang
-    if Command::new(&gnu_compiler).output().is_ok() {
-        gnu_compiler
-    } else if host.contains("windows") && Command::new(&clang_compiler_cmd).output().is_ok() {
-        clang_compiler_cmd
+    if host.contains("windows") && Command::new(&windows_compiler_cmd).output().is_ok() {
+        windows_compiler_cmd
     } else {
-        clang_compiler
+        compiler
     }
 }
 
