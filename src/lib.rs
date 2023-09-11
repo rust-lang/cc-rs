@@ -3451,7 +3451,7 @@ impl Tool {
                 Some(s) => s,
                 None => {
                     // --version failed. fallback to gnu
-                    println!("cargo-warning:Running failed: {:?}", cmd);
+                    println!("cargo-warning:Failed to run: {:?}", cmd);
                     return ToolFamily::Gnu;
                 }
             };
