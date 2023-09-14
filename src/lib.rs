@@ -1832,8 +1832,8 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target = env::var("IPHONEOS_DEPLOYMENT_TARGET")
-                                .unwrap_or_else(|_| "7.0".into());
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::Ios, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-ios{}-simulator",
@@ -1846,8 +1846,8 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target = env::var("WATCHOS_DEPLOYMENT_TARGET")
-                                .unwrap_or_else(|_| "5.0".into());
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::WatchOs, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-watchos{}-simulator",
@@ -2141,8 +2141,8 @@ impl Build {
             }
         }
 
-        if target.contains("apple-ios") || target.contains("apple-watchos") {
-            self.ios_watchos_flags(cmd)?;
+        if target.contains("-apple-") {
+            self.apple_flags(cmd)?;
         }
 
         if self.static_flag.unwrap_or(false) {
@@ -2360,37 +2360,30 @@ impl Build {
         Ok(())
     }
 
-    fn ios_watchos_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+    fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
             Catalyst(&'static str),
         }
 
-        enum Os {
-            Ios,
-            WatchOs,
-        }
-        impl Display for Os {
-            fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-                match self {
-                    Os::Ios => f.write_str("iOS"),
-                    Os::WatchOs => f.write_str("WatchOS"),
-                }
-            }
-        }
-
         let target = self.get_target()?;
-        let os = if target.contains("-watchos") {
-            Os::WatchOs
+        let os = if target.contains("-darwin") {
+            AppleOs::MacOs
+        } else if target.contains("-watchos") {
+            AppleOs::WatchOs
         } else {
-            Os::Ios
+            AppleOs::Ios
+        };
+        let is_mac = match os {
+            AppleOs::MacOs => true,
+            _ => false,
         };
 
-        let arch = target.split('-').nth(0).ok_or_else(|| {
+        let arch_str = target.split('-').nth(0).ok_or_else(|| {
             Error::new(
                 ErrorKind::ArchitectureInvalid,
-                format!("Unknown architecture for {} target.", os),
+                format!("Unknown architecture for {:?} target.", os),
             )
         })?;
 
@@ -2404,11 +2397,22 @@ impl Build {
             None => false,
         };
 
-        let arch = if is_catalyst {
-            match arch {
+        let arch = if is_mac {
+            match arch_str {
+                "i686" => ArchSpec::Device("-m32"),
+                "x86_64" | "x86_64h" | "aarch64" => ArchSpec::Device("-m64"),
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::ArchitectureInvalid,
+                        "Unknown architecture for macOS target.",
+                    ));
+                }
+            }
+        } else if is_catalyst {
+            match arch_str {
                 "arm64e" => ArchSpec::Catalyst("arm64e"),
                 "arm64" | "aarch64" => ArchSpec::Catalyst("arm64"),
-                "x86_64" => ArchSpec::Catalyst("-m64"),
+                "x86_64" | "x86_64h" => ArchSpec::Catalyst("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2417,9 +2421,9 @@ impl Build {
                 }
             }
         } else if is_sim {
-            match arch {
+            match arch_str {
                 "arm64" | "aarch64" => ArchSpec::Simulator("arm64"),
-                "x86_64" => ArchSpec::Simulator("-m64"),
+                "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2428,7 +2432,7 @@ impl Build {
                 }
             }
         } else {
-            match arch {
+            match arch_str {
                 "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
                 "armv7k" => ArchSpec::Device("armv7k"),
                 "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
@@ -2436,30 +2440,29 @@ impl Build {
                 "arm64" | "aarch64" => ArchSpec::Device("arm64"),
                 "arm64_32" => ArchSpec::Device("arm64_32"),
                 "i386" | "i686" => ArchSpec::Simulator("-m32"),
-                "x86_64" => ArchSpec::Simulator("-m64"),
+                "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
-                        format!("Unknown architecture for {} target.", os),
+                        format!("Unknown architecture for {:?} target.", os),
                     ));
                 }
             }
         };
 
-        let (sdk_prefix, sim_prefix, min_version) = match os {
-            Os::Ios => (
-                "iphone",
-                "ios-",
-                std::env::var("IPHONEOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "7.0".into()),
-            ),
-            Os::WatchOs => (
-                "watch",
-                "watch",
-                std::env::var("WATCHOS_DEPLOYMENT_TARGET").unwrap_or_else(|_| "2.0".into()),
-            ),
+        let min_version = self.apple_deployment_version(os, &target, Some(arch_str));
+        let (sdk_prefix, sim_prefix) = match os {
+            AppleOs::MacOs => ("macosx", ""),
+            AppleOs::Ios => ("iphone", "ios-"),
+            AppleOs::WatchOs => ("watch", "watch"),
         };
 
         let sdk = match arch {
+            ArchSpec::Device(_) if is_mac => {
+                cmd.args
+                    .push(format!("-mmacosx-version-min={}", min_version).into());
+                "macosx".to_owned()
+            }
             ArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
@@ -2482,17 +2485,19 @@ impl Build {
             ArchSpec::Catalyst(_) => "macosx".to_owned(),
         };
 
-        self.print(&format_args!("Detecting {} SDK path for {}", os, sdk));
-        let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
-            sdkroot
-        } else {
-            self.apple_sdk_root(sdk.as_str())?
-        };
+        if !is_mac {
+            self.print(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
+            let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
+                sdkroot
+            } else {
+                self.apple_sdk_root(sdk.as_str())?
+            };
 
-        cmd.args.push("-isysroot".into());
-        cmd.args.push(sdk_path);
-        // TODO: Remove this once Apple stops accepting apps built with Xcode 13
-        cmd.args.push("-fembed-bitcode".into());
+            cmd.args.push("-isysroot".into());
+            cmd.args.push(sdk_path);
+            // TODO: Remove this once Apple stops accepting apps built with Xcode 13
+            cmd.args.push("-fembed-bitcode".into());
+        }
 
         Ok(())
     }
@@ -3399,6 +3404,63 @@ impl Build {
         Ok(ret)
     }
 
+    fn apple_deployment_version(
+        &self,
+        os: AppleOs,
+        target: &str,
+        arch_str: Option<&str>,
+    ) -> String {
+        fn rustc_provided_target(rustc: Option<&str>, target: &str) -> Option<String> {
+            let rustc = rustc?;
+            let output = Command::new(rustc)
+                .args(&["--target", target])
+                .args(&["--print", "deployment-target"])
+                .output()
+                .ok()?;
+
+            if output.status.success() {
+                std::str::from_utf8(&output.stdout)
+                    .unwrap()
+                    .strip_prefix("deployment_target=")
+                    .map(|v| v.trim())
+                    .map(ToString::to_string)
+            } else {
+                // rustc is < 1.71
+                None
+            }
+        }
+
+        let rustc = self.getenv("RUSTC");
+        let rustc = rustc.as_deref();
+        // note the hardcoded minimums here are subject to change in a future compiler release,
+        // so the ones rustc knows about are preferred. For any compiler version that has bumped them
+        // though, `--print deployment-target` will be present and the fallbacks won't be used.
+        //
+        // the ordering of env -> rustc -> old defaults is intentional for performance when using
+        // an explicit target
+        match os {
+            AppleOs::MacOs => env::var("MACOSX_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| {
+                    if arch_str == Some("aarch64") {
+                        "11.0"
+                    } else {
+                        "10.7"
+                    }
+                    .into()
+                }),
+            AppleOs::Ios => env::var("IPHONEOS_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| "7.0".into()),
+            AppleOs::WatchOs => env::var("WATCHOS_DEPLOYMENT_TARGET")
+                .ok()
+                .or_else(|| rustc_provided_target(rustc, target))
+                .unwrap_or_else(|| "5.0".into()),
+        }
+    }
+
     fn cuda_file_count(&self) -> usize {
         self.files
             .iter()
@@ -3783,6 +3845,22 @@ fn command_add_output_file(
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(&dst);
+    }
+}
+
+#[derive(Clone, Copy)]
+enum AppleOs {
+    MacOs,
+    Ios,
+    WatchOs,
+}
+impl std::fmt::Debug for AppleOs {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            AppleOs::MacOs => f.write_str("macOS"),
+            AppleOs::Ios => f.write_str("iOS"),
+            AppleOs::WatchOs => f.write_str("WatchOS"),
+        }
     }
 }
 
