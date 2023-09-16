@@ -197,6 +197,7 @@ pub struct Tool {
     cc_wrapper_args: Vec<OsString>,
     args: Vec<OsString>,
     env: Vec<(OsString, OsString)>,
+    env_remove: Vec<OsString>,
     family: ToolFamily,
     cuda: bool,
     removed_args: Vec<OsString>,
@@ -1516,12 +1517,8 @@ impl Build {
         let (mut cmd, name) = if is_assembler_msvc {
             self.msvc_macro_assembler()?
         } else {
-            let mut cmd = compiler.to_command();
-            for &(ref a, ref b) in self.env.iter() {
-                cmd.env(a, b);
-            }
             (
-                cmd,
+                compiler.to_command(),
                 compiler
                     .path
                     .file_name()
@@ -1552,9 +1549,6 @@ impl Build {
             cmd.arg("--");
         }
         cmd.arg(&obj.src);
-        if cfg!(target_os = "macos") {
-            self.fix_env_for_apple_os(&mut cmd)?;
-        }
 
         Ok((cmd, name))
     }
@@ -1563,9 +1557,7 @@ impl Build {
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
-        for &(ref a, ref b) in self.env.iter() {
-            cmd.env(a, b);
-        }
+
         cmd.arg("-E");
 
         assert!(
@@ -1709,6 +1701,19 @@ impl Build {
         if self.warnings_into_errors {
             let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
             cmd.push_cc_arg(warnings_to_errors_flag);
+        }
+
+        for (k, v) in self.env.iter() {
+            cmd.env.push((k.to_os_string(), v.to_os_string()));
+        }
+
+        if cfg!(target_os = "macos") {
+            for (k, v) in self.fixed_env_for_apple_os()? {
+                match v {
+                    Some(v) => cmd.env.push((k, v)),
+                    None => cmd.env_remove.push(k),
+                }
+            }
         }
 
         Ok(cmd)
@@ -3348,9 +3353,11 @@ impl Build {
         }
     }
 
-    fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
+    fn fixed_env_for_apple_os(&self) -> Result<HashMap<OsString, Option<OsString>>, Error> {
         let target = self.get_target()?;
         let host = self.get_host()?;
+        let mut env = HashMap::new();
+
         if host.contains("apple-darwin") && target.contains("apple-darwin") {
             // If, for example, `cargo` runs during the build of an XCode project, then `SDKROOT` environment variable
             // would represent the current target, and this is the problem for us, if we want to compile something
@@ -3362,15 +3369,16 @@ impl Build {
             if let Ok(sdkroot) = env::var("SDKROOT") {
                 if !sdkroot.contains("MacOSX") {
                     let macos_sdk = self.apple_sdk_root("macosx")?;
-                    cmd.env("SDKROOT", macos_sdk);
+                    env.insert("SDKROOT".into(), Some(macos_sdk));
                 }
             }
             // Additionally, `IPHONEOS_DEPLOYMENT_TARGET` must not be set when using the Xcode linker at
             // "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
             // although this is apparently ignored when using the linker at "/usr/bin/ld".
-            cmd.env_remove("IPHONEOS_DEPLOYMENT_TARGET");
+            env.insert("IPHONEOS_DEPLOYMENT_TARGET".into(), None);
         }
-        Ok(())
+
+        Ok(env)
     }
 
     fn apple_sdk_root(&self, sdk: &str) -> Result<OsString, Error> {
@@ -3493,6 +3501,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            env_remove: Vec::new(),
             family: family,
             cuda: false,
             removed_args: Vec::new(),
@@ -3524,6 +3533,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            env_remove: Vec::new(),
             family: family,
             cuda: cuda,
             removed_args: Vec::new(),
@@ -3612,9 +3622,14 @@ impl Tool {
             .collect::<Vec<_>>();
         cmd.args(&value);
 
-        for &(ref k, ref v) in self.env.iter() {
+        for (k, v) in self.env.iter() {
             cmd.env(k, v);
         }
+
+        for k in self.env_remove.iter() {
+            cmd.env_remove(k);
+        }
+
         cmd
     }
 
@@ -3634,10 +3649,14 @@ impl Tool {
 
     /// Returns the set of environment variables needed for this compiler to
     /// operate.
-    ///
-    /// This is typically only used for MSVC compilers currently.
     pub fn env(&self) -> &[(OsString, OsString)] {
         &self.env
+    }
+
+    /// Returns the set of environment variables needed to be removed for this
+    /// compiler to operate.
+    pub fn env_remove(&self) -> &[OsString] {
+        &self.env_remove
     }
 
     /// Returns the compiler command in format of CC environment variable.
