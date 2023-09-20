@@ -1171,6 +1171,11 @@ impl Build {
                     atlmfc_lib.display()
                 ));
             }
+
+            if compiler.family == ToolFamily::Clang {
+                // Mirror what clang does at link stage
+                self.print(&format_args!("cargo:rustc-link-arg=-defaultlib:oldnames"));
+            }
         }
 
         if self.link_lib_modifiers.is_empty() {
@@ -1710,13 +1715,6 @@ impl Build {
                     cmd.push_opt_unless_duplicate("-Os".into());
                 } else {
                     cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
-                }
-
-                if cmd.family == ToolFamily::Clang && target.contains("windows") {
-                    // Disambiguate mingw and msvc on Windows. Problem is that
-                    // depending on the origin clang can default to a mismatchig
-                    // run-time.
-                    cmd.push_cc_arg(format!("--target={}", target).into());
                 }
 
                 if cmd.family == ToolFamily::Clang && target.contains("android") {
