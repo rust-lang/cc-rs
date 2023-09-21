@@ -2202,7 +2202,20 @@ impl Build {
                 cmd.arg("-g");
             }
 
-            println!("cargo:warning=The MSVC ARM assemblers do not support -D flags");
+            for &(ref key, ref value) in self.definitions.iter() {
+                cmd.arg("-PreDefine");
+                if let Some(ref value) = *value {
+                    if let Ok(i) = value.parse::<i32>() {
+                        cmd.arg(&format!("{} SETA {}", key, i));
+                    } else if value.starts_with('"') && value.ends_with('"') {
+                        cmd.arg(&format!("{} SETS {}", key, value));
+                    } else {
+                        cmd.arg(&format!("{} SETS \"{}\"", key, value));
+                    }
+                } else {
+                    cmd.arg(&format!("{} SETL {}", key, "{TRUE}"));
+                }
+            }
         } else {
             if self.get_debug() {
                 cmd.arg("-Zi");
