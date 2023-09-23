@@ -1811,6 +1811,16 @@ impl Build {
             family.add_force_frame_pointer(cmd);
         }
 
+        if !cmd.is_like_msvc() {
+            if target.contains("i686") || target.contains("i586") {
+                cmd.args.push("-m32".into());
+            } else if target == "x86_64-unknown-linux-gnux32" {
+                cmd.args.push("-mx32".into());
+            } else if target.contains("x86_64") || target.contains("powerpc64") {
+                cmd.args.push("-m64".into());
+            }
+        }
+
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
@@ -1954,14 +1964,6 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
-                if target.contains("i686") || target.contains("i586") {
-                    cmd.args.push("-m32".into());
-                } else if target == "x86_64-unknown-linux-gnux32" {
-                    cmd.args.push("-mx32".into());
-                } else if target.contains("x86_64") || target.contains("powerpc64") {
-                    cmd.args.push("-m64".into());
-                }
-
                 if target.contains("darwin") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
@@ -3525,6 +3527,35 @@ impl Tool {
     }
 
     fn with_features(path: PathBuf, clang_driver: Option<&str>, cuda: bool) -> Self {
+        fn detect_family(path: &Path) -> ToolFamily {
+            let mut cmd = Command::new(path);
+            cmd.arg("--version");
+
+            let stdout = match run_output(&mut cmd, &path.to_string_lossy())
+                .ok()
+                .and_then(|o| String::from_utf8(o).ok())
+            {
+                Some(s) => s,
+                None => {
+                    // --version failed. fallback to gnu
+                    println!("cargo-warning:Failed to run: {:?}", cmd);
+                    return ToolFamily::Gnu;
+                }
+            };
+            if stdout.contains("clang") {
+                ToolFamily::Clang
+            } else if stdout.contains("GCC") {
+                ToolFamily::Gnu
+            } else {
+                // --version doesn't include clang for GCC
+                println!(
+                    "cargo-warning:Compiler version doesn't include clang or GCC: {:?}",
+                    cmd
+                );
+                ToolFamily::Gnu
+            }
+        }
+
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
             if fname.contains("clang-cl") {
@@ -3537,10 +3568,10 @@ impl Tool {
                     _ => ToolFamily::Clang,
                 }
             } else {
-                ToolFamily::Gnu
+                detect_family(&path)
             }
         } else {
-            ToolFamily::Gnu
+            detect_family(&path)
         };
 
         Tool {

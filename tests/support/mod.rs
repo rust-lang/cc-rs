@@ -76,7 +76,11 @@ impl Test {
         let target = if self.msvc {
             "x86_64-pc-windows-msvc"
         } else {
-            "x86_64-unknown-linux-gnu"
+            if cfg!(target_os = "macos") {
+                "x86_64-apple-darwin"
+            } else {
+                "x86_64-unknown-linux-gnu"
+            }
         };
 
         cfg.target(target)
