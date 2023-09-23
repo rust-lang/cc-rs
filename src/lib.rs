@@ -2515,7 +2515,8 @@ impl Build {
             ArchSpec::Catalyst(_) => "macosx".to_owned(),
         };
 
-        if !is_mac {
+        // AppleClang sometimes requires sysroot even for darwin
+        if cmd.is_xctoolchain_clang() || !target.ends_with("-darwin") {
             self.print(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
             let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
                 sdkroot
@@ -2525,7 +2526,10 @@ impl Build {
 
             cmd.args.push("-isysroot".into());
             cmd.args.push(sdk_path);
-            // TODO: Remove this once Apple stops accepting apps built with Xcode 13
+        }
+
+        // TODO: Remove this once Apple stops accepting apps built with Xcode 13
+        if !is_mac {
             cmd.args.push("-fembed-bitcode".into());
         }
 
@@ -3382,19 +3386,6 @@ impl Build {
         let target = self.get_target()?;
         let host = self.get_host()?;
         if host.contains("apple-darwin") && target.contains("apple-darwin") {
-            // If, for example, `cargo` runs during the build of an XCode project, then `SDKROOT` environment variable
-            // would represent the current target, and this is the problem for us, if we want to compile something
-            // for the host, when host != target.
-            // We can not just remove `SDKROOT`, because, again, for example, XCode add to PATH
-            // /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin
-            // and `cc` from this path can not find system include files, like `pthread.h`, if `SDKROOT`
-            // is not set
-            if let Ok(sdkroot) = env::var("SDKROOT") {
-                if !sdkroot.contains("MacOSX") {
-                    let macos_sdk = self.apple_sdk_root("macosx")?;
-                    cmd.env("SDKROOT", macos_sdk);
-                }
-            }
             // Additionally, `IPHONEOS_DEPLOYMENT_TARGET` must not be set when using the Xcode linker at
             // "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
             // although this is apparently ignored when using the linker at "/usr/bin/ld".
@@ -3716,6 +3707,17 @@ impl Tool {
     /// Whether the tool is Clang-like.
     pub fn is_like_clang(&self) -> bool {
         self.family == ToolFamily::Clang
+    }
+
+    /// Whether the tool is AppleClang under .xctoolchain
+    #[cfg(target_vendor = "apple")]
+    fn is_xctoolchain_clang(&self) -> bool {
+        let path = self.path.to_string_lossy();
+        path.contains(".xctoolchain/")
+    }
+    #[cfg(not(target_vendor = "apple"))]
+    fn is_xctoolchain_clang(&self) -> bool {
+        false
     }
 
     /// Whether the tool is MSVC-like.
