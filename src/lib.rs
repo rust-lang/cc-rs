@@ -2530,11 +2530,6 @@ impl Build {
             cmd.args.push(sdk_path);
         }
 
-        // TODO: Remove this once Apple stops accepting apps built with Xcode 13
-        if !is_mac {
-            cmd.args.push("-fembed-bitcode".into());
-        }
-
         Ok(())
     }
 
