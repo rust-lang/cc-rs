@@ -2616,9 +2616,7 @@ impl Build {
                         let cc = if target.contains("llvm") { clang } else { gnu };
                         format!("{}.exe", cc)
                     }
-                } else if target.contains("apple-ios") {
-                    clang.to_string()
-                } else if target.contains("apple-watchos") {
+                } else if target.contains("-apple-") && !target.contains("-darwin") {
                     clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(&target, &host, gnu, clang)
