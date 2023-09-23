@@ -3464,7 +3464,11 @@ impl Build {
                     if arch_str == Some("aarch64") {
                         "11.0"
                     } else {
-                        "10.7"
+                        if self.cpp {
+                            "10.9"
+                        } else {
+                            "10.7"
+                        }
                     }
                     .into()
                 }),
