@@ -1793,6 +1793,14 @@ impl Build {
                     cmd.push_cc_arg("-fno-plt".into());
                 }
             }
+
+            if target.contains("i686") || target.contains("i586") {
+                cmd.args.push("-m32".into());
+            } else if target == "x86_64-unknown-linux-gnux32" {
+                cmd.args.push("-mx32".into());
+            } else if target.contains("x86_64") || target.contains("powerpc64") {
+                cmd.args.push("-m64".into());
+            }
         }
 
         if self.get_debug() {
@@ -1807,16 +1815,6 @@ impl Build {
         if self.get_force_frame_pointer() {
             let family = cmd.family;
             family.add_force_frame_pointer(cmd);
-        }
-
-        if !cmd.is_like_msvc() {
-            if target.contains("i686") || target.contains("i586") {
-                cmd.args.push("-m32".into());
-            } else if target == "x86_64-unknown-linux-gnux32" {
-                cmd.args.push("-mx32".into());
-            } else if target.contains("x86_64") || target.contains("powerpc64") {
-                cmd.args.push("-m64".into());
-            }
         }
 
         // Target flags
