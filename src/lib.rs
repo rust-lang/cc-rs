@@ -1535,7 +1535,7 @@ impl Build {
             &mut cmd, &obj.dst, self.cuda, msvc, clang, gnu, is_asm, is_arm,
         );
         // armasm and armasm64 don't requrie -c option
-        if !msvc || !is_asm || !is_arm {
+        if !is_assembler_msvc || !is_arm {
             cmd.arg("-c");
         }
         if self.cuda && self.cuda_file_count() > 1 {
