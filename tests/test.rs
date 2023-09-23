@@ -343,11 +343,9 @@ fn gnu_flag_if_supported() {
         .must_not_have("-std=c++11");
 }
 
+#[cfg(not(windows))]
 #[test]
 fn gnu_flag_if_supported_cpp() {
-    if cfg!(windows) {
-        return;
-    }
     let test = Test::gnu();
     test.gcc()
         .cpp(true)
