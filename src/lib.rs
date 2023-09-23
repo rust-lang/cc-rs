@@ -2220,9 +2220,6 @@ impl Build {
         if target.contains("i686") || target.contains("i586") {
             cmd.arg("-safeseh");
         }
-        for flag in self.flags.iter() {
-            cmd.arg(&**flag);
-        }
 
         Ok((cmd, tool.to_string()))
     }
