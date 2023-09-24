@@ -450,14 +450,10 @@ mod impl_ {
 
     fn vs15plus_vc_paths(
         target: &str,
-        instance_path: &PathBuf,
+        instance_path: &Path,
     ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf, PathBuf)> {
-        let version_path =
-            instance_path.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
-        let mut version_file = File::open(version_path).ok()?;
-        let mut version = String::new();
-        version_file.read_to_string(&mut version).ok()?;
-        let version = version.trim();
+        let version = vs15plus_vc_read_version(instance_path)?;
+
         let host = match host_arch() {
             X86 => "X86",
             X86_64 => "X64",
@@ -485,6 +481,43 @@ mod impl_ {
         let lib_path = path.join("lib").join(&target);
         let include_path = path.join("include");
         Some((path, bin_path, host_dylib_path, lib_path, include_path))
+    }
+
+    fn vs15plus_vc_read_version(dir: &Path) -> Option<String> {
+        // Try to open the default version file.
+        let mut version_path: PathBuf =
+            dir.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
+        let mut version_file = if let Ok(f) = File::open(&version_path) {
+            f
+        } else {
+            // If the default doesn't exist, search for other version files.
+            // These are in the form Microsoft.VCToolsVersion.v143.default.txt
+            // where `143` is any three decimal digit version number.
+            // This sorts versions by lexical order and selects the highest version.
+            let mut version_file = String::new();
+            version_path.pop();
+            for file in version_path.read_dir().ok()? {
+                let name = file.ok()?.file_name();
+                let name = name.to_str()?;
+                if name.starts_with("Microsoft.VCToolsVersion.v")
+                    && name.ends_with(".default.txt")
+                    && name > &version_file
+                {
+                    version_file.replace_range(.., name);
+                }
+            }
+            if version_file.is_empty() {
+                return None;
+            }
+            version_path.push(version_file);
+            File::open(version_path).ok()?
+        };
+
+        // Get the version string from the file we found.
+        let mut version = String::new();
+        version_file.read_to_string(&mut version).ok()?;
+        version.truncate(version.trim_end().len());
+        Some(version)
     }
 
     fn atl_paths(target: &str, path: &Path) -> Option<(PathBuf, PathBuf)> {
