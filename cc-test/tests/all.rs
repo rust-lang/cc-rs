@@ -51,6 +51,17 @@ fn msvc_here() {
 }
 
 #[test]
+#[cfg(feature = "msvcrt")]
+fn msvcrt_here() {
+    extern "C" {
+        fn msvcrt();
+    }
+    unsafe {
+        msvcrt();
+    }
+}
+
+#[test]
 fn opt_linkage() {
     unsafe {
         assert_eq!(answer(), 42);

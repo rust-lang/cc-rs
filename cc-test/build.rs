@@ -7,6 +7,12 @@ fn main() {
     fs::remove_dir_all(&out).unwrap();
     fs::create_dir(&out).unwrap();
 
+    let target = std::env::var("TARGET").unwrap();
+
+    if target.ends_with("msvc") {
+        env::set_var("CL", "-Zl"); // drop linker directives
+    }
+
     cc::Build::new()
         .file("src/foo.c")
         .flag_if_supported("-Wall")
@@ -21,7 +27,6 @@ fn main() {
         .include("src/include")
         .compile("bar");
 
-    let target = std::env::var("TARGET").unwrap();
     let file = target.split("-").next().unwrap();
     let file = format!(
         "src/{}.{}",
@@ -55,6 +60,14 @@ fn main() {
 
     if target.contains("windows") {
         cc::Build::new().file("src/windows.c").compile("windows");
+        if target.ends_with("msvc") && which::which("clang").is_ok() {
+            cc::Build::new()
+                .compiler("clang")
+                .define("_CRT_NONSTDC_NO_WARNINGS", None)
+                .file("src/msvcrt.c")
+                .compile("nonstdcrt");
+            println!("cargo:rustc-cfg=feature=\"msvcrt\"");
+        }
     }
 
     // Test that the `windows_registry` module will set PATH by looking for
