@@ -523,18 +523,14 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        let is_arm = target.contains("aarch64") || target.contains("arm");
-        let clang = compiler.family == ToolFamily::Clang;
-        let gnu = compiler.family == ToolFamily::Gnu;
         command_add_output_file(
             &mut cmd,
             &obj,
-            self.cuda,
-            target.contains("msvc"),
-            clang,
-            gnu,
-            false,
-            is_arm,
+            !self.cuda
+                && match compiler.family {
+                    ToolFamily::Msvc { .. } => true,
+                    _ => false,
+                },
         );
 
         // We need to explicitly tell msvc not to link and create an exe
@@ -1509,8 +1505,6 @@ impl Build {
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
-        let clang = compiler.family == ToolFamily::Clang;
-        let gnu = compiler.family == ToolFamily::Gnu;
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let (mut cmd, name) = if is_assembler_msvc {
@@ -1532,7 +1526,17 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
         command_add_output_file(
-            &mut cmd, &obj.dst, self.cuda, msvc, clang, gnu, is_asm, is_arm,
+            &mut cmd,
+            &obj.dst,
+            if is_assembler_msvc {
+                !is_arm
+            } else {
+                !self.cuda
+                    && match compiler.family {
+                        ToolFamily::Msvc { .. } => true,
+                        _ => false,
+                    }
+            },
         );
         // armasm and armasm64 don't requrie -c option
         if !is_assembler_msvc || !is_arm {
@@ -3895,17 +3899,8 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
-fn command_add_output_file(
-    cmd: &mut Command,
-    dst: &Path,
-    cuda: bool,
-    msvc: bool,
-    clang: bool,
-    gnu: bool,
-    is_asm: bool,
-    is_arm: bool,
-) {
-    if msvc && !clang && !gnu && !cuda && !(is_asm && is_arm) {
+fn command_add_output_file(cmd: &mut Command, dst: &Path, msvc: bool) {
+    if msvc {
         let mut s = OsString::from("-Fo");
         s.push(&dst);
         cmd.arg(s);
