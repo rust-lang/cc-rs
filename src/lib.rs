@@ -1293,7 +1293,12 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::sync::{mpsc, Once};
+        use std::sync::{
+            mpsc::{self, Receiver, Sender},
+            Once,
+        };
+
+        use jobserver::{Acquired, Client};
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1309,10 +1314,54 @@ impl Build {
         // easier to write loop below. If this fails, though, then we're likely
         // on Windows with the main implicit token, so we just have a bit extra
         // parallelism for a bit and don't reacquire later.
-        let server = jobserver();
+        let server = jobserver().clone();
         // Reacquire our process's token on drop
-        let _reacquire = server.release_raw().ok().map(|_| JobserverToken(server));
-
+        //let _reacquire = server.release_raw().ok().map(|_| JobserverToken(server));
+        struct JobToken {
+            owned: Option<Acquired>,
+            pool: Sender<Option<Acquired>>,
+            should_return_to_queue: bool,
+        }
+        impl Drop for JobToken {
+            fn drop(&mut self) {
+                if self.should_return_to_queue {
+                    let _ = self.pool.send(self.owned.take());
+                }
+            }
+        }
+        struct JobTokenServer {
+            helper: jobserver::HelperThread,
+            tx: Sender<Option<Acquired>>,
+            rx: Receiver<Option<Acquired>>,
+        }
+        impl JobTokenServer {
+            fn new(client: Client) -> Result<Self, Error> {
+                let (tx, rx) = std::sync::mpsc::channel();
+                tx.send(None).unwrap();
+                let pool = tx.clone();
+                let helper = client.into_helper_thread(move |acq| {
+                    let _ = pool.send(Some(acq.unwrap()));
+                })?;
+                Ok(Self { helper, tx, rx })
+            }
+            fn acquire(&mut self) -> JobToken {
+                if let Ok(token) = self.rx.try_recv() {
+                    JobToken {
+                        owned: token,
+                        pool: self.tx.clone(),
+                        should_return_to_queue: true,
+                    }
+                } else {
+                    self.helper.request_token();
+                    let token = self.rx.recv().unwrap();
+                    JobToken {
+                        owned: token,
+                        pool: self.tx.clone(),
+                        should_return_to_queue: true,
+                    }
+                }
+            }
+        }
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
         //
@@ -1332,7 +1381,7 @@ impl Build {
         // acquire the appropriate tokens, Once all objects have been compiled
         // we wait on all the processes and propagate the results of compilation.
 
-        let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, _)>();
+        let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, JobToken)>();
 
         // Since jobserver::Client::acquire can block, waiting
         // must be done in parallel so that acquire won't block forever.
@@ -1345,7 +1394,7 @@ impl Build {
 
             loop {
                 let mut has_made_progress = false;
-
+                let mut is_disconnected = false;
                 // Reading new pending tasks
                 loop {
                     match rx.try_recv() {
@@ -1361,14 +1410,21 @@ impl Build {
                                 Ok(())
                             };
                         }
+                        Err(mpsc::TryRecvError::Disconnected) => {
+                            is_disconnected = true;
+                            break;
+                        }
                         _ => break,
                     }
                 }
 
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, program, child, _)| {
+                pendings.retain_mut(|(cmd, program, child, token)| {
                     match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
                         Ok(Some(())) => {
+                            if is_disconnected {
+                                token.should_return_to_queue = false;
+                            }
                             // Task done, remove the entry
                             has_made_progress = true;
                             false
@@ -1377,7 +1433,9 @@ impl Build {
                         Err(err) => {
                             // Task fail, remove the entry.
                             has_made_progress = true;
-
+                            if is_disconnected {
+                                token.should_return_to_queue = false;
+                            }
                             // Since we can only return one error, log the error to make
                             // sure users always see all the compilation failures.
                             let _ = writeln!(stdout, "cargo:warning={}", err);
@@ -1415,11 +1473,10 @@ impl Build {
                 };
             }
         })?;
-
+        let mut tokens = JobTokenServer::new(server)?;
         for obj in objs {
             let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
-            let token = server.acquire()?;
-
+            let token = tokens.acquire();
             let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
 
             tx.send((cmd, program, KillOnDrop(child), token))
