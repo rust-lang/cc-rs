@@ -66,8 +66,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
+#[cfg(feature = "parallel")]
+mod job_token;
 mod os_pipe;
-
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
@@ -1293,12 +1294,7 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::sync::{
-            mpsc::{self, Receiver, Sender},
-            Once,
-        };
-
-        use jobserver::{Acquired, Client};
+        use std::sync::mpsc;
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1309,59 +1305,10 @@ impl Build {
             return Ok(());
         }
 
-        // Limit our parallelism globally with a jobserver. Start off by
-        // releasing our own token for this process so we can have a bit of an
-        // easier to write loop below. If this fails, though, then we're likely
-        // on Windows with the main implicit token, so we just have a bit extra
-        // parallelism for a bit and don't reacquire later.
-        let server = jobserver().clone();
+        // Limit our parallelism globally with a jobserver.
+        let server = unsafe { default_jobserver() };
         // Reacquire our process's token on drop
-        //let _reacquire = server.release_raw().ok().map(|_| JobserverToken(server));
-        struct JobToken {
-            owned: Option<Acquired>,
-            pool: Sender<Option<Acquired>>,
-            should_return_to_queue: bool,
-        }
-        impl Drop for JobToken {
-            fn drop(&mut self) {
-                if self.should_return_to_queue {
-                    let _ = self.pool.send(self.owned.take());
-                }
-            }
-        }
-        struct JobTokenServer {
-            helper: jobserver::HelperThread,
-            tx: Sender<Option<Acquired>>,
-            rx: Receiver<Option<Acquired>>,
-        }
-        impl JobTokenServer {
-            fn new(client: Client) -> Result<Self, Error> {
-                let (tx, rx) = std::sync::mpsc::channel();
-                tx.send(None).unwrap();
-                let pool = tx.clone();
-                let helper = client.into_helper_thread(move |acq| {
-                    let _ = pool.send(Some(acq.unwrap()));
-                })?;
-                Ok(Self { helper, tx, rx })
-            }
-            fn acquire(&mut self) -> JobToken {
-                if let Ok(token) = self.rx.try_recv() {
-                    JobToken {
-                        owned: token,
-                        pool: self.tx.clone(),
-                        should_return_to_queue: true,
-                    }
-                } else {
-                    self.helper.request_token();
-                    let token = self.rx.recv().unwrap();
-                    JobToken {
-                        owned: token,
-                        pool: self.tx.clone(),
-                        should_return_to_queue: true,
-                    }
-                }
-            }
-        }
+
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
         //
@@ -1381,7 +1328,7 @@ impl Build {
         // acquire the appropriate tokens, Once all objects have been compiled
         // we wait on all the processes and propagate the results of compilation.
 
-        let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, JobToken)>();
+        let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, crate::job_token::JobToken)>();
 
         // Since jobserver::Client::acquire can block, waiting
         // must be done in parallel so that acquire won't block forever.
@@ -1394,6 +1341,10 @@ impl Build {
 
             loop {
                 let mut has_made_progress = false;
+                // If the other end of the pipe is already disconnected, then we're not gonna get any new jobs,
+                // so it doesn't make sense to reuse the tokens; in fact, releasing them as soon as possible (once we know that the other end is disconnected) is beneficial.
+                // Imagine that the last file built takes an hour to finish; in this scenario, by not releasing the tokens before other builds are done we'd effectively block other processes from
+                // starting sooner - even though we only need one token, not however many we've acquired.
                 let mut is_disconnected = false;
                 // Reading new pending tasks
                 loop {
@@ -1422,10 +1373,10 @@ impl Build {
                 pendings.retain_mut(|(cmd, program, child, token)| {
                     match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
                         Ok(Some(())) => {
-                            if is_disconnected {
-                                token.should_return_to_queue = false;
-                            }
                             // Task done, remove the entry
+                            if is_disconnected {
+                                token.forget();
+                            }
                             has_made_progress = true;
                             false
                         }
@@ -1434,7 +1385,7 @@ impl Build {
                             // Task fail, remove the entry.
                             has_made_progress = true;
                             if is_disconnected {
-                                token.should_return_to_queue = false;
+                                token.forget();
                             }
                             // Since we can only return one error, log the error to make
                             // sure users always see all the compilation failures.
@@ -1473,7 +1424,7 @@ impl Build {
                 };
             }
         })?;
-        let mut tokens = JobTokenServer::new(server)?;
+        let mut tokens = crate::job_token::JobTokenServer::new(server)?;
         for obj in objs {
             let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
             let token = tokens.acquire();
@@ -1486,24 +1437,6 @@ impl Build {
         drop(tx);
 
         return wait_thread.join().expect("wait_thread panics");
-
-        /// Returns a suitable `jobserver::Client` used to coordinate
-        /// parallelism between build scripts.
-        fn jobserver() -> &'static jobserver::Client {
-            static INIT: Once = Once::new();
-            static mut JOBSERVER: Option<jobserver::Client> = None;
-
-            fn _assert_sync<T: Sync>() {}
-            _assert_sync::<jobserver::Client>();
-
-            unsafe {
-                INIT.call_once(|| {
-                    let server = default_jobserver();
-                    JOBSERVER = Some(server);
-                });
-                JOBSERVER.as_ref().unwrap()
-            }
-        }
 
         unsafe fn default_jobserver() -> jobserver::Client {
             // Try to use the environmental jobserver which Cargo typically
@@ -1539,13 +1472,6 @@ impl Build {
                 let child = &mut self.0;
 
                 child.kill().ok();
-            }
-        }
-
-        struct JobserverToken(&'static jobserver::Client);
-        impl Drop for JobserverToken {
-            fn drop(&mut self) {
-                let _ = self.0.acquire_raw();
             }
         }
     }
