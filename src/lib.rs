@@ -1294,7 +1294,7 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::sync::mpsc;
+        use std::sync::{mpsc, Once};
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1306,7 +1306,7 @@ impl Build {
         }
 
         // Limit our parallelism globally with a jobserver.
-        let server = unsafe { default_jobserver() };
+        let server = jobserver();
         // Reacquire our process's token on drop
 
         // When compiling objects in parallel we do a few dirty tricks to speed
@@ -1437,6 +1437,24 @@ impl Build {
         drop(tx);
 
         return wait_thread.join().expect("wait_thread panics");
+
+        /// Returns a suitable `jobserver::Client` used to coordinate
+        /// parallelism between build scripts.
+        fn jobserver() -> jobserver::Client {
+            static INIT: Once = Once::new();
+            static mut JOBSERVER: Option<jobserver::Client> = None;
+
+            fn _assert_sync<T: Sync>() {}
+            _assert_sync::<jobserver::Client>();
+
+            unsafe {
+                INIT.call_once(|| {
+                    let server = default_jobserver();
+                    JOBSERVER = Some(server);
+                });
+                JOBSERVER.clone().unwrap()
+            }
+        }
 
         unsafe fn default_jobserver() -> jobserver::Client {
             // Try to use the environmental jobserver which Cargo typically
