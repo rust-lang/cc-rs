@@ -39,7 +39,8 @@ pub(crate) struct JobTokenServer {
 impl JobTokenServer {
     pub(crate) fn new(client: Client) -> Result<Self, crate::Error> {
         let (tx, rx) = mpsc::channel();
-        // Initialize the
+        // Push the implicit token. Since JobTokens only give back what they got,
+        // there should be at most one global implicit token in the wild.
         tx.send(None).unwrap();
         let pool = tx.clone();
         let helper = client.into_helper_thread(move |acq| {
