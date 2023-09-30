@@ -19,17 +19,20 @@ impl Drop for JobToken {
 
 impl JobToken {
     /// Ensure that this token is not put back into queue once it's dropped.
-    /// This also leads to releasing it sooner for other processes to use, which is a good thing to do once you know that
-    /// you're never going to request a token in this process again.
+    /// This also leads to releasing it sooner for other processes to use,
+    /// which is a correct thing to do once it is known that there won't be
+    /// any more token acquisitions.
     pub(crate) fn forget(&mut self) {
         self.should_return_to_queue = false;
     }
 }
 
 /// A thin wrapper around jobserver's Client.
-/// It would be perfectly fine to just use that, but we also want to reuse our own implicit token assigned for this build script.
-/// This struct manages that and gives out tokens without exposing whether they're implicit tokens or tokens from jobserver.
-/// Furthermore, instead of giving up job tokens, it keeps them around for reuse if we know we're going to request another token after freeing the current one.
+/// It would be perfectly fine to just use jobserver's Client, but we also want to reuse
+/// our own implicit token assigned for this build script. This struct manages that and
+/// gives out tokens without exposing whether they're implicit tokens or tokens from jobserver.
+/// Furthermore, instead of giving up job tokens, it keeps them around
+/// for reuse if we know we're going to request another token after freeing the current one.
 pub(crate) struct JobTokenServer {
     helper: HelperThread,
     tx: Sender<Option<Acquired>>,
@@ -51,7 +54,7 @@ impl JobTokenServer {
 
     pub(crate) fn acquire(&mut self) -> JobToken {
         let token = if let Ok(token) = self.rx.try_recv() {
-            // Opportunistically check if we already have a token for our own reuse.
+            // Opportunistically check if there's a token that can be reused.
             token
         } else {
             // Cold path, request a token and block

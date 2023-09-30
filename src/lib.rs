@@ -1342,9 +1342,11 @@ impl Build {
             loop {
                 let mut has_made_progress = false;
                 // If the other end of the pipe is already disconnected, then we're not gonna get any new jobs,
-                // so it doesn't make sense to reuse the tokens; in fact, releasing them as soon as possible (once we know that the other end is disconnected) is beneficial.
-                // Imagine that the last file built takes an hour to finish; in this scenario, by not releasing the tokens before other builds are done we'd effectively block other processes from
-                // starting sooner - even though we only need one token, not however many we've acquired.
+                // so it doesn't make sense to reuse the tokens; in fact,
+                // releasing them as soon as possible (once we know that the other end is disconnected) is beneficial.
+                // Imagine that the last file built takes an hour to finish; in this scenario,
+                // by not releasing the tokens before that last file is done we would effectively block other processes from
+                // starting sooner - even though we only need one token for that last file, not N others that were acquired.
                 let mut is_disconnected = false;
                 // Reading new pending tasks
                 loop {
