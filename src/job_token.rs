@@ -11,14 +11,15 @@ pub(crate) struct JobToken {
     /// The token can either be a fresh token obtained from the jobserver or - if `token` is None - an implicit token for this process.
     /// Both are valid values to put into queue.
     token: Option<Acquired>,
-    pool: Sender<Option<Acquired>>,
-    should_return_to_queue: bool,
+    /// A pool to which `token` should be returned. `pool` is optional, as one might want to release a token straight away instead
+    /// of storing it back in the pool - see [`Self::forget()`] function for that.
+    pool: Option<Sender<Option<Acquired>>>,
 }
 
 impl Drop for JobToken {
     fn drop(&mut self) {
-        if self.should_return_to_queue {
-            let _ = self.pool.send(self.token.take());
+        if let Some(pool) = &self.pool {
+            let _ = pool.send(self.token.take());
         }
     }
 }
@@ -29,7 +30,7 @@ impl JobToken {
     /// which is a correct thing to do once it is known that there won't be
     /// any more token acquisitions.
     pub(crate) fn forget(&mut self) {
-        self.should_return_to_queue = false;
+        self.pool.take();
     }
 }
 
@@ -69,8 +70,7 @@ impl JobTokenServer {
         };
         JobToken {
             token,
-            pool: self.tx.clone(),
-            should_return_to_queue: true,
+            pool: Some(self.tx.clone()),
         }
     }
 }
