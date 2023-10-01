@@ -1,5 +1,11 @@
 use jobserver::{Acquired, Client, HelperThread};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::{
+    env,
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Once,
+    },
+};
 
 pub(crate) struct JobToken {
     /// The token can either be a fresh token obtained from the jobserver or - if `token` is None - an implicit token for this process.
@@ -67,4 +73,49 @@ impl JobTokenServer {
             should_return_to_queue: true,
         }
     }
+}
+
+/// Returns a suitable `jobserver::Client` used to coordinate
+/// parallelism between build scripts.
+pub(super) fn jobserver() -> jobserver::Client {
+    static INIT: Once = Once::new();
+    static mut JOBSERVER: Option<jobserver::Client> = None;
+
+    fn _assert_sync<T: Sync>() {}
+    _assert_sync::<jobserver::Client>();
+
+    unsafe {
+        INIT.call_once(|| {
+            let server = default_jobserver();
+            JOBSERVER = Some(server);
+        });
+        JOBSERVER.clone().unwrap()
+    }
+}
+
+unsafe fn default_jobserver() -> jobserver::Client {
+    // Try to use the environmental jobserver which Cargo typically
+    // initializes for us...
+    if let Some(client) = jobserver::Client::from_env() {
+        return client;
+    }
+
+    // ... but if that fails for whatever reason select something
+    // reasonable and crate a new jobserver. Use `NUM_JOBS` if set (it's
+    // configured by Cargo) and otherwise just fall back to a
+    // semi-reasonable number. Note that we could use `num_cpus` here
+    // but it's an extra dependency that will almost never be used, so
+    // it's generally not too worth it.
+    let mut parallelism = 4;
+    if let Ok(amt) = env::var("NUM_JOBS") {
+        if let Ok(amt) = amt.parse() {
+            parallelism = amt;
+        }
+    }
+
+    // If we create our own jobserver then be sure to reserve one token
+    // for ourselves.
+    let client = jobserver::Client::new(parallelism).expect("failed to create jobserver");
+    client.acquire_raw().expect("failed to acquire initial");
+    return client;
 }
