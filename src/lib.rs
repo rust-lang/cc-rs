@@ -1306,8 +1306,7 @@ impl Build {
         }
 
         // Limit our parallelism globally with a jobserver.
-        let server = job_token::jobserver();
-        // Reacquire our process's token on drop
+        let mut tokens = crate::job_token::JobTokenServer::new()?;
 
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
@@ -1426,7 +1425,6 @@ impl Build {
                 };
             }
         })?;
-        let mut tokens = crate::job_token::JobTokenServer::new(server)?;
         for obj in objs {
             let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
             let token = tokens.acquire();

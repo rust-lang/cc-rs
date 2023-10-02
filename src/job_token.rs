@@ -1,4 +1,4 @@
-use jobserver::{Acquired, Client, HelperThread};
+use jobserver::{Acquired, HelperThread};
 use std::{
     env,
     sync::{
@@ -47,7 +47,8 @@ pub(crate) struct JobTokenServer {
 }
 
 impl JobTokenServer {
-    pub(crate) fn new(client: Client) -> Result<Self, crate::Error> {
+    pub(crate) fn new() -> Result<Self, crate::Error> {
+        let client = jobserver();
         let (tx, rx) = mpsc::channel();
         // Push the implicit token. Since JobTokens only give back what they got,
         // there should be at most one global implicit token in the wild.
@@ -77,7 +78,7 @@ impl JobTokenServer {
 
 /// Returns a suitable `jobserver::Client` used to coordinate
 /// parallelism between build scripts.
-pub(super) fn jobserver() -> jobserver::Client {
+fn jobserver() -> jobserver::Client {
     static INIT: Once = Once::new();
     static mut JOBSERVER: Option<jobserver::Client> = None;
 
