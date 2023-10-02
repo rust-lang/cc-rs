@@ -1,4 +1,4 @@
-use jobserver::{Acquired, HelperThread};
+use jobserver::{Acquired, Client, HelperThread};
 use std::{
     env,
     sync::{
@@ -40,15 +40,17 @@ impl JobToken {
 /// gives out tokens without exposing whether they're implicit tokens or tokens from jobserver.
 /// Furthermore, instead of giving up job tokens, it keeps them around
 /// for reuse if we know we're going to request another token after freeing the current one.
-pub(crate) struct GlobalJobTokenServer {
+pub(crate) struct JobTokenServer {
     helper: HelperThread,
     tx: Sender<Option<Acquired>>,
     rx: Receiver<Option<Acquired>>,
 }
 
 impl JobTokenServer {
-    pub(crate) fn new() -> Result<Self, crate::Error> {
-        let client = jobserver();
+    pub(crate) fn new() -> &'static Self {
+        jobserver()
+    }
+    fn new_inner(client: Client) -> Result<Self, crate::Error> {
         let (tx, rx) = mpsc::channel();
         // Push the implicit token. Since JobTokens only give back what they got,
         // there should be at most one global implicit token in the wild.
@@ -76,11 +78,16 @@ impl JobTokenServer {
     }
 }
 
-/// Returns a suitable `jobserver::Client` used to coordinate
-/// parallelism between build scripts.
-fn jobserver() -> jobserver::Client {
+/// Returns a suitable `JobTokenServer` used to coordinate
+/// parallelism between build scripts. A global `JobTokenServer` is used as this ensures
+/// that only one implicit job token is used in the wild.
+/// Having multiple separate job token servers would lead to each of them assuming that they have control
+/// over the implicit job token.
+/// As it stands, each caller of `jobserver` can receive an implicit job token and there will be at most
+/// one implicit job token in the wild.
+fn jobserver() -> &'static JobTokenServer {
     static INIT: Once = Once::new();
-    static mut JOBSERVER: Option<jobserver::Client> = None;
+    static mut JOBSERVER: Option<JobTokenServer> = None;
 
     fn _assert_sync<T: Sync>() {}
     _assert_sync::<jobserver::Client>();
@@ -88,9 +95,10 @@ fn jobserver() -> jobserver::Client {
     unsafe {
         INIT.call_once(|| {
             let server = default_jobserver();
-            JOBSERVER = Some(server);
+            JOBSERVER =
+                Some(JobTokenServer::new_inner(server).expect("Job server initialization failed"));
         });
-        JOBSERVER.clone().unwrap()
+        JOBSERVER.as_ref().unwrap()
     }
 }
 
