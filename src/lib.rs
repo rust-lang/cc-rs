@@ -1306,7 +1306,7 @@ impl Build {
         }
 
         // Limit our parallelism globally with a jobserver.
-        let mut tokens = crate::job_token::JobTokenServer::new()?;
+        let tokens = crate::job_token::JobTokenServer::new()?;
 
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:

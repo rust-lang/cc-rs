@@ -40,7 +40,7 @@ impl JobToken {
 /// gives out tokens without exposing whether they're implicit tokens or tokens from jobserver.
 /// Furthermore, instead of giving up job tokens, it keeps them around
 /// for reuse if we know we're going to request another token after freeing the current one.
-pub(crate) struct JobTokenServer {
+pub(crate) struct GlobalJobTokenServer {
     helper: HelperThread,
     tx: Sender<Option<Acquired>>,
     rx: Receiver<Option<Acquired>>,
@@ -60,7 +60,7 @@ impl JobTokenServer {
         Ok(Self { helper, tx, rx })
     }
 
-    pub(crate) fn acquire(&mut self) -> JobToken {
+    pub(crate) fn acquire(&self) -> JobToken {
         let token = if let Ok(token) = self.rx.try_recv() {
             // Opportunistically check if there's a token that can be reused.
             token
