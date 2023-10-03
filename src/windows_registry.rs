@@ -469,7 +469,11 @@ mod impl_ {
         // We use the first available host architecture that can build for the target
         let (host_path, host) = hosts.iter().find_map(|&x| {
             let candidate = path.join("bin").join(&format!("Host{}", x));
-            candidate.join(&target).exists().then_some((candidate, x))
+            if candidate.join(&target).exists() {
+                Some((candidate, x))
+            } else {
+                None
+            }
         })?;
         // This is the path to the toolchain for a particular target, running
         // on a given host
