@@ -14,13 +14,14 @@ pub(crate) struct JobToken {
     token: Option<Acquired>,
     /// A pool to which `token` should be returned. `pool` is optional, as one might want to release a token straight away instead
     /// of storing it back in the pool - see [`Self::forget()`] function for that.
-    pool: Option<Sender<Option<Acquired>>>,
+    pool: Option<Sender<Option<Result<Acquired, crate::Error>>>>,
 }
 
 impl Drop for JobToken {
     fn drop(&mut self) {
         if let Some(pool) = &self.pool {
-            let _ = pool.send(self.token.take());
+            // Always send back an Ok() variant as we know that the acquisition for this token has succeeded.
+            let _ = pool.send(self.token.take().map(|token| Ok(token)));
         }
     }
 }
@@ -43,8 +44,8 @@ impl JobToken {
 /// for reuse if we know we're going to request another token after freeing the current one.
 pub(crate) struct JobTokenServer {
     helper: HelperThread,
-    tx: Sender<Option<Acquired>>,
-    rx: Receiver<Option<Acquired>>,
+    tx: Sender<Option<Result<Acquired, crate::Error>>>,
+    rx: Receiver<Option<Result<Acquired, crate::Error>>>,
 }
 
 impl JobTokenServer {
@@ -58,12 +59,12 @@ impl JobTokenServer {
         tx.send(None).unwrap();
         let pool = tx.clone();
         let helper = client.into_helper_thread(move |acq| {
-            let _ = pool.send(Some(acq.unwrap()));
+            let _ = pool.send(Some(acq.map_err(|e| e.into())));
         })?;
         Ok(Self { helper, tx, rx })
     }
 
-    pub(crate) fn acquire(&self) -> JobToken {
+    pub(crate) fn acquire(&self) -> Result<JobToken, crate::Error> {
         let token = if let Ok(token) = self.rx.try_recv() {
             // Opportunistically check if there's a token that can be reused.
             token
@@ -72,10 +73,15 @@ impl JobTokenServer {
             self.helper.request_token();
             self.rx.recv().unwrap()
         };
-        JobToken {
+        let token = if let Some(token) = token {
+            Some(token?)
+        } else {
+            None
+        };
+        Ok(JobToken {
             token,
             pool: Some(self.tx.clone()),
-        }
+        })
     }
 }
 

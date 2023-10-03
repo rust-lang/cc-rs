@@ -1427,7 +1427,7 @@ impl Build {
         })?;
         for obj in objs {
             let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
-            let token = tokens.acquire();
+            let token = tokens.acquire()?;
             let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
 
             tx.send((cmd, program, KillOnDrop(child), token))
