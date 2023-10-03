@@ -1,6 +1,7 @@
 use jobserver::{Acquired, Client, HelperThread};
 use std::{
     env,
+    mem::MaybeUninit,
     sync::{
         mpsc::{self, Receiver, Sender},
         Once,
@@ -87,7 +88,7 @@ impl JobTokenServer {
 /// one implicit job token in the wild.
 fn jobserver() -> &'static JobTokenServer {
     static INIT: Once = Once::new();
-    static mut JOBSERVER: Option<JobTokenServer> = None;
+    static mut JOBSERVER: MaybeUninit<JobTokenServer> = MaybeUninit::uninit();
 
     fn _assert_sync<T: Sync>() {}
     _assert_sync::<jobserver::Client>();
@@ -95,10 +96,12 @@ fn jobserver() -> &'static JobTokenServer {
     unsafe {
         INIT.call_once(|| {
             let server = default_jobserver();
-            JOBSERVER =
-                Some(JobTokenServer::new_inner(server).expect("Job server initialization failed"));
+            JOBSERVER = MaybeUninit::new(
+                JobTokenServer::new_inner(server).expect("Job server initialization failed"),
+            );
         });
-        JOBSERVER.as_ref().unwrap()
+        // Poor man's assume_init_ref, as that'd require a MSRV of 1.55.
+        &*JOBSERVER.as_ptr()
     }
 }
 
