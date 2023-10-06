@@ -428,6 +428,24 @@ impl Build {
         self
     }
 
+    /// removes a flag from the existing flags.
+    /// example:
+    /// ```no_run
+    /// c::Build::new()
+    ///     .file("src/foo.c")
+    ///     .flag("-fake_flag")
+    ///     .remove_flag("-fake_flag")
+    ///     .compile("foo");
+    /// ```
+    pub fn remove_flag(&mut self, flag: &'static str) -> &mut Self{
+        let flag: Arc<str> = flag.into();
+        if self.flags.contains(&flag){
+            self.flags.retain(|other_flag| other_flag != &flag);
+        }
+        
+        return self;
+    }
+
     /// Add a flag to the invocation of the ar
     ///
     /// # Example
