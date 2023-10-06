@@ -431,7 +431,7 @@ impl Build {
     /// removes a flag from the existing flags.
     /// example:
     /// ```no_run
-    /// c::Build::new()
+    /// cc::Build::new()
     ///     .file("src/foo.c")
     ///     .flag("-fake_flag")
     ///     .remove_flag("-fake_flag")
