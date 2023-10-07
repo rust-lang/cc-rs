@@ -440,7 +440,7 @@ impl Build {
     /// ```
 
     pub fn remove_flag(&mut self, flag: &str) -> &mut Build {
-        self.flags.retain(|other_flag| other_flag == &flag.into());
+        self.flags.retain(|other_flag| **other_flag == flag);
         self
     }
 
