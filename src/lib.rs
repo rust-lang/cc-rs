@@ -428,22 +428,20 @@ impl Build {
         self
     }
 
-    /// removes a flag from the existing flags.
-    /// example:
+    /// removes a flag from self.flags
+    ///
+    /// # example
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
-    ///     .flag("-fake_flag")
-    ///     .remove_flag("-fake_flag")
-    ///     .compile("foo");
+    ///     .flag("unwanted_flag")
+    ///     .remove_flag("unwanted_flag")
+    ///     .compile("bar");
     /// ```
-    pub fn remove_flag(&mut self, flag: &str) -> &mut Self{
-        let flag: Arc<str> = flag.into();
-        if self.flags.contains(&flag){
-            self.flags.retain(|other_flag| other_flag != &flag);
-        }
-        
-       self
+
+    pub fn remove_flag(&mut self, flag: &str) -> &mut Build {
+        self.flags.retain(|other_flag| other_flag == &flag.into());
+        self
     }
 
     /// Add a flag to the invocation of the ar
