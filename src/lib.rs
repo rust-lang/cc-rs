@@ -443,7 +443,7 @@ impl Build {
             self.flags.retain(|other_flag| other_flag != &flag);
         }
         
-        return self;
+       self
     }
 
     /// Add a flag to the invocation of the ar
