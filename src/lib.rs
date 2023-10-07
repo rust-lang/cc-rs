@@ -428,7 +428,7 @@ impl Build {
         self
     }
 
-    /// removes a flag from self.flags
+    /// removes a flag from self.flags that was added by Build.flag()
     ///
     /// # example
     /// ```no_run
