@@ -431,12 +431,11 @@ impl Build {
     /// removes a compiler flag that was added by [`Build::flag`]
     ///
     /// # Example
-    /// ```no_run
+    /// ```
     /// cc::Build::new()
     ///     .file("src/foo.c")
     ///     .flag("unwanted_flag")
-    ///     .remove_flag("unwanted_flag")
-    ///     .compile("bar");
+    ///     .remove_flag("unwanted_flag");
     /// ```
 
     pub fn remove_flag(&mut self, flag: &str) -> &mut Build {
