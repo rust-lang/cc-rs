@@ -428,9 +428,9 @@ impl Build {
         self
     }
 
-    /// removes a flag from self.flags that was added by Build.flag()
+    /// removes a compiler flag that was added by [`Build::flag`]
     ///
-    /// # example
+    /// # Example
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
