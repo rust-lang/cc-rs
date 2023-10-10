@@ -92,6 +92,24 @@ jobs:
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --features parallel
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --release
 
+  check-tvos:
+    name: Test aarch64-apple-tvos
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Install Rust (rustup)
+      run: |
+        set -euxo pipefail
+        rustup toolchain install nightly --no-self-update --profile minimal
+        rustup component add rust-src --toolchain nightly
+        rustup default nightly
+      shell: bash
+    - run: cargo test -Z build-std=std --no-run --target aarch64-apple-tvos
+    - run: cargo test -Z build-std=std --no-run --features parallel --target aarch64-apple-tvos
+    - run: cargo test -Z build-std=std --no-run --manifest-path cc-test/Cargo.toml --target aarch64-apple-tvos
+    - run: cargo test -Z build-std=std --no-run --manifest-path cc-test/Cargo.toml --target aarch64-apple-tvos --features parallel
+    - run: cargo test -Z build-std=std --no-run --manifest-path cc-test/Cargo.toml --target aarch64-apple-tvos --release
+
   cuda:
     name: Test CUDA support
     runs-on: ubuntu-20.04
