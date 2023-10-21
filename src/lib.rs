@@ -1361,21 +1361,15 @@ impl Build {
 
                 cell_update(&pendings, |mut pendings| {
                     // Try waiting on them.
-                    retain_unordered_mut(&mut pendings, |(cmd, program, child, token)| {
+                    retain_unordered_mut(&mut pendings, |(cmd, program, child, _token)| {
                         match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
                             Ok(Some(())) => {
                                 // Task done, remove the entry
-                                if is_disconnected.get() {
-                                    token.forget();
-                                }
                                 false
                             }
                             Ok(None) => true, // Task still not finished, keep the entry
                             Err(err) => {
                                 // Task fail, remove the entry.
-                                if is_disconnected.get() {
-                                    token.forget();
-                                }
                                 // Since we can only return one error, log the error to make
                                 // sure users always see all the compilation failures.
                                 let _ = writeln!(stdout, "cargo:warning={}", err);

@@ -13,18 +13,6 @@ pub(super) enum JobToken {
     InProcess(inprocess_jobserver::JobToken),
 }
 
-impl JobToken {
-    /// Ensure that this token is not put back into queue once it's dropped.
-    /// This also leads to releasing it sooner for other processes to use,
-    /// which is a correct thing to do once it is known that there won't be
-    /// any more token acquisitions.
-    pub(super) fn forget(&mut self) {
-        if let Self::Inherited(inherited_jobtoken) = self {
-            inherited_jobtoken.forget();
-        }
-    }
-}
-
 pub(super) enum JobTokenServer {
     Inherited(inherited_jobserver::JobServer),
     InProcess(inprocess_jobserver::JobServer),
@@ -62,13 +50,19 @@ mod inherited_jobserver {
 
     use std::{
         env::var_os,
-        sync::mpsc::{self, Receiver, Sender},
+        sync::atomic::{AtomicBool, Ordering::Relaxed},
     };
 
     pub(crate) struct JobServer {
+        /// Implicit token for this process which is obtained and will be
+        /// released in parent. Since JobTokens only give back what they got,
+        /// there should be at most one global implicit token in the wild.
+        ///
+        /// Since Rust does not execute any `Drop` for global variables,
+        /// we can't just put it back to jobserver and then re-acquire it at
+        /// the end of the process.
+        global_implicit_token: AtomicBool,
         inner: sys::JobServerClient,
-        tx: Sender<Result<(), crate::Error>>,
-        rx: Receiver<Result<(), crate::Error>>,
     }
 
     impl JobServer {
@@ -79,28 +73,20 @@ mod inherited_jobserver {
 
             let inner = sys::JobServerClient::open(var)?;
 
-            let (tx, rx) = mpsc::channel();
-            // Push the implicit token. Since JobTokens only give back what they got,
-            // there should be at most one global implicit token in the wild.
-            tx.send(Ok(())).unwrap();
-
-            Some(Self { inner, tx, rx })
+            Some(Self {
+                inner,
+                global_implicit_token: AtomicBool::new(true),
+            })
         }
 
         pub(super) fn try_acquire(&'static self) -> Result<Option<JobToken>, crate::Error> {
-            if let Ok(token) = self.rx.try_recv() {
-                // Opportunistically check if there's a token that can be reused.
-                token?
-            } else {
-                // Cold path, request a token
+            if !self.global_implicit_token.swap(false, Relaxed) {
+                // Cold path, no global implicit token, obtain one
                 if self.inner.try_acquire()?.is_none() {
                     return Ok(None);
                 }
-            };
-            Ok(Some(JobToken {
-                pool: Some(self.tx.clone()),
-                jobserver: self,
-            }))
+            }
+            Ok(Some(JobToken { jobserver: self }))
         }
     }
 
@@ -111,30 +97,21 @@ mod inherited_jobserver {
     /// Furthermore, instead of giving up job tokens, it keeps them around
     /// for reuse if we know we're going to request another token after freeing the current one.
     pub(crate) struct JobToken {
-        /// A pool to which `token` should be returned. `pool` is optional, as one might want to release a token straight away instead
-        /// of storing it back in the pool - see [`Self::forget()`] function for that.
-        pool: Option<Sender<Result<(), crate::Error>>>,
         jobserver: &'static JobServer,
     }
 
     impl Drop for JobToken {
         fn drop(&mut self) {
-            if let Some(pool) = &self.pool {
-                // Always send back an Ok() variant as we know that the acquisition for this token has succeeded.
-                let _ = pool.send(Ok(()));
-            } else {
-                let _ = self.jobserver.inner.release();
+            let jobserver = self.jobserver;
+            if jobserver
+                .global_implicit_token
+                .compare_exchange(false, true, Relaxed, Relaxed)
+                .is_err()
+            {
+                // There's already a global implicit token, so this token must
+                // be released back into jobserver
+                let _ = jobserver.inner.release();
             }
-        }
-    }
-
-    impl JobToken {
-        /// Ensure that this token is not put back into queue once it's dropped.
-        /// This also leads to releasing it sooner for other processes to use,
-        /// which is a correct thing to do once it is known that there won't be
-        /// any more token acquisitions.
-        pub(super) fn forget(&mut self) {
-            self.pool.take();
         }
     }
 }
