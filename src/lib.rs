@@ -4129,6 +4129,8 @@ impl Drop for PrintThread {
 }
 
 /// Remove all element in `vec` which `f(element)` returns `false`.
+///
+/// TODO: Remove this once the MSRV is bumped to v1.61
 #[cfg(feature = "parallel")]
 fn retain_unordered_mut<T, F>(vec: &mut Vec<T>, mut f: F)
 where
