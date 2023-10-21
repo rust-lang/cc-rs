@@ -47,7 +47,7 @@ impl JobTokenServer {
         }
     }
 
-    pub(crate) fn try_acquire(&self) -> Result<Option<JobToken>, crate::Error> {
+    pub(crate) fn try_acquire(&'static self) -> Result<Option<JobToken>, crate::Error> {
         match self {
             Self::Inherited(jobserver) => jobserver
                 .try_acquire()
@@ -65,7 +65,7 @@ mod inherited_jobserver {
         sync::mpsc::{self, Receiver, Sender},
     };
 
-    pub(super) struct JobServer {
+    pub(crate) struct JobServer {
         inner: sys::JobServerClient,
         tx: Sender<Result<(), crate::Error>>,
         rx: Receiver<Result<(), crate::Error>>,
@@ -87,7 +87,7 @@ mod inherited_jobserver {
             Some(Self { inner, tx, rx })
         }
 
-        pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, crate::Error> {
+        pub(super) fn try_acquire(&'static self) -> Result<Option<JobToken>, crate::Error> {
             if let Ok(token) = self.rx.try_recv() {
                 // Opportunistically check if there's a token that can be reused.
                 token?
@@ -110,7 +110,7 @@ mod inherited_jobserver {
     /// gives out tokens without exposing whether they're implicit tokens or tokens from jobserver.
     /// Furthermore, instead of giving up job tokens, it keeps them around
     /// for reuse if we know we're going to request another token after freeing the current one.
-    pub(super) struct JobToken {
+    pub(crate) struct JobToken {
         /// A pool to which `token` should be returned. `pool` is optional, as one might want to release a token straight away instead
         /// of storing it back in the pool - see [`Self::forget()`] function for that.
         pool: Option<Sender<Result<(), crate::Error>>>,
@@ -145,7 +145,7 @@ mod inprocess_jobserver {
         sync::atomic::{AtomicU32, Ordering::Relaxed},
     };
 
-    pub(super) struct JobServer(AtomicU32);
+    pub(crate) struct JobServer(AtomicU32);
 
     impl JobServer {
         pub(super) fn new() -> Self {
@@ -165,7 +165,7 @@ mod inprocess_jobserver {
             Self(AtomicU32::new(parallelism))
         }
 
-        pub(super) fn try_acquire(&self) -> Option<JobToken> {
+        pub(super) fn try_acquire(&'static self) -> Option<JobToken> {
             let res = self.0.fetch_update(Relaxed, Relaxed, |tokens| {
                 if tokens > 0 {
                     Some(tokens - 1)
@@ -182,7 +182,7 @@ mod inprocess_jobserver {
         }
     }
 
-    pub(super) struct JobToken(&'static JobServer);
+    pub(crate) struct JobToken(&'static JobServer);
 
     impl Drop for JobToken {
         fn drop(&mut self) {

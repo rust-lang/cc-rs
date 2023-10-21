@@ -1297,7 +1297,13 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::sync::mpsc;
+        use std::{
+            future::Future,
+            pin::Pin,
+            ptr,
+            sync::mpsc,
+            task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+        };
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1332,17 +1338,13 @@ impl Build {
 
         let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, crate::job_token::JobToken)>();
 
-        // Since jobserver::Client::acquire can block, waiting
-        // must be done in parallel so that acquire won't block forever.
-        let wait_thread = thread::Builder::new().spawn(move || {
+        let mut wait_future = async move {
             let mut error = None;
             let mut pendings = Vec::new();
             // Buffer the stdout
             let mut stdout = io::BufWriter::with_capacity(128, io::stdout());
-            let mut backoff_cnt = 0;
 
             loop {
-                let mut has_made_progress = false;
                 // If the other end of the pipe is already disconnected, then we're not gonna get any new jobs,
                 // so it doesn't make sense to reuse the tokens; in fact,
                 // releasing them as soon as possible (once we know that the other end is disconnected) is beneficial.
@@ -1353,10 +1355,7 @@ impl Build {
                 // Reading new pending tasks
                 loop {
                     match rx.try_recv() {
-                        Ok(pending) => {
-                            has_made_progress = true;
-                            pendings.push(pending)
-                        }
+                        Ok(pending) => pendings.push(pending),
                         Err(mpsc::TryRecvError::Disconnected) if pendings.is_empty() => {
                             let _ = stdout.flush();
                             return if let Some(err) = error {
@@ -1381,13 +1380,11 @@ impl Build {
                             if is_disconnected {
                                 token.forget();
                             }
-                            has_made_progress = true;
                             false
                         }
                         Ok(None) => true, // Task still not finished, keep the entry
                         Err(err) => {
                             // Task fail, remove the entry.
-                            has_made_progress = true;
                             if is_disconnected {
                                 token.forget();
                             }
@@ -1401,45 +1398,58 @@ impl Build {
                     }
                 });
 
-                if !has_made_progress {
-                    if backoff_cnt > 3 {
-                        // We have yielded at least three times without making'
-                        // any progress, so we will sleep for a while.
-                        let duration =
-                            std::time::Duration::from_millis(100 * (backoff_cnt - 3).min(10));
-                        thread::sleep(duration);
-                    } else {
-                        // Given that we spawned a lot of compilation tasks, it is unlikely
-                        // that OS cannot find other ready task to execute.
-                        //
-                        // If all of them are done, then we will yield them and spawn more,
-                        // or simply returns.
-                        //
-                        // Thus this will not be turned into a busy-wait loop and it will not
-                        // waste CPU resource.
-                        thread::yield_now();
-                    }
-                }
-
-                backoff_cnt = if has_made_progress {
-                    0
-                } else {
-                    backoff_cnt + 1
-                };
+                let _ = stdout.flush();
+                YieldOnce::default().await;
             }
-        })?;
-        for obj in objs {
-            let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
-            let token = tokens.acquire()?;
-            let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
+        };
+        let mut spawn_future = async move {
+            for obj in objs {
+                let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
+                let token = loop {
+                    if let Some(token) = tokens.try_acquire()? {
+                        break token;
+                    } else {
+                        YieldOnce::default().await
+                    }
+                };
+                let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
 
-            tx.send((cmd, program, KillOnDrop(child), token))
+                tx.send((cmd, program, KillOnDrop(child), token))
                 .expect("Wait thread must be alive until all compilation jobs are done, otherwise we risk deadlock");
-        }
-        // Drop tx so that the wait_thread could return
-        drop(tx);
+            }
+            // Drop tx so that the wait_thread could return
+            drop(tx);
 
-        return wait_thread.join().expect("wait_thread panics");
+            Ok::<_, Error>(())
+        };
+
+        // Shadows the future so that it can never be moved and is guaranteed
+        // to be pinned.
+        //
+        // The same trick used in `pin!` macro.
+        let mut wait_future = Some(unsafe { Pin::new_unchecked(&mut wait_future) });
+        let mut spawn_future = Some(unsafe { Pin::new_unchecked(&mut spawn_future) });
+
+        let waker = unsafe { Waker::from_raw(NOOP_RAW_WAKER) };
+        let mut context = Context::from_waker(&waker);
+
+        while wait_future.is_some() || spawn_future.is_some() {
+            if let Some(fut) = spawn_future.as_mut() {
+                if let Poll::Ready(res) = fut.as_mut().poll(&mut context) {
+                    spawn_future = None;
+                    res?;
+                }
+            }
+
+            if let Some(fut) = wait_future.as_mut() {
+                if let Poll::Ready(res) = fut.as_mut().poll(&mut context) {
+                    wait_future = None;
+                    res?;
+                }
+            }
+        }
+
+        return Ok(());
 
         struct KillOnDrop(Child);
 
@@ -1450,6 +1460,35 @@ impl Build {
                 child.kill().ok();
             }
         }
+
+        #[derive(Default)]
+        struct YieldOnce(bool);
+
+        impl Future for YieldOnce {
+            type Output = ();
+
+            fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
+                let flag = &mut std::pin::Pin::into_inner(self).0;
+                if !*flag {
+                    *flag = true;
+                    Poll::Pending
+                } else {
+                    Poll::Ready(())
+                }
+            }
+        }
+
+        const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
+            // Cloning just returns a new no-op raw waker
+            |_| NOOP_RAW_WAKER,
+            // `wake` does nothing
+            |_| {},
+            // `wake_by_ref` does nothing
+            |_| {},
+            // Dropping does nothing as we don't allocate anything
+            |_| {},
+        );
+        const NOOP_RAW_WAKER: RawWaker = RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE);
     }
 
     #[cfg(not(feature = "parallel"))]
