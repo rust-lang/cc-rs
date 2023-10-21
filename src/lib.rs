@@ -1372,7 +1372,7 @@ impl Build {
                 }
 
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, program, child, token)| {
+                retain_unordered_mut(&mut pendings, |(cmd, program, child, token)| {
                     match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
@@ -4125,5 +4125,23 @@ impl Drop for PrintThread {
         self.pipe_writer.take();
 
         self.handle.take().unwrap().join().unwrap();
+    }
+}
+
+/// Remove all element in `vec` which `f(element)` returns `false`.
+///
+/// TODO: Remove this once the MSRV is bumped to v1.61
+#[cfg(feature = "parallel")]
+fn retain_unordered_mut<T, F>(vec: &mut Vec<T>, mut f: F)
+where
+    F: FnMut(&mut T) -> bool,
+{
+    let mut i = 0;
+    while i < vec.len() {
+        if f(&mut vec[i]) {
+            i += 1;
+        } else {
+            vec.swap_remove(i);
+        }
     }
 }
