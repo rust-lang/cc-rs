@@ -1298,10 +1298,10 @@ impl Build {
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
         use std::{
+            cell::Cell,
             future::Future,
             pin::Pin,
             ptr,
-            sync::mpsc,
             task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
         };
 
@@ -1336,11 +1336,16 @@ impl Build {
         // acquire the appropriate tokens, Once all objects have been compiled
         // we wait on all the processes and propagate the results of compilation.
 
-        let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, crate::job_token::JobToken)>();
+        let pendings = Cell::new(Vec::<(
+            Command,
+            String,
+            KillOnDrop,
+            crate::job_token::JobToken,
+        )>::new());
+        let is_disconnected = Cell::new(false);
 
-        let mut wait_future = async move {
+        let mut wait_future = async {
             let mut error = None;
-            let mut pendings = Vec::new();
             // Buffer the stdout
             let mut stdout = io::BufWriter::with_capacity(128, io::stdout());
 
@@ -1351,58 +1356,51 @@ impl Build {
                 // Imagine that the last file built takes an hour to finish; in this scenario,
                 // by not releasing the tokens before that last file is done we would effectively block other processes from
                 // starting sooner - even though we only need one token for that last file, not N others that were acquired.
-                let mut is_disconnected = false;
-                // Reading new pending tasks
-                loop {
-                    match rx.try_recv() {
-                        Ok(pending) => pendings.push(pending),
-                        Err(mpsc::TryRecvError::Disconnected) if pendings.is_empty() => {
-                            let _ = stdout.flush();
-                            return if let Some(err) = error {
-                                Err(err)
-                            } else {
-                                Ok(())
-                            };
-                        }
-                        Err(mpsc::TryRecvError::Disconnected) => {
-                            is_disconnected = true;
-                            break;
-                        }
-                        _ => break,
-                    }
-                }
 
-                // Try waiting on them.
-                retain_unordered_mut(&mut pendings, |(cmd, program, child, token)| {
-                    match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
-                        Ok(Some(())) => {
-                            // Task done, remove the entry
-                            if is_disconnected {
-                                token.forget();
-                            }
-                            false
-                        }
-                        Ok(None) => true, // Task still not finished, keep the entry
-                        Err(err) => {
-                            // Task fail, remove the entry.
-                            if is_disconnected {
-                                token.forget();
-                            }
-                            // Since we can only return one error, log the error to make
-                            // sure users always see all the compilation failures.
-                            let _ = writeln!(stdout, "cargo:warning={}", err);
-                            error = Some(err);
+                let mut pendings_is_empty = false;
 
-                            false
+                cell_update(&pendings, |mut pendings| {
+                    // Try waiting on them.
+                    retain_unordered_mut(&mut pendings, |(cmd, program, child, token)| {
+                        match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
+                            Ok(Some(())) => {
+                                // Task done, remove the entry
+                                if is_disconnected.get() {
+                                    token.forget();
+                                }
+                                false
+                            }
+                            Ok(None) => true, // Task still not finished, keep the entry
+                            Err(err) => {
+                                // Task fail, remove the entry.
+                                if is_disconnected.get() {
+                                    token.forget();
+                                }
+                                // Since we can only return one error, log the error to make
+                                // sure users always see all the compilation failures.
+                                let _ = writeln!(stdout, "cargo:warning={}", err);
+                                error = Some(err);
+
+                                false
+                            }
                         }
-                    }
+                    });
+                    pendings_is_empty = pendings.is_empty();
+                    pendings
                 });
 
-                let _ = stdout.flush();
+                if pendings_is_empty && is_disconnected.get() {
+                    break if let Some(err) = error {
+                        Err(err)
+                    } else {
+                        Ok(())
+                    };
+                }
+
                 YieldOnce::default().await;
             }
         };
-        let mut spawn_future = async move {
+        let mut spawn_future = async {
             for obj in objs {
                 let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
                 let token = loop {
@@ -1414,11 +1412,12 @@ impl Build {
                 };
                 let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
 
-                tx.send((cmd, program, KillOnDrop(child), token))
-                .expect("Wait thread must be alive until all compilation jobs are done, otherwise we risk deadlock");
+                cell_update(&pendings, |mut pendings| {
+                    pendings.push((cmd, program, KillOnDrop(child), token));
+                    pendings
+                });
             }
-            // Drop tx so that the wait_thread could return
-            drop(tx);
+            is_disconnected.set(true);
 
             Ok::<_, Error>(())
         };
@@ -1489,6 +1488,16 @@ impl Build {
             |_| {},
         );
         const NOOP_RAW_WAKER: RawWaker = RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE);
+
+        fn cell_update<T, F>(cell: &Cell<T>, f: F)
+        where
+            T: Default,
+            F: FnOnce(T) -> T,
+        {
+            let old = cell.take();
+            let new = f(old);
+            cell.set(new);
+        }
     }
 
     #[cfg(not(feature = "parallel"))]
