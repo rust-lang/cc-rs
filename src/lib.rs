@@ -1343,6 +1343,7 @@ impl Build {
             crate::job_token::JobToken,
         )>::new());
         let is_disconnected = Cell::new(false);
+        let has_made_progress = Cell::new(false);
 
         let mut wait_future = async {
             let mut error = None;
@@ -1365,6 +1366,7 @@ impl Build {
                         match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
                             Ok(Some(())) => {
                                 // Task done, remove the entry
+                                has_made_progress.set(true);
                                 false
                             }
                             Ok(None) => true, // Task still not finished, keep the entry
@@ -1372,6 +1374,8 @@ impl Build {
                                 // Task fail, remove the entry.
                                 // Since we can only return one error, log the error to make
                                 // sure users always see all the compilation failures.
+                                has_made_progress.set(true);
+
                                 let _ = writeln!(stdout, "cargo:warning={}", err);
                                 error = Some(err);
 
@@ -1410,6 +1414,8 @@ impl Build {
                     pendings.push((cmd, program, KillOnDrop(child), token));
                     pendings
                 });
+
+                has_made_progress.set(true);
             }
             is_disconnected.set(true);
 
@@ -1426,7 +1432,11 @@ impl Build {
         let waker = unsafe { Waker::from_raw(NOOP_RAW_WAKER) };
         let mut context = Context::from_waker(&waker);
 
-        while wait_future.is_some() || spawn_future.is_some() {
+        let mut backoff_cnt = 0;
+
+        loop {
+            has_made_progress.set(false);
+
             if let Some(fut) = spawn_future.as_mut() {
                 if let Poll::Ready(res) = fut.as_mut().poll(&mut context) {
                     spawn_future = None;
@@ -1440,9 +1450,37 @@ impl Build {
                     res?;
                 }
             }
-        }
 
-        return Ok(());
+            if wait_future.is_none() && spawn_future.is_none() {
+                return Ok(());
+            }
+
+            if !has_made_progress.get() {
+                if backoff_cnt > 3 {
+                    // We have yielded at least three times without making'
+                    // any progress, so we will sleep for a while.
+                    let duration =
+                        std::time::Duration::from_millis(100 * (backoff_cnt - 3).min(10));
+                    thread::sleep(duration);
+                } else {
+                    // Given that we spawned a lot of compilation tasks, it is unlikely
+                    // that OS cannot find other ready task to execute.
+                    //
+                    // If all of them are done, then we will yield them and spawn more,
+                    // or simply returns.
+                    //
+                    // Thus this will not be turned into a busy-wait loop and it will not
+                    // waste CPU resource.
+                    thread::yield_now();
+                }
+            }
+
+            backoff_cnt = if has_made_progress.get() {
+                0
+            } else {
+                backoff_cnt + 1
+            };
+        }
 
         struct KillOnDrop(Child);
 
