@@ -1,5 +1,7 @@
 use std::{mem::MaybeUninit, sync::Once};
 
+use crate::Error;
+
 #[cfg(unix)]
 #[path = "job_token/unix.rs"]
 mod sys;
@@ -8,9 +10,15 @@ mod sys;
 #[path = "job_token/windows.rs"]
 mod sys;
 
-pub(super) enum JobToken {
-    Inherited(inherited_jobserver::JobToken),
-    InProcess(inprocess_jobserver::JobToken),
+pub(super) struct JobToken();
+
+impl Drop for JobToken {
+    fn drop(&mut self) {
+        match JobTokenServer::new() {
+            JobTokenServer::Inherited(jobserver) => jobserver.release_token_raw(),
+            JobTokenServer::InProcess(jobserver) => jobserver.release_token_raw(),
+        }
+    }
 }
 
 pub(super) enum JobTokenServer {
@@ -35,18 +43,16 @@ impl JobTokenServer {
         }
     }
 
-    pub(crate) fn try_acquire(&'static self) -> Result<Option<JobToken>, crate::Error> {
+    pub(crate) fn try_acquire(&'static self) -> Result<Option<JobToken>, Error> {
         match self {
-            Self::Inherited(jobserver) => jobserver
-                .try_acquire()
-                .map(|option| option.map(JobToken::Inherited)),
-            Self::InProcess(jobserver) => Ok(jobserver.try_acquire().map(JobToken::InProcess)),
+            Self::Inherited(jobserver) => jobserver.try_acquire(),
+            Self::InProcess(jobserver) => Ok(jobserver.try_acquire()),
         }
     }
 }
 
 mod inherited_jobserver {
-    use super::sys;
+    use super::{sys, Error, JobToken};
 
     use std::{
         env::var_os,
@@ -79,44 +85,33 @@ mod inherited_jobserver {
             })
         }
 
-        pub(super) fn try_acquire(&'static self) -> Result<Option<JobToken>, crate::Error> {
+        pub(super) fn try_acquire(&'static self) -> Result<Option<JobToken>, Error> {
             if !self.global_implicit_token.swap(false, Relaxed) {
                 // Cold path, no global implicit token, obtain one
                 if self.inner.try_acquire()?.is_none() {
                     return Ok(None);
                 }
             }
-            Ok(Some(JobToken { jobserver: self }))
+            Ok(Some(JobToken()))
         }
-    }
 
-    /// A thin wrapper around jobserver Client.
-    /// It would be perfectly fine to just use jobserver Client, but we also want to reuse
-    /// our own implicit token assigned for this build script. This struct manages that and
-    /// gives out tokens without exposing whether they're implicit tokens or tokens from jobserver.
-    /// Furthermore, instead of giving up job tokens, it keeps them around
-    /// for reuse if we know we're going to request another token after freeing the current one.
-    pub(crate) struct JobToken {
-        jobserver: &'static JobServer,
-    }
-
-    impl Drop for JobToken {
-        fn drop(&mut self) {
-            let jobserver = self.jobserver;
-            if jobserver
+        pub(super) fn release_token_raw(&self) {
+            if self
                 .global_implicit_token
                 .compare_exchange(false, true, Relaxed, Relaxed)
                 .is_err()
             {
                 // There's already a global implicit token, so this token must
                 // be released back into jobserver
-                let _ = jobserver.inner.release();
+                let _ = self.inner.release();
             }
         }
     }
 }
 
 mod inprocess_jobserver {
+    use super::JobToken;
+
     use std::{
         env::var,
         sync::atomic::{AtomicU32, Ordering::Relaxed},
@@ -152,18 +147,14 @@ mod inprocess_jobserver {
             });
 
             if res.is_ok() {
-                Some(JobToken(self))
+                Some(JobToken())
             } else {
                 None
             }
         }
-    }
 
-    pub(crate) struct JobToken(&'static JobServer);
-
-    impl Drop for JobToken {
-        fn drop(&mut self) {
-            self.0 .0.fetch_add(1, Relaxed);
+        pub(super) fn release_token_raw(&self) {
+            self.0.fetch_add(1, Relaxed);
         }
     }
 }
