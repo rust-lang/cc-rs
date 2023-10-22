@@ -44,8 +44,10 @@ impl JobServerClient {
         let r = unsafe { WaitForSingleObject(self.sem, 0) };
         if r == WAIT_OBJECT_0 {
             Ok(Some(()))
-        } else {
+        } else if r == 0 {
             Err(io::Error::last_os_error())
+        } else {
+            Ok(None)
         }
     }
 
