@@ -76,24 +76,31 @@ impl JobServerClient {
         // If we're called from `make` *without* the leading + on our rule
         // then we'll have `MAKEFLAGS` env vars but won't actually have
         // access to the file descriptors.
-        if is_pipe(&read)?
-            && is_pipe(&write)?
-            && get_access_mode(&read) == Some(libc::O_RDONLY)
-            && get_access_mode(&write) == Some(libc::O_WRONLY)
-        {
-            let read = read.try_clone().ok()?;
-            let write = write.try_clone().ok()?;
+        match (
+            is_pipe(&read),
+            is_pipe(&write),
+            get_access_mode(&read),
+            get_access_mode(&write),
+        ) {
+            (
+                Some(true),
+                Some(true),
+                Some(libc::O_RDONLY) | Some(libc::O_RDWR),
+                Some(libc::O_WRONLY) | Some(libc::O_RDWR),
+            ) => {
+                let read = read.try_clone().ok()?;
+                let write = write.try_clone().ok()?;
 
-            // Set read and write end to nonblocking
-            set_nonblocking(&read)?;
-            set_nonblocking(&write)?;
+                // Set read and write end to nonblocking
+                set_nonblocking(&read)?;
+                set_nonblocking(&write)?;
 
-            Some(Self {
-                read,
-                write: Some(write),
-            })
-        } else {
-            None
+                Some(Self {
+                    read,
+                    write: Some(write),
+                })
+            }
+            _ => None,
         }
     }
 
