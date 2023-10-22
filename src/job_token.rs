@@ -43,7 +43,7 @@ impl JobTokenServer {
         }
     }
 
-    pub(crate) fn try_acquire(&'static self) -> Result<Option<JobToken>, Error> {
+    pub(crate) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
         match self {
             Self::Inherited(jobserver) => jobserver.try_acquire(),
             Self::InProcess(jobserver) => Ok(jobserver.try_acquire()),
@@ -85,7 +85,7 @@ mod inherited_jobserver {
             })
         }
 
-        pub(super) fn try_acquire(&'static self) -> Result<Option<JobToken>, Error> {
+        pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
             if !self.global_implicit_token.swap(false, Relaxed) {
                 // Cold path, no global implicit token, obtain one
                 if self.inner.try_acquire()?.is_none() {
@@ -137,7 +137,7 @@ mod inprocess_jobserver {
             Self(AtomicU32::new(parallelism))
         }
 
-        pub(super) fn try_acquire(&'static self) -> Option<JobToken> {
+        pub(super) fn try_acquire(&self) -> Option<JobToken> {
             let res = self.0.fetch_update(Relaxed, Relaxed, |tokens| {
                 if tokens > 0 {
                     Some(tokens - 1)
