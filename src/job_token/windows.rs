@@ -5,8 +5,12 @@ use std::{
 
 use crate::windows_sys::{
     OpenSemaphoreA, ReleaseSemaphore, WaitForSingleObject, FALSE, HANDLE, SEMAPHORE_MODIFY_STATE,
-    THREAD_SYNCHRONIZE, WAIT_OBJECT_0,
+    THREAD_SYNCHRONIZE, WAIT_ABANDONED, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
+
+const WAIT_ABANDOEND_ERR_MSG: &str = r#" The specified object is a mutex object that was not released by the thread that owned the mutex object before the owning thread terminated. Ownership of the mutex object is granted to the calling thread and the mutex state is set to nonsignaled.
+
+If the mutex was protecting persistent state information, you should check it for consistency."#;
 
 pub(super) struct JobServerClient {
     sem: HANDLE,
@@ -41,13 +45,12 @@ impl JobServerClient {
     }
 
     pub(super) fn try_acquire(&self) -> io::Result<Option<()>> {
-        let r = unsafe { WaitForSingleObject(self.sem, 0) };
-        if r == WAIT_OBJECT_0 {
-            Ok(Some(()))
-        } else if r == 0 {
-            Err(io::Error::last_os_error())
-        } else {
-            Ok(None)
+        match unsafe { WaitForSingleObject(self.sem, 0) } {
+            WAIT_OBJECT_0 => Ok(Some(())),
+            WAIT_TIMEOUT => Ok(None),
+            WAIT_FAILED => Err(io::Error::last_os_error()),
+            WAIT_ABANDONED => Err(io::Error::new(io::ErrorKind::Other, WAIT_ABANDOEND_ERR_MSG)),
+            _ => unreachable!("Unexpected return value from WaitForSingleObject"),
         }
     }
 

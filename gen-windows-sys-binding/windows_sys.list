@@ -9,6 +9,9 @@ Windows.Win32.Foundation.S_OK
 Windows.Win32.Foundation.FALSE
 Windows.Win32.Foundation.HANDLE
 Windows.Win32.Foundation.WAIT_OBJECT_0
+Windows.Win32.Foundation.WAIT_TIMEOUT
+Windows.Win32.Foundation.WAIT_FAILED
+Windows.Win32.Foundation.WAIT_ABANDONED
 
 Windows.Win32.System.Com.SAFEARRAY
 Windows.Win32.System.Com.SAFEARRAYBOUND
