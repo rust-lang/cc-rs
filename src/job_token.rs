@@ -146,11 +146,7 @@ mod inprocess_jobserver {
                 }
             });
 
-            if res.is_ok() {
-                Some(JobToken())
-            } else {
-                None
-            }
+            res.ok().map(|_| JobToken())
         }
 
         pub(super) fn release_token_raw(&self) {
