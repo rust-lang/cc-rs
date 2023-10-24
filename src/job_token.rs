@@ -139,11 +139,7 @@ mod inprocess_jobserver {
 
         pub(super) fn try_acquire(&self) -> Option<JobToken> {
             let res = self.0.fetch_update(Relaxed, Relaxed, |tokens| {
-                if tokens > 0 {
-                    Some(tokens - 1)
-                } else {
-                    None
-                }
+                tokens.checked_sub(1)
             });
 
             res.ok().map(|_| JobToken())
