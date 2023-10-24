@@ -1467,7 +1467,7 @@ impl Build {
                     // that OS cannot find other ready task to execute.
                     //
                     // If all of them are done, then we will yield them and spawn more,
-                    // or simply returns.
+                    // or simply return.
                     //
                     // Thus this will not be turned into a busy-wait loop and it will not
                     // waste CPU resource.
