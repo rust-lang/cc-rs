@@ -67,6 +67,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 #[cfg(feature = "parallel")]
+mod async_executor;
+#[cfg(feature = "parallel")]
 mod job_token;
 mod os_pipe;
 // These modules are all glue to support reading the MSVC version from
@@ -1297,13 +1299,9 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::{
-            cell::Cell,
-            future::Future,
-            pin::Pin,
-            ptr,
-            task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
-        };
+        use std::cell::Cell;
+
+        use async_executor::{block_on, YieldOnce};
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1345,7 +1343,7 @@ impl Build {
         let is_disconnected = Cell::new(false);
         let has_made_progress = Cell::new(false);
 
-        let mut wait_future = async {
+        let wait_future = async {
             let mut error = None;
             // Buffer the stdout
             let mut stdout = io::BufWriter::with_capacity(128, io::stdout());
@@ -1398,7 +1396,7 @@ impl Build {
                 YieldOnce::default().await;
             }
         };
-        let mut spawn_future = async {
+        let spawn_future = async {
             for obj in objs {
                 let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
                 let token = loop {
@@ -1422,65 +1420,7 @@ impl Build {
             Ok::<_, Error>(())
         };
 
-        // Shadows the future so that it can never be moved and is guaranteed
-        // to be pinned.
-        //
-        // The same trick used in `pin!` macro.
-        let mut wait_future = Some(unsafe { Pin::new_unchecked(&mut wait_future) });
-        let mut spawn_future = Some(unsafe { Pin::new_unchecked(&mut spawn_future) });
-
-        let waker = unsafe { Waker::from_raw(NOOP_RAW_WAKER) };
-        let mut context = Context::from_waker(&waker);
-
-        let mut backoff_cnt = 0;
-
-        loop {
-            has_made_progress.set(false);
-
-            if let Some(fut) = spawn_future.as_mut() {
-                if let Poll::Ready(res) = fut.as_mut().poll(&mut context) {
-                    spawn_future = None;
-                    res?;
-                }
-            }
-
-            if let Some(fut) = wait_future.as_mut() {
-                if let Poll::Ready(res) = fut.as_mut().poll(&mut context) {
-                    wait_future = None;
-                    res?;
-                }
-            }
-
-            if wait_future.is_none() && spawn_future.is_none() {
-                return Ok(());
-            }
-
-            if !has_made_progress.get() {
-                if backoff_cnt > 3 {
-                    // We have yielded at least three times without making'
-                    // any progress, so we will sleep for a while.
-                    let duration =
-                        std::time::Duration::from_millis(100 * (backoff_cnt - 3).min(10));
-                    thread::sleep(duration);
-                } else {
-                    // Given that we spawned a lot of compilation tasks, it is unlikely
-                    // that OS cannot find other ready task to execute.
-                    //
-                    // If all of them are done, then we will yield them and spawn more,
-                    // or simply return.
-                    //
-                    // Thus this will not be turned into a busy-wait loop and it will not
-                    // waste CPU resource.
-                    thread::yield_now();
-                }
-            }
-
-            backoff_cnt = if has_made_progress.get() {
-                0
-            } else {
-                backoff_cnt + 1
-            };
-        }
+        return block_on(wait_future, spawn_future, &has_made_progress);
 
         struct KillOnDrop(Child);
 
@@ -1491,35 +1431,6 @@ impl Build {
                 child.kill().ok();
             }
         }
-
-        #[derive(Default)]
-        struct YieldOnce(bool);
-
-        impl Future for YieldOnce {
-            type Output = ();
-
-            fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
-                let flag = &mut std::pin::Pin::into_inner(self).0;
-                if !*flag {
-                    *flag = true;
-                    Poll::Pending
-                } else {
-                    Poll::Ready(())
-                }
-            }
-        }
-
-        const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
-            // Cloning just returns a new no-op raw waker
-            |_| NOOP_RAW_WAKER,
-            // `wake` does nothing
-            |_| {},
-            // `wake_by_ref` does nothing
-            |_| {},
-            // Dropping does nothing as we don't allocate anything
-            |_| {},
-        );
-        const NOOP_RAW_WAKER: RawWaker = RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE);
 
         fn cell_update<T, F>(cell: &Cell<T>, f: F)
         where
