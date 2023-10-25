@@ -27,6 +27,14 @@ pub(super) enum JobTokenServer {
 }
 
 impl JobTokenServer {
+    /// This function returns a static reference to the jobserver because
+    ///  - creating a jobserver from env is a bit fd-unsafe (e.g. the fd might
+    ///    be closed by other jobserver users in the process) and better do it
+    ///    at the start of the program.
+    ///  - in case a jobserver cannot be created from env (e.g. it's not
+    ///    present), we will create a global in-process only jobserver
+    ///    that has to be static so that it will be shared by all cc
+    ///    compilation.
     pub(crate) fn new() -> &'static Self {
         static INIT: Once = Once::new();
         static mut JOBSERVER: MaybeUninit<JobTokenServer> = MaybeUninit::uninit();
@@ -96,6 +104,9 @@ mod inherited_jobserver {
         }
 
         pub(super) fn release_token_raw(&self) {
+            // All tokens will be put back into the jobserver immediately
+            // and they cannot be cached, since Rust does not call `Drop::drop`
+            // on global variables.
             if self
                 .global_implicit_token
                 .compare_exchange(false, true, Relaxed, Relaxed)
@@ -138,9 +149,9 @@ mod inprocess_jobserver {
         }
 
         pub(super) fn try_acquire(&self) -> Option<JobToken> {
-            let res = self.0.fetch_update(Relaxed, Relaxed, |tokens| {
-                tokens.checked_sub(1)
-            });
+            let res = self
+                .0
+                .fetch_update(Relaxed, Relaxed, |tokens| tokens.checked_sub(1));
 
             res.ok().map(|_| JobToken())
         }
