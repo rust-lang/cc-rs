@@ -122,8 +122,13 @@ jobs:
     - name: Install Rust
       run: |
         rustup toolchain install 1.46.0 --no-self-update --profile minimal
+        rustup toolchain install nightly --no-self-update --profile minimal
         rustup default 1.46.0
       shell: bash
+    - name: Create Cargo.lock with minimal version
+      run: cargo +nightly update -Zminimal-versions
+    - name: Fetch dependencies crates using stable since fetching them using 1.46.0  is very slow
+      run: cargo +stable fetch
     - run: cargo check --lib ${{ matrix.feature }}
 
   rustfmt:
