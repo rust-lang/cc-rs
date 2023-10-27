@@ -127,8 +127,8 @@ jobs:
       shell: bash
     - name: Create Cargo.lock with minimal version
       run: cargo +nightly update -Zminimal-versions
-    - name: Fetch dependencies crates using stable since fetching them using 1.46.0  is very slow
-      run: cargo +stable check
+    - name: Cache downloaded crates since 1.46 is really slow in fetching
+      uses: Swatinem/rust-cache@v2
     - run: cargo check --lib ${{ matrix.feature }}
 
   rustfmt:
