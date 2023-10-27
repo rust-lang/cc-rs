@@ -128,7 +128,7 @@ jobs:
     - name: Create Cargo.lock with minimal version
       run: cargo +nightly update -Zminimal-versions
     - name: Fetch dependencies crates using stable since fetching them using 1.46.0  is very slow
-      run: cargo +stable fetch
+      run: cargo +stable check
     - run: cargo check --lib ${{ matrix.feature }}
 
   rustfmt:
