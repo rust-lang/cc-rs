@@ -117,7 +117,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        feature: ["", "--all-features"]
     steps:
     - uses: actions/checkout@v3
     - name: Install Rust
@@ -130,9 +129,8 @@ jobs:
       run: cargo +nightly update -Zminimal-versions
     - name: Cache downloaded crates since 1.46 is really slow in fetching
       uses: Swatinem/rust-cache@v2
-      with:
-        key: ${{ matrix.feature }}
-    - run: cargo check --lib ${{ matrix.feature }}
+    - run: cargo check --lib
+    - run: cargo check --lib --all-features
 
   rustfmt:
     name: Rustfmt
