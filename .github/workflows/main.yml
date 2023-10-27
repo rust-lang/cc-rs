@@ -115,7 +115,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        feature: ["", "--all-features"]
     steps:
     - uses: actions/checkout@v3
     - name: Install Rust
@@ -123,7 +124,7 @@ jobs:
         rustup toolchain install 1.46.0 --no-self-update --profile minimal
         rustup default 1.46.0
       shell: bash
-    - run: cargo check --lib
+    - run: cargo check --lib ${{ matrix.feature }}
 
   rustfmt:
     name: Rustfmt
