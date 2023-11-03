@@ -523,6 +523,11 @@ impl Build {
         if compiler.family.verbose_stderr() {
             compiler.remove_arg("-v".into());
         }
+        if compiler.family == ToolFamily::Clang {
+            // Avoid reporting that the arg is unsupported just because the
+            // compiler complains that it wasn't used.
+            compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
+        }
 
         let mut cmd = compiler.to_command();
         let is_arm = target.contains("aarch64") || target.contains("arm");
