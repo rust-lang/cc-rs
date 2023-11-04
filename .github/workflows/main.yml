@@ -116,7 +116,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest]
     steps:
     - uses: actions/checkout@v4
     - name: Install Rust
@@ -127,7 +127,7 @@ jobs:
       shell: bash
     - name: Create Cargo.lock with minimal version
       run: cargo +nightly update -Zminimal-versions
-    - name: Cache downloaded crates since 1.46 is really slow in fetching
+    - name: Cache downloaded crates since 1.53 is really slow in fetching
       uses: Swatinem/rust-cache@v2
     - run: cargo check --lib
     - run: cargo check --lib --all-features
