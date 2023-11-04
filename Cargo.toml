@@ -16,6 +16,7 @@ readme = "README.md"
 categories = ["development-tools::build-utils"]
 exclude = ["/.github"]
 edition = "2018"
+rust-version = "1.53"
 
 [dependencies]
 jobserver = { version = "0.1.16", optional = true }
