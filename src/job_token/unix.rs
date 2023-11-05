@@ -141,7 +141,7 @@ impl JobServerClient {
         //
         // If it does happen, it is likely a bug in the program using this
         // crate or some other programs that use the same jobserver have a
-        // bug in their  code
+        // bug in their code.
         //
         // If that turns out to not be the case we'll get an error anyway!
         let mut write = self.write.as_ref().unwrap_or(&self.read);
