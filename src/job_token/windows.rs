@@ -21,8 +21,19 @@ unsafe impl Send for JobServerClient {}
 
 impl JobServerClient {
     pub(super) unsafe fn open(var: OsString) -> Option<Self> {
+        let var = var.to_str()?;
+        if !var.is_ascii() {
+            // `OpenSemaphoreA` only accepts ASCII, not utf-8.
+            //
+            // Upstream implementation jobserver and jobslot also uses the
+            // same function and they works without problem, so there's no
+            // motivation to support utf-8 here using `OpenSemaphoreW`
+            // which only makes the code harder to maintain by making it more
+            // different than upstream.
+            return None;
+        }
+
         let s = var
-            .to_str()?
             .split_ascii_whitespace()
             .filter_map(|arg| arg.strip_prefix("--jobserver-auth="))
             .find(|s| !s.is_empty())?;
