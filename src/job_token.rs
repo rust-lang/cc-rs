@@ -64,7 +64,10 @@ mod inherited_jobserver {
 
     use std::{
         env::var_os,
-        sync::atomic::{AtomicBool, Ordering::Relaxed},
+        sync::atomic::{
+            AtomicBool,
+            Ordering::{AcqRel, Acquire},
+        },
     };
 
     pub(crate) struct JobServer {
@@ -94,7 +97,7 @@ mod inherited_jobserver {
         }
 
         pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
-            if !self.global_implicit_token.swap(false, Relaxed) {
+            if !self.global_implicit_token.swap(false, AcqRel) {
                 // Cold path, no global implicit token, obtain one
                 if self.inner.try_acquire()?.is_none() {
                     return Ok(None);
@@ -109,7 +112,7 @@ mod inherited_jobserver {
             // on global variables.
             if self
                 .global_implicit_token
-                .compare_exchange(false, true, Relaxed, Relaxed)
+                .compare_exchange(false, true, AcqRel, Acquire)
                 .is_err()
             {
                 // There's already a global implicit token, so this token must
@@ -125,7 +128,10 @@ mod inprocess_jobserver {
 
     use std::{
         env::var,
-        sync::atomic::{AtomicU32, Ordering::Relaxed},
+        sync::atomic::{
+            AtomicU32,
+            Ordering::{AcqRel, Acquire},
+        },
     };
 
     pub(crate) struct JobServer(AtomicU32);
@@ -151,13 +157,13 @@ mod inprocess_jobserver {
         pub(super) fn try_acquire(&self) -> Option<JobToken> {
             let res = self
                 .0
-                .fetch_update(Relaxed, Relaxed, |tokens| tokens.checked_sub(1));
+                .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
 
             res.ok().map(|_| JobToken())
         }
 
         pub(super) fn release_token_raw(&self) {
-            self.0.fetch_add(1, Relaxed);
+            self.0.fetch_add(1, AcqRel);
         }
     }
 }
