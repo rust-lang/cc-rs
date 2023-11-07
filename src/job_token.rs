@@ -145,6 +145,8 @@ mod inprocess_jobserver {
             // dependency that will almost never be used, so
             // it's generally not too worth it.
             let mut parallelism = 4;
+            // TODO: Use std::thread::available_parallelism as an upper bound
+            // when MSRV is bumped.
             if let Ok(amt) = var("NUM_JOBS") {
                 if let Ok(amt) = amt.parse() {
                     parallelism = amt;
