@@ -8,10 +8,6 @@ use crate::windows_sys::{
     THREAD_SYNCHRONIZE, WAIT_ABANDONED, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };
 
-const WAIT_ABANDOEND_ERR_MSG: &str = r#" The specified object is a mutex object that was not released by the thread that owned the mutex object before the owning thread terminated. Ownership of the mutex object is granted to the calling thread and the mutex state is set to nonsignaled.
-
-If the mutex was protecting persistent state information, you should check it for consistency."#;
-
 pub(super) struct JobServerClient {
     sem: HANDLE,
 }
@@ -57,7 +53,12 @@ impl JobServerClient {
             WAIT_OBJECT_0 => Ok(Some(())),
             WAIT_TIMEOUT => Ok(None),
             WAIT_FAILED => Err(io::Error::last_os_error()),
-            WAIT_ABANDONED => Err(io::Error::new(io::ErrorKind::Other, WAIT_ABANDOEND_ERR_MSG)),
+            // We believe this should be impossible for a semaphore, but still
+            // check the error code just in case it happens.
+            WAIT_ABANDONED => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Wait on jobserver semaphore returned WAIT_ABANDONED",
+            )),
             _ => unreachable!("Unexpected return value from WaitForSingleObject"),
         }
     }
