@@ -62,6 +62,22 @@ extern "system" {
         nsize: u32,
     ) -> BOOL;
 }
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn OpenSemaphoreA(dwdesiredaccess: u32, binherithandle: BOOL, lpname: PCSTR) -> HANDLE;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn ReleaseSemaphore(
+        hsemaphore: HANDLE,
+        lreleasecount: i32,
+        lppreviouscount: *mut i32,
+    ) -> BOOL;
+}
+#[link(name = "kernel32")]
+extern "system" {
+    pub fn WaitForSingleObject(hhandle: HANDLE, dwmilliseconds: u32) -> WIN32_ERROR;
+}
 #[link(name = "ole32")]
 extern "system" {
     pub fn CoCreateInstance(
@@ -93,6 +109,7 @@ pub type COINIT = i32;
 pub const COINIT_MULTITHREADED: COINIT = 0i32;
 pub const ERROR_NO_MORE_ITEMS: WIN32_ERROR = 259u32;
 pub const ERROR_SUCCESS: WIN32_ERROR = 0u32;
+pub const FALSE: BOOL = 0i32;
 #[repr(C)]
 pub struct FILETIME {
     pub dwLowDateTime: u32,
@@ -135,6 +152,7 @@ pub const INVALID_HANDLE_VALUE: HANDLE = invalid_mut(-1i32 as _);
 pub type IUnknown = *mut ::core::ffi::c_void;
 pub const KEY_READ: REG_SAM_FLAGS = 131097u32;
 pub const KEY_WOW64_32KEY: REG_SAM_FLAGS = 512u32;
+pub type PCSTR = *const u8;
 pub type PCWSTR = *const u16;
 pub type PWSTR = *mut u16;
 pub type REG_SAM_FLAGS = u32;
@@ -178,8 +196,16 @@ impl ::core::clone::Clone for SECURITY_ATTRIBUTES {
         *self
     }
 }
+pub const SEMAPHORE_MODIFY_STATE: SYNCHRONIZATION_ACCESS_RIGHTS = 2u32;
+pub type SYNCHRONIZATION_ACCESS_RIGHTS = u32;
 pub const S_FALSE: HRESULT = 1i32;
 pub const S_OK: HRESULT = 0i32;
+pub type THREAD_ACCESS_RIGHTS = u32;
+pub const THREAD_SYNCHRONIZE: THREAD_ACCESS_RIGHTS = 1048576u32;
+pub const WAIT_ABANDONED: WIN32_ERROR = 128u32;
+pub const WAIT_FAILED: WIN32_ERROR = 4294967295u32;
+pub const WAIT_OBJECT_0: WIN32_ERROR = 0u32;
+pub const WAIT_TIMEOUT: WIN32_ERROR = 258u32;
 pub type WIN32_ERROR = u32;
 
 /// Adapted from

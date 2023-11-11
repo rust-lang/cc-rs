@@ -67,6 +67,8 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
 #[cfg(feature = "parallel")]
+mod async_executor;
+#[cfg(feature = "parallel")]
 mod job_token;
 mod os_pipe;
 // These modules are all glue to support reading the MSVC version from
@@ -1297,7 +1299,9 @@ impl Build {
 
     #[cfg(feature = "parallel")]
     fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
-        use std::sync::mpsc;
+        use std::cell::Cell;
+
+        use async_executor::{block_on, YieldOnce};
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1330,116 +1334,93 @@ impl Build {
         // acquire the appropriate tokens, Once all objects have been compiled
         // we wait on all the processes and propagate the results of compilation.
 
-        let (tx, rx) = mpsc::channel::<(_, String, KillOnDrop, crate::job_token::JobToken)>();
+        let pendings = Cell::new(Vec::<(
+            Command,
+            String,
+            KillOnDrop,
+            crate::job_token::JobToken,
+        )>::new());
+        let is_disconnected = Cell::new(false);
+        let has_made_progress = Cell::new(false);
 
-        // Since jobserver::Client::acquire can block, waiting
-        // must be done in parallel so that acquire won't block forever.
-        let wait_thread = thread::Builder::new().spawn(move || {
+        let wait_future = async {
             let mut error = None;
-            let mut pendings = Vec::new();
             // Buffer the stdout
             let mut stdout = io::BufWriter::with_capacity(128, io::stdout());
-            let mut backoff_cnt = 0;
 
             loop {
-                let mut has_made_progress = false;
                 // If the other end of the pipe is already disconnected, then we're not gonna get any new jobs,
                 // so it doesn't make sense to reuse the tokens; in fact,
                 // releasing them as soon as possible (once we know that the other end is disconnected) is beneficial.
                 // Imagine that the last file built takes an hour to finish; in this scenario,
                 // by not releasing the tokens before that last file is done we would effectively block other processes from
                 // starting sooner - even though we only need one token for that last file, not N others that were acquired.
-                let mut is_disconnected = false;
-                // Reading new pending tasks
-                loop {
-                    match rx.try_recv() {
-                        Ok(pending) => {
-                            has_made_progress = true;
-                            pendings.push(pending)
-                        }
-                        Err(mpsc::TryRecvError::Disconnected) if pendings.is_empty() => {
-                            let _ = stdout.flush();
-                            return if let Some(err) = error {
-                                Err(err)
-                            } else {
-                                Ok(())
-                            };
-                        }
-                        Err(mpsc::TryRecvError::Disconnected) => {
-                            is_disconnected = true;
-                            break;
-                        }
-                        _ => break,
-                    }
-                }
 
-                // Try waiting on them.
-                retain_unordered_mut(&mut pendings, |(cmd, program, child, token)| {
-                    match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
-                        Ok(Some(())) => {
-                            // Task done, remove the entry
-                            if is_disconnected {
-                                token.forget();
-                            }
-                            has_made_progress = true;
-                            false
-                        }
-                        Ok(None) => true, // Task still not finished, keep the entry
-                        Err(err) => {
-                            // Task fail, remove the entry.
-                            has_made_progress = true;
-                            if is_disconnected {
-                                token.forget();
-                            }
-                            // Since we can only return one error, log the error to make
-                            // sure users always see all the compilation failures.
-                            let _ = writeln!(stdout, "cargo:warning={}", err);
-                            error = Some(err);
+                let mut pendings_is_empty = false;
 
-                            false
+                cell_update(&pendings, |mut pendings| {
+                    // Try waiting on them.
+                    retain_unordered_mut(&mut pendings, |(cmd, program, child, _token)| {
+                        match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
+                            Ok(Some(())) => {
+                                // Task done, remove the entry
+                                has_made_progress.set(true);
+                                false
+                            }
+                            Ok(None) => true, // Task still not finished, keep the entry
+                            Err(err) => {
+                                // Task fail, remove the entry.
+                                // Since we can only return one error, log the error to make
+                                // sure users always see all the compilation failures.
+                                has_made_progress.set(true);
+
+                                let _ = writeln!(stdout, "cargo:warning={}", err);
+                                error = Some(err);
+
+                                false
+                            }
                         }
-                    }
+                    });
+                    pendings_is_empty = pendings.is_empty();
+                    pendings
                 });
 
-                if !has_made_progress {
-                    if backoff_cnt > 3 {
-                        // We have yielded at least three times without making'
-                        // any progress, so we will sleep for a while.
-                        let duration =
-                            std::time::Duration::from_millis(100 * (backoff_cnt - 3).min(10));
-                        thread::sleep(duration);
+                if pendings_is_empty && is_disconnected.get() {
+                    break if let Some(err) = error {
+                        Err(err)
                     } else {
-                        // Given that we spawned a lot of compilation tasks, it is unlikely
-                        // that OS cannot find other ready task to execute.
-                        //
-                        // If all of them are done, then we will yield them and spawn more,
-                        // or simply returns.
-                        //
-                        // Thus this will not be turned into a busy-wait loop and it will not
-                        // waste CPU resource.
-                        thread::yield_now();
-                    }
+                        Ok(())
+                    };
                 }
 
-                backoff_cnt = if has_made_progress {
-                    0
-                } else {
-                    backoff_cnt + 1
-                };
+                YieldOnce::default().await;
             }
-        })?;
-        for obj in objs {
-            let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
-            let token = tokens.acquire()?;
-            let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
+        };
+        let spawn_future = async {
+            for obj in objs {
+                let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
+                let token = loop {
+                    if let Some(token) = tokens.try_acquire()? {
+                        break token;
+                    } else {
+                        YieldOnce::default().await
+                    }
+                };
+                let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
 
-            tx.send((cmd, program, KillOnDrop(child), token))
-                .expect("Wait thread must be alive until all compilation jobs are done, otherwise we risk deadlock");
-        }
-        // Drop tx so that the wait_thread could return
-        drop(tx);
+                cell_update(&pendings, |mut pendings| {
+                    pendings.push((cmd, program, KillOnDrop(child), token));
+                    pendings
+                });
 
-        return wait_thread.join().expect("wait_thread panics");
+                has_made_progress.set(true);
+            }
+            is_disconnected.set(true);
+
+            Ok::<_, Error>(())
+        };
+
+        return block_on(wait_future, spawn_future, &has_made_progress);
 
         struct KillOnDrop(Child);
 
@@ -1449,6 +1430,16 @@ impl Build {
 
                 child.kill().ok();
             }
+        }
+
+        fn cell_update<T, F>(cell: &Cell<T>, f: F)
+        where
+            T: Default,
+            F: FnOnce(T) -> T,
+        {
+            let old = cell.take();
+            let new = f(old);
+            cell.set(new);
         }
     }
 

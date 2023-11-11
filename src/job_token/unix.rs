@@ -1,0 +1,185 @@
+use std::{
+    ffi::{OsStr, OsString},
+    fs::{self, File},
+    io::{self, Read, Write},
+    mem::ManuallyDrop,
+    os::{
+        raw::c_int,
+        unix::{
+            ffi::{OsStrExt, OsStringExt},
+            prelude::*,
+        },
+    },
+    path::Path,
+};
+
+pub(super) struct JobServerClient {
+    read: File,
+    write: Option<File>,
+}
+
+impl JobServerClient {
+    pub(super) unsafe fn open(var: OsString) -> Option<Self> {
+        let bytes = var.into_vec();
+
+        let s = bytes
+            .split(u8::is_ascii_whitespace)
+            .filter_map(|arg| {
+                arg.strip_prefix(b"--jobserver-fds=")
+                    .or_else(|| arg.strip_prefix(b"--jobserver-auth="))
+            })
+            .find(|bytes| !bytes.is_empty())?;
+
+        if let Some(fifo) = s.strip_prefix(b"fifo:") {
+            Self::from_fifo(Path::new(OsStr::from_bytes(fifo)))
+        } else {
+            Self::from_pipe(OsStr::from_bytes(s).to_str()?)
+        }
+    }
+
+    /// `--jobserver-auth=fifo:PATH`
+    fn from_fifo(path: &Path) -> Option<Self> {
+        let file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(path)
+            .ok()?;
+
+        if is_pipe(&file)? {
+            // File in Rust is always closed-on-exec as long as it's opened by
+            // `File::open` or `fs::OpenOptions::open`.
+            set_nonblocking(&file)?;
+
+            Some(Self {
+                read: file,
+                write: None,
+            })
+        } else {
+            None
+        }
+    }
+
+    /// `--jobserver-auth=fd-for-R,fd-for-W`
+    unsafe fn from_pipe(s: &str) -> Option<Self> {
+        let (read, write) = s.split_once(',')?;
+
+        let read = read.parse().ok()?;
+        let write = write.parse().ok()?;
+
+        let read = ManuallyDrop::new(File::from_raw_fd(read));
+        let write = ManuallyDrop::new(File::from_raw_fd(write));
+
+        // Ok so we've got two integers that look like file descriptors, but
+        // for extra sanity checking let's see if they actually look like
+        // instances of a pipe before we return the client.
+        //
+        // If we're called from `make` *without* the leading + on our rule
+        // then we'll have `MAKEFLAGS` env vars but won't actually have
+        // access to the file descriptors.
+        match (
+            is_pipe(&read),
+            is_pipe(&write),
+            get_access_mode(&read),
+            get_access_mode(&write),
+        ) {
+            (
+                Some(true),
+                Some(true),
+                Some(libc::O_RDONLY) | Some(libc::O_RDWR),
+                Some(libc::O_WRONLY) | Some(libc::O_RDWR),
+            ) => {
+                let read = read.try_clone().ok()?;
+                let write = write.try_clone().ok()?;
+
+                // Set read and write end to nonblocking
+                set_nonblocking(&read)?;
+                set_nonblocking(&write)?;
+
+                Some(Self {
+                    read,
+                    write: Some(write),
+                })
+            }
+            _ => None,
+        }
+    }
+
+    pub(super) fn try_acquire(&self) -> io::Result<Option<()>> {
+        let mut fds = [libc::pollfd {
+            fd: self.read.as_raw_fd(),
+            events: libc::POLLIN,
+            revents: 0,
+        }];
+
+        let ret = cvt(unsafe { libc::poll(fds.as_mut_ptr(), 1, 0) })?;
+        if ret == 1 {
+            let mut buf = [0];
+            match (&self.read).read(&mut buf) {
+                Ok(1) => Ok(Some(())),
+                Ok(_) => Ok(None), // 0, eof
+                Err(e)
+                    if e.kind() == io::ErrorKind::Interrupted
+                        || e.kind() == io::ErrorKind::WouldBlock =>
+                {
+                    Ok(None)
+                }
+                Err(e) => Err(e),
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub(super) fn release(&self) -> io::Result<()> {
+        // For write to block, this would mean that pipe is full.
+        // If all every release are pair with an acquire, then this cannot
+        // happen.
+        //
+        // If it does happen, it is likely a bug in the program using this
+        // crate or some other programs that use the same jobserver have a
+        // bug in their code.
+        //
+        // If that turns out to not be the case we'll get an error anyway!
+        let mut write = self.write.as_ref().unwrap_or(&self.read);
+        match write.write(&[b'+'])? {
+            1 => Ok(()),
+            _ => Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
+        }
+    }
+}
+
+fn set_nonblocking(file: &File) -> Option<()> {
+    // F_SETFL can only set the O_APPEND, O_ASYNC, O_DIRECT, O_NOATIME, and
+    // O_NONBLOCK flags.
+    //
+    // For pipe, only O_NONBLOCK is meaningful, so it is ok to
+    // not issue a F_GETFL fcntl syscall.
+    let ret = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK) };
+
+    if ret == -1 {
+        None
+    } else {
+        Some(())
+    }
+}
+
+fn cvt(t: c_int) -> io::Result<c_int> {
+    if t == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(t)
+    }
+}
+
+fn is_pipe(file: &File) -> Option<bool> {
+    Some(file.metadata().ok()?.file_type().is_fifo())
+}
+
+fn get_access_mode(file: &File) -> Option<c_int> {
+    let ret = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_GETFL) };
+    if ret == -1 {
+        return None;
+    }
+
+    Some(ret & libc::O_ACCMODE)
+}

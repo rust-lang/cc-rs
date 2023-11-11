@@ -6,6 +6,12 @@ Windows.Win32.Foundation.SysFreeString
 Windows.Win32.Foundation.SysStringLen
 Windows.Win32.Foundation.S_FALSE
 Windows.Win32.Foundation.S_OK
+Windows.Win32.Foundation.FALSE
+Windows.Win32.Foundation.HANDLE
+Windows.Win32.Foundation.WAIT_OBJECT_0
+Windows.Win32.Foundation.WAIT_TIMEOUT
+Windows.Win32.Foundation.WAIT_FAILED
+Windows.Win32.Foundation.WAIT_ABANDONED
 
 Windows.Win32.System.Com.SAFEARRAY
 Windows.Win32.System.Com.SAFEARRAYBOUND
@@ -25,3 +31,10 @@ Windows.Win32.System.Registry.HKEY_LOCAL_MACHINE
 Windows.Win32.System.Registry.KEY_READ
 Windows.Win32.System.Registry.KEY_WOW64_32KEY
 Windows.Win32.System.Registry.REG_SZ
+
+Windows.Win32.System.Threading.ReleaseSemaphore
+Windows.Win32.System.Threading.WaitForSingleObject
+Windows.Win32.System.Threading.SEMAPHORE_MODIFY_STATE
+Windows.Win32.System.Threading.THREAD_SYNCHRONIZE
+
+Windows.Win32.System.WindowsProgramming.OpenSemaphoreA
