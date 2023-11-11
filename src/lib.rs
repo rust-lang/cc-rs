@@ -431,6 +431,24 @@ impl Build {
         self
     }
 
+    /// Removes a compiler flag that was added by [`Build::flag`].
+    ///
+    /// Will not remove flags added by other means (default flags,
+    /// flags from env, and so on).
+    ///
+    /// # Example
+    /// ```
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .flag("unwanted_flag")
+    ///     .remove_flag("unwanted_flag");
+    /// ```
+
+    pub fn remove_flag(&mut self, flag: &str) -> &mut Build {
+        self.flags.retain(|other_flag| &**other_flag != flag);
+        self
+    }
+
     /// Add a flag to the invocation of the ar
     ///
     /// # Example
