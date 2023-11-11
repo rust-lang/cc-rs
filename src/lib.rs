@@ -428,7 +428,10 @@ impl Build {
         self
     }
 
-    /// removes a compiler flag that was added by [`Build::flag`]
+    /// Removes a compiler flag that was added by [`Build::flag`].
+    ///
+    /// Will not remove flags added by other means (default flags,
+    /// flags from env, and so on).
     ///
     /// # Example
     /// ```
