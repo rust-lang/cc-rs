@@ -61,6 +61,12 @@ impl Test {
         t
     }
 
+    pub fn clang() -> Test {
+        let t = Test::new();
+        t.shim("clang").shim("clang++").shim("ar");
+        t
+    }
+
     pub fn shim(&self, name: &str) -> &Test {
         let name = if name.ends_with(env::consts::EXE_SUFFIX) {
             name.to_string()
