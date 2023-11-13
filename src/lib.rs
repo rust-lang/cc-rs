@@ -1631,7 +1631,7 @@ impl Build {
 
         for directory in self.include_directories.iter() {
             cmd.args.push("-I".into());
-            cmd.args.push((**directory).into());
+            cmd.args.push(directory.as_os_str().into());
         }
 
         // If warnings and/or extra_warnings haven't been explicitly set,
