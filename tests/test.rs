@@ -510,6 +510,45 @@ fn gnu_apple_darwin() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn macos_cpp_minimums() {
+    let versions = &[
+        // Too low
+        ("10.7", "10.9"),
+        // Minimum
+        ("10.9", "10.9"),
+        // Higher
+        ("11.0", "11.0"),
+    ];
+
+    let target = "x86_64-apple-darwin";
+    for (deployment_target, expected) in versions {
+        let test = Test::gnu();
+        test.gcc()
+            .target(target)
+            .host(target)
+            .cpp(true)
+            .__set_env("MACOSX_DEPLOYMENT_TARGET", deployment_target)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0)
+            .must_have(format!("-mmacosx-version-min={}", expected));
+    }
+
+    let test = Test::gnu();
+    test.gcc()
+        .target(target)
+        .host(target)
+        .__set_env("MACOSX_DEPLOYMENT_TARGET", "10.7")
+        .file("foo.c")
+        .compile("foo");
+
+    // No C++ leaves it untouched
+    test.cmd(0).must_have("-mmacosx-version-min=10.7");
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn clang_apple_tvos() {
     for target in &["aarch64-apple-tvos"] {
         let test = Test::clang();
