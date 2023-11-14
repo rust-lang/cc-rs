@@ -3407,6 +3407,8 @@ impl Build {
         target: &str,
         arch_str: Option<&str>,
     ) -> String {
+        const OLD_IOS_MINIMUM_VERSION: &str = "7.0";
+
         fn rustc_provided_target(rustc: Option<&str>, target: &str) -> Option<String> {
             let rustc = rustc?;
             let output = Command::new(rustc)
@@ -3427,6 +3429,62 @@ impl Build {
             }
         }
 
+        let deployment_from_env = |name: &str| {
+            // note this isn't hit in production codepaths, its mostly just for tests which don't
+            // set the real env
+            if let Some((_, v)) = self.env.iter().find(|(k, _)| &**k == OsStr::new(name)) {
+                Some(v.to_str().unwrap().to_string())
+            } else {
+                env::var(name).ok()
+            }
+        };
+
+        // Determines if the acquired deployment target is too low to support modern C++ on some Apple platform.
+        //
+        // A long time ago they used libstdc++, but since macOS 10.9 and iOS 7 libc++ has been the library the SDKs provide to link against.
+        // If a `cc`` config wants to use C++, we round up to these versions as the baseline.
+        let maybe_cpp_version_baseline = |deployment_target_ver: String| -> String {
+            if !self.cpp {
+                return deployment_target_ver;
+            }
+
+            let mut deployment_target = deployment_target_ver
+                .split('.')
+                .map(|v| v.parse::<u32>().expect("integer version"));
+
+            match os {
+                AppleOs::MacOs => {
+                    let major = deployment_target.next().unwrap_or(0);
+                    let minor = deployment_target.next().unwrap_or(0);
+
+                    // If below 10.9, we round up.
+                    if major == 10 && minor < 9 {
+                        println!(
+                            "cargo-warning: macOS deployment target ({}) too low, it will be increased",
+                            deployment_target_ver
+                        );
+                        return String::from("10.9");
+                    }
+                }
+                AppleOs::Ios => {
+                    let major = deployment_target.next().unwrap_or(0);
+
+                    if major < 7 {
+                        println!(
+                            "cargo-warning: iOS deployment target ({}) too low, it will be increased",
+                            deployment_target_ver
+                        );
+                        return String::from(OLD_IOS_MINIMUM_VERSION);
+                    }
+                }
+                // watchOS, tvOS, and others are all new enough that libc++ is their baseline.
+                _ => {}
+            }
+
+            // If the deployment target met or exceeded the C++ baseline
+            deployment_target_ver
+        };
+
         let rustc = self.getenv("RUSTC");
         let rustc = rustc.as_deref();
         // note the hardcoded minimums here are subject to change in a future compiler release,
@@ -3436,31 +3494,27 @@ impl Build {
         // the ordering of env -> rustc -> old defaults is intentional for performance when using
         // an explicit target
         match os {
-            AppleOs::MacOs => env::var("MACOSX_DEPLOYMENT_TARGET")
-                .ok()
+            AppleOs::MacOs => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
                 .or_else(|| rustc_provided_target(rustc, target))
+                .map(maybe_cpp_version_baseline)
                 .unwrap_or_else(|| {
                     if arch_str == Some("aarch64") {
-                        "11.0"
+                        "11.0".into()
                     } else {
-                        if self.cpp {
-                            "10.9"
-                        } else {
-                            "10.7"
-                        }
+                        maybe_cpp_version_baseline("10.7".into())
                     }
-                    .into()
                 }),
-            AppleOs::Ios => env::var("IPHONEOS_DEPLOYMENT_TARGET")
-                .ok()
+
+            AppleOs::Ios => deployment_from_env("IPHONEOS_DEPLOYMENT_TARGET")
                 .or_else(|| rustc_provided_target(rustc, target))
-                .unwrap_or_else(|| "7.0".into()),
-            AppleOs::WatchOs => env::var("WATCHOS_DEPLOYMENT_TARGET")
-                .ok()
+                .map(maybe_cpp_version_baseline)
+                .unwrap_or_else(|| OLD_IOS_MINIMUM_VERSION.into()),
+
+            AppleOs::WatchOs => deployment_from_env("WATCHOS_DEPLOYMENT_TARGET")
                 .or_else(|| rustc_provided_target(rustc, target))
                 .unwrap_or_else(|| "5.0".into()),
-            AppleOs::TvOs => env::var("TVOS_DEPLOYMENT_TARGET")
-                .ok()
+
+            AppleOs::TvOs => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
                 .or_else(|| rustc_provided_target(rustc, target))
                 .unwrap_or_else(|| "9.0".into()),
         }
