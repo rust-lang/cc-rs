@@ -135,6 +135,7 @@ pub struct Build {
     env_cache: Arc<Mutex<HashMap<String, Option<Arc<str>>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
     emit_rerun_if_env_changed: bool,
+    cached_compiler_family: Arc<Mutex<HashMap<Box<Path>, ToolFamily>>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -341,6 +342,7 @@ impl Build {
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
+            cached_compiler_family: Arc::default(),
         }
     }
 
@@ -2519,7 +2521,7 @@ impl Build {
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
         if let Some(c) = &self.compiler {
-            return Ok(Tool::new((**c).to_owned()));
+            return Ok(Tool::new((**c).to_owned(), &self.cached_compiler_family));
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
@@ -2555,7 +2557,8 @@ impl Build {
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::with_clang_driver(tool, driver_mode);
+                let mut t =
+                    Tool::with_clang_driver(tool, driver_mode, &self.cached_compiler_family);
                 if let Some(cc_wrapper) = wrapper {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2569,12 +2572,12 @@ impl Build {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
-                        let mut t = Tool::new(PathBuf::from("cmd"));
+                        let mut t = Tool::new(PathBuf::from("cmd"), &self.cached_compiler_family);
                         t.args.push("/c".into());
                         t.args.push(format!("{}.bat", tool).into());
                         Some(t)
                     } else {
-                        Some(Tool::new(PathBuf::from(tool)))
+                        Some(Tool::new(PathBuf::from(tool), &self.cached_compiler_family))
                     }
                 } else {
                     None
@@ -2630,7 +2633,7 @@ impl Build {
                     default.to_string()
                 };
 
-                let mut t = Tool::new(PathBuf::from(compiler));
+                let mut t = Tool::new(PathBuf::from(compiler), &self.cached_compiler_family);
                 if let Some(cc_wrapper) = Self::rustc_wrapper_fallback() {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2647,7 +2650,8 @@ impl Build {
                 Err(_) => PathBuf::from("nvcc"),
                 Ok(nvcc) => PathBuf::from(&*nvcc),
             };
-            let mut nvcc_tool = Tool::with_features(nvcc, None, self.cuda);
+            let mut nvcc_tool =
+                Tool::with_features(nvcc, None, self.cuda, &self.cached_compiler_family);
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());
@@ -3535,32 +3539,41 @@ impl Default for Build {
 }
 
 impl Tool {
-    fn new(path: PathBuf) -> Self {
-        Tool::with_features(path, None, false)
+    fn new(path: PathBuf, cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>) -> Self {
+        Self::with_features(path, None, false, cached_compiler_family)
     }
 
-    fn with_clang_driver(path: PathBuf, clang_driver: Option<&str>) -> Self {
-        Self::with_features(path, clang_driver, false)
+    fn with_clang_driver(
+        path: PathBuf,
+        clang_driver: Option<&str>,
+        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
+    ) -> Self {
+        Self::with_features(path, clang_driver, false, cached_compiler_family)
     }
 
     #[cfg(windows)]
     /// Explicitly set the `ToolFamily`, skipping name-based detection.
     fn with_family(path: PathBuf, family: ToolFamily) -> Self {
         Self {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
+            family,
             cuda: false,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
         }
     }
 
-    fn with_features(path: PathBuf, clang_driver: Option<&str>, cuda: bool) -> Self {
-        fn detect_family(path: &Path) -> ToolFamily {
+    fn with_features(
+        path: PathBuf,
+        clang_driver: Option<&str>,
+        cuda: bool,
+        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
+    ) -> Self {
+        fn detect_family_inner(path: &Path) -> ToolFamily {
             let mut cmd = Command::new(path);
             cmd.arg("--version");
 
@@ -3588,6 +3601,18 @@ impl Tool {
                 ToolFamily::Gnu
             }
         }
+        let detect_family = |path: &Path| -> ToolFamily {
+            if let Some(family) = cached_compiler_family.lock().unwrap().get(path) {
+                return *family;
+            }
+
+            let family = detect_family_inner(path);
+            cached_compiler_family
+                .lock()
+                .unwrap()
+                .insert(path.into(), family);
+            family
+        };
 
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
@@ -3608,13 +3633,13 @@ impl Tool {
         };
 
         Tool {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
-            cuda: cuda,
+            family,
+            cuda,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
         }
