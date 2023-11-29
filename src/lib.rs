@@ -527,6 +527,7 @@ impl Build {
         let host = self.get_host()?;
         let mut cfg = Build::new();
         cfg.flag(flag)
+            .cargo_metadata(self.cargo_metadata)
             .target(&target)
             .opt_level(0)
             .host(&host)
