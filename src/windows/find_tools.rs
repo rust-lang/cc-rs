@@ -928,7 +928,7 @@ mod impl_ {
         for subkey in key.iter().filter_map(|k| k.ok()) {
             let val = subkey
                 .to_str()
-                .and_then(|s| s.trim_left_matches("v").replace('.', "").parse().ok());
+                .and_then(|s| s.trim_start_matches("v").replace('.', "").parse().ok());
             let val = match val {
                 Some(s) => s,
                 None => continue,
