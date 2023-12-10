@@ -6,7 +6,6 @@
 // except according to those terms.
 
 #![allow(unused)]
-
 use crate::windows::{
     winapi::{IUnknown, Interface},
     windows_sys::{
@@ -17,7 +16,6 @@ use crate::windows::{
 use std::{
     convert::TryInto,
     ffi::{OsStr, OsString},
-    mem::ManuallyDrop,
     ops::Deref,
     os::windows::ffi::{OsStrExt, OsStringExt},
     ptr::{null, null_mut},
@@ -47,19 +45,6 @@ where
     pub unsafe fn from_raw(ptr: *mut T) -> ComPtr<T> {
         assert!(!ptr.is_null());
         ComPtr(ptr)
-    }
-    /// Casts up the inheritance chain
-    pub fn up<U>(self) -> ComPtr<U>
-    where
-        T: Deref<Target = U>,
-        U: Interface,
-    {
-        ComPtr(self.into_raw() as *mut U)
-    }
-    /// Extracts the raw pointer.
-    /// You are now responsible for releasing it yourself.
-    pub fn into_raw(self) -> *mut T {
-        ManuallyDrop::new(self).0
     }
     /// For internal use only.
     fn as_unknown(&self) -> &IUnknown {
