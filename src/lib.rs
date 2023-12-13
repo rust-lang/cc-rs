@@ -290,7 +290,7 @@ struct Object {
 impl Object {
     /// Create a new source file -> object file pair.
     fn new(src: PathBuf, dst: PathBuf) -> Object {
-        Object { src: src, dst: dst }
+        Object { src, dst }
     }
 }
 
@@ -3548,12 +3548,12 @@ impl Tool {
     /// Explicitly set the `ToolFamily`, skipping name-based detection.
     fn with_family(path: PathBuf, family: ToolFamily) -> Self {
         Self {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
+            family,
             cuda: false,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
@@ -3609,13 +3609,13 @@ impl Tool {
         };
 
         Tool {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
-            cuda: cuda,
+            family,
+            cuda,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
         }

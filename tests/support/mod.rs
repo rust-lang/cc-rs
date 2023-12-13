@@ -42,8 +42,8 @@ impl Test {
         let td = Builder::new().prefix("gcc-test").tempdir_in(&gcc).unwrap();
         gcc.push(format!("gcc-shim{}", env::consts::EXE_SUFFIX));
         Test {
-            td: td,
-            gcc: gcc,
+            td,
+            gcc,
             msvc: false,
         }
     }

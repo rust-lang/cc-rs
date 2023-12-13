@@ -182,7 +182,7 @@ mod impl_ {
     impl MsvcTool {
         fn new(tool: PathBuf) -> MsvcTool {
             MsvcTool {
-                tool: tool,
+                tool,
                 libs: Vec::new(),
                 path: Vec::new(),
                 include: Vec::new(),
