@@ -394,7 +394,7 @@ mod impl_ {
                 .into_iter()
                 .filter_map(|instance| instance.installation_path())
                 .map(|path| path.join(tool))
-                .find(|ref path| path.is_file()),
+                .find(|path| path.is_file()),
             None => None,
         };
 
@@ -467,18 +467,15 @@ mod impl_ {
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
         // This is the path to the toolchain for a particular target, running
         // on a given host
-        let bin_path = path
-            .join("bin")
-            .join(&format!("Host{}", host))
-            .join(&target);
+        let bin_path = path.join("bin").join(format!("Host{}", host)).join(target);
         // But! we also need PATH to contain the target directory for the host
         // architecture, because it contains dlls like mspdb140.dll compiled for
         // the host architecture.
         let host_dylib_path = path
             .join("bin")
-            .join(&format!("Host{}", host))
-            .join(&host.to_lowercase());
-        let lib_path = path.join("lib").join(&target);
+            .join(format!("Host{}", host))
+            .join(host.to_lowercase());
+        let lib_path = path.join("lib").join(target);
         let include_path = path.join("include");
         Some((path, bin_path, host_dylib_path, lib_path, include_path))
     }
@@ -883,7 +880,7 @@ mod impl_ {
     }
 
     pub fn find_devenv(target: &str) -> Option<Tool> {
-        find_devenv_vs15(&target)
+        find_devenv_vs15(target)
     }
 
     fn find_devenv_vs15(target: &str) -> Option<Tool> {

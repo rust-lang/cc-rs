@@ -1125,7 +1125,7 @@ impl Build {
         } else {
             let mut gnu = String::with_capacity(5 + output.len());
             gnu.push_str("lib");
-            gnu.push_str(&output);
+            gnu.push_str(output);
             gnu.push_str(".a");
             (output, gnu)
         };
@@ -2276,9 +2276,9 @@ impl Build {
 
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            match fs::hard_link(&dst, &lib_dst).or_else(|_| {
+            match fs::hard_link(dst, &lib_dst).or_else(|_| {
                 // if hard-link fails, just copy (ignoring the number of bytes written)
-                fs::copy(&dst, &lib_dst).map(|_| ())
+                fs::copy(dst, &lib_dst).map(|_| ())
             }) {
                 Ok(_) => (),
                 Err(_) => {
@@ -2541,7 +2541,7 @@ impl Build {
             traditional
         };
 
-        let cl_exe = windows_registry::find_tool(&target, "cl.exe");
+        let cl_exe = windows_registry::find_tool(target, "cl.exe");
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
@@ -2600,7 +2600,7 @@ impl Build {
                 } else if target.contains("apple-tvos") {
                     clang.to_string()
                 } else if target.contains("android") {
-                    autodetect_android_compiler(&target, &host, gnu, clang)
+                    autodetect_android_compiler(target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if target == "wasm32-wasi"
@@ -2619,7 +2619,7 @@ impl Build {
                 } else if target.starts_with("aarch64-kmc-solid_") {
                     format!("aarch64-kmc-elf-{}", gnu)
                 } else if &*self.get_host()? != target {
-                    let prefix = self.prefix_for_target(&target);
+                    let prefix = self.prefix_for_target(target);
                     match prefix {
                         Some(prefix) => {
                             let cc = if target.contains("llvm") { clang } else { gnu };
@@ -2968,7 +2968,7 @@ impl Build {
                     if compiler.family == ToolFamily::Clang {
                         name = format!("llvm-{}", tool);
                         search_programs(&mut self.cmd(&compiler.path), &name)
-                            .map(|name| self.cmd(&name))
+                            .map(|name| self.cmd(name))
                     } else {
                         None
                     }
@@ -3664,7 +3664,7 @@ impl Tool {
             return self
                 .args()
                 .iter()
-                .any(|ref a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
+                .any(|a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
         }
 
         // TODO Check for existing -m..., -m...=..., /arch:... flags
@@ -3688,7 +3688,7 @@ impl Tool {
     pub fn to_command(&self) -> Command {
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
-                let mut cmd = Command::new(&cc_wrapper_path);
+                let mut cmd = Command::new(cc_wrapper_path);
                 cmd.arg(&self.path);
                 cmd
             }
@@ -3943,10 +3943,10 @@ fn command_add_output_file(
 ) {
     if msvc && !clang && !gnu && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
-        s.push(&dst);
+        s.push(dst);
         cmd.arg(s);
     } else {
-        cmd.arg("-o").arg(&dst);
+        cmd.arg("-o").arg(dst);
     }
 }
 
