@@ -1542,7 +1542,12 @@ impl Build {
             "Expand may only be called for a single file"
         );
 
-        let is_asm = self.files.iter().map(std::ops::Deref::deref).find_map(AsmFileExt::from_path).is_some();
+        let is_asm = self
+            .files
+            .iter()
+            .map(std::ops::Deref::deref)
+            .find_map(AsmFileExt::from_path)
+            .is_some();
 
         if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
             // #513: For `clang-cl`, separate flags/options from the input file.
