@@ -5,7 +5,7 @@
 // All files in the project carrying such notice may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(bad_style)]
+#![allow(bad_style, clippy::upper_case_acronyms)]
 
 use std::os::raw;
 

@@ -11,6 +11,8 @@
 //! A helper module to probe the Windows Registry when looking for
 //! windows-specific tools.
 
+#![allow(clippy::upper_case_acronyms)]
+
 use std::process::Command;
 
 use crate::Tool;
