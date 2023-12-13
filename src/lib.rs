@@ -694,7 +694,7 @@ impl Build {
     /// `true`.
     ///
     /// The name of the C++ standard library to link is decided by:
-    /// 1. If [cpp_link_stdlib](Build::cpp_link_stdlib) is set, use its value.
+    /// 1. If [`cpp_link_stdlib`](Build::cpp_link_stdlib) is set, use its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
@@ -709,7 +709,7 @@ impl Build {
     /// the most common compiler flags, e.g. `-std=c++17`, some project-specific
     /// flags might have to be prefixed with "-Xcompiler" flag, for example as
     /// `.flag("-Xcompiler").flag("-fpermissive")`. See the documentation for
-    /// `nvcc`, the CUDA compiler driver, at https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/
+    /// `nvcc`, the CUDA compiler driver, at <https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/>
     /// for more information.
     ///
     /// If enabled, this also implicitly enables C++ support.
@@ -1045,7 +1045,7 @@ impl Build {
     /// Adds a native library modifier that will be added to the
     /// `rustc-link-lib=static:MODIFIERS=LIBRARY_NAME` metadata line
     /// emitted for cargo if `cargo_metadata` is enabled.
-    /// See https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library
+    /// See <https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library>
     /// for the list of modifiers accepted by rustc.
     pub fn link_lib_modifier(&mut self, link_lib_modifier: &str) -> &mut Build {
         self.link_lib_modifiers.push(link_lib_modifier.into());
@@ -1600,7 +1600,8 @@ impl Build {
 
     /// Get the compiler that's in use for this configuration.
     ///
-    /// This will return a result instead of panicing; see get_compiler() for the complete description.
+    /// This will return a result instead of panicing; see
+    /// [`get_compiler()`](Self::get_compiler) for the complete description.
     pub fn try_get_compiler(&self) -> Result<Tool, Error> {
         let opt_level = self.get_opt_level()?;
         let target = self.get_target()?;
@@ -2798,7 +2799,7 @@ impl Build {
     }
 
     /// Returns the C++ standard library:
-    /// 1. If [cpp_link_stdlib](cc::Build::cpp_link_stdlib) is set, uses its value.
+    /// 1. If [`cpp_link_stdlib`](cc::Build::cpp_link_stdlib) is set, uses its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
@@ -3624,7 +3625,7 @@ impl Tool {
     ///
     /// Nvidia compiler accepts only the most common compiler flags like `-D`,
     /// `-I`, `-c`, etc. Options meant specifically for the underlying
-    /// host C++ compiler have to be prefixed with '-Xcompiler`.
+    /// host C++ compiler have to be prefixed with `-Xcompiler`.
     /// [Another possible future application for this function is passing
     /// clang-specific flags to clang-cl, which otherwise accepts only
     /// MSVC-specific options.]
