@@ -196,7 +196,7 @@ mod impl_ {
                 path,
                 include,
             } = self;
-            let mut tool = Tool::with_family(tool.into(), MSVC_FAMILY);
+            let mut tool = Tool::with_family(tool, MSVC_FAMILY);
             add_env(&mut tool, "LIB", libs);
             add_env(&mut tool, "PATH", path);
             add_env(&mut tool, "INCLUDE", include);
@@ -242,7 +242,7 @@ mod impl_ {
                         .map(|p| p.join(tool))
                         .find(|p| p.exists())
                 })
-                .map(|path| Tool::with_family(path.into(), MSVC_FAMILY))
+                .map(|path| Tool::with_family(path, MSVC_FAMILY))
         }
     }
 
