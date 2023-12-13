@@ -1640,18 +1640,12 @@ impl Build {
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
 
-        if self
-            .warnings
-            .unwrap_or(if self.has_flags() { false } else { true })
-        {
+        if self.warnings.unwrap_or(!self.has_flags()) {
             let wflags = cmd.family.warnings_flags().into();
             cmd.push_cc_arg(wflags);
         }
 
-        if self
-            .extra_warnings
-            .unwrap_or(if self.has_flags() { false } else { true })
-        {
+        if self.extra_warnings.unwrap_or(!self.has_flags()) {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
                 cmd.push_cc_arg(wflags.into());
             }
