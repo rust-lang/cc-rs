@@ -632,7 +632,7 @@ mod impl_ {
                     path.join("bin").join(host),
                 )
             })
-            .filter(|&(ref path, _)| path.is_file())
+            .filter(|(path, _)| path.is_file())
             .map(|(path, host)| {
                 let mut tool = MsvcTool::new(path);
                 tool.path.push(host);

@@ -1183,8 +1183,8 @@ impl Build {
             let atlmfc_lib = compiler
                 .env()
                 .iter()
-                .find(|&&(ref var, _)| var.as_os_str() == OsStr::new("LIB"))
-                .and_then(|&(_, ref lib_paths)| {
+                .find(|&(var, _)| var.as_os_str() == OsStr::new("LIB"))
+                .and_then(|(_, lib_paths)| {
                     env::split_paths(lib_paths).find(|path| {
                         let sub = Path::new("atlmfc/lib");
                         path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
@@ -1486,7 +1486,7 @@ impl Build {
             self.msvc_macro_assembler()?
         } else {
             let mut cmd = compiler.to_command();
-            for &(ref a, ref b) in self.env.iter() {
+            for (a, b) in self.env.iter() {
                 cmd.env(a, b);
             }
             (
@@ -1532,7 +1532,7 @@ impl Build {
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
-        for &(ref a, ref b) in self.env.iter() {
+        for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
         cmd.arg("-E");
@@ -1667,7 +1667,7 @@ impl Build {
             }
         }
 
-        for &(ref key, ref value) in self.definitions.iter() {
+        for (key, value) in self.definitions.iter() {
             if let Some(ref value) = *value {
                 cmd.args.push(format!("-D{}={}", key, value).into());
             } else {
@@ -2198,7 +2198,7 @@ impl Build {
                 cmd.arg("-g");
             }
 
-            for &(ref key, ref value) in self.definitions.iter() {
+            for (key, value) in self.definitions.iter() {
                 cmd.arg("-PreDefine");
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
@@ -2217,7 +2217,7 @@ impl Build {
                 cmd.arg("-Zi");
             }
 
-            for &(ref key, ref value) in self.definitions.iter() {
+            for (key, value) in self.definitions.iter() {
                 if let Some(ref value) = *value {
                     cmd.arg(&format!("-D{}={}", key, value));
                 } else {
@@ -2512,7 +2512,7 @@ impl Build {
 
     fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
         let mut cmd = Command::new(prog);
-        for &(ref a, ref b) in self.env.iter() {
+        for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
         cmd
@@ -2708,7 +2708,7 @@ impl Build {
                 && tool.env.len() == 0
                 && target.contains("msvc")
             {
-                for &(ref k, ref v) in cl_exe.env.iter() {
+                for (k, v) in cl_exe.env.iter() {
                     tool.env.push((k.to_owned(), v.to_owned()));
                 }
             }
@@ -3703,7 +3703,7 @@ impl Tool {
             .collect::<Vec<_>>();
         cmd.args(&value);
 
-        for &(ref k, ref v) in self.env.iter() {
+        for (k, v) in self.env.iter() {
             cmd.env(k, v);
         }
         cmd
