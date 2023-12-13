@@ -22,7 +22,7 @@ fn main() {
         .compile("bar");
 
     let target = std::env::var("TARGET").unwrap();
-    let file = target.split("-").next().unwrap();
+    let file = target.split('-').next().unwrap();
     let file = format!(
         "src/{}.{}",
         file,

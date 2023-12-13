@@ -210,7 +210,7 @@ mod impl_ {
     fn is_vscmd_target(target: &str) -> Option<bool> {
         let vscmd_arch = env::var("VSCMD_ARG_TGT_ARCH").ok()?;
         // Convert the Rust target arch to its VS arch equivalent.
-        let arch = match target.split("-").next() {
+        let arch = match target.split('-').next() {
             Some("x86_64") => "x64",
             Some("aarch64") => "arm64",
             Some("i686") | Some("i586") => "x86",
@@ -840,7 +840,7 @@ mod impl_ {
         for subkey in key.iter().filter_map(|k| k.ok()) {
             let val = subkey
                 .to_str()
-                .and_then(|s| s.trim_left_matches("v").replace(".", "").parse().ok());
+                .and_then(|s| s.trim_left_matches("v").replace('.', "").parse().ok());
             let val = match val {
                 Some(s) => s,
                 None => continue,

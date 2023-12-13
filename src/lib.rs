@@ -2673,17 +2673,17 @@ impl Build {
         {
             if let Some(path) = tool.path.file_name() {
                 let file_name = path.to_str().unwrap().to_owned();
-                let (target, clang) = file_name.split_at(file_name.rfind("-").unwrap());
+                let (target, clang) = file_name.split_at(file_name.rfind('-').unwrap());
 
                 tool.has_internal_target_arg = true;
-                tool.path.set_file_name(clang.trim_start_matches("-"));
+                tool.path.set_file_name(clang.trim_start_matches('-'));
                 tool.path.set_extension("exe");
                 tool.args.push(format!("--target={}", target).into());
 
                 // Additionally, shell scripts for target i686-linux-android versions 16 to 24
                 // pass the `mstackrealign` option so we do that here as well.
                 if target.contains("i686-linux-android") {
-                    let (_, version) = target.split_at(target.rfind("d").unwrap() + 1);
+                    let (_, version) = target.split_at(target.rfind('d').unwrap() + 1);
                     if let Ok(version) = version.parse::<u32>() {
                         if version > 15 && version < 25 {
                             tool.args.push("-mstackrealign".into());
@@ -3329,7 +3329,7 @@ impl Build {
         let target = self.get_target()?;
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
-        let target_u = target.replace("-", "_");
+        let target_u = target.replace('-', "_");
         let res = self
             .getenv(&format!("{}_{}", var_base, target))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
@@ -3989,7 +3989,7 @@ static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
 fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
     if let Some(filename) = clang_path.file_name() {
         if let Some(filename_str) = filename.to_str() {
-            if let Some(idx) = filename_str.rfind("-") {
+            if let Some(idx) = filename_str.rfind('-') {
                 return filename_str.split_at(idx).0.contains("android");
             }
         }
