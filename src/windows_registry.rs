@@ -71,11 +71,11 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
     // the tool is actually usable.
 
-    return impl_::find_msvc_environment(tool, target)
+    impl_::find_msvc_environment(tool, target)
         .or_else(|| impl_::find_msvc_15plus(tool, target))
         .or_else(|| impl_::find_msvc_14(tool, target))
         .or_else(|| impl_::find_msvc_12(tool, target))
-        .or_else(|| impl_::find_msvc_11(tool, target));
+        .or_else(|| impl_::find_msvc_11(tool, target))
 }
 
 /// A version of Visual Studio
@@ -894,7 +894,7 @@ mod impl_ {
     pub fn find_msbuild(target: &str) -> Option<Tool> {
         // VS 15 (2017) changed how to locate msbuild
         if let Some(r) = find_msbuild_vs17(target) {
-            return Some(r);
+            Some(r)
         } else if let Some(r) = find_msbuild_vs16(target) {
             return Some(r);
         } else if let Some(r) = find_msbuild_vs15(target) {

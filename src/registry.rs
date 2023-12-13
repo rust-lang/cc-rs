@@ -147,7 +147,7 @@ impl RegistryKey {
             if !v.is_empty() && v[v.len() - 1] == 0 {
                 v.pop();
             }
-            return Ok(OsString::from_wide(&v));
+            Ok(OsString::from_wide(&v))
         }
     }
 }

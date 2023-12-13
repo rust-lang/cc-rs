@@ -3668,7 +3668,7 @@ impl Tool {
         }
 
         // TODO Check for existing -m..., -m...=..., /arch:... flags
-        return false;
+        false
     }
 
     /// Don't push optimization arg if it conflicts with existing args.
@@ -4102,7 +4102,11 @@ fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
     let path_entries = path_entries.or(env::var_os("PATH"))?;
     env::split_paths(&path_entries).find_map(|path_entry| {
         let mut exe = path_entry.join(tool);
-        return if check_exe(&mut exe) { Some(exe) } else { None };
+        if check_exe(&mut exe) {
+            Some(exe)
+        } else {
+            None
+        }
     })
 }
 
