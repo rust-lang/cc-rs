@@ -2104,29 +2104,29 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        if target.contains("linux") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("freebsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("netbsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("openbsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("linux") && arch.starts_with("32") {
-                            cmd.args.push(("-march=rv32gc").into());
-                            cmd.args.push("-mabi=ilp32d".into());
-                        } else if arch.starts_with("64") {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=lp64".into());
+                        if arch.starts_with("64") {
+                            if target.contains("linux")
+                                | target.contains("freebsd")
+                                | target.contains("netbsd")
+                                | target.contains("linux")
+                            {
+                                cmd.args.push(("-march=rv64gc").into());
+                                cmd.args.push("-mabi=lp64d".into());
+                            } else {
+                                cmd.args.push(("-march=rv".to_owned() + arch).into());
+                                cmd.args.push("-mabi=lp64".into());
+                            }
+                        } else if arch.starts_with("32") {
+                            if target.contains("linux") {
+                                cmd.args.push(("-march=rv32gc").into());
+                                cmd.args.push("-mabi=ilp32d".into());
+                            } else {
+                                cmd.args.push(("-march=rv".to_owned() + arch).into());
+                                cmd.args.push("-mabi=ilp32".into());
+                            }
                         } else {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=ilp32".into());
+                            cmd.args.push("-mcmodel=medany".into());
                         }
-                        cmd.args.push("-mcmodel=medany".into());
                     }
                 }
             }
@@ -2588,11 +2588,10 @@ impl Build {
                         let cc = if target.contains("llvm") { clang } else { gnu };
                         format!("{}.exe", cc)
                     }
-                } else if target.contains("apple-ios") {
-                    clang.to_string()
-                } else if target.contains("apple-watchos") {
-                    clang.to_string()
-                } else if target.contains("apple-tvos") {
+                } else if target.contains("apple-ios")
+                    | target.contains("apple-watchos")
+                    | target.contains("apple-tvos")
+                {
                     clang.to_string()
                 } else if target.contains("android") {
                     autodetect_android_compiler(target, &host, gnu, clang)
@@ -2817,13 +2816,11 @@ impl Build {
                     let target = self.get_target()?;
                     if target.contains("msvc") {
                         Ok(None)
-                    } else if target.contains("apple") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("freebsd") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("openbsd") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("aix") {
+                    } else if target.contains("apple")
+                        | target.contains("freebsd")
+                        | target.contains("openbsd")
+                        | target.contains("aix")
+                    {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
                         Ok(Some("c++_shared".to_string()))
