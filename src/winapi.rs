@@ -5,13 +5,13 @@
 // All files in the project carrying such notice may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(bad_style)]
+#![allow(bad_style, clippy::upper_case_acronyms)]
 
 use std::os::raw;
 
 pub type wchar_t = u16;
 
-pub use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY, SAFEARRAYBOUND};
+pub use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY};
 
 pub type REFIID = *const IID;
 pub type IID = GUID;

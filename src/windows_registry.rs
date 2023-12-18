@@ -11,6 +11,8 @@
 //! A helper module to probe the Windows Registry when looking for
 //! windows-specific tools.
 
+#![allow(clippy::upper_case_acronyms)]
+
 use std::process::Command;
 
 use crate::Tool;
@@ -71,11 +73,11 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // environment variables like `LIB`, `INCLUDE`, and `PATH` to ensure that
     // the tool is actually usable.
 
-    return impl_::find_msvc_environment(tool, target)
+    impl_::find_msvc_environment(tool, target)
         .or_else(|| impl_::find_msvc_15plus(tool, target))
         .or_else(|| impl_::find_msvc_14(tool, target))
         .or_else(|| impl_::find_msvc_12(tool, target))
-        .or_else(|| impl_::find_msvc_11(tool, target));
+        .or_else(|| impl_::find_msvc_11(tool, target))
 }
 
 /// A version of Visual Studio
@@ -182,7 +184,7 @@ mod impl_ {
     impl MsvcTool {
         fn new(tool: PathBuf) -> MsvcTool {
             MsvcTool {
-                tool: tool,
+                tool,
                 libs: Vec::new(),
                 path: Vec::new(),
                 include: Vec::new(),
@@ -196,7 +198,7 @@ mod impl_ {
                 path,
                 include,
             } = self;
-            let mut tool = Tool::with_family(tool.into(), MSVC_FAMILY);
+            let mut tool = Tool::with_family(tool, MSVC_FAMILY);
             add_env(&mut tool, "LIB", libs);
             add_env(&mut tool, "PATH", path);
             add_env(&mut tool, "INCLUDE", include);
@@ -210,7 +212,7 @@ mod impl_ {
     fn is_vscmd_target(target: &str) -> Option<bool> {
         let vscmd_arch = env::var("VSCMD_ARG_TGT_ARCH").ok()?;
         // Convert the Rust target arch to its VS arch equivalent.
-        let arch = match target.split("-").next() {
+        let arch = match target.split('-').next() {
             Some("x86_64") => "x64",
             Some("aarch64") => "arm64",
             Some("i686") | Some("i586") => "x86",
@@ -242,7 +244,7 @@ mod impl_ {
                         .map(|p| p.join(tool))
                         .find(|p| p.exists())
                 })
-                .map(|path| Tool::with_family(path.into(), MSVC_FAMILY))
+                .map(|path| Tool::with_family(path, MSVC_FAMILY))
         }
     }
 
@@ -394,7 +396,7 @@ mod impl_ {
                 .into_iter()
                 .filter_map(|instance| instance.installation_path())
                 .map(|path| path.join(tool))
-                .find(|ref path| path.is_file()),
+                .find(|path| path.is_file()),
             None => None,
         };
 
@@ -467,18 +469,15 @@ mod impl_ {
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
         // This is the path to the toolchain for a particular target, running
         // on a given host
-        let bin_path = path
-            .join("bin")
-            .join(&format!("Host{}", host))
-            .join(&target);
+        let bin_path = path.join("bin").join(format!("Host{}", host)).join(target);
         // But! we also need PATH to contain the target directory for the host
         // architecture, because it contains dlls like mspdb140.dll compiled for
         // the host architecture.
         let host_dylib_path = path
             .join("bin")
-            .join(&format!("Host{}", host))
-            .join(&host.to_lowercase());
-        let lib_path = path.join("lib").join(&target);
+            .join(format!("Host{}", host))
+            .join(host.to_lowercase());
+        let lib_path = path.join("lib").join(target);
         let include_path = path.join("include");
         Some((path, bin_path, host_dylib_path, lib_path, include_path))
     }
@@ -632,7 +631,7 @@ mod impl_ {
                     path.join("bin").join(host),
                 )
             })
-            .filter(|&(ref path, _)| path.is_file())
+            .filter(|(path, _)| path.is_file())
             .map(|(path, host)| {
                 let mut tool = MsvcTool::new(path);
                 tool.path.push(host);
@@ -840,7 +839,7 @@ mod impl_ {
         for subkey in key.iter().filter_map(|k| k.ok()) {
             let val = subkey
                 .to_str()
-                .and_then(|s| s.trim_left_matches("v").replace(".", "").parse().ok());
+                .and_then(|s| s.trim_left_matches("v").replace('.', "").parse().ok());
             let val = match val {
                 Some(s) => s,
                 None => continue,
@@ -883,7 +882,7 @@ mod impl_ {
     }
 
     pub fn find_devenv(target: &str) -> Option<Tool> {
-        find_devenv_vs15(&target)
+        find_devenv_vs15(target)
     }
 
     fn find_devenv_vs15(target: &str) -> Option<Tool> {
@@ -894,7 +893,7 @@ mod impl_ {
     pub fn find_msbuild(target: &str) -> Option<Tool> {
         // VS 15 (2017) changed how to locate msbuild
         if let Some(r) = find_msbuild_vs17(target) {
-            return Some(r);
+            Some(r)
         } else if let Some(r) = find_msbuild_vs16(target) {
             return Some(r);
         } else if let Some(r) = find_msbuild_vs15(target) {

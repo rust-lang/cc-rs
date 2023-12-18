@@ -23,6 +23,7 @@ use std::{
 /// Must never be `HKEY_PERFORMANCE_DATA`.
 pub(crate) struct RegistryKey(Repr);
 
+#[allow(clippy::upper_case_acronyms)]
 type DWORD = u32;
 
 struct OwnedKey(HKEY);
@@ -147,7 +148,7 @@ impl RegistryKey {
             if !v.is_empty() && v[v.len() - 1] == 0 {
                 v.pop();
             }
-            return Ok(OsString::from_wide(&v));
+            Ok(OsString::from_wide(&v))
         }
     }
 }

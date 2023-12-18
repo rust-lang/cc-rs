@@ -290,7 +290,7 @@ struct Object {
 impl Object {
     /// Create a new source file -> object file pair.
     fn new(src: PathBuf, dst: PathBuf) -> Object {
-        Object { src: src, dst: dst }
+        Object { src, dst }
     }
 }
 
@@ -694,7 +694,7 @@ impl Build {
     /// `true`.
     ///
     /// The name of the C++ standard library to link is decided by:
-    /// 1. If [cpp_link_stdlib](Build::cpp_link_stdlib) is set, use its value.
+    /// 1. If [`cpp_link_stdlib`](Build::cpp_link_stdlib) is set, use its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
@@ -709,7 +709,7 @@ impl Build {
     /// the most common compiler flags, e.g. `-std=c++17`, some project-specific
     /// flags might have to be prefixed with "-Xcompiler" flag, for example as
     /// `.flag("-Xcompiler").flag("-fpermissive")`. See the documentation for
-    /// `nvcc`, the CUDA compiler driver, at https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/
+    /// `nvcc`, the CUDA compiler driver, at <https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/>
     /// for more information.
     ///
     /// If enabled, this also implicitly enables C++ support.
@@ -1045,7 +1045,7 @@ impl Build {
     /// Adds a native library modifier that will be added to the
     /// `rustc-link-lib=static:MODIFIERS=LIBRARY_NAME` metadata line
     /// emitted for cargo if `cargo_metadata` is enabled.
-    /// See https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library
+    /// See <https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library>
     /// for the list of modifiers accepted by rustc.
     pub fn link_lib_modifier(&mut self, link_lib_modifier: &str) -> &mut Build {
         self.link_lib_modifiers.push(link_lib_modifier.into());
@@ -1125,7 +1125,7 @@ impl Build {
         } else {
             let mut gnu = String::with_capacity(5 + output.len());
             gnu.push_str("lib");
-            gnu.push_str(&output);
+            gnu.push_str(output);
             gnu.push_str(".a");
             (output, gnu)
         };
@@ -1183,8 +1183,8 @@ impl Build {
             let atlmfc_lib = compiler
                 .env()
                 .iter()
-                .find(|&&(ref var, _)| var.as_os_str() == OsStr::new("LIB"))
-                .and_then(|&(_, ref lib_paths)| {
+                .find(|&(var, _)| var.as_os_str() == OsStr::new("LIB"))
+                .and_then(|(_, lib_paths)| {
                     env::split_paths(lib_paths).find(|path| {
                         let sub = Path::new("atlmfc/lib");
                         path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
@@ -1486,7 +1486,7 @@ impl Build {
             self.msvc_macro_assembler()?
         } else {
             let mut cmd = compiler.to_command();
-            for &(ref a, ref b) in self.env.iter() {
+            for (a, b) in self.env.iter() {
                 cmd.env(a, b);
             }
             (
@@ -1532,7 +1532,7 @@ impl Build {
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
-        for &(ref a, ref b) in self.env.iter() {
+        for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
         cmd.arg("-E");
@@ -1600,7 +1600,8 @@ impl Build {
 
     /// Get the compiler that's in use for this configuration.
     ///
-    /// This will return a result instead of panicing; see get_compiler() for the complete description.
+    /// This will return a result instead of panicing; see
+    /// [`get_compiler()`](Self::get_compiler) for the complete description.
     pub fn try_get_compiler(&self) -> Result<Tool, Error> {
         let opt_level = self.get_opt_level()?;
         let target = self.get_target()?;
@@ -1640,18 +1641,12 @@ impl Build {
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
 
-        if self
-            .warnings
-            .unwrap_or(if self.has_flags() { false } else { true })
-        {
+        if self.warnings.unwrap_or(!self.has_flags()) {
             let wflags = cmd.family.warnings_flags().into();
             cmd.push_cc_arg(wflags);
         }
 
-        if self
-            .extra_warnings
-            .unwrap_or(if self.has_flags() { false } else { true })
-        {
+        if self.extra_warnings.unwrap_or(!self.has_flags()) {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
                 cmd.push_cc_arg(wflags.into());
             }
@@ -1667,7 +1662,7 @@ impl Build {
             }
         }
 
-        for &(ref key, ref value) in self.definitions.iter() {
+        for (key, value) in self.definitions.iter() {
             if let Some(ref value) = *value {
                 cmd.args.push(format!("-D{}={}", key, value).into());
             } else {
@@ -2109,29 +2104,29 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        if target.contains("linux") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("freebsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("netbsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("openbsd") && arch.starts_with("64") {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
-                        } else if target.contains("linux") && arch.starts_with("32") {
-                            cmd.args.push(("-march=rv32gc").into());
-                            cmd.args.push("-mabi=ilp32d".into());
-                        } else if arch.starts_with("64") {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=lp64".into());
+                        if arch.starts_with("64") {
+                            if target.contains("linux")
+                                | target.contains("freebsd")
+                                | target.contains("netbsd")
+                                | target.contains("linux")
+                            {
+                                cmd.args.push(("-march=rv64gc").into());
+                                cmd.args.push("-mabi=lp64d".into());
+                            } else {
+                                cmd.args.push(("-march=rv".to_owned() + arch).into());
+                                cmd.args.push("-mabi=lp64".into());
+                            }
+                        } else if arch.starts_with("32") {
+                            if target.contains("linux") {
+                                cmd.args.push(("-march=rv32gc").into());
+                                cmd.args.push("-mabi=ilp32d".into());
+                            } else {
+                                cmd.args.push(("-march=rv".to_owned() + arch).into());
+                                cmd.args.push("-mabi=ilp32".into());
+                            }
                         } else {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=ilp32".into());
+                            cmd.args.push("-mcmodel=medany".into());
                         }
-                        cmd.args.push("-mcmodel=medany".into());
                     }
                 }
             }
@@ -2198,7 +2193,7 @@ impl Build {
                 cmd.arg("-g");
             }
 
-            for &(ref key, ref value) in self.definitions.iter() {
+            for (key, value) in self.definitions.iter() {
                 cmd.arg("-PreDefine");
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
@@ -2217,7 +2212,7 @@ impl Build {
                 cmd.arg("-Zi");
             }
 
-            for &(ref key, ref value) in self.definitions.iter() {
+            for (key, value) in self.definitions.iter() {
                 if let Some(ref value) = *value {
                     cmd.arg(&format!("-D{}={}", key, value));
                 } else {
@@ -2276,9 +2271,9 @@ impl Build {
 
             let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
             let _ = fs::remove_file(&lib_dst);
-            match fs::hard_link(&dst, &lib_dst).or_else(|_| {
+            match fs::hard_link(dst, &lib_dst).or_else(|_| {
                 // if hard-link fails, just copy (ignoring the number of bytes written)
-                fs::copy(&dst, &lib_dst).map(|_| ())
+                fs::copy(dst, &lib_dst).map(|_| ())
             }) {
                 Ok(_) => (),
                 Err(_) => {
@@ -2512,7 +2507,7 @@ impl Build {
 
     fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
         let mut cmd = Command::new(prog);
-        for &(ref a, ref b) in self.env.iter() {
+        for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
         cmd
@@ -2541,7 +2536,7 @@ impl Build {
             traditional
         };
 
-        let cl_exe = windows_registry::find_tool(&target, "cl.exe");
+        let cl_exe = windows_registry::find_tool(target, "cl.exe");
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
@@ -2593,14 +2588,13 @@ impl Build {
                         let cc = if target.contains("llvm") { clang } else { gnu };
                         format!("{}.exe", cc)
                     }
-                } else if target.contains("apple-ios") {
-                    clang.to_string()
-                } else if target.contains("apple-watchos") {
-                    clang.to_string()
-                } else if target.contains("apple-tvos") {
+                } else if target.contains("apple-ios")
+                    | target.contains("apple-watchos")
+                    | target.contains("apple-tvos")
+                {
                     clang.to_string()
                 } else if target.contains("android") {
-                    autodetect_android_compiler(&target, &host, gnu, clang)
+                    autodetect_android_compiler(target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if target == "wasm32-wasi"
@@ -2619,7 +2613,7 @@ impl Build {
                 } else if target.starts_with("aarch64-kmc-solid_") {
                     format!("aarch64-kmc-elf-{}", gnu)
                 } else if &*self.get_host()? != target {
-                    let prefix = self.prefix_for_target(&target);
+                    let prefix = self.prefix_for_target(target);
                     match prefix {
                         Some(prefix) => {
                             let cc = if target.contains("llvm") { clang } else { gnu };
@@ -2673,17 +2667,17 @@ impl Build {
         {
             if let Some(path) = tool.path.file_name() {
                 let file_name = path.to_str().unwrap().to_owned();
-                let (target, clang) = file_name.split_at(file_name.rfind("-").unwrap());
+                let (target, clang) = file_name.split_at(file_name.rfind('-').unwrap());
 
                 tool.has_internal_target_arg = true;
-                tool.path.set_file_name(clang.trim_start_matches("-"));
+                tool.path.set_file_name(clang.trim_start_matches('-'));
                 tool.path.set_extension("exe");
                 tool.args.push(format!("--target={}", target).into());
 
                 // Additionally, shell scripts for target i686-linux-android versions 16 to 24
                 // pass the `mstackrealign` option so we do that here as well.
                 if target.contains("i686-linux-android") {
-                    let (_, version) = target.split_at(target.rfind("d").unwrap() + 1);
+                    let (_, version) = target.split_at(target.rfind('d').unwrap() + 1);
                     if let Ok(version) = version.parse::<u32>() {
                         if version > 15 && version < 25 {
                             tool.args.push("-mstackrealign".into());
@@ -2708,7 +2702,7 @@ impl Build {
                 && tool.env.len() == 0
                 && target.contains("msvc")
             {
-                for &(ref k, ref v) in cl_exe.env.iter() {
+                for (k, v) in cl_exe.env.iter() {
                     tool.env.push((k.to_owned(), v.to_owned()));
                 }
             }
@@ -2804,7 +2798,7 @@ impl Build {
     }
 
     /// Returns the C++ standard library:
-    /// 1. If [cpp_link_stdlib](cc::Build::cpp_link_stdlib) is set, uses its value.
+    /// 1. If [`cpp_link_stdlib`](cc::Build::cpp_link_stdlib) is set, uses its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
@@ -2822,13 +2816,11 @@ impl Build {
                     let target = self.get_target()?;
                     if target.contains("msvc") {
                         Ok(None)
-                    } else if target.contains("apple") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("freebsd") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("openbsd") {
-                        Ok(Some("c++".to_string()))
-                    } else if target.contains("aix") {
+                    } else if target.contains("apple")
+                        | target.contains("freebsd")
+                        | target.contains("openbsd")
+                        | target.contains("aix")
+                    {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
                         Ok(Some("c++_shared".to_string()))
@@ -2968,7 +2960,7 @@ impl Build {
                     if compiler.family == ToolFamily::Clang {
                         name = format!("llvm-{}", tool);
                         search_programs(&mut self.cmd(&compiler.path), &name)
-                            .map(|name| self.cmd(&name))
+                            .map(|name| self.cmd(name))
                     } else {
                         None
                     }
@@ -3329,7 +3321,7 @@ impl Build {
         let target = self.get_target()?;
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
-        let target_u = target.replace("-", "_");
+        let target_u = target.replace('-', "_");
         let res = self
             .getenv(&format!("{}_{}", var_base, target))
             .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
@@ -3548,12 +3540,12 @@ impl Tool {
     /// Explicitly set the `ToolFamily`, skipping name-based detection.
     fn with_family(path: PathBuf, family: ToolFamily) -> Self {
         Self {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
+            family,
             cuda: false,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
@@ -3609,13 +3601,13 @@ impl Tool {
         };
 
         Tool {
-            path: path,
+            path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
-            family: family,
-            cuda: cuda,
+            family,
+            cuda,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
         }
@@ -3630,7 +3622,7 @@ impl Tool {
     ///
     /// Nvidia compiler accepts only the most common compiler flags like `-D`,
     /// `-I`, `-c`, etc. Options meant specifically for the underlying
-    /// host C++ compiler have to be prefixed with '-Xcompiler`.
+    /// host C++ compiler have to be prefixed with `-Xcompiler`.
     /// [Another possible future application for this function is passing
     /// clang-specific flags to clang-cl, which otherwise accepts only
     /// MSVC-specific options.]
@@ -3664,11 +3656,11 @@ impl Tool {
             return self
                 .args()
                 .iter()
-                .any(|ref a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
+                .any(|a| a.to_str().unwrap_or("").chars().nth(1) == Some('O'));
         }
 
         // TODO Check for existing -m..., -m...=..., /arch:... flags
-        return false;
+        false
     }
 
     /// Don't push optimization arg if it conflicts with existing args.
@@ -3688,7 +3680,7 @@ impl Tool {
     pub fn to_command(&self) -> Command {
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
-                let mut cmd = Command::new(&cc_wrapper_path);
+                let mut cmd = Command::new(cc_wrapper_path);
                 cmd.arg(&self.path);
                 cmd
             }
@@ -3703,7 +3695,7 @@ impl Tool {
             .collect::<Vec<_>>();
         cmd.args(&value);
 
-        for &(ref k, ref v) in self.env.iter() {
+        for (k, v) in self.env.iter() {
             cmd.env(k, v);
         }
         cmd
@@ -3943,10 +3935,10 @@ fn command_add_output_file(
 ) {
     if msvc && !clang && !gnu && !cuda && !(is_asm && is_arm) {
         let mut s = OsString::from("-Fo");
-        s.push(&dst);
+        s.push(dst);
         cmd.arg(s);
     } else {
-        cmd.arg("-o").arg(&dst);
+        cmd.arg("-o").arg(dst);
     }
 }
 
@@ -3989,7 +3981,7 @@ static NEW_STANDALONE_ANDROID_COMPILERS: [&str; 4] = [
 fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool {
     if let Some(filename) = clang_path.file_name() {
         if let Some(filename_str) = filename.to_str() {
-            if let Some(idx) = filename_str.rfind("-") {
+            if let Some(idx) = filename_str.rfind('-') {
                 return filename_str.split_at(idx).0.contains("android");
             }
         }
@@ -4102,7 +4094,11 @@ fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
     let path_entries = path_entries.or(env::var_os("PATH"))?;
     env::split_paths(&path_entries).find_map(|path_entry| {
         let mut exe = path_entry.join(tool);
-        return if check_exe(&mut exe) { Some(exe) } else { None };
+        if check_exe(&mut exe) {
+            Some(exe)
+        } else {
+            None
+        }
     })
 }
 

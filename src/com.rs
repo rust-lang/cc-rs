@@ -64,7 +64,7 @@ where
     fn as_unknown(&self) -> &IUnknown {
         unsafe { &*(self.0 as *mut IUnknown) }
     }
-    /// Performs QueryInterface fun.
+    /// Performs `QueryInterface` fun.
     pub fn cast<U>(&self) -> Result<ComPtr<U>, i32>
     where
         U: Interface,

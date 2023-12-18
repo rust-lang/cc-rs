@@ -1,8 +1,8 @@
 //! Adapted from:
-//!  - https://doc.rust-lang.org/src/std/sys/unix/pipe.rs.html
-//!  - https://doc.rust-lang.org/src/std/sys/unix/fd.rs.html#385
-//!  - https://github.com/rust-lang/rust/blob/master/library/std/src/sys/mod.rs#L57
-//!  - https://github.com/oconnor663/os_pipe.rs
+//!  - <https://doc.rust-lang.org/src/std/sys/unix/pipe.rs.html>
+//!  - <https://doc.rust-lang.org/src/std/sys/unix/fd.rs.html#385>
+//!  - <https://github.com/rust-lang/rust/blob/master/library/std/src/sys/mod.rs#L57>
+//!  - <https://github.com/oconnor663/os_pipe.rs>
 use std::fs::File;
 
 /// Open a new pipe and return a pair of [`File`] objects for the reader and writer.

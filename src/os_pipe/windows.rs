@@ -4,7 +4,7 @@ use std::{fs::File, io, os::windows::prelude::*, ptr};
 /// NOTE: These pipes do not support IOCP.
 ///
 /// If IOCP is needed, then you might want to emulate
-/// anonymous pipes with CreateNamedPipe, as Rust's stdlib does.
+/// anonymous pipes with `CreateNamedPipe`, as Rust's stdlib does.
 pub(super) fn pipe() -> io::Result<(File, File)> {
     let mut read_pipe = INVALID_HANDLE_VALUE;
     let mut write_pipe = INVALID_HANDLE_VALUE;
