@@ -3825,7 +3825,7 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
 /// Find the destination object path for each file in the input source files,
 /// and store them in the output Object.
 fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Error> {
-    let mut objects = Vec::new();
+    let mut objects = Vec::with_capacity(files.len());
     for file in files {
         let obj = if file.has_root() || file.components().any(|x| x == Component::ParentDir) {
             // If `file` is an absolute path or might not be usable directly as a suffix due to
