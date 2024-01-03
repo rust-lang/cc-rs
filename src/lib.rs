@@ -3846,13 +3846,6 @@ fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Er
         } else {
             dst.join(file).with_extension("o")
         };
-        let obj = if !obj.starts_with(&dst) {
-            dst.join(obj.file_name().ok_or_else(|| {
-                Error::new(ErrorKind::IOError, "Getting object file details failed.")
-            })?)
-        } else {
-            obj
-        };
 
         match obj.parent() {
             Some(s) => fs::create_dir_all(s)?,
