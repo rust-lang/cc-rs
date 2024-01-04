@@ -2835,6 +2835,7 @@ impl Build {
                         | target.contains("freebsd")
                         | target.contains("openbsd")
                         | target.contains("aix")
+                        | target.contains("linux-ohos")
                     {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
