@@ -1933,6 +1933,8 @@ impl Build {
                 } else {
                     if target.contains("i586") {
                         cmd.push_cc_arg("-arch:IA32".into());
+                    } else if target.contains("arm64ec") {
+                        cmd.push_cc_arg("-arm64EC".into());
                     }
                 }
 
@@ -3017,10 +3019,14 @@ impl Build {
 
                     if lib.is_empty() {
                         name = String::from("lib.exe");
-                        match windows_registry::find(&target, "lib.exe") {
+                        let mut cmd = match windows_registry::find(&target, "lib.exe") {
                             Some(t) => t,
                             None => self.cmd("lib.exe"),
+                        };
+                        if target.contains("arm64ec") {
+                            cmd.arg("/machine:arm64ec");
                         }
+                        cmd
                     } else {
                         name = lib;
                         self.cmd(&name)
