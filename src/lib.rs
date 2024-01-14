@@ -123,6 +123,7 @@ pub struct Build {
     archiver: Option<Arc<Path>>,
     ranlib: Option<Arc<Path>>,
     cargo_metadata: bool,
+    cargo_warnings: bool,
     link_lib_modifiers: Vec<Arc<str>>,
     pic: Option<bool>,
     use_plt: Option<bool>,
@@ -331,6 +332,7 @@ impl Build {
             archiver: None,
             ranlib: None,
             cargo_metadata: true,
+            cargo_warnings: true,
             link_lib_modifiers: Vec::new(),
             pic: None,
             use_plt: None,
@@ -1042,6 +1044,16 @@ impl Build {
         self
     }
 
+    /// Define whether compile warnings should be emitted for cargo. Defaults to
+    /// `true`.
+    ///
+    /// If disabled, compiler messages are printed without the 'cargo:warning' prefix.
+    /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
+    pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
+        self.cargo_warnings = cargo_warnings;
+        self
+    }
+
     /// Adds a native library modifier that will be added to the
     /// `rustc-link-lib=static:MODIFIERS=LIBRARY_NAME` metadata line
     /// emitted for cargo if `cargo_metadata` is enabled.
@@ -1173,7 +1185,7 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
 
-        let print = PrintThread::new()?;
+        let print = PrintThread::new(self.cargo_warnings)?;
 
         self.compile_objects(&objects, &print)?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, &print)?;
@@ -1393,7 +1405,10 @@ impl Build {
                                 // sure users always see all the compilation failures.
                                 has_made_progress.set(true);
 
-                                let _ = writeln!(stdout, "cargo:warning={}", err);
+                                if self.cargo_warnings {
+                                    let _ = write!(stdout, "cargo:warning=");
+                                }
+                                let _ = writeln!(stdout, "{}", err);
                                 error = Some(err);
 
                                 false
@@ -1566,7 +1581,7 @@ impl Build {
             .to_string_lossy()
             .into_owned();
 
-        Ok(run_output(&mut cmd, &name)?)
+        Ok(run_output(&mut cmd, &name, self.cargo_warnings)?)
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
@@ -2167,10 +2182,15 @@ impl Build {
                     cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    println!(
-                        "cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
+                    let mut stdout = io::stdout().lock();
+                    if self.cargo_warnings {
+                        let _ = write!(stdout, "cargo:warning=");
+                    }
+                    let _ = writeln!(
+                        stdout,
+                        "cpp_set_stdlib is specified, but the {:?} compiler \
                          does not support this option, ignored",
-                        cmd.family
+                        cmd.family,
                     );
                 }
             }
@@ -2726,7 +2746,11 @@ impl Build {
         }
 
         if target.contains("msvc") && tool.family == ToolFamily::Gnu {
-            println!("cargo:warning=GNU compiler is not supported for this target");
+            let mut stdout = io::stdout().lock();
+            if self.cargo_warnings {
+                let _ = write!(stdout, "cargo:warning=");
+            }
+            let _ = writeln!(stdout, "GNU compiler is not supported for this target");
         }
 
         Ok(tool)
@@ -3400,6 +3424,7 @@ impl Build {
                 .arg("--sdk")
                 .arg(sdk),
             "xcrun",
+            self.cargo_warnings,
         )?;
 
         let sdk_path = match String::from_utf8(sdk_path) {
@@ -3579,9 +3604,14 @@ impl Tool {
             let mut cmd = Command::new(path);
             cmd.arg("--version");
 
-            let stdout = match run_output(&mut cmd, &path.to_string_lossy())
-                .ok()
-                .and_then(|o| String::from_utf8(o).ok())
+            let stdout = match run_output(
+                &mut cmd,
+                &path.to_string_lossy(),
+                // tool detection issues should always be shown as warnings
+                true,
+            )
+            .ok()
+            .and_then(|o| String::from_utf8(o).ok())
             {
                 Some(s) => s,
                 None => {
@@ -3882,10 +3912,10 @@ fn run(cmd: &mut Command, program: &str, print: &PrintThread) -> Result<(), Erro
     Ok(())
 }
 
-fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
+fn run_output(cmd: &mut Command, program: &str, cargo_warnings: bool) -> Result<Vec<u8>, Error> {
     cmd.stdout(Stdio::piped());
 
-    let mut print = PrintThread::new()?;
+    let mut print = PrintThread::new(cargo_warnings)?;
     let mut child = spawn(cmd, program, print.pipe_writer().take().unwrap())?;
 
     let mut stdout = vec![];
@@ -4126,7 +4156,13 @@ fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
 
 // search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
 fn search_programs(cc: &mut Command, prog: &str) -> Option<PathBuf> {
-    let search_dirs = run_output(cc.arg("-print-search-dirs"), "cc").ok()?;
+    let search_dirs = run_output(
+        cc.arg("-print-search-dirs"),
+        "cc",
+        // this doesn't concern the compilation so we always want to show warnings.
+        true,
+    )
+    .ok()?;
     // clang driver appears to be forcing UTF-8 output even on Windows,
     // hence from_utf8 is assumed to be usable in all cases.
     let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
@@ -4169,11 +4205,11 @@ struct PrintThread {
 }
 
 impl PrintThread {
-    fn new() -> Result<Self, Error> {
+    fn new(cargo_warnings: bool) -> Result<Self, Error> {
         let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
         // Capture the standard error coming from compilation, and write it out
-        // with cargo:warning= prefixes. Note that this is a bit wonky to avoid
+        // with cargo:warning= prefixes if requested. Note that this is a bit wonky to avoid
         // requiring the output to be UTF-8, we instead just ship bytes from one
         // location to another.
         let print = thread::spawn(move || {
@@ -4186,7 +4222,9 @@ impl PrintThread {
                 {
                     let mut stdout = stdout.lock();
 
-                    stdout.write_all(b"cargo:warning=").unwrap();
+                    if cargo_warnings {
+                        stdout.write_all(b"cargo:warning=").unwrap();
+                    }
                     stdout.write_all(&line).unwrap();
                     stdout.write_all(b"\n").unwrap();
                 }
