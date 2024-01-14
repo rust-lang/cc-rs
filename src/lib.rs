@@ -3475,7 +3475,7 @@ impl Build {
                     // If below 10.9, we round up.
                     if major == 10 && minor < 9 {
                         println!(
-                            "cargo-warning: macOS deployment target ({}) too low, it will be increased",
+                            "cargo:warning=macOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         );
                         return String::from("10.9");
@@ -3486,7 +3486,7 @@ impl Build {
 
                     if major < 7 {
                         println!(
-                            "cargo-warning: iOS deployment target ({}) too low, it will be increased",
+                            "cargo:warning=iOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         );
                         return String::from(OLD_IOS_MINIMUM_VERSION);
@@ -3586,7 +3586,7 @@ impl Tool {
                 Some(s) => s,
                 None => {
                     // --version failed. fallback to gnu
-                    println!("cargo-warning:Failed to run: {:?}", cmd);
+                    println!("cargo:warning=Failed to run: {:?}", cmd);
                     return ToolFamily::Gnu;
                 }
             };
@@ -3597,7 +3597,7 @@ impl Tool {
             } else {
                 // --version doesn't include clang for GCC
                 println!(
-                    "cargo-warning:Compiler version doesn't include clang or GCC: {:?}",
+                    "cargo:warning=Compiler version doesn't include clang or GCC: {:?}",
                     cmd
                 );
                 ToolFamily::Gnu
