@@ -2405,7 +2405,7 @@ impl Build {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
-            Catalyst(&'static str),
+            Catalyst(#[allow(dead_code)] &'static str),
         }
 
         let target = self.get_target()?;
