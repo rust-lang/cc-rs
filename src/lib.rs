@@ -2182,16 +2182,19 @@ impl Build {
                     cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    let mut stdout = io::stdout().lock();
-                    if self.cargo_warnings {
-                        let _ = write!(stdout, "cargo:warning=");
-                    }
-                    let _ = writeln!(
-                        stdout,
-                        "cpp_set_stdlib is specified, but the {:?} compiler \
+                    let stdout = io::stdout();
+                    {
+                        let mut stdout = stdout.lock();
+                        if self.cargo_warnings {
+                            let _ = write!(stdout, "cargo:warning=");
+                        }
+                        let _ = writeln!(
+                            stdout,
+                            "cpp_set_stdlib is specified, but the {:?} compiler \
                          does not support this option, ignored",
-                        cmd.family,
-                    );
+                            cmd.family,
+                        );
+                    }
                 }
             }
         }
@@ -2746,11 +2749,14 @@ impl Build {
         }
 
         if target.contains("msvc") && tool.family == ToolFamily::Gnu {
-            let mut stdout = io::stdout().lock();
-            if self.cargo_warnings {
-                let _ = write!(stdout, "cargo:warning=");
+            let stdout = io::stdout();
+            {
+                let mut stdout = stdout.lock();
+                if self.cargo_warnings {
+                    let _ = write!(stdout, "cargo:warning=");
+                }
+                let _ = writeln!(stdout, "GNU compiler is not supported for this target");
             }
-            let _ = writeln!(stdout, "GNU compiler is not supported for this target");
         }
 
         Ok(tool)
