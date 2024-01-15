@@ -1185,10 +1185,13 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
 
-        let print = PrintThread::new(self.cargo_warnings)?;
+        let print = self
+            .cargo_warnings
+            .then(|| PrintThread::new())
+            .transpose()?;
 
-        self.compile_objects(&objects, &print)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, &print)?;
+        self.compile_objects(&objects, print.as_ref())?;
+        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, print.as_ref())?;
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -1329,7 +1332,7 @@ impl Build {
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object], print: Option<&PrintThread>) -> Result<(), Error> {
         use std::cell::Cell;
 
         use async_executor::{block_on, YieldOnce};
@@ -1440,7 +1443,8 @@ impl Build {
                         YieldOnce::default().await
                     }
                 };
-                let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
+                let pipe_writer = print.map(|print| print.clone_pipe_writer()).transpose()?;
+                let child = spawn(&mut cmd, &program, pipe_writer)?;
 
                 cell_update(&pendings, |mut pendings| {
                     pendings.push((cmd, program, KillOnDrop(child), token));
@@ -1478,7 +1482,7 @@ impl Build {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object], print: Option<&PrintThread>) -> Result<(), Error> {
         for obj in objs {
             let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
             run(&mut cmd, &name, print)?;
@@ -2273,7 +2277,7 @@ impl Build {
         lib_name: &str,
         dst: &Path,
         objs: &[Object],
-        print: &PrintThread,
+        print: Option<&PrintThread>,
     ) -> Result<(), Error> {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
@@ -2342,7 +2346,7 @@ impl Build {
         &self,
         dst: &Path,
         objs: &[&Path],
-        print: &PrintThread,
+        print: Option<&PrintThread>,
     ) -> Result<(), Error> {
         let target = self.get_target()?;
 
@@ -3907,13 +3911,14 @@ fn try_wait_on_child(
     }
 }
 
-fn run_inner(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<(), Error> {
+fn run_inner(cmd: &mut Command, program: &str, pipe_writer: Option<File>) -> Result<(), Error> {
     let mut child = spawn(cmd, program, pipe_writer)?;
     wait_on_child(cmd, program, &mut child)
 }
 
-fn run(cmd: &mut Command, program: &str, print: &PrintThread) -> Result<(), Error> {
-    run_inner(cmd, program, print.pipe_writer_cloned()?.unwrap())?;
+fn run(cmd: &mut Command, program: &str, print: Option<&PrintThread>) -> Result<(), Error> {
+    let pipe_writer = print.map(|print| print.clone_pipe_writer()).transpose()?;
+    run_inner(cmd, program, pipe_writer)?;
 
     Ok(())
 }
@@ -3921,8 +3926,12 @@ fn run(cmd: &mut Command, program: &str, print: &PrintThread) -> Result<(), Erro
 fn run_output(cmd: &mut Command, program: &str, cargo_warnings: bool) -> Result<Vec<u8>, Error> {
     cmd.stdout(Stdio::piped());
 
-    let mut print = PrintThread::new(cargo_warnings)?;
-    let mut child = spawn(cmd, program, print.pipe_writer().take().unwrap())?;
+    let mut print = cargo_warnings.then(|| PrintThread::new()).transpose()?;
+    let mut child = spawn(
+        cmd,
+        program,
+        print.as_mut().map(|print| print.take_pipe_writer()),
+    )?;
 
     let mut stdout = vec![];
     child
@@ -3937,7 +3946,7 @@ fn run_output(cmd: &mut Command, program: &str, cargo_warnings: bool) -> Result<
     Ok(stdout)
 }
 
-fn spawn(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<Child, Error> {
+fn spawn(cmd: &mut Command, program: &str, pipe_writer: Option<File>) -> Result<Child, Error> {
     struct ResetStderr<'cmd>(&'cmd mut Command);
 
     impl Drop for ResetStderr<'_> {
@@ -3951,8 +3960,11 @@ fn spawn(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<Child, E
     println!("running: {:?}", cmd);
 
     let cmd = ResetStderr(cmd);
-
-    match cmd.0.stderr(pipe_writer).spawn() {
+    let child = cmd
+        .0
+        .stderr(pipe_writer.map_or_else(Stdio::null, Stdio::from))
+        .spawn();
+    match child {
         Ok(child) => Ok(child),
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
@@ -4211,7 +4223,7 @@ struct PrintThread {
 }
 
 impl PrintThread {
-    fn new(cargo_warnings: bool) -> Result<Self, Error> {
+    fn new() -> Result<Self, Error> {
         let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
         // Capture the standard error coming from compilation, and write it out
@@ -4228,9 +4240,7 @@ impl PrintThread {
                 {
                     let mut stdout = stdout.lock();
 
-                    if cargo_warnings {
-                        stdout.write_all(b"cargo:warning=").unwrap();
-                    }
+                    stdout.write_all(b"cargo:warning=").unwrap();
                     stdout.write_all(&line).unwrap();
                     stdout.write_all(b"\n").unwrap();
                 }
@@ -4246,11 +4256,21 @@ impl PrintThread {
         })
     }
 
-    fn pipe_writer(&mut self) -> &mut Option<File> {
-        &mut self.pipe_writer
+    /// # Panics
+    ///
+    /// Will panic if the pipe writer has already been taken.
+    fn take_pipe_writer(&mut self) -> File {
+        self.pipe_writer.take().unwrap()
     }
 
-    fn pipe_writer_cloned(&self) -> Result<Option<File>, Error> {
+    /// # Panics
+    ///
+    /// Will panic if the pipe writer has already been taken.
+    fn clone_pipe_writer(&self) -> Result<File, Error> {
+        self.try_clone_pipe_writer().map(|writer| writer.unwrap())
+    }
+
+    fn try_clone_pipe_writer(&self) -> Result<Option<File>, Error> {
         self.pipe_writer
             .as_ref()
             .map(File::try_clone)
