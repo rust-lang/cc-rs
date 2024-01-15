@@ -103,4 +103,12 @@ fn main() {
     let out = cc::Build::new().file("src/expand.c").expand();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains("hello world"));
+
+    // Compilations _should_ fail, but we don't want it to show up as a warning.
+    cc::Build::new()
+        .cargo_metadata(false)
+        .cargo_warnings(false)
+        .file("src/suppress_warnings.c")
+        .try_compile("suppress_warnings")
+        .unwrap_err();
 }
