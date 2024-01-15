@@ -1066,7 +1066,6 @@ impl Build {
     /// Define whether compile warnings should be emitted for cargo. Defaults to
     /// `true`.
     ///
-    /// If disabled, compiler messages are printed without the 'cargo:warning' prefix.
     /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
     pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
         self.cargo_warnings = cargo_warnings;
