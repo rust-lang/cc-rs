@@ -295,6 +295,25 @@ impl Object {
     }
 }
 
+#[cfg(feature = "parallel")]
+macro_rules! writeln_warning {
+    ($dst:expr $(,)?) => {
+        $crate::writeln_warning!($dst, "")
+    };
+    ($dst:expr, $($arg:tt)*) => {
+        ::std::writeln!($dst, "cargo:warning={}", ::std::format_args!($($arg)*))
+    };
+}
+
+macro_rules! println_warning {
+    () => {
+        $crate::println_warning!("")
+    };
+    ($($arg:tt)*) => {
+        ::std::println!("cargo:warning={}", ::std::format_args!($($arg)*))
+    };
+}
+
 impl Build {
     /// Construct a new instance of a blank set of configuration.
     ///
@@ -1409,9 +1428,8 @@ impl Build {
                                 has_made_progress.set(true);
 
                                 if self.cargo_warnings {
-                                    let _ = write!(stdout, "cargo:warning=");
+                                    let _ = writeln_warning!(stdout, "{}", err);
                                 }
-                                let _ = writeln!(stdout, "{}", err);
                                 error = Some(err);
 
                                 false
@@ -2186,18 +2204,8 @@ impl Build {
                     cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    let stdout = io::stdout();
-                    {
-                        let mut stdout = stdout.lock();
-                        if self.cargo_warnings {
-                            let _ = write!(stdout, "cargo:warning=");
-                        }
-                        let _ = writeln!(
-                            stdout,
-                            "cpp_set_stdlib is specified, but the {:?} compiler \
-                         does not support this option, ignored",
-                            cmd.family,
-                        );
+                    if self.cargo_warnings {
+                        println_warning!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family);
                     }
                 }
             }
@@ -2753,13 +2761,8 @@ impl Build {
         }
 
         if target.contains("msvc") && tool.family == ToolFamily::Gnu {
-            let stdout = io::stdout();
-            {
-                let mut stdout = stdout.lock();
-                if self.cargo_warnings {
-                    let _ = write!(stdout, "cargo:warning=");
-                }
-                let _ = writeln!(stdout, "GNU compiler is not supported for this target");
+            if self.cargo_warnings {
+                println_warning!("GNU compiler is not supported for this target");
             }
         }
 
@@ -3509,8 +3512,8 @@ impl Build {
 
                     // If below 10.9, we round up.
                     if major == 10 && minor < 9 {
-                        println!(
-                            "cargo:warning=macOS deployment target ({}) too low, it will be increased",
+                        println_warning!(
+                            "macOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         );
                         return String::from("10.9");
@@ -3520,8 +3523,8 @@ impl Build {
                     let major = deployment_target.next().unwrap_or(0);
 
                     if major < 7 {
-                        println!(
-                            "cargo:warning=iOS deployment target ({}) too low, it will be increased",
+                        println_warning!(
+                            "iOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         );
                         return String::from(OLD_IOS_MINIMUM_VERSION);
@@ -3626,7 +3629,7 @@ impl Tool {
                 Some(s) => s,
                 None => {
                     // --version failed. fallback to gnu
-                    println!("cargo:warning=Failed to run: {:?}", cmd);
+                    println_warning!("Failed to run: {:?}", cmd);
                     return ToolFamily::Gnu;
                 }
             };
@@ -3636,10 +3639,7 @@ impl Tool {
                 ToolFamily::Gnu
             } else {
                 // --version doesn't include clang for GCC
-                println!(
-                    "cargo:warning=Compiler version doesn't include clang or GCC: {:?}",
-                    cmd
-                );
+                println_warning!("Compiler version doesn't include clang or GCC: {:?}", cmd);
                 ToolFamily::Gnu
             }
         }
@@ -4227,7 +4227,7 @@ impl PrintThread {
         let (pipe_reader, pipe_writer) = os_pipe::pipe()?;
 
         // Capture the standard error coming from compilation, and write it out
-        // with cargo:warning= prefixes if requested. Note that this is a bit wonky to avoid
+        // with cargo:warning= prefixes. Note that this is a bit wonky to avoid
         // requiring the output to be UTF-8, we instead just ship bytes from one
         // location to another.
         let print = thread::spawn(move || {
