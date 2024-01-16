@@ -295,25 +295,6 @@ impl Object {
     }
 }
 
-#[cfg(feature = "parallel")]
-macro_rules! writeln_warning {
-    ($dst:expr $(,)?) => {
-        $crate::writeln_warning!($dst, "")
-    };
-    ($dst:expr, $($arg:tt)*) => {
-        ::std::writeln!($dst, "cargo:warning={}", ::std::format_args!($($arg)*))
-    };
-}
-
-macro_rules! println_warning {
-    () => {
-        $crate::println_warning!("")
-    };
-    ($($arg:tt)*) => {
-        ::std::println!("cargo:warning={}", ::std::format_args!($($arg)*))
-    };
-}
-
 impl Build {
     /// Construct a new instance of a blank set of configuration.
     ///
@@ -1066,6 +1047,7 @@ impl Build {
     /// Define whether compile warnings should be emitted for cargo. Defaults to
     /// `true`.
     ///
+    /// If disabled, compiler messages will not be printed.
     /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
     pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
         self.cargo_warnings = cargo_warnings;
@@ -1203,10 +1185,7 @@ impl Build {
             objects.push(Object::new(file.to_path_buf(), obj));
         }
 
-        let print = self
-            .cargo_warnings
-            .then(|| PrintThread::new())
-            .transpose()?;
+        let print = self.cargo_warnings.then(PrintThread::new).transpose()?;
 
         self.compile_objects(&objects, print.as_ref())?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, print.as_ref())?;
@@ -1426,9 +1405,7 @@ impl Build {
                                 // sure users always see all the compilation failures.
                                 has_made_progress.set(true);
 
-                                if self.cargo_warnings {
-                                    let _ = writeln_warning!(stdout, "{}", err);
-                                }
+                                self.print_warning(&err);
                                 error = Some(err);
 
                                 false
@@ -2203,9 +2180,7 @@ impl Build {
                     cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    if self.cargo_warnings {
-                        println_warning!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family);
-                    }
+                    self.print_warning(&format_args!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family));
                 }
             }
         }
@@ -2760,9 +2735,7 @@ impl Build {
         }
 
         if target.contains("msvc") && tool.family == ToolFamily::Gnu {
-            if self.cargo_warnings {
-                println_warning!("GNU compiler is not supported for this target");
-            }
+            self.print_warning(&"GNU compiler is not supported for this target");
         }
 
         Ok(tool)
@@ -3409,6 +3382,12 @@ impl Build {
         }
     }
 
+    fn print_warning(&self, arg: &dyn Display) {
+        if self.cargo_warnings {
+            println!("cargo:warning={}", arg);
+        }
+    }
+
     fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
         let target = self.get_target()?;
         let host = self.get_host()?;
@@ -3511,8 +3490,8 @@ impl Build {
 
                     // If below 10.9, we round up.
                     if major == 10 && minor < 9 {
-                        println_warning!(
-                            "macOS deployment target ({}) too low, it will be increased",
+                        println!(
+                            "cargo:warning=macOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         );
                         return String::from("10.9");
@@ -3522,8 +3501,8 @@ impl Build {
                     let major = deployment_target.next().unwrap_or(0);
 
                     if major < 7 {
-                        println_warning!(
-                            "iOS deployment target ({}) too low, it will be increased",
+                        println!(
+                            "cargo:warning=iOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         );
                         return String::from(OLD_IOS_MINIMUM_VERSION);
@@ -3628,7 +3607,7 @@ impl Tool {
                 Some(s) => s,
                 None => {
                     // --version failed. fallback to gnu
-                    println_warning!("Failed to run: {:?}", cmd);
+                    println!("cargo:warning=Failed to run: {:?}", cmd);
                     return ToolFamily::Gnu;
                 }
             };
@@ -3638,7 +3617,10 @@ impl Tool {
                 ToolFamily::Gnu
             } else {
                 // --version doesn't include clang for GCC
-                println_warning!("Compiler version doesn't include clang or GCC: {:?}", cmd);
+                println!(
+                    "cargo:warning=Compiler version doesn't include clang or GCC: {:?}",
+                    cmd
+                );
                 ToolFamily::Gnu
             }
         }
@@ -3925,7 +3907,7 @@ fn run(cmd: &mut Command, program: &str, print: Option<&PrintThread>) -> Result<
 fn run_output(cmd: &mut Command, program: &str, cargo_warnings: bool) -> Result<Vec<u8>, Error> {
     cmd.stdout(Stdio::piped());
 
-    let mut print = cargo_warnings.then(|| PrintThread::new()).transpose()?;
+    let mut print = cargo_warnings.then(PrintThread::new).transpose()?;
     let mut child = spawn(
         cmd,
         program,
