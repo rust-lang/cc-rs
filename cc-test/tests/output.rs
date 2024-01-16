@@ -38,7 +38,7 @@ fn load_output(action: &str) -> (String, String) {
     let action_dir = PathBuf::from(env!("OUT_DIR")).join(action);
     let stdout = fs::read_to_string(action_dir.join("stdout")).unwrap();
     let stderr = fs::read_to_string(action_dir.join("stderr")).unwrap();
-    println!("compile stdout: {:?}", action, stdout);
-    println!("compile stderr: {:?}", action, stderr);
+    println!("compile stdout: {:?}", stdout);
+    println!("compile stderr: {:?}", stderr);
     (stdout, stderr)
 }
