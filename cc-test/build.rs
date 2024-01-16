@@ -1,11 +1,25 @@
-use std::env;
-use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::process::Command;
+use std::{env, fs};
 
 fn main() {
+    // if we are being executed from a `fork_run_action` call (i.e. this is a
+    // "fork"), perform the requested action and then return.
+    if run_action_if_forked() {
+        return;
+    }
+
     let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
     fs::remove_dir_all(&out).unwrap();
     fs::create_dir(&out).unwrap();
+
+    // The following are builds where we want to capture the output (i.e. stdout and
+    // stderr). We do that by re-running _this_ executable and passing in the
+    // action as the first argument.
+    run_forked_capture_output(&out, "metadata-on");
+    run_forked_capture_output(&out, "metadata-off");
+    run_forked_capture_output(&out, "warnings-on");
+    run_forked_capture_output(&out, "warnings-off");
 
     cc::Build::new()
         .file("src/foo.c")
@@ -103,12 +117,50 @@ fn main() {
     let out = cc::Build::new().file("src/expand.c").expand();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains("hello world"));
+}
 
-    // Compilations _should_ fail, but we don't want it to show up as a warning.
+#[track_caller]
+fn run_forked_capture_output(out: &Path, action: &str) {
+    let program = env::current_exe().unwrap();
+    let output = Command::new(&program).arg(action).output().unwrap();
+    assert!(output.status.success());
+    // we've captured the output and now we write it to a dedicated directory in the
+    // build output so our tests can access the output.
+    let action_dir = out.join(action);
+    fs::create_dir_all(&action_dir).unwrap();
+    fs::write(action_dir.join("stdout"), output.stdout).unwrap();
+    fs::write(action_dir.join("stderr"), output.stderr).unwrap();
+}
+
+fn run_action_if_forked() -> bool {
+    let mut args = env::args();
+    let _program = args.next().unwrap();
+    let action = args.next();
+    match action.as_deref() {
+        Some("metadata-on") => build_cargo_metadata(true),
+        Some("metadata-off") => build_cargo_metadata(false),
+        Some("warnings-on") => build_cargo_warnings(true),
+        Some("warnings-off") => build_cargo_warnings(false),
+        // No action requested, we're being called from cargo. Proceed with build.
+        _ => return false,
+    }
+    true
+}
+
+fn build_cargo_warnings(warnings: bool) {
     cc::Build::new()
         .cargo_metadata(false)
-        .cargo_warnings(false)
-        .file("src/suppress_warnings.c")
-        .try_compile("suppress_warnings")
+        .cargo_warnings(warnings)
+        .file("src/compile_error.c")
+        .try_compile("compile_error")
+        // we expect the compilation to fail in this case
         .unwrap_err();
+}
+
+fn build_cargo_metadata(metadata: bool) {
+    cc::Build::new()
+        .cargo_metadata(metadata)
+        .file("src/dummy.c")
+        .try_compile("dummy")
+        .unwrap();
 }
