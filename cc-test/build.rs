@@ -1,6 +1,7 @@
+use std::env;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::{env, fs};
 
 fn main() {
     // if we are being executed from a `fork_run_action` call (i.e. this is a
