@@ -1405,7 +1405,9 @@ impl Build {
                                 // sure users always see all the compilation failures.
                                 has_made_progress.set(true);
 
-                                self.print_warning(&err);
+                                if self.cargo_warnings {
+                                    let _ = writeln!(stdout, "cargo:warning={}", err);
+                                }
                                 error = Some(err);
 
                                 false
