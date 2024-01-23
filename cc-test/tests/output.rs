@@ -19,16 +19,35 @@ fn cargo_warnings_off() {
 fn cargo_metadata_on() {
     let (stdout, stderr) = load_output("metadata-on");
     assert!(stderr.is_empty());
-    assert!(stdout.contains("rustc-link-lib="));
-    assert!(stdout.contains("rustc-link-search="));
+    assert!(stdout.contains("cargo:rustc-link-lib="));
+    assert!(stdout.contains("cargo:rustc-link-search="));
 }
 
 #[test]
 fn cargo_metadata_off() {
     let (stdout, stderr) = load_output("metadata-off");
     assert!(stderr.is_empty());
-    assert!(!stdout.contains("rustc-link-lib="));
-    assert!(!stdout.contains("rustc-link-search="));
+
+    // most of the instructions aren't currently used
+    const INSTRUCTIONS: &[&str] = &[
+        "cargo:rerun-if-changed=",
+        "cargo:rerun-if-env-changed=",
+        "cargo:rustc-cdylib-link-arg=",
+        "cargo:rustc-cfg=",
+        "cargo:rustc-env=",
+        "cargo:rustc-flags=",
+        "cargo:rustc-link-arg-benches=",
+        "cargo:rustc-link-arg-bin=",
+        "cargo:rustc-link-arg-bins=",
+        "cargo:rustc-link-arg-examples=",
+        "cargo:rustc-link-arg-tests=",
+        "cargo:rustc-link-arg=",
+        "cargo:rustc-link-lib=",
+        "cargo:rustc-link-search=",
+    ];
+    for instr in INSTRUCTIONS {
+        assert!(!stdout.contains(instr), "instruction present: {}", instr);
+    }
 }
 
 #[track_caller]

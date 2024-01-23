@@ -124,7 +124,7 @@ fn main() {
 fn run_forked_capture_output(out: &Path, action: &str) {
     let program = env::current_exe().unwrap();
     let output = Command::new(&program).arg(action).output().unwrap();
-    assert!(output.status.success());
+    assert!(output.status.success(), "output: {:#?}", output);
     // we've captured the output and now we write it to a dedicated directory in the
     // build output so our tests can access the output.
     let action_dir = out.join(action);
@@ -152,10 +152,9 @@ fn build_cargo_warnings(warnings: bool) {
     cc::Build::new()
         .cargo_metadata(false)
         .cargo_warnings(warnings)
-        .file("src/compile_error.c")
-        .try_compile("compile_error")
-        // we expect the compilation to fail in this case
-        .unwrap_err();
+        .file("src/compile_warning.c")
+        .try_compile("compile_warning")
+        .unwrap();
 }
 
 fn build_cargo_metadata(metadata: bool) {
