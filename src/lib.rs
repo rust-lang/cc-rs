@@ -2364,6 +2364,7 @@ impl Build {
     }
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+        #[allow(dead_code)]
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
