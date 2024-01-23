@@ -3827,25 +3827,22 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
 fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Error> {
     let mut objects = Vec::with_capacity(files.len());
     for file in files {
-        let obj = if file.has_root() || file.components().any(|x| x == Component::ParentDir) {
-            // If `file` is an absolute path or might not be usable directly as a suffix due to
-            // using "..", use the `basename` prefixed with the `dirname`'s hash to ensure name
-            // uniqueness.
-            let basename = file
-                .file_name()
-                .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
-                .to_string_lossy();
-            let dirname = file
-                .parent()
-                .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "parent() failure"))?
-                .to_string_lossy();
-            let mut hasher = hash_map::DefaultHasher::new();
-            hasher.write(dirname.to_string().as_bytes());
-            dst.join(format!("{:016x}-{}", hasher.finish(), basename))
-                .with_extension("o")
-        } else {
-            dst.join(file).with_extension("o")
-        };
+        let basename = file
+            .file_name()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
+            .to_string_lossy();
+        let dirname = file
+            .parent()
+            .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "parent() failure"))?
+            .to_string_lossy();
+
+        // Hash the dirname. This should prevent conflicts if we have multiple
+        // object files with the same filename in different subfolders.
+        let mut hasher = hash_map::DefaultHasher::new();
+        hasher.write(dirname.to_string().as_bytes());
+        let obj = dst
+            .join(format!("{:016x}-{}", hasher.finish(), basename))
+            .with_extension("o");
 
         match obj.parent() {
             Some(s) => fs::create_dir_all(s)?,

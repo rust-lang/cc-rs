@@ -24,7 +24,8 @@ fn gnu_smoke() {
         .must_have("-c")
         .must_have("-ffunction-sections")
         .must_have("-fdata-sections");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    test.cmd(1)
+        .must_have(test.td.path().join("d1fba762150c532c-foo.o"));
 }
 
 #[test]
@@ -399,7 +400,8 @@ fn msvc_smoke() {
         .must_not_have("-Z7")
         .must_have("-c")
         .must_have("-MD");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    test.cmd(1)
+        .must_have(test.td.path().join("d1fba762150c532c-foo.o"));
 }
 
 #[test]
