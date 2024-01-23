@@ -3,6 +3,11 @@ use std::path::PathBuf;
 
 #[test]
 fn cargo_warnings_on() {
+    if env!("TEST_WARNINGS_ON") == "0" {
+        // in some cases we don't catch compiler warnings and turn them into cargo
+        // instructions.
+        assert!(false);
+    }
     let (stdout, stderr) = load_output("warnings-on");
     assert!(stderr.is_empty());
     assert!(stdout.contains("cargo:warning="));

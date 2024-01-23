@@ -19,8 +19,16 @@ fn main() {
     // action as the first argument.
     run_forked_capture_output(&out, "metadata-on");
     run_forked_capture_output(&out, "metadata-off");
-    run_forked_capture_output(&out, "warnings-on");
+
     run_forked_capture_output(&out, "warnings-off");
+    if cc::Build::new().get_compiler().is_like_msvc() {
+        // MSVC doesn't output warnings to stderr, so we can't capture them.
+        // the test will use this env var to know whether to run the test.
+        println!("cargo:rustc-env=TEST_WARNINGS_ON=0");
+    } else {
+        println!("cargo:rustc-env=TEST_WARNINGS_ON=1");
+        run_forked_capture_output(&out, "warnings-on");
+    }
 
     cc::Build::new()
         .file("src/foo.c")
@@ -152,9 +160,9 @@ fn build_cargo_warnings(warnings: bool) {
     cc::Build::new()
         .cargo_metadata(false)
         .cargo_warnings(warnings)
-        .file("src/compile_warning.c")
-        .try_compile("compile_warning")
-        .unwrap();
+        .file("src/compile_error.c")
+        .try_compile("compile_error")
+        .unwrap_err();
 }
 
 fn build_cargo_metadata(metadata: bool) {
