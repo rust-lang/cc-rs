@@ -1266,10 +1266,10 @@ impl Build {
                     }
                 }
                 if libtst && libdir.is_dir() {
-                    println!(
+                    self.cargo_output.print_metadata(&format_args!(
                         "cargo:rustc-link-search=native={}",
                         libdir.to_str().unwrap()
-                    );
+                    ));
                 }
 
                 // And now the -l flag.
@@ -1278,7 +1278,8 @@ impl Build {
                     "static" => "cudart_static",
                     bad => panic!("unsupported cudart option: {}", bad),
                 };
-                println!("cargo:rustc-link-lib={}", lib);
+                self.cargo_output
+                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", lib));
             }
         }
 
