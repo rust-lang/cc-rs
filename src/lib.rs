@@ -3902,7 +3902,7 @@ fn run_inner(cmd: &mut Command, program: &str, pipe_writer: Option<File>) -> Res
 }
 
 fn run(cmd: &mut Command, program: &str, print: Option<&PrintThread>) -> Result<(), Error> {
-    let pipe_writer = print.map(|print| print.clone_pipe_writer()).transpose()?;
+    let pipe_writer = print.map(PrintThread::clone_pipe_writer).transpose()?;
     run_inner(cmd, program, pipe_writer)?;
 
     Ok(())
