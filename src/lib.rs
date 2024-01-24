@@ -1131,48 +1131,7 @@ impl Build {
         };
         let dst = self.get_out_dir()?;
 
-        let mut objects = Vec::new();
-        for file in self.files.iter() {
-            let obj = if file.has_root() || file.components().any(|x| x == Component::ParentDir) {
-                // If `file` is an absolute path or might not be usable directly as a suffix due to
-                // using "..", use the `basename` prefixed with the `dirname`'s hash to ensure name
-                // uniqueness.
-                let basename = file
-                    .file_name()
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
-                    .to_string_lossy();
-                let dirname = file
-                    .parent()
-                    .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "parent() failure"))?
-                    .to_string_lossy();
-                let mut hasher = hash_map::DefaultHasher::new();
-                hasher.write(dirname.to_string().as_bytes());
-                dst.join(format!("{:016x}-{}", hasher.finish(), basename))
-                    .with_extension("o")
-            } else {
-                dst.join(file).with_extension("o")
-            };
-            let obj = if !obj.starts_with(&dst) {
-                dst.join(obj.file_name().ok_or_else(|| {
-                    Error::new(ErrorKind::IOError, "Getting object file details failed.")
-                })?)
-            } else {
-                obj
-            };
-
-            match obj.parent() {
-                Some(s) => fs::create_dir_all(s)?,
-                None => {
-                    return Err(Error::new(
-                        ErrorKind::IOError,
-                        "Getting object file details failed.",
-                    ));
-                }
-            };
-
-            objects.push(Object::new(file.to_path_buf(), obj));
-        }
-
+        let objects = objects_from_files(&self.files, &dst)?;
         let print = PrintThread::new()?;
 
         self.compile_objects(&objects, &print)?;
@@ -1314,6 +1273,32 @@ impl Build {
         if let Err(e) = self.try_compile(output) {
             fail(&e.message);
         }
+    }
+
+    /// Run the compiler, generating intermediate files, but without linking
+    /// them into an archive file.
+    ///
+    /// This will return a list of compiled object files, in the same order
+    /// as they were passed in as `file`/`files` methods.
+    pub fn compile_intermediates(&self) -> Vec<PathBuf> {
+        match self.try_compile_intermediates() {
+            Ok(v) => v,
+            Err(e) => fail(&e.message),
+        }
+    }
+
+    /// Run the compiler, generating intermediate files, but without linking
+    /// them into an archive file.
+    ///
+    /// This will return a result instead of panicing; see `compile_intermediates()` for the complete description.
+    pub fn try_compile_intermediates(&self) -> Result<Vec<PathBuf>, Error> {
+        let dst = self.get_out_dir()?;
+        let objects = objects_from_files(&self.files, &dst)?;
+        let print = PrintThread::new()?;
+
+        self.compile_objects(&objects, &print)?;
+
+        Ok(objects.into_iter().map(|v| v.dst).collect())
     }
 
     #[cfg(feature = "parallel")]
@@ -2379,6 +2364,7 @@ impl Build {
     }
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+        #[allow(dead_code)]
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
@@ -3835,6 +3821,54 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
             ),
         ))
     }
+}
+
+/// Find the destination object path for each file in the input source files,
+/// and store them in the output Object.
+fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Error> {
+    let mut objects = Vec::with_capacity(files.len());
+    for file in files {
+        let basename = file
+            .file_name()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidArgument,
+                    "No file_name for object file path!",
+                )
+            })?
+            .to_string_lossy();
+        let dirname = file
+            .parent()
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidArgument,
+                    "No parent for object file path!",
+                )
+            })?
+            .to_string_lossy();
+
+        // Hash the dirname. This should prevent conflicts if we have multiple
+        // object files with the same filename in different subfolders.
+        let mut hasher = hash_map::DefaultHasher::new();
+        hasher.write(dirname.to_string().as_bytes());
+        let obj = dst
+            .join(format!("{:016x}-{}", hasher.finish(), basename))
+            .with_extension("o");
+
+        match obj.parent() {
+            Some(s) => fs::create_dir_all(s)?,
+            None => {
+                return Err(Error::new(
+                    ErrorKind::InvalidArgument,
+                    "dst is an invalid path with no parent",
+                ));
+            }
+        };
+
+        objects.push(Object::new(file.to_path_buf(), obj));
+    }
+
+    Ok(objects)
 }
 
 #[cfg(feature = "parallel")]

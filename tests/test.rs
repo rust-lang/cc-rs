@@ -24,7 +24,8 @@ fn gnu_smoke() {
         .must_have("-c")
         .must_have("-ffunction-sections")
         .must_have("-fdata-sections");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    test.cmd(1)
+        .must_have(test.td.path().join("d1fba762150c532c-foo.o"));
 }
 
 #[test]
@@ -399,7 +400,8 @@ fn msvc_smoke() {
         .must_not_have("-Z7")
         .must_have("-c")
         .must_have("-MD");
-    test.cmd(1).must_have(test.td.path().join("foo.o"));
+    test.cmd(1)
+        .must_have(test.td.path().join("d1fba762150c532c-foo.o"));
 }
 
 #[test]
@@ -575,4 +577,22 @@ fn clang_apple_tvsimulator() {
 
         test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
     }
+}
+
+#[test]
+fn compile_intermediates() {
+    let test = Test::gnu();
+    let intermediates = test
+        .gcc()
+        .file("foo.c")
+        .file("x86_64.asm")
+        .file("x86_64.S")
+        .asm_flag("--abc")
+        .compile_intermediates();
+
+    assert_eq!(intermediates.len(), 3);
+
+    assert!(intermediates[0].display().to_string().contains("foo"));
+    assert!(intermediates[1].display().to_string().contains("x86_64"));
+    assert!(intermediates[2].display().to_string().contains("x86_64"));
 }
