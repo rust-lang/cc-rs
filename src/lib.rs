@@ -122,7 +122,7 @@ pub struct Build {
     compiler: Option<Arc<Path>>,
     archiver: Option<Arc<Path>>,
     ranlib: Option<Arc<Path>>,
-    cargo_metadata: bool,
+    cargo_output: CargoOutput,
     link_lib_modifiers: Vec<Arc<str>>,
     pic: Option<bool>,
     use_plt: Option<bool>,
@@ -330,7 +330,7 @@ impl Build {
             compiler: None,
             archiver: None,
             ranlib: None,
-            cargo_metadata: true,
+            cargo_output: CargoOutput::new(),
             link_lib_modifiers: Vec::new(),
             pic: None,
             use_plt: None,
@@ -527,7 +527,7 @@ impl Build {
         let host = self.get_host()?;
         let mut cfg = Build::new();
         cfg.flag(flag)
-            .cargo_metadata(self.cargo_metadata)
+            .cargo_metadata(self.cargo_output.metadata)
             .target(&target)
             .opt_level(0)
             .host(&host)
@@ -1038,7 +1038,17 @@ impl Build {
     ///  - If `emit_rerun_if_env_changed` is not `false`, `rerun-if-env-changed=`*env*
     ///
     pub fn cargo_metadata(&mut self, cargo_metadata: bool) -> &mut Build {
-        self.cargo_metadata = cargo_metadata;
+        self.cargo_output.metadata = cargo_metadata;
+        self
+    }
+
+    /// Define whether compile warnings should be emitted for cargo. Defaults to
+    /// `true`.
+    ///
+    /// If disabled, compiler messages will not be printed.
+    /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
+    pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
+        self.cargo_output.warnings = cargo_warnings;
         self
     }
 
@@ -1132,10 +1142,10 @@ impl Build {
         let dst = self.get_out_dir()?;
 
         let objects = objects_from_files(&self.files, &dst)?;
-        let print = PrintThread::new()?;
+        let print = self.cargo_output.print_thread()?;
 
-        self.compile_objects(&objects, &print)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, &print)?;
+        self.compile_objects(&objects, print.as_ref())?;
+        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects, print.as_ref())?;
 
         if self.get_target()?.contains("msvc") {
             let compiler = self.get_base_compiler()?;
@@ -1151,7 +1161,7 @@ impl Build {
                 });
 
             if let Some(atlmfc_lib) = atlmfc_lib {
-                self.print(&format_args!(
+                self.cargo_output.print_metadata(&format_args!(
                     "cargo:rustc-link-search=native={}",
                     atlmfc_lib.display()
                 ));
@@ -1159,15 +1169,16 @@ impl Build {
         }
 
         if self.link_lib_modifiers.is_empty() {
-            self.print(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
+            self.cargo_output
+                .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
         } else {
             let m = self.link_lib_modifiers.join(",");
-            self.print(&format_args!(
+            self.cargo_output.print_metadata(&format_args!(
                 "cargo:rustc-link-lib=static:{}={}",
                 m, lib_name
             ));
         }
-        self.print(&format_args!(
+        self.cargo_output.print_metadata(&format_args!(
             "cargo:rustc-link-search=native={}",
             dst.display()
         ));
@@ -1175,7 +1186,8 @@ impl Build {
         // Add specific C++ libraries, if enabled.
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
-                self.print(&format_args!("cargo:rustc-link-lib={}", stdlib));
+                self.cargo_output
+                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
             }
         }
 
@@ -1213,10 +1225,10 @@ impl Build {
                     }
                 }
                 if libtst && libdir.is_dir() {
-                    println!(
+                    self.cargo_output.print_metadata(&format_args!(
                         "cargo:rustc-link-search=native={}",
                         libdir.to_str().unwrap()
-                    );
+                    ));
                 }
 
                 // And now the -l flag.
@@ -1225,7 +1237,8 @@ impl Build {
                     "static" => "cudart_static",
                     bad => panic!("unsupported cudart option: {}", bad),
                 };
-                println!("cargo:rustc-link-lib={}", lib);
+                self.cargo_output
+                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", lib));
             }
         }
 
@@ -1294,15 +1307,15 @@ impl Build {
     pub fn try_compile_intermediates(&self) -> Result<Vec<PathBuf>, Error> {
         let dst = self.get_out_dir()?;
         let objects = objects_from_files(&self.files, &dst)?;
-        let print = PrintThread::new()?;
+        let print = self.cargo_output.print_thread()?;
 
-        self.compile_objects(&objects, &print)?;
+        self.compile_objects(&objects, print.as_ref())?;
 
         Ok(objects.into_iter().map(|v| v.dst).collect())
     }
 
     #[cfg(feature = "parallel")]
-    fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object], print: Option<&PrintThread>) -> Result<(), Error> {
         use std::cell::Cell;
 
         use async_executor::{block_on, YieldOnce};
@@ -1378,7 +1391,9 @@ impl Build {
                                 // sure users always see all the compilation failures.
                                 has_made_progress.set(true);
 
-                                let _ = writeln!(stdout, "cargo:warning={}", err);
+                                if self.cargo_output.warnings {
+                                    let _ = writeln!(stdout, "cargo:warning={}", err);
+                                }
                                 error = Some(err);
 
                                 false
@@ -1410,7 +1425,8 @@ impl Build {
                         YieldOnce::default().await
                     }
                 };
-                let child = spawn(&mut cmd, &program, print.pipe_writer_cloned()?.unwrap())?;
+                let pipe_writer = print.map(PrintThread::clone_pipe_writer).transpose()?;
+                let child = spawn(&mut cmd, &program, pipe_writer)?;
 
                 cell_update(&pendings, |mut pendings| {
                     pendings.push((cmd, program, KillOnDrop(child), token));
@@ -1448,7 +1464,7 @@ impl Build {
     }
 
     #[cfg(not(feature = "parallel"))]
-    fn compile_objects(&self, objs: &[Object], print: &PrintThread) -> Result<(), Error> {
+    fn compile_objects(&self, objs: &[Object], print: Option<&PrintThread>) -> Result<(), Error> {
         for obj in objs {
             let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
             run(&mut cmd, &name, print)?;
@@ -1551,7 +1567,7 @@ impl Build {
             .to_string_lossy()
             .into_owned();
 
-        Ok(run_output(&mut cmd, &name)?)
+        Ok(run_output(&mut cmd, &name, &self.cargo_output)?)
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
@@ -2152,11 +2168,7 @@ impl Build {
                     cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
                 }
                 _ => {
-                    println!(
-                        "cargo:warning=cpp_set_stdlib is specified, but the {:?} compiler \
-                         does not support this option, ignored",
-                        cmd.family
-                    );
+                    self.cargo_output.print_warning(&format_args!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family));
                 }
             }
         }
@@ -2235,7 +2247,7 @@ impl Build {
         lib_name: &str,
         dst: &Path,
         objs: &[Object],
-        print: &PrintThread,
+        print: Option<&PrintThread>,
     ) -> Result<(), Error> {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
@@ -2304,7 +2316,7 @@ impl Build {
         &self,
         dst: &Path,
         objs: &[&Path],
-        print: &PrintThread,
+        print: Option<&PrintThread>,
     ) -> Result<(), Error> {
         let target = self.get_target()?;
 
@@ -2494,7 +2506,8 @@ impl Build {
 
         // AppleClang sometimes requires sysroot even for darwin
         if cmd.is_xctoolchain_clang() || !target.ends_with("-darwin") {
-            self.print(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
+            self.cargo_output
+                .print_metadata(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
             let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
                 sdkroot
             } else {
@@ -2518,7 +2531,7 @@ impl Build {
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
         if let Some(c) = &self.compiler {
-            return Ok(Tool::new((**c).to_owned()));
+            return Ok(Tool::new((**c).to_owned(), &self.cargo_output));
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
@@ -2554,7 +2567,7 @@ impl Build {
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::with_clang_driver(tool, driver_mode);
+                let mut t = Tool::with_clang_driver(tool, driver_mode, &self.cargo_output);
                 if let Some(cc_wrapper) = wrapper {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2568,12 +2581,12 @@ impl Build {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
-                        let mut t = Tool::new(PathBuf::from("cmd"));
+                        let mut t = Tool::new(PathBuf::from("cmd"), &self.cargo_output);
                         t.args.push("/c".into());
                         t.args.push(format!("{}.bat", tool).into());
                         Some(t)
                     } else {
-                        Some(Tool::new(PathBuf::from(tool)))
+                        Some(Tool::new(PathBuf::from(tool), &self.cargo_output))
                     }
                 } else {
                     None
@@ -2628,7 +2641,7 @@ impl Build {
                     default.to_string()
                 };
 
-                let mut t = Tool::new(PathBuf::from(compiler));
+                let mut t = Tool::new(PathBuf::from(compiler), &self.cargo_output);
                 if let Some(cc_wrapper) = Self::rustc_wrapper_fallback() {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2645,7 +2658,7 @@ impl Build {
                 Err(_) => PathBuf::from("nvcc"),
                 Ok(nvcc) => PathBuf::from(&*nvcc),
             };
-            let mut nvcc_tool = Tool::with_features(nvcc, None, self.cuda);
+            let mut nvcc_tool = Tool::with_features(nvcc, None, self.cuda, &self.cargo_output);
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());
@@ -2712,7 +2725,8 @@ impl Build {
         }
 
         if target.contains("msvc") && tool.family == ToolFamily::Gnu {
-            println!("cargo:warning=GNU compiler is not supported for this target");
+            self.cargo_output
+                .print_warning(&"GNU compiler is not supported for this target");
         }
 
         Ok(tool)
@@ -2963,7 +2977,7 @@ impl Build {
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.family == ToolFamily::Clang {
                         name = format!("llvm-{}", tool);
-                        search_programs(&mut self.cmd(&compiler.path), &name)
+                        search_programs(&mut self.cmd(&compiler.path), &name, &self.cargo_output)
                             .map(|name| self.cmd(name))
                     } else {
                         None
@@ -3307,10 +3321,12 @@ impl Build {
             return val.clone();
         }
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) {
-            self.print(&format_args!("cargo:rerun-if-env-changed={}", v));
+            self.cargo_output
+                .print_metadata(&format_args!("cargo:rerun-if-env-changed={}", v));
         }
         let r = env::var(v).ok().map(Arc::from);
-        self.print(&format_args!("{} = {:?}", v, r));
+        self.cargo_output
+            .print_metadata(&format_args!("{} = {:?}", v, r));
         cache.insert(v.to_string(), r.clone());
         r
     }
@@ -3353,12 +3369,6 @@ impl Build {
             .collect())
     }
 
-    fn print(&self, s: &dyn Display) {
-        if self.cargo_metadata {
-            println!("{}", s);
-        }
-    }
-
     fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
         let target = self.get_target()?;
         let host = self.get_host()?;
@@ -3386,6 +3396,7 @@ impl Build {
                 .arg("--sdk")
                 .arg(sdk),
             "xcrun",
+            &self.cargo_output,
         )?;
 
         let sdk_path = match String::from_utf8(sdk_path) {
@@ -3460,10 +3471,10 @@ impl Build {
 
                     // If below 10.9, we round up.
                     if major == 10 && minor < 9 {
-                        println!(
-                            "cargo-warning: macOS deployment target ({}) too low, it will be increased",
+                        self.cargo_output.print_warning(&format_args!(
+                            "macOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
-                        );
+                        ));
                         return String::from("10.9");
                     }
                 }
@@ -3471,10 +3482,10 @@ impl Build {
                     let major = deployment_target.next().unwrap_or(0);
 
                     if major < 7 {
-                        println!(
-                            "cargo-warning: iOS deployment target ({}) too low, it will be increased",
+                        self.cargo_output.print_warning(&format_args!(
+                            "iOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
-                        );
+                        ));
                         return String::from(OLD_IOS_MINIMUM_VERSION);
                     }
                 }
@@ -3536,12 +3547,16 @@ impl Default for Build {
 }
 
 impl Tool {
-    fn new(path: PathBuf) -> Self {
-        Tool::with_features(path, None, false)
+    fn new(path: PathBuf, cargo_output: &CargoOutput) -> Self {
+        Tool::with_features(path, None, false, cargo_output)
     }
 
-    fn with_clang_driver(path: PathBuf, clang_driver: Option<&str>) -> Self {
-        Self::with_features(path, clang_driver, false)
+    fn with_clang_driver(
+        path: PathBuf,
+        clang_driver: Option<&str>,
+        cargo_output: &CargoOutput,
+    ) -> Self {
+        Self::with_features(path, clang_driver, false, cargo_output)
     }
 
     #[cfg(windows)]
@@ -3560,19 +3575,29 @@ impl Tool {
         }
     }
 
-    fn with_features(path: PathBuf, clang_driver: Option<&str>, cuda: bool) -> Self {
-        fn detect_family(path: &Path) -> ToolFamily {
+    fn with_features(
+        path: PathBuf,
+        clang_driver: Option<&str>,
+        cuda: bool,
+        cargo_output: &CargoOutput,
+    ) -> Self {
+        fn detect_family(path: &Path, cargo_output: &CargoOutput) -> ToolFamily {
             let mut cmd = Command::new(path);
             cmd.arg("--version");
 
-            let stdout = match run_output(&mut cmd, &path.to_string_lossy())
-                .ok()
-                .and_then(|o| String::from_utf8(o).ok())
+            let stdout = match run_output(
+                &mut cmd,
+                &path.to_string_lossy(),
+                // tool detection issues should always be shown as warnings
+                cargo_output,
+            )
+            .ok()
+            .and_then(|o| String::from_utf8(o).ok())
             {
                 Some(s) => s,
                 None => {
                     // --version failed. fallback to gnu
-                    println!("cargo-warning:Failed to run: {:?}", cmd);
+                    cargo_output.print_warning(&format_args!("Failed to run: {:?}", cmd));
                     return ToolFamily::Gnu;
                 }
             };
@@ -3582,10 +3607,10 @@ impl Tool {
                 ToolFamily::Gnu
             } else {
                 // --version doesn't include clang for GCC
-                println!(
-                    "cargo-warning:Compiler version doesn't include clang or GCC: {:?}",
+                cargo_output.print_warning(&format_args!(
+                    "Compiler version doesn't include clang or GCC: {:?}",
                     cmd
-                );
+                ));
                 ToolFamily::Gnu
             }
         }
@@ -3602,10 +3627,10 @@ impl Tool {
                     _ => ToolFamily::Clang,
                 }
             } else {
-                detect_family(&path)
+                detect_family(&path, cargo_output)
             }
         } else {
-            detect_family(&path)
+            detect_family(&path, cargo_output)
         };
 
         Tool {
@@ -3905,22 +3930,31 @@ fn try_wait_on_child(
     }
 }
 
-fn run_inner(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<(), Error> {
+fn run_inner(cmd: &mut Command, program: &str, pipe_writer: Option<File>) -> Result<(), Error> {
     let mut child = spawn(cmd, program, pipe_writer)?;
     wait_on_child(cmd, program, &mut child)
 }
 
-fn run(cmd: &mut Command, program: &str, print: &PrintThread) -> Result<(), Error> {
-    run_inner(cmd, program, print.pipe_writer_cloned()?.unwrap())?;
+fn run(cmd: &mut Command, program: &str, print: Option<&PrintThread>) -> Result<(), Error> {
+    let pipe_writer = print.map(PrintThread::clone_pipe_writer).transpose()?;
+    run_inner(cmd, program, pipe_writer)?;
 
     Ok(())
 }
 
-fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
+fn run_output(
+    cmd: &mut Command,
+    program: &str,
+    cargo_output: &CargoOutput,
+) -> Result<Vec<u8>, Error> {
     cmd.stdout(Stdio::piped());
 
-    let mut print = PrintThread::new()?;
-    let mut child = spawn(cmd, program, print.pipe_writer().take().unwrap())?;
+    let mut print = cargo_output.print_thread()?;
+    let mut child = spawn(
+        cmd,
+        program,
+        print.as_mut().map(PrintThread::take_pipe_writer),
+    )?;
 
     let mut stdout = vec![];
     child
@@ -3935,7 +3969,7 @@ fn run_output(cmd: &mut Command, program: &str) -> Result<Vec<u8>, Error> {
     Ok(stdout)
 }
 
-fn spawn(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<Child, Error> {
+fn spawn(cmd: &mut Command, program: &str, pipe_writer: Option<File>) -> Result<Child, Error> {
     struct ResetStderr<'cmd>(&'cmd mut Command);
 
     impl Drop for ResetStderr<'_> {
@@ -3949,8 +3983,11 @@ fn spawn(cmd: &mut Command, program: &str, pipe_writer: File) -> Result<Child, E
     println!("running: {:?}", cmd);
 
     let cmd = ResetStderr(cmd);
-
-    match cmd.0.stderr(pipe_writer).spawn() {
+    let child = cmd
+        .0
+        .stderr(pipe_writer.map_or_else(Stdio::null, Stdio::from))
+        .spawn();
+    match child {
         Ok(child) => Ok(child),
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
@@ -4159,8 +4196,14 @@ fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
 }
 
 // search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
-fn search_programs(cc: &mut Command, prog: &str) -> Option<PathBuf> {
-    let search_dirs = run_output(cc.arg("-print-search-dirs"), "cc").ok()?;
+fn search_programs(cc: &mut Command, prog: &str, cargo_output: &CargoOutput) -> Option<PathBuf> {
+    let search_dirs = run_output(
+        cc.arg("-print-search-dirs"),
+        "cc",
+        // this doesn't concern the compilation so we always want to show warnings.
+        cargo_output,
+    )
+    .ok()?;
     // clang driver appears to be forcing UTF-8 output even on Windows,
     // hence from_utf8 is assumed to be usable in all cases.
     let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
@@ -4194,6 +4237,37 @@ impl AsmFileExt {
             }
         }
         None
+    }
+}
+
+#[derive(Clone, Debug)]
+struct CargoOutput {
+    metadata: bool,
+    warnings: bool,
+}
+
+impl CargoOutput {
+    const fn new() -> Self {
+        Self {
+            metadata: true,
+            warnings: true,
+        }
+    }
+
+    fn print_metadata(&self, s: &dyn Display) {
+        if self.metadata {
+            println!("{}", s);
+        }
+    }
+
+    fn print_warning(&self, arg: &dyn Display) {
+        if self.warnings {
+            println!("cargo:warning={}", arg);
+        }
+    }
+
+    fn print_thread(&self) -> Result<Option<PrintThread>, Error> {
+        self.warnings.then(PrintThread::new).transpose()
     }
 }
 
@@ -4236,11 +4310,21 @@ impl PrintThread {
         })
     }
 
-    fn pipe_writer(&mut self) -> &mut Option<File> {
-        &mut self.pipe_writer
+    /// # Panics
+    ///
+    /// Will panic if the pipe writer has already been taken.
+    fn take_pipe_writer(&mut self) -> File {
+        self.pipe_writer.take().unwrap()
     }
 
-    fn pipe_writer_cloned(&self) -> Result<Option<File>, Error> {
+    /// # Panics
+    ///
+    /// Will panic if the pipe writer has already been taken.
+    fn clone_pipe_writer(&self) -> Result<File, Error> {
+        self.try_clone_pipe_writer().map(Option::unwrap)
+    }
+
+    fn try_clone_pipe_writer(&self) -> Result<Option<File>, Error> {
         self.pipe_writer
             .as_ref()
             .map(File::try_clone)
