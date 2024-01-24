@@ -3829,11 +3829,21 @@ fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Er
     for file in files {
         let basename = file
             .file_name()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "file_name() failure"))?
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidArgument,
+                    "No file_name for object file path!",
+                )
+            })?
             .to_string_lossy();
         let dirname = file
             .parent()
-            .ok_or_else(|| Error::new(ErrorKind::InvalidArgument, "parent() failure"))?
+            .ok_or_else(|| {
+                Error::new(
+                    ErrorKind::InvalidArgument,
+                    "No parent for object file path!",
+                )
+            })?
             .to_string_lossy();
 
         // Hash the dirname. This should prevent conflicts if we have multiple
@@ -3848,8 +3858,8 @@ fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Er
             Some(s) => fs::create_dir_all(s)?,
             None => {
                 return Err(Error::new(
-                    ErrorKind::IOError,
-                    "Getting object file details failed.",
+                    ErrorKind::InvalidArgument,
+                    "dst is an invalid path with no parent",
                 ));
             }
         };
