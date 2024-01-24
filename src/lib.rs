@@ -3919,7 +3919,7 @@ fn run_output(
     let mut child = spawn(
         cmd,
         program,
-        print.as_mut().map(|print| print.take_pipe_writer()),
+        print.as_mut().map(PrintThread::take_pipe_writer),
     )?;
 
     let mut stdout = vec![];
