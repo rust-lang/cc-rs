@@ -4287,7 +4287,7 @@ impl PrintThread {
     ///
     /// Will panic if the pipe writer has already been taken.
     fn clone_pipe_writer(&self) -> Result<File, Error> {
-        self.try_clone_pipe_writer().map(|writer| writer.unwrap())
+        self.try_clone_pipe_writer().map(Option::unwrap)
     }
 
     fn try_clone_pipe_writer(&self) -> Result<Option<File>, Error> {
