@@ -1440,7 +1440,7 @@ impl Build {
                         YieldOnce::default().await
                     }
                 };
-                let pipe_writer = print.map(|print| print.clone_pipe_writer()).transpose()?;
+                let pipe_writer = print.map(PrintThread::clone_pipe_writer).transpose()?;
                 let child = spawn(&mut cmd, &program, pipe_writer)?;
 
                 cell_update(&pendings, |mut pendings| {
