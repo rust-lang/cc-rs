@@ -2382,6 +2382,7 @@ impl Build {
         enum ArchSpec {
             Device(&'static str),
             Simulator(&'static str),
+            #[allow(dead_code)]
             Catalyst(&'static str),
         }
 
