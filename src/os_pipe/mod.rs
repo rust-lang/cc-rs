@@ -17,11 +17,11 @@ pub fn pipe() -> std::io::Result<(File, File)> {
 }
 
 #[cfg(unix)]
-#[path = "os_pipe/unix.rs"]
+#[path = "unix.rs"]
 mod sys;
 
 #[cfg(windows)]
-#[path = "os_pipe/windows.rs"]
+#[path = "windows.rs"]
 mod sys;
 
 #[cfg(all(not(unix), not(windows)))]
