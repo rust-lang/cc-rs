@@ -66,11 +66,9 @@ use std::process::{Child, Command, Stdio};
 use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 
-#[cfg(feature = "parallel")]
-mod async_executor;
-#[cfg(feature = "parallel")]
-mod job_token;
 mod os_pipe;
+#[cfg(feature = "parallel")]
+mod parallel;
 // These modules are all glue to support reading the MSVC version from
 // the registry and from COM interfaces
 #[cfg(windows)]
@@ -1318,7 +1316,7 @@ impl Build {
     fn compile_objects(&self, objs: &[Object], print: Option<&PrintThread>) -> Result<(), Error> {
         use std::cell::Cell;
 
-        use async_executor::{block_on, YieldOnce};
+        use parallel::async_executor::{block_on, YieldOnce};
 
         if objs.len() <= 1 {
             for obj in objs {
@@ -1330,7 +1328,7 @@ impl Build {
         }
 
         // Limit our parallelism globally with a jobserver.
-        let tokens = crate::job_token::JobTokenServer::new();
+        let tokens = parallel::job_token::JobTokenServer::new();
 
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:
@@ -1355,7 +1353,7 @@ impl Build {
             Command,
             String,
             KillOnDrop,
-            crate::job_token::JobToken,
+            parallel::job_token::JobToken,
         )>::new());
         let is_disconnected = Cell::new(false);
         let has_made_progress = Cell::new(false);

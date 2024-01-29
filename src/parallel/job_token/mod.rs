@@ -3,14 +3,14 @@ use std::{mem::MaybeUninit, sync::Once};
 use crate::Error;
 
 #[cfg(unix)]
-#[path = "job_token/unix.rs"]
+#[path = "unix.rs"]
 mod sys;
 
 #[cfg(windows)]
-#[path = "job_token/windows.rs"]
+#[path = "windows.rs"]
 mod sys;
 
-pub(super) struct JobToken();
+pub(crate) struct JobToken();
 
 impl Drop for JobToken {
     fn drop(&mut self) {
@@ -21,7 +21,7 @@ impl Drop for JobToken {
     }
 }
 
-pub(super) enum JobTokenServer {
+pub(crate) enum JobTokenServer {
     Inherited(inherited_jobserver::JobServer),
     InProcess(inprocess_jobserver::JobServer),
 }
