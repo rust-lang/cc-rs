@@ -28,6 +28,8 @@ fn main() {
         .file("foo.c")
         .file("bar.c")
         .compile("foo");
+    println!("cargo:rerun-if-changed=foo.c");
+    println!("cargo:rerun-if-changed=bar.c");
 }
 ```
 
@@ -108,6 +110,10 @@ In addition to the above optional environment variables, `cc-rs` has some
 functions with hard requirements on some variables supplied by [cargo's
 build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
 and `HOST` variables.
+
+Note that `cc-rs` does not automatically tell cargo to rebuild when the c files
+are changed, nor the environment variables such as CFLAGS. See the example to
+manually instruct cargo to rebuild when the source files change.
 
 [cargo]: https://doc.rust-lang.org/cargo/reference/build-scripts.html#inputs-to-the-build-script
 
