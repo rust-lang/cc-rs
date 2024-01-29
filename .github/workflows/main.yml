@@ -92,6 +92,7 @@ jobs:
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --features parallel
     - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --release
 
+  # This is separate from the matrix above because there is no prebuilt rust-std component for the target.
   check-tvos:
     name: Test aarch64-apple-tvos
     runs-on: macos-latest
