@@ -2884,7 +2884,7 @@ impl Build {
     /// Get the archiver that's in use for this configuration.
     ///
     /// This will return a result instead of panicing;
-    /// see [`get_archiver()`] for the complete description.
+    /// see [`Self::get_archiver`] for the complete description.
     pub fn try_get_archiver(&self) -> Result<Command, Error> {
         Ok(self.try_get_archiver_and_flags()?.0)
     }
@@ -2935,7 +2935,7 @@ impl Build {
     /// Get the ranlib that's in use for this configuration.
     ///
     /// This will return a result instead of panicing;
-    /// see [`get_ranlib()`] for the complete description.
+    /// see [`Self::get_ranlib`] for the complete description.
     pub fn try_get_ranlib(&self) -> Result<Command, Error> {
         let mut cmd = self.get_base_ranlib()?;
         if let Ok(flags) = self.envflags("RANLIBFLAGS") {
