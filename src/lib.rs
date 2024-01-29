@@ -1375,29 +1375,32 @@ impl Build {
 
                 cell_update(&pendings, |mut pendings| {
                     // Try waiting on them.
-                    retain_unordered_mut(&mut pendings, |(cmd, program, child, _token)| {
-                        match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
-                            Ok(Some(())) => {
-                                // Task done, remove the entry
-                                has_made_progress.set(true);
-                                false
-                            }
-                            Ok(None) => true, // Task still not finished, keep the entry
-                            Err(err) => {
-                                // Task fail, remove the entry.
-                                // Since we can only return one error, log the error to make
-                                // sure users always see all the compilation failures.
-                                has_made_progress.set(true);
-
-                                if self.cargo_output.warnings {
-                                    let _ = writeln!(stdout, "cargo:warning={}", err);
+                    parallel::retain_unordered_mut(
+                        &mut pendings,
+                        |(cmd, program, child, _token)| {
+                            match try_wait_on_child(cmd, program, &mut child.0, &mut stdout) {
+                                Ok(Some(())) => {
+                                    // Task done, remove the entry
+                                    has_made_progress.set(true);
+                                    false
                                 }
-                                error = Some(err);
+                                Ok(None) => true, // Task still not finished, keep the entry
+                                Err(err) => {
+                                    // Task fail, remove the entry.
+                                    // Since we can only return one error, log the error to make
+                                    // sure users always see all the compilation failures.
+                                    has_made_progress.set(true);
 
-                                false
+                                    if self.cargo_output.warnings {
+                                        let _ = writeln!(stdout, "cargo:warning={}", err);
+                                    }
+                                    error = Some(err);
+
+                                    false
+                                }
                             }
-                        }
-                    });
+                        },
+                    );
                     pendings_is_empty = pendings.is_empty();
                     pendings
                 });
@@ -4342,23 +4345,5 @@ impl Drop for PrintThread {
         self.pipe_writer.take();
 
         self.handle.take().unwrap().join().unwrap();
-    }
-}
-
-/// Remove all element in `vec` which `f(element)` returns `false`.
-///
-/// TODO: Remove this once the MSRV is bumped to v1.61
-#[cfg(feature = "parallel")]
-fn retain_unordered_mut<T, F>(vec: &mut Vec<T>, mut f: F)
-where
-    F: FnMut(&mut T) -> bool,
-{
-    let mut i = 0;
-    while i < vec.len() {
-        if f(&mut vec[i]) {
-            i += 1;
-        } else {
-            vec.swap_remove(i);
-        }
     }
 }
