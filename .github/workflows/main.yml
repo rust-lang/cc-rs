@@ -86,11 +86,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install g++-multilib
       if: matrix.build == 'linux32'
-    - run: cargo test ${{ matrix.no_run }}
-    - run: cargo test ${{ matrix.no_run }} --features parallel
-    - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }}
-    - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --features parallel
-    - run: cargo test ${{ matrix.no_run }} --manifest-path cc-test/Cargo.toml --target ${{ matrix.target }} --release
+    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
+    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
+    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   check-tvos:
     name: Test aarch64-apple-tvos
@@ -104,11 +102,9 @@ jobs:
         rustup component add rust-src --toolchain nightly
         rustup default nightly
       shell: bash
-    - run: cargo test -Z build-std=std --no-run --target aarch64-apple-tvos
-    - run: cargo test -Z build-std=std --no-run --features parallel --target aarch64-apple-tvos
-    - run: cargo test -Z build-std=std --no-run --manifest-path cc-test/Cargo.toml --target aarch64-apple-tvos
-    - run: cargo test -Z build-std=std --no-run --manifest-path cc-test/Cargo.toml --target aarch64-apple-tvos --features parallel
-    - run: cargo test -Z build-std=std --no-run --manifest-path cc-test/Cargo.toml --target aarch64-apple-tvos --release
+    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos
+    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos --release
+    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos --features parallel
 
   cuda:
     name: Test CUDA support
@@ -126,7 +122,7 @@ jobs:
     - name: Test 'cudart' feature
       shell: bash
       run: |
-        PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path cc-test/Cargo.toml --features test_cuda
+        PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
 
   msrv:
     name: MSRV
@@ -147,8 +143,8 @@ jobs:
       run: cargo +nightly update -Zminimal-versions
     - name: Cache downloaded crates since 1.53 is really slow in fetching
       uses: Swatinem/rust-cache@v2
-    - run: cargo check --lib
-    - run: cargo check --lib --all-features
+    - run: cargo check --lib -p cc
+    - run: cargo check --lib -p cc --all-features
 
   clippy:
     name: Clippy

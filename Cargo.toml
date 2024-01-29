@@ -28,3 +28,9 @@ parallel = []
 
 [dev-dependencies]
 tempfile = "3"
+
+[workspace]
+members = [
+    "dev-tools/cc-test",
+    "dev-tools/gen-windows-sys-binding",
+]

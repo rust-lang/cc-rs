@@ -11,7 +11,7 @@ doctest = false
 test = false
 
 [build-dependencies]
-cc = { path = ".." }
+cc = { path = "../.." }
 which = "^4.0"
 
 [features]
