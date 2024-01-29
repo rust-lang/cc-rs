@@ -3,7 +3,7 @@ use std::{
     io, ptr,
 };
 
-use crate::windows_sys::{
+use crate::windows::windows_sys::{
     OpenSemaphoreA, ReleaseSemaphore, WaitForSingleObject, FALSE, HANDLE, SEMAPHORE_MODIFY_STATE,
     THREAD_SYNCHRONIZE, WAIT_ABANDONED, WAIT_FAILED, WAIT_OBJECT_0, WAIT_TIMEOUT,
 };

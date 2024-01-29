@@ -159,10 +159,10 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 
 #[cfg(windows)]
 mod impl_ {
-    use crate::com;
-    use crate::registry::{RegistryKey, LOCAL_MACHINE};
-    use crate::setup_config::SetupConfiguration;
-    use crate::vs_instances::{VsInstances, VswhereInstance};
+    use crate::windows::com;
+    use crate::windows::registry::{RegistryKey, LOCAL_MACHINE};
+    use crate::windows::setup_config::SetupConfiguration;
+    use crate::windows::vs_instances::{VsInstances, VswhereInstance};
     use std::convert::TryFrom;
     use std::env;
     use std::ffi::OsString;

@@ -35,8 +35,10 @@ const fn invalid_mut<T>(addr: usize) -> *mut T {
 "#;
 
 fn main() -> io::Result<()> {
+    let manifest_dir = env!("CARGO_MANIFEST_DIR");
     // Load the list of APIs
-    let buffer = fs::read_to_string("windows_sys.list")?;
+    let buffer = fs::read_to_string(format!("{manifest_dir}/windows_sys.list"))
+        .expect("failed to read windows_sys.list");
     let names: Vec<&str> = buffer
         .lines()
         .filter_map(|line| {
@@ -53,7 +55,8 @@ fn main() -> io::Result<()> {
     let bindings =
         windows_bindgen::standalone_std(&names).replace("::core::ptr::invalid_mut", "invalid_mut");
 
-    let mut f = fs::File::create("../src/windows_sys.rs")?;
+    let mut f = fs::File::create(format!("{manifest_dir}/../../src/windows/windows_sys.rs"))
+        .expect("failed to create windows_sys.rs");
     f.write_all(PRELUDE.as_bytes())?;
     f.write_all(bindings.as_bytes())?;
     f.write_all(POSTLUDE.as_bytes())?;

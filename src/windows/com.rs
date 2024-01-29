@@ -7,7 +7,7 @@
 
 #![allow(unused)]
 
-use crate::{
+use crate::windows::{
     winapi::{IUnknown, Interface},
     windows_sys::{
         CoInitializeEx, SysFreeString, SysStringLen, BSTR, COINIT_MULTITHREADED, HRESULT, S_FALSE,
