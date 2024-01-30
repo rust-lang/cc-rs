@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use crate::{run_output, CargoOutput};
+use crate::command_helpers::{run_output, CargoOutput};
 
 /// Configuration used to represent an invocation of a C compiler.
 ///
