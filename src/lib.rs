@@ -88,6 +88,7 @@ use tool::ToolFamily;
 /// documentation on each method itself.
 #[derive(Clone, Debug)]
 pub struct Build {
+    apple_deployment_target: Option<Arc<str>>,
     include_directories: Vec<Arc<Path>>,
     definitions: Vec<(Arc<str>, Option<Arc<str>>)>,
     objects: Vec<Arc<Path>>,
@@ -202,6 +203,7 @@ impl Build {
     /// [`compile`]: struct.Build.html#method.compile
     pub fn new() -> Build {
         Build {
+            apple_deployment_target: None,
             include_directories: Vec::new(),
             definitions: Vec::new(),
             objects: Vec::new(),
@@ -1727,7 +1729,7 @@ impl Build {
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
                             let deployment_target =
-                                self.apple_deployment_version(AppleOs::Ios, target, None);
+                                self.get_apple_deployment_target(AppleOs::Ios, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-ios{}-simulator",
@@ -1741,7 +1743,7 @@ impl Build {
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
                             let deployment_target =
-                                self.apple_deployment_version(AppleOs::WatchOs, target, None);
+                                self.get_apple_deployment_target(AppleOs::WatchOs, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-watchos{}-simulator",
@@ -1755,7 +1757,7 @@ impl Build {
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
                             let deployment_target =
-                                self.apple_deployment_version(AppleOs::TvOs, target, None);
+                                self.get_apple_deployment_target(AppleOs::TvOs, target, None);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-tvos{}-simulator",
@@ -1769,7 +1771,7 @@ impl Build {
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
                             let deployment_target =
-                                self.apple_deployment_version(AppleOs::TvOs, target, None);
+                                self.get_apple_deployment_target(AppleOs::TvOs, target, None);
                             cmd.args.push(
                                 format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
                             );
@@ -2278,6 +2280,16 @@ impl Build {
         Ok(())
     }
 
+    /// For Apple targets, set the minimum OS version that the compiled binary could be run on.
+    /// The environment variable {MACOSX,IPHONEOS,WATCHOS,TVOS}_DEPLOYMENT_TARGET takes
+    /// precedence over this if it is set.
+    ///
+    /// This has no effect on non-Apple targets.
+    pub fn apple_deployment_target(&mut self, version: &str) -> &mut Self {
+        self.apple_deployment_target = Some(version.into());
+        self
+    }
+
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         #[allow(dead_code)]
         enum ArchSpec {
@@ -2372,7 +2384,7 @@ impl Build {
             }
         };
 
-        let min_version = self.apple_deployment_version(os, &target, Some(arch_str));
+        let min_version = self.get_apple_deployment_target(os, &target, Some(arch_str));
         let (sdk_prefix, sim_prefix) = match os {
             AppleOs::MacOs => ("macosx", ""),
             AppleOs::Ios => ("iphone", "ios-"),
@@ -3321,7 +3333,7 @@ impl Build {
         Ok(ret)
     }
 
-    fn apple_deployment_version(
+    fn get_apple_deployment_target(
         &self,
         os: AppleOs,
         target: &str,
@@ -3415,6 +3427,7 @@ impl Build {
         // an explicit target
         match os {
             AppleOs::MacOs => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
+                .or_else(|| self.apple_deployment_target.as_ref().map(|a| a.to_string()))
                 .or_else(|| rustc_provided_target(rustc, target))
                 .map(maybe_cpp_version_baseline)
                 .unwrap_or_else(|| {
@@ -3426,15 +3439,18 @@ impl Build {
                 }),
 
             AppleOs::Ios => deployment_from_env("IPHONEOS_DEPLOYMENT_TARGET")
+                .or_else(|| self.apple_deployment_target.as_ref().map(|a| a.to_string()))
                 .or_else(|| rustc_provided_target(rustc, target))
                 .map(maybe_cpp_version_baseline)
                 .unwrap_or_else(|| OLD_IOS_MINIMUM_VERSION.into()),
 
-            AppleOs::WatchOs => deployment_from_env("WATCHOS_DEPLOYMENT_TARGET")
+            AppleOs::WatchOs => deployment_from_env("_DEPLOYMENT_TARGET")
+                .or_else(|| self.apple_deployment_target.as_ref().map(|a| a.to_string()))
                 .or_else(|| rustc_provided_target(rustc, target))
                 .unwrap_or_else(|| "5.0".into()),
 
             AppleOs::TvOs => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
+                .or_else(|| self.apple_deployment_target.as_ref().map(|a| a.to_string()))
                 .or_else(|| rustc_provided_target(rustc, target))
                 .unwrap_or_else(|| "9.0".into()),
         }
