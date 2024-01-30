@@ -69,23 +69,10 @@ use std::sync::{Arc, Mutex};
 mod os_pipe;
 #[cfg(feature = "parallel")]
 mod parallel;
-// These modules are all glue to support reading the MSVC version from
-// the registry and from COM interfaces
-#[cfg(windows)]
-mod registry;
-#[cfg(windows)]
-#[macro_use]
-mod winapi;
-#[cfg(windows)]
-mod com;
-#[cfg(windows)]
-mod setup_config;
-#[cfg(windows)]
-mod vs_instances;
-#[cfg(windows)]
-mod windows_sys;
-
-pub mod windows_registry;
+mod windows;
+// Regardless of whether this should be in this crate's public API,
+// it has been since 2015, so don't break it.
+pub use windows::find_tools as windows_registry;
 
 mod command_helpers;
 use command_helpers::*;

@@ -1,4 +1,4 @@
-use crate::windows_sys::{CreatePipe, INVALID_HANDLE_VALUE};
+use crate::windows::windows_sys::{CreatePipe, INVALID_HANDLE_VALUE};
 use std::{fs::File, io, os::windows::prelude::*, ptr};
 
 /// NOTE: These pipes do not support IOCP.
