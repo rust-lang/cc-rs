@@ -14,7 +14,8 @@ code.
 keywords = ["build-dependencies"]
 readme = "README.md"
 categories = ["development-tools::build-utils"]
-exclude = ["/.github"]
+# The binary target is only used by tests.
+exclude = ["/.github", "tests", "src/bin"]
 edition = "2018"
 rust-version = "1.53"
 
