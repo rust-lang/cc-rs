@@ -1,3 +1,6 @@
+//! This bin target is only used for this crate's tests.
+//! It is not intended for users and is not published with the library code to crates.io.
+
 #![cfg_attr(test, allow(dead_code))]
 
 use std::env;
