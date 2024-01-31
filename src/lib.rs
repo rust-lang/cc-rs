@@ -3048,6 +3048,7 @@ impl Build {
                 "riscv64-unknown-elf",
                 "riscv-none-embed",
             ]),
+            "riscv32imac-esp-espidf" => Some("riscv32-esp-elf"),
             "riscv32imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
                 "riscv32-unknown-elf",
                 "riscv64-unknown-elf",
