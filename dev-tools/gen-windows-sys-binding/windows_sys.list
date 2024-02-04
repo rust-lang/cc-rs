@@ -1,5 +1,4 @@
 Windows.Win32.Foundation.FILETIME
-Windows.Win32.Foundation.INVALID_HANDLE_VALUE
 Windows.Win32.Foundation.ERROR_NO_MORE_ITEMS
 Windows.Win32.Foundation.ERROR_SUCCESS
 Windows.Win32.Foundation.SysFreeString
@@ -20,7 +19,7 @@ Windows.Win32.System.Com.COINIT_MULTITHREADED
 Windows.Win32.System.Com.CoCreateInstance
 Windows.Win32.System.Com.CoInitializeEx
 
-Windows.Win32.System.Pipes.CreatePipe
+Windows.Win32.System.Pipes.PeekNamedPipe
 
 Windows.Win32.System.Registry.RegCloseKey
 Windows.Win32.System.Registry.RegEnumKeyExW

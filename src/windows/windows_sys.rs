@@ -55,16 +55,18 @@ extern "system" {
 }
 #[link(name = "kernel32")]
 extern "system" {
-    pub fn CreatePipe(
-        hreadpipe: *mut HANDLE,
-        hwritepipe: *mut HANDLE,
-        lppipeattributes: *const SECURITY_ATTRIBUTES,
-        nsize: u32,
-    ) -> BOOL;
+    pub fn OpenSemaphoreA(dwdesiredaccess: u32, binherithandle: BOOL, lpname: PCSTR) -> HANDLE;
 }
 #[link(name = "kernel32")]
 extern "system" {
-    pub fn OpenSemaphoreA(dwdesiredaccess: u32, binherithandle: BOOL, lpname: PCSTR) -> HANDLE;
+    pub fn PeekNamedPipe(
+        hnamedpipe: HANDLE,
+        lpbuffer: *mut ::core::ffi::c_void,
+        nbuffersize: u32,
+        lpbytesread: *mut u32,
+        lptotalbytesavail: *mut u32,
+        lpbytesleftthismessage: *mut u32,
+    ) -> BOOL;
 }
 #[link(name = "kernel32")]
 extern "system" {
@@ -148,7 +150,6 @@ pub type HANDLE = *mut ::core::ffi::c_void;
 pub type HKEY = *mut ::core::ffi::c_void;
 pub const HKEY_LOCAL_MACHINE: HKEY = invalid_mut(-2147483646i32 as _);
 pub type HRESULT = i32;
-pub const INVALID_HANDLE_VALUE: HANDLE = invalid_mut(-1i32 as _);
 pub type IUnknown = *mut ::core::ffi::c_void;
 pub const KEY_READ: REG_SAM_FLAGS = 131097u32;
 pub const KEY_WOW64_32KEY: REG_SAM_FLAGS = 512u32;
@@ -180,18 +181,6 @@ pub struct SAFEARRAYBOUND {
 }
 impl ::core::marker::Copy for SAFEARRAYBOUND {}
 impl ::core::clone::Clone for SAFEARRAYBOUND {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-#[repr(C)]
-pub struct SECURITY_ATTRIBUTES {
-    pub nLength: u32,
-    pub lpSecurityDescriptor: *mut ::core::ffi::c_void,
-    pub bInheritHandle: BOOL,
-}
-impl ::core::marker::Copy for SECURITY_ATTRIBUTES {}
-impl ::core::clone::Clone for SECURITY_ATTRIBUTES {
     fn clone(&self) -> Self {
         *self
     }

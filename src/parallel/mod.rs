@@ -1,5 +1,6 @@
 pub(crate) mod async_executor;
 pub(crate) mod job_token;
+pub(crate) mod stderr;
 
 /// Remove all element in `vec` which `f(element)` returns `false`.
 ///
