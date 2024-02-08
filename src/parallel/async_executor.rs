@@ -63,7 +63,7 @@ where
     let mut fut2 = Some(unsafe { Pin::new_unchecked(&mut fut2) });
 
     // TODO: Once `Waker::noop` stablised and our MSRV is bumped to the version
-    // which it is stablised, replace this wth `Waker::noop`.
+    // which it is stablised, replace this with `Waker::noop`.
     let waker = unsafe { Waker::from_raw(NOOP_RAW_WAKER) };
     let mut context = Context::from_waker(&waker);
 
