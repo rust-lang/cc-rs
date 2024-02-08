@@ -498,7 +498,7 @@ fn gnu_apple_darwin() {
         test.gcc()
             .target(&target)
             .host(&target)
-            // Avoid test maintainence when minimum supported OSes change.
+            // Avoid test maintenance when minimum supported OSes change.
             .__set_env("MACOSX_DEPLOYMENT_TARGET", version)
             .file("foo.c")
             .compile("foo");

@@ -1016,7 +1016,7 @@ impl Build {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// This will return a result instead of panicing; see compile() for the complete description.
+    /// This will return a result instead of panicking; see compile() for the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
         let mut output_components = Path::new(output).components();
         match (output_components.next(), output_components.next()) {
@@ -1201,7 +1201,7 @@ impl Build {
     /// Run the compiler, generating intermediate files, but without linking
     /// them into an archive file.
     ///
-    /// This will return a result instead of panicing; see `compile_intermediates()` for the complete description.
+    /// This will return a result instead of panicking; see `compile_intermediates()` for the complete description.
     pub fn try_compile_intermediates(&self) -> Result<Vec<PathBuf>, Error> {
         let dst = self.get_out_dir()?;
         let objects = objects_from_files(&self.files, &dst)?;
@@ -1436,7 +1436,7 @@ impl Build {
         Ok((cmd, name))
     }
 
-    /// This will return a result instead of panicing; see expand() for the complete description.
+    /// This will return a result instead of panicking; see expand() for the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
@@ -1523,7 +1523,7 @@ impl Build {
 
     /// Get the compiler that's in use for this configuration.
     ///
-    /// This will return a result instead of panicing; see
+    /// This will return a result instead of panicking; see
     /// [`get_compiler()`](Self::get_compiler) for the complete description.
     pub fn try_get_compiler(&self) -> Result<Tool, Error> {
         let opt_level = self.get_opt_level()?;
@@ -2778,7 +2778,7 @@ impl Build {
 
     /// Get the archiver that's in use for this configuration.
     ///
-    /// This will return a result instead of panicing;
+    /// This will return a result instead of panicking;
     /// see [`Self::get_archiver`] for the complete description.
     pub fn try_get_archiver(&self) -> Result<Command, Error> {
         Ok(self.try_get_archiver_and_flags()?.0)
@@ -2829,7 +2829,7 @@ impl Build {
 
     /// Get the ranlib that's in use for this configuration.
     ///
-    /// This will return a result instead of panicing;
+    /// This will return a result instead of panicking;
     /// see [`Self::get_ranlib`] for the complete description.
     pub fn try_get_ranlib(&self) -> Result<Command, Error> {
         let mut cmd = self.get_base_ranlib()?;
@@ -2873,7 +2873,7 @@ impl Build {
                     // Formally speaking one should be able to use this approach,
                     // parsing -print-search-dirs output, to cover all clang targets,
                     // including Android SDKs and other cross-compilation scenarios...
-                    // And even extend it to gcc targets by seaching for "ar" instead
+                    // And even extend it to gcc targets by searching for "ar" instead
                     // of "llvm-ar"...
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.family == ToolFamily::Clang {
@@ -2944,7 +2944,7 @@ impl Build {
                         Some(p) => {
                             // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
                             // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
-                            // outright broken (such as when targetting freebsd with `--disable-lto`
+                            // outright broken (such as when targeting freebsd with `--disable-lto`
                             // toolchain where the archiver attempts to load the LTO plugin anyway but
                             // fails to find one).
                             //

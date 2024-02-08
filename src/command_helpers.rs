@@ -122,7 +122,7 @@ impl StderrForwarder {
 
                 // SAFETY: 1) the length is set to the capacity, so we are never using memory beyond
                 // the underlying buffer and 2) we always call `truncate` below to set the len back
-                // to the intitialized data.
+                // to the initialized data.
                 unsafe {
                     buffer.set_len(buffer.capacity());
                 }
