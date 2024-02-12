@@ -125,6 +125,7 @@ pub struct Build {
     extra_warnings: Option<bool>,
     env_cache: Arc<Mutex<HashMap<String, Option<Arc<str>>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
+    apple_versions_cache: Arc<Mutex<HashMap<String, String>>>,
     emit_rerun_if_env_changed: bool,
 }
 
@@ -239,6 +240,7 @@ impl Build {
             warnings_into_errors: false,
             env_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
+            apple_versions_cache: Arc::new(Mutex::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
         }
     }
@@ -1730,8 +1732,10 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::Ios, &AppleArchSpec::Simulator(""));
                             let deployment_target =
-                                self.apple_deployment_version(AppleOs::Ios, target, None);
+                                self.apple_deployment_version(AppleOs::Ios, None, &sdk_details.sdk);
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-ios{}-simulator",
@@ -1744,8 +1748,13 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target =
-                                self.apple_deployment_version(AppleOs::WatchOs, target, None);
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::WatchOs, &AppleArchSpec::Simulator(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::WatchOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-watchos{}-simulator",
@@ -1758,8 +1767,13 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target =
-                                self.apple_deployment_version(AppleOs::TvOs, target, None);
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Simulator(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::TvOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
                             cmd.args.push(
                                 format!(
                                     "--target={}-apple-tvos{}-simulator",
@@ -1772,8 +1786,13 @@ impl Build {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
-                            let deployment_target =
-                                self.apple_deployment_version(AppleOs::TvOs, target, None);
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Device(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::TvOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
                             cmd.args.push(
                                 format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
                             );
@@ -2272,14 +2291,6 @@ impl Build {
     }
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
-        #[allow(dead_code)]
-        enum ArchSpec {
-            Device(&'static str),
-            Simulator(&'static str),
-            #[allow(dead_code)]
-            Catalyst(&'static str),
-        }
-
         let target = self.get_target()?;
         let os = if target.contains("-darwin") {
             AppleOs::MacOs
@@ -2314,8 +2325,8 @@ impl Build {
 
         let arch = if is_mac {
             match arch_str {
-                "i686" => ArchSpec::Device("-m32"),
-                "x86_64" | "x86_64h" | "aarch64" => ArchSpec::Device("-m64"),
+                "i686" => AppleArchSpec::Device("-m32"),
+                "x86_64" | "x86_64h" | "aarch64" => AppleArchSpec::Device("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2325,9 +2336,9 @@ impl Build {
             }
         } else if is_catalyst {
             match arch_str {
-                "arm64e" => ArchSpec::Catalyst("arm64e"),
-                "arm64" | "aarch64" => ArchSpec::Catalyst("arm64"),
-                "x86_64" | "x86_64h" => ArchSpec::Catalyst("-m64"),
+                "arm64e" => AppleArchSpec::Catalyst("arm64e"),
+                "arm64" | "aarch64" => AppleArchSpec::Catalyst("arm64"),
+                "x86_64" | "x86_64h" => AppleArchSpec::Catalyst("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2337,8 +2348,8 @@ impl Build {
             }
         } else if is_arm_sim {
             match arch_str {
-                "arm64" | "aarch64" => ArchSpec::Simulator("arm64"),
-                "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
+                "arm64" | "aarch64" => AppleArchSpec::Simulator("arm64"),
+                "x86_64" | "x86_64h" => AppleArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2348,14 +2359,14 @@ impl Build {
             }
         } else {
             match arch_str {
-                "arm" | "armv7" | "thumbv7" => ArchSpec::Device("armv7"),
-                "armv7k" => ArchSpec::Device("armv7k"),
-                "armv7s" | "thumbv7s" => ArchSpec::Device("armv7s"),
-                "arm64e" => ArchSpec::Device("arm64e"),
-                "arm64" | "aarch64" => ArchSpec::Device("arm64"),
-                "arm64_32" => ArchSpec::Device("arm64_32"),
-                "i386" | "i686" => ArchSpec::Simulator("-m32"),
-                "x86_64" | "x86_64h" => ArchSpec::Simulator("-m64"),
+                "arm" | "armv7" | "thumbv7" => AppleArchSpec::Device("armv7"),
+                "armv7k" => AppleArchSpec::Device("armv7k"),
+                "armv7s" | "thumbv7s" => AppleArchSpec::Device("armv7s"),
+                "arm64e" => AppleArchSpec::Device("arm64e"),
+                "arm64" | "aarch64" => AppleArchSpec::Device("arm64"),
+                "arm64_32" => AppleArchSpec::Device("arm64_32"),
+                "i386" | "i686" => AppleArchSpec::Simulator("-m32"),
+                "x86_64" | "x86_64h" => AppleArchSpec::Simulator("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
@@ -2365,28 +2376,22 @@ impl Build {
             }
         };
 
-        let min_version = self.apple_deployment_version(os, &target, Some(arch_str));
-        let (sdk_prefix, sim_prefix) = match os {
-            AppleOs::MacOs => ("macosx", ""),
-            AppleOs::Ios => ("iphone", "ios-"),
-            AppleOs::WatchOs => ("watch", "watch"),
-            AppleOs::TvOs => ("appletv", "appletv"),
-        };
+        let sdk_details = apple_os_sdk_parts(os, &arch);
+        let min_version = self.apple_deployment_version(os, Some(arch_str), &sdk_details.sdk);
 
-        let sdk = match arch {
-            ArchSpec::Device(_) if is_mac => {
+        match arch {
+            AppleArchSpec::Device(_) if is_mac => {
                 cmd.args
                     .push(format!("-mmacosx-version-min={}", min_version).into());
-                "macosx".to_owned()
             }
-            ArchSpec::Device(arch) => {
+            AppleArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
-                cmd.args
-                    .push(format!("-m{}os-version-min={}", sdk_prefix, min_version).into());
-                format!("{}os", sdk_prefix)
+                cmd.args.push(
+                    format!("-m{}os-version-min={}", sdk_details.sdk_prefix, min_version).into(),
+                );
             }
-            ArchSpec::Simulator(arch) => {
+            AppleArchSpec::Simulator(arch) => {
                 if arch.starts_with('-') {
                     // -m32 or -m64
                     cmd.args.push(arch.into());
@@ -2394,21 +2399,27 @@ impl Build {
                     cmd.args.push("-arch".into());
                     cmd.args.push(arch.into());
                 }
-                cmd.args
-                    .push(format!("-m{}simulator-version-min={}", sim_prefix, min_version).into());
-                format!("{}simulator", sdk_prefix)
+                cmd.args.push(
+                    format!(
+                        "-m{}simulator-version-min={}",
+                        sdk_details.sim_prefix, min_version
+                    )
+                    .into(),
+                );
             }
-            ArchSpec::Catalyst(_) => "macosx".to_owned(),
+            AppleArchSpec::Catalyst(_) => {}
         };
 
         // AppleClang sometimes requires sysroot even for darwin
         if cmd.is_xctoolchain_clang() || !target.ends_with("-darwin") {
-            self.cargo_output
-                .print_metadata(&format_args!("Detecting {:?} SDK path for {}", os, sdk));
+            self.cargo_output.print_metadata(&format_args!(
+                "Detecting {:?} SDK path for {}",
+                os, sdk_details.sdk
+            ));
             let sdk_path = if let Some(sdkroot) = env::var_os("SDKROOT") {
                 sdkroot
             } else {
-                self.apple_sdk_root(sdk.as_str())?
+                self.apple_sdk_root(&sdk_details.sdk)?
             };
 
             cmd.args.push("-isysroot".into());
@@ -3315,33 +3326,32 @@ impl Build {
         Ok(ret)
     }
 
-    fn apple_deployment_version(
-        &self,
-        os: AppleOs,
-        target: &str,
-        arch_str: Option<&str>,
-    ) -> String {
-        const OLD_IOS_MINIMUM_VERSION: &str = "7.0";
+    fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> String {
+        let default_deployment_from_sdk = || {
+            let mut cache = self
+                .apple_versions_cache
+                .lock()
+                .expect("apple_versions_cache lock failed");
 
-        fn rustc_provided_target(rustc: Option<&str>, target: &str) -> Option<String> {
-            let rustc = rustc?;
-            let output = Command::new(rustc)
-                .args(&["--target", target])
-                .args(&["--print", "deployment-target"])
-                .output()
-                .ok()?;
-
-            if output.status.success() {
-                std::str::from_utf8(&output.stdout)
-                    .unwrap()
-                    .strip_prefix("deployment_target=")
-                    .map(|v| v.trim())
-                    .map(ToString::to_string)
-            } else {
-                // rustc is < 1.71
-                None
+            if let Some(ret) = cache.get(sdk) {
+                return Some(ret.clone());
             }
-        }
+
+            let version = run_output(
+                self.cmd("xcrun")
+                    .arg("--show-sdk-platform-version")
+                    .arg("--sdk")
+                    .arg(sdk),
+                "xcrun",
+                &self.cargo_output,
+            )
+            .ok()?;
+
+            let version = std::str::from_utf8(&version).ok()?.trim().to_owned();
+
+            cache.insert(sdk.into(), version.clone());
+            Some(version)
+        };
 
         let deployment_from_env = |name: &str| {
             // note this isn't hit in production codepaths, its mostly just for tests which don't
@@ -3357,9 +3367,9 @@ impl Build {
         //
         // A long time ago they used libstdc++, but since macOS 10.9 and iOS 7 libc++ has been the library the SDKs provide to link against.
         // If a `cc`` config wants to use C++, we round up to these versions as the baseline.
-        let maybe_cpp_version_baseline = |deployment_target_ver: String| -> String {
+        let maybe_cpp_version_baseline = |deployment_target_ver: String| -> Option<String> {
             if !self.cpp {
-                return deployment_target_ver;
+                return Some(deployment_target_ver);
             }
 
             let mut deployment_target = deployment_target_ver
@@ -3371,24 +3381,25 @@ impl Build {
                     let major = deployment_target.next().unwrap_or(0);
                     let minor = deployment_target.next().unwrap_or(0);
 
-                    // If below 10.9, we round up.
+                    // If below 10.9, we ignore it and let the SDK's target definitions handle it.
                     if major == 10 && minor < 9 {
                         self.cargo_output.print_warning(&format_args!(
                             "macOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         ));
-                        return String::from("10.9");
+                        return None;
                     }
                 }
                 AppleOs::Ios => {
                     let major = deployment_target.next().unwrap_or(0);
 
+                    // If below 10.7, we ignore it and let the SDK's target definitions handle it.
                     if major < 7 {
                         self.cargo_output.print_warning(&format_args!(
                             "iOS deployment target ({}) too low, it will be increased",
                             deployment_target_ver
                         ));
-                        return String::from(OLD_IOS_MINIMUM_VERSION);
+                        return None;
                     }
                 }
                 // watchOS, tvOS, and others are all new enough that libc++ is their baseline.
@@ -3396,40 +3407,44 @@ impl Build {
             }
 
             // If the deployment target met or exceeded the C++ baseline
-            deployment_target_ver
+            Some(deployment_target_ver)
         };
 
-        let rustc = self.getenv("RUSTC");
-        let rustc = rustc.as_deref();
-        // note the hardcoded minimums here are subject to change in a future compiler release,
-        // so the ones rustc knows about are preferred. For any compiler version that has bumped them
-        // though, `--print deployment-target` will be present and the fallbacks won't be used.
+        // The hardcoded minimums here are subject to change in a future compiler release,
+        // and only exist as last resort fallbacks. Don't consider them stable.
+        // `cc` doesn't use rustc's `--print deployment-target`` because the compiler's defaults
+        // don't align well with Apple's SDKs and other third-party libraries that require ~generally~ higher
+        // deployment targets. rustc isn't interested in those by default though so its fine to be different here.
         //
-        // the ordering of env -> rustc -> old defaults is intentional for performance when using
-        // an explicit target
+        // If no explicit target is passed, `cc` defaults to the current Xcode SDK's `DefaultDeploymentTarget` for better
+        // compatibility. This is also the crate's historical behavior and what has become a relied-on value.
+        //
+        // The ordering of env -> XCode SDK -> old rustc defaults is intentional for performance when using
+        // an explicit target.
         match os {
             AppleOs::MacOs => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
-                .or_else(|| rustc_provided_target(rustc, target))
-                .map(maybe_cpp_version_baseline)
+                .and_then(maybe_cpp_version_baseline)
+                .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| {
                     if arch_str == Some("aarch64") {
                         "11.0".into()
                     } else {
-                        maybe_cpp_version_baseline("10.7".into())
+                        let default = "10.7";
+                        maybe_cpp_version_baseline(default.into()).unwrap_or_else(|| default.into())
                     }
                 }),
 
             AppleOs::Ios => deployment_from_env("IPHONEOS_DEPLOYMENT_TARGET")
-                .or_else(|| rustc_provided_target(rustc, target))
-                .map(maybe_cpp_version_baseline)
-                .unwrap_or_else(|| OLD_IOS_MINIMUM_VERSION.into()),
+                .and_then(maybe_cpp_version_baseline)
+                .or_else(default_deployment_from_sdk)
+                .unwrap_or_else(|| "7.0".into()),
 
             AppleOs::WatchOs => deployment_from_env("WATCHOS_DEPLOYMENT_TARGET")
-                .or_else(|| rustc_provided_target(rustc, target))
+                .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "5.0".into()),
 
             AppleOs::TvOs => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
-                .or_else(|| rustc_provided_target(rustc, target))
+                .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "9.0".into()),
         }
     }
@@ -3453,7 +3468,7 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 enum AppleOs {
     MacOs,
     Ios,
@@ -3469,6 +3484,41 @@ impl std::fmt::Debug for AppleOs {
             AppleOs::TvOs => f.write_str("AppleTVOS"),
         }
     }
+}
+
+struct AppleSdkTargetParts {
+    sdk_prefix: &'static str,
+    sim_prefix: &'static str,
+    sdk: Cow<'static, str>,
+}
+
+fn apple_os_sdk_parts(os: AppleOs, arch: &AppleArchSpec) -> AppleSdkTargetParts {
+    let (sdk_prefix, sim_prefix) = match os {
+        AppleOs::MacOs => ("macosx", ""),
+        AppleOs::Ios => ("iphone", "ios-"),
+        AppleOs::WatchOs => ("watch", "watch"),
+        AppleOs::TvOs => ("appletv", "appletv"),
+    };
+    let sdk = match arch {
+        AppleArchSpec::Device(_) if os == AppleOs::MacOs => Cow::Borrowed("macosx"),
+        AppleArchSpec::Device(_) => format!("{}os", sdk_prefix).into(),
+        AppleArchSpec::Simulator(_) => format!("{}simulator", sdk_prefix).into(),
+        AppleArchSpec::Catalyst(_) => Cow::Borrowed("macosx"),
+    };
+
+    AppleSdkTargetParts {
+        sdk_prefix,
+        sim_prefix,
+        sdk,
+    }
+}
+
+#[allow(dead_code)]
+enum AppleArchSpec {
+    Device(&'static str),
+    Simulator(&'static str),
+    #[allow(dead_code)]
+    Catalyst(&'static str),
 }
 
 // Use by default minimum available API level
