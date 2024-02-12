@@ -17,7 +17,7 @@ pub struct Test {
 }
 
 pub struct Execution {
-    args: Vec<String>,
+    pub args: Vec<String>,
 }
 
 impl Test {

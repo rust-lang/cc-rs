@@ -515,15 +515,15 @@ fn gnu_apple_darwin() {
 fn macos_cpp_minimums() {
     let versions = &[
         // Too low
-        ("10.7", "10.9"),
+        ("10.7", (10, 9)),
         // Minimum
-        ("10.9", "10.9"),
+        ("10.9", (10, 9)),
         // Higher
-        ("11.0", "11.0"),
+        ("11.0", (11, 0)),
     ];
 
     let target = "x86_64-apple-darwin";
-    for (deployment_target, expected) in versions {
+    for (deployment_target, set_version) in versions {
         let test = Test::gnu();
         test.gcc()
             .target(target)
@@ -533,8 +533,27 @@ fn macos_cpp_minimums() {
             .file("foo.c")
             .compile("foo");
 
-        test.cmd(0)
-            .must_have(format!("-mmacosx-version-min={}", expected));
+        let exec = test.cmd(0);
+        let deployment_arg = exec
+            .args
+            .iter()
+            .find_map(|arg| arg.strip_prefix("-mmacosx-version-min="))
+            .expect("no deployment target argument was set");
+
+        let mut deployment_parts = deployment_arg.split('.').map(|v| v.parse::<u32>().unwrap());
+
+        let major = deployment_parts.next().unwrap();
+        let minor = deployment_parts.next().unwrap();
+
+        // Check that we are on at least our minimums since this test reads from system
+        // SDK state, and that can vary per-system. It should never go lower then the deployment
+        // target we pass.
+        assert!(major >= set_version.0);
+
+        // If still on 10.x make sure `x` didn't go lower.
+        if major == set_version.0 {
+            assert!(minor >= set_version.1);
+        }
     }
 
     let test = Test::gnu();
@@ -555,6 +574,7 @@ fn clang_apple_tvos() {
     for target in &["aarch64-apple-tvos"] {
         let test = Test::clang();
         test.gcc()
+            .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
             .target(&target)
             .host(&target)
             .file("foo.c")
@@ -570,6 +590,7 @@ fn clang_apple_tvsimulator() {
     for target in &["x86_64-apple-tvos"] {
         let test = Test::clang();
         test.gcc()
+            .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
             .target(&target)
             .host(&target)
             .file("foo.c")
