@@ -88,9 +88,33 @@ mod inherited_jobserver {
                 .or_else(|| var_os("MAKEFLAGS"))
                 .or_else(|| var_os("MFLAGS"))?;
 
-            let inner = sys::JobServerClient::open(var)?;
+            #[cfg(unix)]
+            let var = std::os::unix::ffi::OsStrExt::as_bytes(var.as_os_str());
+            #[cfg(not(unix))]
+            let var = var.to_str()?.as_bytes();
 
-            Some(Self {
+            let makeflags = var.split(u8::is_ascii_whitespace);
+
+            // `--jobserver-auth=` is the only documented makeflags.
+            // `--jobserver-fds=` is actually an internal only makeflags, so we should
+            // always prefer `--jobserver-auth=`.
+            //
+            // Also, according to doc of makeflags, if there are multiple `--jobserver-auth=`
+            // the last one is used
+            if let Some(flag) = makeflags
+                .clone()
+                .filter_map(|s| s.strip_prefix(b"--jobserver-auth="))
+                .last()
+            {
+                sys::JobServerClient::open(flag)
+            } else {
+                sys::JobServerClient::open(
+                    makeflags
+                        .filter_map(|s| s.strip_prefix(b"--jobserver-fds="))
+                        .last()?,
+                )
+            }
+            .map(|inner| Self {
                 inner,
                 global_implicit_token: AtomicBool::new(true),
             })
