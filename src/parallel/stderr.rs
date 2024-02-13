@@ -14,13 +14,18 @@ pub fn set_non_blocking(stderr: &mut ChildStderr) -> Result<(), Error> {
     {
         use std::os::unix::io::AsRawFd;
         let fd = stderr.as_raw_fd();
-        debug_assert_eq!(
-            unsafe { libc::fcntl(fd, libc::F_GETFL, 0) },
-            0,
-            "stderr should have no flags set"
-        );
+        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL, 0) };
+        if flags == -1 {
+            return Err(Error::new(
+                ErrorKind::IOError,
+                format!(
+                    "Failed to get flags for child stderr: {}",
+                    std::io::Error::last_os_error()
+                ),
+            ));
+        }
 
-        if unsafe { libc::fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK) } != 0 {
+        if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
             return Err(Error::new(
                 ErrorKind::IOError,
                 format!(
