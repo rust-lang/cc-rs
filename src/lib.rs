@@ -1499,7 +1499,6 @@ impl Build {
                 };
                 let mut child = spawn(&mut cmd, &program, &self.cargo_output)?;
                 let mut stderr_forwarder = StderrForwarder::new(&mut child);
-                #[cfg(unix)]
                 stderr_forwarder.set_non_blocking()?;
 
                 cell_update(&pendings, |mut pendings| {

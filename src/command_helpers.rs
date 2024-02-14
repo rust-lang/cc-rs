@@ -51,7 +51,7 @@ impl CargoOutput {
 
 pub(crate) struct StderrForwarder {
     inner: Option<(ChildStderr, Vec<u8>)>,
-    #[cfg(all(feature = "parallel", unix))]
+    #[cfg(feature = "parallel")]
     is_non_blocking: bool,
     #[cfg(feature = "parallel")]
     bytes_available_failed: bool,
@@ -163,10 +163,11 @@ impl StderrForwarder {
         }
     }
 
-    #[cfg(all(feature = "parallel", unix))]
+    #[cfg(feature = "parallel")]
     pub(crate) fn set_non_blocking(&mut self) -> Result<(), Error> {
         assert!(!self.is_non_blocking);
 
+        #[cfg(unix)]
         if let Some((stderr, _)) = self.inner.as_ref() {
             crate::parallel::stderr::set_non_blocking(stderr)?;
         }
