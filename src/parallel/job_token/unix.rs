@@ -94,8 +94,8 @@ impl JobServerClient {
                 let write = write.try_clone().ok()?;
 
                 // Set read and write end to nonblocking
-                set_non_blocking(&read)?;
-                set_non_blocking(&write)?;
+                set_non_blocking(&read).ok()?;
+                set_non_blocking(&write).ok()?;
 
                 Some(Self {
                     read,
