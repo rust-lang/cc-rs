@@ -10,30 +10,28 @@ compile_error!("Only unix and windows support non-blocking pipes! For other OSes
 pub fn set_non_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
     // On Unix, switch the pipe to non-blocking mode.
     // On Windows, we have a different way to be non-blocking.
-    {
-        let fd = pipe.as_raw_fd();
-        let flags = unsafe { libc::fcntl(fd, libc::F_GETFL, 0) };
-        if flags == -1 {
-            return Err(Error::new(
-                ErrorKind::IOError,
-                format!(
-                    "Failed to get flags for pipe {}: {}",
-                    fd,
-                    std::io::Error::last_os_error()
-                ),
-            ));
-        }
+    let fd = pipe.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL, 0) };
+    if flags == -1 {
+        return Err(Error::new(
+            ErrorKind::IOError,
+            format!(
+                "Failed to get flags for pipe {}: {}",
+                fd,
+                std::io::Error::last_os_error()
+            ),
+        ));
+    }
 
-        if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
-            return Err(Error::new(
-                ErrorKind::IOError,
-                format!(
-                    "Failed to set flags for pipe {}: {}",
-                    fd,
-                    std::io::Error::last_os_error()
-                ),
-            ));
-        }
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
+        return Err(Error::new(
+            ErrorKind::IOError,
+            format!(
+                "Failed to set flags for pipe {}: {}",
+                fd,
+                std::io::Error::last_os_error()
+            ),
+        ));
     }
 
     Ok(())
