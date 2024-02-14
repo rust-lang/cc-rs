@@ -1927,7 +1927,7 @@ impl Build {
                                 .into(),
                             );
                         }
-                    } else if target.contains("tvos-sim") {
+                    } else if target.contains("tvos-sim") || target.contains("x86_64-apple-tvos")  {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
                         {
