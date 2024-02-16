@@ -291,6 +291,7 @@ pub struct Build {
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
     apple_versions_cache: Arc<Mutex<HashMap<String, String>>>,
     emit_rerun_if_env_changed: bool,
+    cached_compiler_family: Arc<Mutex<HashMap<Box<Path>, ToolFamily>>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -406,6 +407,7 @@ impl Build {
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_versions_cache: Arc::new(Mutex::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
+            cached_compiler_family: Arc::default(),
         }
     }
 
@@ -2603,7 +2605,11 @@ impl Build {
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
         if let Some(c) = &self.compiler {
-            return Ok(Tool::new((**c).to_owned(), &self.cargo_output));
+            return Ok(Tool::new(
+                (**c).to_owned(),
+                &self.cached_compiler_family,
+                &self.cargo_output,
+            ));
         }
         let host = self.get_host()?;
         let target = self.get_target()?;
@@ -2639,7 +2645,12 @@ impl Build {
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::with_clang_driver(tool, driver_mode, &self.cargo_output);
+                let mut t = Tool::with_clang_driver(
+                    tool,
+                    driver_mode,
+                    &self.cached_compiler_family,
+                    &self.cargo_output,
+                );
                 if let Some(cc_wrapper) = wrapper {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2653,12 +2664,20 @@ impl Build {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
-                        let mut t = Tool::new(PathBuf::from("cmd"), &self.cargo_output);
+                        let mut t = Tool::new(
+                            PathBuf::from("cmd"),
+                            &self.cached_compiler_family,
+                            &self.cargo_output,
+                        );
                         t.args.push("/c".into());
                         t.args.push(format!("{}.bat", tool).into());
                         Some(t)
                     } else {
-                        Some(Tool::new(PathBuf::from(tool), &self.cargo_output))
+                        Some(Tool::new(
+                            PathBuf::from(tool),
+                            &self.cached_compiler_family,
+                            &self.cargo_output,
+                        ))
                     }
                 } else {
                     None
@@ -2713,7 +2732,11 @@ impl Build {
                     default.to_string()
                 };
 
-                let mut t = Tool::new(PathBuf::from(compiler), &self.cargo_output);
+                let mut t = Tool::new(
+                    PathBuf::from(compiler),
+                    &self.cached_compiler_family,
+                    &self.cargo_output,
+                );
                 if let Some(cc_wrapper) = Self::rustc_wrapper_fallback() {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
                 }
@@ -2730,7 +2753,13 @@ impl Build {
                 Err(_) => PathBuf::from("nvcc"),
                 Ok(nvcc) => PathBuf::from(&*nvcc),
             };
-            let mut nvcc_tool = Tool::with_features(nvcc, None, self.cuda, &self.cargo_output);
+            let mut nvcc_tool = Tool::with_features(
+                nvcc,
+                None,
+                self.cuda,
+                &self.cached_compiler_family,
+                &self.cargo_output,
+            );
             nvcc_tool
                 .args
                 .push(format!("-ccbin={}", tool.path.display()).into());
