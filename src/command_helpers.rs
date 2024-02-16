@@ -167,7 +167,8 @@ impl StderrForwarder {
     pub(crate) fn set_non_blocking(&mut self) -> Result<(), Error> {
         assert!(!self.is_non_blocking);
 
-        if let Some((stderr, _)) = self.inner.as_mut() {
+        #[cfg(unix)]
+        if let Some((stderr, _)) = self.inner.as_ref() {
             crate::parallel::stderr::set_non_blocking(stderr)?;
         }
 

@@ -1,7 +1,9 @@
 use std::{
+    collections::HashMap,
     ffi::OsString,
     path::{Path, PathBuf},
     process::Command,
+    sync::Mutex,
 };
 
 use crate::command_helpers::{run_output, CargoOutput};
@@ -28,16 +30,27 @@ pub struct Tool {
 }
 
 impl Tool {
-    pub(crate) fn new(path: PathBuf, cargo_output: &CargoOutput) -> Self {
-        Tool::with_features(path, None, false, cargo_output)
+    pub(crate) fn new(
+        path: PathBuf,
+        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
+        cargo_output: &CargoOutput,
+    ) -> Self {
+        Self::with_features(path, None, false, cached_compiler_family, cargo_output)
     }
 
     pub(crate) fn with_clang_driver(
         path: PathBuf,
         clang_driver: Option<&str>,
+        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
     ) -> Self {
-        Self::with_features(path, clang_driver, false, cargo_output)
+        Self::with_features(
+            path,
+            clang_driver,
+            false,
+            cached_compiler_family,
+            cargo_output,
+        )
     }
 
     #[cfg(windows)]
@@ -60,9 +73,10 @@ impl Tool {
         path: PathBuf,
         clang_driver: Option<&str>,
         cuda: bool,
+        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
     ) -> Self {
-        fn detect_family(path: &Path, cargo_output: &CargoOutput) -> ToolFamily {
+        fn detect_family_inner(path: &Path, cargo_output: &CargoOutput) -> ToolFamily {
             let mut cmd = Command::new(path);
             cmd.arg("--version");
 
@@ -95,6 +109,18 @@ impl Tool {
                 ToolFamily::Gnu
             }
         }
+        let detect_family = |path: &Path| -> ToolFamily {
+            if let Some(family) = cached_compiler_family.lock().unwrap().get(path) {
+                return *family;
+            }
+
+            let family = detect_family_inner(path, cargo_output);
+            cached_compiler_family
+                .lock()
+                .unwrap()
+                .insert(path.into(), family);
+            family
+        };
 
         // Try to detect family of the tool from its name, falling back to Gnu.
         let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
@@ -108,10 +134,10 @@ impl Tool {
                     _ => ToolFamily::Clang,
                 }
             } else {
-                detect_family(&path, cargo_output)
+                detect_family(&path)
             }
         } else {
-            detect_family(&path, cargo_output)
+            detect_family(&path)
         };
 
         Tool {

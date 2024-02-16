@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [stable, beta, nightly, linux32, macos, aarch64-ios, win32, win64, mingw32, mingw64, windows-2019]
+        build: [stable, beta, nightly, linux32, macos, aarch64-macos, aarch64-ios, win32, win64, mingw32, mingw64, windows-2019]
         include:
           - build: stable
             os: ubuntu-latest
@@ -33,6 +33,10 @@ jobs:
             os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
+          - build: aarch64-macos
+            os: macos-14
+            rust: stable
+            target: aarch64-apple-darwin
           - build: aarch64-ios
             os: macos-latest
             rust: stable
@@ -86,6 +90,7 @@ jobs:
         sudo apt-get update
         sudo apt-get install g++-multilib
       if: matrix.build == 'linux32'
+    - uses: Swatinem/rust-cache@v2
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
@@ -103,6 +108,7 @@ jobs:
         rustup component add rust-src --toolchain nightly
         rustup default nightly
       shell: bash
+    - uses: Swatinem/rust-cache@v2
     - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos
     - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos --release
     - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos --features parallel
@@ -120,6 +126,7 @@ jobs:
         sudo dpkg -i cuda-keyring_1.0-1_all.deb
         sudo apt-get update
         sudo apt-get -y install cuda-minimal-build-11-8
+    - uses: Swatinem/rust-cache@v2
     - name: Test 'cudart' feature
       shell: bash
       run: |
@@ -157,6 +164,7 @@ jobs:
         rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
         rustup default stable
       shell: bash
+    - uses: Swatinem/rust-cache@v2
     - run: cargo clippy
 
   rustfmt:
@@ -169,4 +177,5 @@ jobs:
         rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
         rustup default stable
       shell: bash
+    - uses: Swatinem/rust-cache@v2
     - run: cargo fmt -- --check

@@ -1,7 +1,4 @@
-use std::{
-    ffi::{CString, OsString},
-    io, ptr,
-};
+use std::{ffi::CString, io, ptr, str};
 
 use crate::windows::windows_sys::{
     OpenSemaphoreA, ReleaseSemaphore, WaitForSingleObject, FALSE, HANDLE, SEMAPHORE_MODIFY_STATE,
@@ -16,8 +13,8 @@ unsafe impl Sync for JobServerClient {}
 unsafe impl Send for JobServerClient {}
 
 impl JobServerClient {
-    pub(super) unsafe fn open(var: OsString) -> Option<Self> {
-        let var = var.to_str()?;
+    pub(super) unsafe fn open(var: &[u8]) -> Option<Self> {
+        let var = str::from_utf8(var).ok()?;
         if !var.is_ascii() {
             // `OpenSemaphoreA` only accepts ASCII, not utf-8.
             //
@@ -29,12 +26,7 @@ impl JobServerClient {
             return None;
         }
 
-        let s = var
-            .split_ascii_whitespace()
-            .filter_map(|arg| arg.strip_prefix("--jobserver-auth="))
-            .find(|s| !s.is_empty())?;
-
-        let name = CString::new(s).ok()?;
+        let name = CString::new(var).ok()?;
 
         let sem = OpenSemaphoreA(
             THREAD_SYNCHRONIZE | SEMAPHORE_MODIFY_STATE,

@@ -1,17 +1,16 @@
 use std::{
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     fs::{self, File},
     io::{self, Read, Write},
     mem::ManuallyDrop,
     os::{
         raw::c_int,
-        unix::{
-            ffi::{OsStrExt, OsStringExt},
-            prelude::*,
-        },
+        unix::{ffi::OsStrExt, prelude::*},
     },
     path::Path,
 };
+
+use crate::parallel::stderr::set_non_blocking;
 
 pub(super) struct JobServerClient {
     read: File,
@@ -19,21 +18,11 @@ pub(super) struct JobServerClient {
 }
 
 impl JobServerClient {
-    pub(super) unsafe fn open(var: OsString) -> Option<Self> {
-        let bytes = var.into_vec();
-
-        let s = bytes
-            .split(u8::is_ascii_whitespace)
-            .filter_map(|arg| {
-                arg.strip_prefix(b"--jobserver-fds=")
-                    .or_else(|| arg.strip_prefix(b"--jobserver-auth="))
-            })
-            .find(|bytes| !bytes.is_empty())?;
-
-        if let Some(fifo) = s.strip_prefix(b"fifo:") {
+    pub(super) unsafe fn open(var: &[u8]) -> Option<Self> {
+        if let Some(fifo) = var.strip_prefix(b"fifo:") {
             Self::from_fifo(Path::new(OsStr::from_bytes(fifo)))
         } else {
-            Self::from_pipe(OsStr::from_bytes(s).to_str()?)
+            Self::from_pipe(OsStr::from_bytes(var).to_str()?)
         }
     }
 
@@ -48,7 +37,7 @@ impl JobServerClient {
         if is_pipe(&file)? {
             // File in Rust is always closed-on-exec as long as it's opened by
             // `File::open` or `fs::OpenOptions::open`.
-            set_nonblocking(&file)?;
+            set_non_blocking(&file).ok()?;
 
             Some(Self {
                 read: file,
@@ -92,8 +81,8 @@ impl JobServerClient {
                 let write = write.try_clone().ok()?;
 
                 // Set read and write end to nonblocking
-                set_nonblocking(&read)?;
-                set_nonblocking(&write)?;
+                set_non_blocking(&read).ok()?;
+                set_non_blocking(&write).ok()?;
 
                 Some(Self {
                     read,
@@ -145,21 +134,6 @@ impl JobServerClient {
             1 => Ok(()),
             _ => Err(io::Error::from(io::ErrorKind::UnexpectedEof)),
         }
-    }
-}
-
-fn set_nonblocking(file: &File) -> Option<()> {
-    // F_SETFL can only set the O_APPEND, O_ASYNC, O_DIRECT, O_NOATIME, and
-    // O_NONBLOCK flags.
-    //
-    // For pipe, only O_NONBLOCK is meaningful, so it is ok to
-    // not issue a F_GETFL fcntl syscall.
-    let ret = unsafe { libc::fcntl(file.as_raw_fd(), libc::F_SETFL, libc::O_NONBLOCK) };
-
-    if ret == -1 {
-        None
-    } else {
-        Some(())
     }
 }
 
