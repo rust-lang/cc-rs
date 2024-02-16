@@ -6,29 +6,32 @@ use crate::{Error, ErrorKind};
 #[cfg(all(not(unix), not(windows)))]
 compile_error!("Only unix and windows support non-blocking pipes! For other OSes, disable the parallel feature.");
 
-#[allow(unused_variables)]
-pub fn set_non_blocking(stderr: &mut ChildStderr) -> Result<(), Error> {
+#[cfg(unix)]
+pub fn set_non_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
     // On Unix, switch the pipe to non-blocking mode.
     // On Windows, we have a different way to be non-blocking.
-    #[cfg(unix)]
-    {
-        use std::os::unix::io::AsRawFd;
-        let fd = stderr.as_raw_fd();
-        debug_assert_eq!(
-            unsafe { libc::fcntl(fd, libc::F_GETFL, 0) },
-            0,
-            "stderr should have no flags set"
-        );
+    let fd = pipe.as_raw_fd();
+    let flags = unsafe { libc::fcntl(fd, libc::F_GETFL, 0) };
+    if flags == -1 {
+        return Err(Error::new(
+            ErrorKind::IOError,
+            format!(
+                "Failed to get flags for pipe {}: {}",
+                fd,
+                std::io::Error::last_os_error()
+            ),
+        ));
+    }
 
-        if unsafe { libc::fcntl(fd, libc::F_SETFL, libc::O_NONBLOCK) } != 0 {
-            return Err(Error::new(
-                ErrorKind::IOError,
-                format!(
-                    "Failed to set flags for child stderr: {}",
-                    std::io::Error::last_os_error()
-                ),
-            ));
-        }
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
+        return Err(Error::new(
+            ErrorKind::IOError,
+            format!(
+                "Failed to set flags for pipe {}: {}",
+                fd,
+                std::io::Error::last_os_error()
+            ),
+        ));
     }
 
     Ok(())
