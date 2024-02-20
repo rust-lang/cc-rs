@@ -3,10 +3,7 @@ use std::{
     fs::{self, File},
     io::{self, Read, Write},
     mem::ManuallyDrop,
-    os::{
-        raw::c_int,
-        unix::{ffi::OsStrExt, prelude::*},
-    },
+    os::{raw::c_int, unix::prelude::*},
     path::Path,
 };
 
