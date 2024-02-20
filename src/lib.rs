@@ -1948,6 +1948,21 @@ impl Build {
                                 .into(),
                             );
                         }
+                    } else if target.contains("aarch64-apple-tvos") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Device(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::TvOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
+                            cmd.args.push(
+                                format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
+                            );
+                        }
                     } else if target.starts_with("riscv64gc-") {
                         cmd.args.push(
                             format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
