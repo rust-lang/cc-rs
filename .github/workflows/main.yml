@@ -101,14 +101,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [nightly, macos, aarch64-macos]
+        build: [aarch64-tvos, aarch64-tvos-sim, x86_64-tvos]
         include:
           - build: aarch64-tvos
             os: macos-latest
             rust: nightly
             target: aarch64-apple-tvos
             no_run: --no-run
-          - build: aarch64-ios
+          - build: aarch64-tvos-sim
             os: macos-latest
             rust: nightly
             target: aarch64-apple-tvos-sim
