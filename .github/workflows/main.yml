@@ -95,41 +95,42 @@ jobs:
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
-  # This is separate from the matrix above because there is no prebuilt rust-std component for the target.
+  # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-tvos:
-    name: Test aarch64-apple-tvos
-    runs-on: macos-latest
+    name: Test build-std
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        build: [nightly, macos, aarch64-macos]
+        include:
+          - build: aarch64-tvos
+            os: macos-latest
+            rust: nightly
+            target: aarch64-apple-tvos
+            no_run: --no-run
+          - build: aarch64-ios
+            os: macos-latest
+            rust: nightly
+            target: aarch64-apple-tvos-sim
+            no_run: --no-run
+          - build: x86_64-tvos
+            os: macos-latest
+            rust: nightly
+            target: x86_64-apple-tvos
+            no_run: --no-run
     steps:
     - uses: actions/checkout@v4
     - name: Install Rust (rustup)
       run: |
         set -euxo pipefail
-        rustup toolchain install nightly --no-self-update --profile minimal
-        rustup component add rust-src --toolchain nightly
-        rustup default nightly
+        rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal
+        rustup component add rust-src --toolchain ${{ matrix.rust }}
+        rustup default ${{ matrix.rust }}
       shell: bash
     - uses: Swatinem/rust-cache@v2
-    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos
-    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos --release
-    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos --features parallel
-
-  # This is separate from the matrix above because there is no prebuilt rust-std component for the target.
-  check-tvos-sim:
-    name: Test aarch64-apple-tvos-sim
-    runs-on: macos-latest
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust (rustup)
-      run: |
-        set -euxo pipefail
-        rustup toolchain install nightly --no-self-update --profile minimal
-        rustup component add rust-src --toolchain nightly
-        rustup default nightly
-      shell: bash
-    - uses: Swatinem/rust-cache@v2
-    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos-sim
-    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos-sim --release
-    - run: cargo test -Z build-std=std --no-run --workspace --target aarch64-apple-tvos-sim --features parallel
+    - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
+    - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
+    - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   cuda:
     name: Test CUDA support
