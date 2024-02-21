@@ -196,7 +196,12 @@ fn write_warning(line: &[u8]) {
     stdout.write_all(b"\n").unwrap();
 }
 
-fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), Error> {
+fn wait_on_child(
+    cmd: &Command,
+    program: &str,
+    child: &mut Child,
+    cargo_output: &CargoOutput,
+) -> Result<(), Error> {
     StderrForwarder::new(child).forward_all();
 
     let status = match child.wait() {
@@ -211,7 +216,8 @@ fn wait_on_child(cmd: &Command, program: &str, child: &mut Child) -> Result<(), 
             ));
         }
     };
-    println!("{}", status);
+
+    cargo_output.print_warning(&status);
 
     if status.success() {
         Ok(())
@@ -280,7 +286,7 @@ pub(crate) fn run(
     cargo_output: &CargoOutput,
 ) -> Result<(), Error> {
     let mut child = spawn(cmd, program, cargo_output)?;
-    wait_on_child(cmd, program, &mut child)
+    wait_on_child(cmd, program, &mut child, cargo_output)
 }
 
 pub(crate) fn run_output(
@@ -300,7 +306,7 @@ pub(crate) fn run_output(
         .read_to_end(&mut stdout)
         .unwrap();
 
-    wait_on_child(cmd, program, &mut child)?;
+    wait_on_child(cmd, program, &mut child, cargo_output)?;
 
     Ok(stdout)
 }
@@ -320,7 +326,7 @@ pub(crate) fn spawn(
         }
     }
 
-    println!("running: {:?}", cmd);
+    cargo_output.print_warning(&format_args!("running: {:?}", cmd));
 
     let cmd = ResetStderr(cmd);
     let child = cmd.0.stderr(cargo_output.stdio_for_warnings()).spawn();
