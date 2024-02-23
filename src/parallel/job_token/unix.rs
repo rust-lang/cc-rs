@@ -7,7 +7,7 @@ use std::{
     path::Path,
 };
 
-use crate::parallel::stderr::set_non_blocking;
+use crate::parallel::stderr::{set_blocking, set_non_blocking};
 
 pub(super) struct JobServerClient {
     read: File,
@@ -77,10 +77,6 @@ impl JobServerClient {
                 let read = read.try_clone().ok()?;
                 let write = write.try_clone().ok()?;
 
-                // Set read and write end to nonblocking
-                set_non_blocking(&read).ok()?;
-                set_non_blocking(&write).ok()?;
-
                 Some(Self {
                     read,
                     write: Some(write),
@@ -90,6 +86,23 @@ impl JobServerClient {
         }
     }
 
+    pub(super) fn prepare_for_acquires(&self) -> Result<(), crate::Error> {
+        if let Some(write) = self.write.as_ref() {
+            set_non_blocking(&self.read)?;
+            set_non_blocking(write)?;
+        }
+
+        Ok(())
+    }
+
+    pub(super) fn done_acquires(&self) {
+        if let Some(write) = self.write.as_ref() {
+            let _ = set_blocking(&self.read);
+            let _ = set_blocking(write);
+        }
+    }
+
+    /// Must call `prepare_for_acquire` before using it.
     pub(super) fn try_acquire(&self) -> io::Result<Option<()>> {
         let mut fds = [libc::pollfd {
             fd: self.read.as_raw_fd(),

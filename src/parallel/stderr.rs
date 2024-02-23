@@ -7,34 +7,56 @@ use crate::{Error, ErrorKind};
 compile_error!("Only unix and windows support non-blocking pipes! For other OSes, disable the parallel feature.");
 
 #[cfg(unix)]
-pub fn set_non_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
-    // On Unix, switch the pipe to non-blocking mode.
-    // On Windows, we have a different way to be non-blocking.
-    let fd = pipe.as_raw_fd();
+fn get_flags(fd: std::os::unix::io::RawFd) -> Result<i32, Error> {
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL, 0) };
     if flags == -1 {
-        return Err(Error::new(
+        Err(Error::new(
             ErrorKind::IOError,
             format!(
                 "Failed to get flags for pipe {}: {}",
                 fd,
                 std::io::Error::last_os_error()
             ),
-        ));
+        ))
+    } else {
+        Ok(flags)
     }
+}
 
+#[cfg(unix)]
+fn set_flags(fd: std::os::unix::io::RawFd, flags: std::os::raw::c_int) -> Result<(), Error> {
     if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
-        return Err(Error::new(
+        Err(Error::new(
             ErrorKind::IOError,
             format!(
                 "Failed to set flags for pipe {}: {}",
                 fd,
                 std::io::Error::last_os_error()
             ),
-        ));
+        ))
+    } else {
+        Ok(())
     }
+}
 
-    Ok(())
+#[cfg(unix)]
+pub fn set_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
+    // On Unix, switch the pipe to non-blocking mode.
+    // On Windows, we have a different way to be non-blocking.
+    let fd = pipe.as_raw_fd();
+
+    let flags = get_flags(fd)?;
+    set_flags(fd, flags & (!libc::O_NONBLOCK))
+}
+
+#[cfg(unix)]
+pub fn set_non_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
+    // On Unix, switch the pipe to non-blocking mode.
+    // On Windows, we have a different way to be non-blocking.
+    let fd = pipe.as_raw_fd();
+
+    let flags = get_flags(fd)?;
+    set_flags(fd, flags | libc::O_NONBLOCK)
 }
 
 pub fn bytes_available(stderr: &mut ChildStderr) -> Result<usize, Error> {
