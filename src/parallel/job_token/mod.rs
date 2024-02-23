@@ -88,14 +88,14 @@ mod inherited_jobserver {
 
     use std::{
         env::var_os,
-        sync::{
-            atomic::{
-                AtomicBool,
-                Ordering::{AcqRel, Acquire},
-            },
-            Mutex, MutexGuard, PoisonError,
+        sync::atomic::{
+            AtomicBool,
+            Ordering::{AcqRel, Acquire},
         },
     };
+
+    #[cfg(unix)]
+    use std::sync::{Mutex, MutexGuard, PoisonError};
 
     pub(crate) struct JobServer {
         /// Implicit token for this process which is obtained and will be
