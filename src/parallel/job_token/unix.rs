@@ -74,6 +74,14 @@ impl JobServerClient {
                 Some(libc::O_RDONLY) | Some(libc::O_RDWR),
                 Some(libc::O_WRONLY) | Some(libc::O_RDWR),
             ) => {
+                // Optimization: Try converting it to a fifo by using /dev/fd
+                #[cfg(target_os = "linux")]
+                if let Some(jobserver) =
+                    Self::from_fifo(Path::new(&format!("/dev/fd/{}", read.as_raw_fd())))
+                {
+                    return Some(jobserver);
+                }
+
                 let read = read.try_clone().ok()?;
                 let write = write.try_clone().ok()?;
 
