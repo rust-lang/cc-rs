@@ -163,6 +163,10 @@ mod impl_ {
     use crate::windows::registry::{RegistryKey, LOCAL_MACHINE};
     use crate::windows::setup_config::SetupConfiguration;
     use crate::windows::vs_instances::{VsInstances, VswhereInstance};
+    use crate::windows::windows_sys::{
+        FreeLibrary, GetMachineTypeAttributes, GetProcAddress, LoadLibraryA, UserEnabled, HMODULE,
+        IMAGE_FILE_MACHINE_AMD64, MACHINE_ATTRIBUTES, S_OK,
+    };
     use std::convert::TryFrom;
     use std::env;
     use std::ffi::OsString;
@@ -173,6 +177,8 @@ mod impl_ {
     use std::path::{Path, PathBuf};
     use std::process::Command;
     use std::str::FromStr;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Once;
 
     use super::MSVC_FAMILY;
     use crate::Tool;
@@ -197,6 +203,71 @@ mod impl_ {
         libs: Vec<PathBuf>,
         path: Vec<PathBuf>,
         include: Vec<PathBuf>,
+    }
+
+    struct LibraryHandle(HMODULE);
+
+    impl LibraryHandle {
+        fn new(name: &[u8]) -> Option<Self> {
+            let handle = unsafe { LoadLibraryA(name.as_ptr() as _) };
+            (!handle.is_null()).then(|| Self(handle))
+        }
+
+        /// Get a function pointer to a function in the library.
+        /// SAFETY: The caller must ensure that the function signature matches the actual function.
+        /// The easiest way to do this is to add an entry to windows_sys_no_link.list and use the
+        /// generated function for `func_signature`.
+        unsafe fn get_proc_address<F>(&self, name: &[u8]) -> Option<F> {
+            let symbol = unsafe { GetProcAddress(self.0, name.as_ptr() as _) };
+            symbol.map(|symbol| unsafe { mem::transmute_copy(&symbol) })
+        }
+    }
+
+    impl Drop for LibraryHandle {
+        fn drop(&mut self) {
+            unsafe { FreeLibrary(self.0) };
+        }
+    }
+
+    type GetMachineTypeAttributesFuncType =
+        unsafe extern "system" fn(u16, *mut MACHINE_ATTRIBUTES) -> i32;
+    const _: () = {
+        // Ensure that our hand-written signature matches the actual function signature.
+        // We can't use `GetMachineTypeAttributes` outside of a const scope otherwise we'll end up statically linking to
+        // it, which will fail to load on older versions of Windows.
+        let _: GetMachineTypeAttributesFuncType = GetMachineTypeAttributes;
+    };
+
+    fn is_amd64_emulation_supported_inner() -> Option<bool> {
+        // GetMachineTypeAttributes is only available on Win11 22000+, so dynamically load it.
+        let kernel32 = LibraryHandle::new(b"kernel32.dll\0")?;
+        // SAFETY: GetMachineTypeAttributesFuncType is checked to match the real function signature.
+        let get_machine_type_attributes = unsafe {
+            kernel32
+                .get_proc_address::<GetMachineTypeAttributesFuncType>(b"GetMachineTypeAttributes\0")
+        }?;
+        let mut attributes = Default::default();
+        if unsafe { get_machine_type_attributes(IMAGE_FILE_MACHINE_AMD64, &mut attributes) } == S_OK
+        {
+            Some((attributes & UserEnabled) != 0)
+        } else {
+            Some(false)
+        }
+    }
+
+    fn is_amd64_emulation_supported() -> bool {
+        // TODO: Replace with a OnceLock once MSRV is 1.70.
+        static LOAD_VALUE: Once = Once::new();
+        static IS_SUPPORTED: AtomicBool = AtomicBool::new(false);
+
+        // Using Relaxed ordering since the Once is providing synchronization.
+        LOAD_VALUE.call_once(|| {
+            IS_SUPPORTED.store(
+                is_amd64_emulation_supported_inner().unwrap_or(false),
+                Ordering::Relaxed,
+            );
+        });
+        IS_SUPPORTED.load(Ordering::Relaxed)
     }
 
     impl MsvcTool {
@@ -226,7 +297,6 @@ mod impl_ {
 
     /// Checks to see if the `VSCMD_ARG_TGT_ARCH` environment variable matches the
     /// given target's arch. Returns `None` if the variable does not exist.
-    #[cfg(windows)]
     fn is_vscmd_target(target: TargetArch<'_>) -> Option<bool> {
         let vscmd_arch = env::var("VSCMD_ARG_TGT_ARCH").ok()?;
         // Convert the Rust target arch to its VS arch equivalent.
@@ -482,27 +552,41 @@ mod impl_ {
     ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf, Option<PathBuf>, PathBuf)> {
         let version = vs15plus_vc_read_version(instance_path)?;
 
-        let host = match host_arch() {
-            X86 => "X86",
-            X86_64 => "X64",
-            // There is no natively hosted compiler on ARM64.
-            // Instead, use the x86 toolchain under emulation (there is no x64 emulation).
-            AARCH64 => "X86",
+        let hosts = match host_arch() {
+            X86 => &["X86"],
+            X86_64 => &["X64"],
+            // Starting with VS 17.4, there is a natively hosted compiler on ARM64:
+            // https://devblogs.microsoft.com/visualstudio/arm64-visual-studio-is-officially-here/
+            // On older versions of VS, we use x64 if running under emulation is supported,
+            // otherwise use x86.
+            AARCH64 => {
+                if is_amd64_emulation_supported() {
+                    &["ARM64", "X64", "X86"][..]
+                } else {
+                    &["ARM64", "X86"]
+                }
+            }
             _ => return None,
         };
         let target = lib_subdir(target)?;
         // The directory layout here is MSVC/bin/Host$host/$target/
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
+        // We use the first available host architecture that can build for the target
+        let (host_path, host) = hosts.iter().find_map(|&x| {
+            let candidate = path.join("bin").join(format!("Host{}", x));
+            if candidate.join(target).exists() {
+                Some((candidate, x))
+            } else {
+                None
+            }
+        })?;
         // This is the path to the toolchain for a particular target, running
         // on a given host
-        let bin_path = path.join("bin").join(format!("Host{}", host)).join(target);
+        let bin_path = host_path.join(target);
         // But! we also need PATH to contain the target directory for the host
         // architecture, because it contains dlls like mspdb140.dll compiled for
         // the host architecture.
-        let host_dylib_path = path
-            .join("bin")
-            .join(format!("Host{}", host))
-            .join(host.to_lowercase());
+        let host_dylib_path = host_path.join(host.to_lowercase());
         let lib_path = path.join("lib").join(target);
         let alt_lib_path = (target == "arm64ec").then(|| path.join("lib").join("arm64ec"));
         let include_path = path.join("include");

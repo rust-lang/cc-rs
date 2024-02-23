@@ -11,6 +11,7 @@ Windows.Win32.Foundation.WAIT_OBJECT_0
 Windows.Win32.Foundation.WAIT_TIMEOUT
 Windows.Win32.Foundation.WAIT_FAILED
 Windows.Win32.Foundation.WAIT_ABANDONED
+Windows.Win32.Foundation.FreeLibrary
 
 Windows.Win32.System.Com.SAFEARRAY
 Windows.Win32.System.Com.SAFEARRAYBOUND
@@ -18,6 +19,9 @@ Windows.Win32.System.Com.CLSCTX_ALL
 Windows.Win32.System.Com.COINIT_MULTITHREADED
 Windows.Win32.System.Com.CoCreateInstance
 Windows.Win32.System.Com.CoInitializeEx
+
+Windows.Win32.System.LibraryLoader.GetProcAddress
+Windows.Win32.System.LibraryLoader.LoadLibraryA
 
 Windows.Win32.System.Pipes.PeekNamedPipe
 
@@ -31,9 +35,13 @@ Windows.Win32.System.Registry.KEY_READ
 Windows.Win32.System.Registry.KEY_WOW64_32KEY
 Windows.Win32.System.Registry.REG_SZ
 
+Windows.Win32.System.SystemInformation.IMAGE_FILE_MACHINE_AMD64
+
+Windows.Win32.System.Threading.GetMachineTypeAttributes
 Windows.Win32.System.Threading.ReleaseSemaphore
 Windows.Win32.System.Threading.WaitForSingleObject
 Windows.Win32.System.Threading.SEMAPHORE_MODIFY_STATE
 Windows.Win32.System.Threading.THREAD_SYNCHRONIZE
+Windows.Win32.System.Threading.UserEnabled
 
 Windows.Win32.System.WindowsProgramming.OpenSemaphoreA

@@ -15,6 +15,7 @@ use crate::windows::{
     },
 };
 use std::{
+    convert::TryInto,
     ffi::{OsStr, OsString},
     mem::ManuallyDrop,
     ops::Deref,
@@ -24,7 +25,7 @@ use std::{
 };
 
 pub fn initialize() -> Result<(), HRESULT> {
-    let err = unsafe { CoInitializeEx(null(), COINIT_MULTITHREADED) };
+    let err = unsafe { CoInitializeEx(null(), COINIT_MULTITHREADED.try_into().unwrap()) };
     if err != S_OK && err != S_FALSE {
         // S_FALSE just means COM is already initialized
         Err(err)
