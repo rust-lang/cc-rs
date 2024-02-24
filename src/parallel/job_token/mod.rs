@@ -21,7 +21,7 @@ impl Drop for JobToken {
     }
 }
 
-pub(crate) enum JobTokenServer {
+enum JobTokenServer {
     Inherited(inherited_jobserver::JobServer),
     InProcess(inprocess_jobserver::JobServer),
 }
@@ -35,7 +35,7 @@ impl JobTokenServer {
     ///    present), we will create a global in-process only jobserver
     ///    that has to be static so that it will be shared by all cc
     ///    compilation.
-    pub(crate) fn new() -> &'static Self {
+    fn new() -> &'static Self {
         static INIT: Once = Once::new();
         static mut JOBSERVER: MaybeUninit<JobTokenServer> = MaybeUninit::uninit();
 
@@ -50,11 +50,35 @@ impl JobTokenServer {
             &*JOBSERVER.as_ptr()
         }
     }
+}
+
+pub(crate) struct ActiveJobTokenServer(&'static JobTokenServer);
+
+impl ActiveJobTokenServer {
+    pub(crate) fn new() -> Result<Self, Error> {
+        let jobserver = JobTokenServer::new();
+
+        #[cfg(unix)]
+        if let JobTokenServer::Inherited(inherited_jobserver) = &jobserver {
+            inherited_jobserver.enter_active()?;
+        }
+
+        Ok(Self(jobserver))
+    }
 
     pub(crate) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
-        match self {
-            Self::Inherited(jobserver) => jobserver.try_acquire(),
-            Self::InProcess(jobserver) => Ok(jobserver.try_acquire()),
+        match &self.0 {
+            JobTokenServer::Inherited(jobserver) => jobserver.try_acquire(),
+            JobTokenServer::InProcess(jobserver) => Ok(jobserver.try_acquire()),
+        }
+    }
+}
+
+impl Drop for ActiveJobTokenServer {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        if let JobTokenServer::Inherited(inherited_jobserver) = &self.0 {
+            inherited_jobserver.exit_active();
         }
     }
 }
@@ -70,6 +94,9 @@ mod inherited_jobserver {
         },
     };
 
+    #[cfg(unix)]
+    use std::sync::{Mutex, MutexGuard, PoisonError};
+
     pub(crate) struct JobServer {
         /// Implicit token for this process which is obtained and will be
         /// released in parent. Since JobTokens only give back what they got,
@@ -80,6 +107,10 @@ mod inherited_jobserver {
         /// the end of the process.
         global_implicit_token: AtomicBool,
         inner: sys::JobServerClient,
+        /// number of active clients is required to know when it is safe to clear non-blocking
+        /// flags
+        #[cfg(unix)]
+        active_clients_cnt: Mutex<usize>,
     }
 
     impl JobServer {
@@ -117,7 +148,38 @@ mod inherited_jobserver {
             .map(|inner| Self {
                 inner,
                 global_implicit_token: AtomicBool::new(true),
+                #[cfg(unix)]
+                active_clients_cnt: Mutex::new(0),
             })
+        }
+
+        #[cfg(unix)]
+        fn get_locked_active_cnt(&self) -> MutexGuard<'_, usize> {
+            self.active_clients_cnt
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+        }
+
+        #[cfg(unix)]
+        pub(super) fn enter_active(&self) -> Result<(), Error> {
+            let mut active_cnt = self.get_locked_active_cnt();
+            if *active_cnt == 0 {
+                self.inner.prepare_for_acquires()?;
+            }
+
+            *active_cnt += 1;
+
+            Ok(())
+        }
+
+        #[cfg(unix)]
+        pub(super) fn exit_active(&self) {
+            let mut active_cnt = self.get_locked_active_cnt();
+            *active_cnt -= 1;
+
+            if *active_cnt == 0 {
+                self.inner.done_acquires();
+            }
         }
 
         pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
