@@ -3288,6 +3288,7 @@ impl Build {
             "armebv7r-none-eabihf" => Some("arm-none-eabi"),
             "armv7r-none-eabi" => Some("arm-none-eabi"),
             "armv7r-none-eabihf" => Some("arm-none-eabi"),
+            "armv8r-none-eabihf" => Some("arm-none-eabi"),
             "thumbv6m-none-eabi" => Some("arm-none-eabi"),
             "thumbv7em-none-eabi" => Some("arm-none-eabi"),
             "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
