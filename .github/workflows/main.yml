@@ -199,6 +199,60 @@ jobs:
     - uses: Swatinem/rust-cache@v2
     - run: cargo fmt -- --check
 
+  integration-test:
+    name: Test crates depend on cc
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        cc-parallel: [Y, N]
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+         - repo: https://github.com/sfackler/rust-openssl
+           features: --features vendored
+         - repo: https://github.com/gyscos/zstd-rs
+           features: ""
+         - repo: https://github.com/rust-lang/libz-sys
+           features: ""
+
+    steps:
+    - name: Checkout cc
+      uses: actions/checkout@v4
+      with:
+        path: cc
+
+    - name: Checkout ${{ matrix.repo }}
+      uses: actions/checkout@v4
+      with:
+        path: repo-to-test
+        repository: ${{ matrix.repo }}
+        submodules: recursive
+
+    - name: Install Rust
+      run: |
+        rustup toolchain install stable --no-self-update --profile minimal
+        rustup default stable
+      shell: bash
+    - name: Install tools
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-nextest
+
+    - name: Enable cc/parallel
+      if: matrix.cc-parallel == "Y"
+      run: echo 'default = ["parallel"]' >> cc/Cargo.toml
+
+    - uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: "repo-to-test -> target"
+
+    - run: |
+        cargo nextest run ${{ matrix.features }} $PATCH_ARGS --workspace
+        cargo test --doc ${{ matrix.features }} $PATCH_ARGS --workspace
+      workdir: repo-to-test
+      env:
+        PATCH_ARGS: --config='patch.crates-io.cc.path=\"../cc\"'
+
   # Dummy job to have a stable name for the "all tests pass" requirement
   tests-pass:
     name: Tests pass
@@ -209,6 +263,7 @@ jobs:
     - msrv
     - clippy
     - rustfmt
+    - integration-test
     if: always() # always run even if dependencies fail
     runs-on: ubuntu-latest
     steps:
