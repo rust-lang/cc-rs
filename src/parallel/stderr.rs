@@ -25,7 +25,7 @@ fn get_flags(fd: std::os::unix::io::RawFd) -> Result<i32, Error> {
 
 #[cfg(unix)]
 fn set_flags(fd: std::os::unix::io::RawFd, flags: std::os::raw::c_int) -> Result<(), Error> {
-    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1 {
+    if unsafe { libc::fcntl(fd, libc::F_SETFL, flags) } == -1 {
         Err(Error::new(
             ErrorKind::IOError,
             format!(
