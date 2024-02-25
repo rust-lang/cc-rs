@@ -198,3 +198,21 @@ jobs:
       shell: bash
     - uses: Swatinem/rust-cache@v2
     - run: cargo fmt -- --check
+
+  # Dummy job to have a stable name for the "all tests pass" requirement
+  tests-pass:
+    name: Tests pass
+    needs:
+    - test
+    - check-tvos
+    - cuda
+    - msrv
+    - clippy
+    - rustfmt
+    if: always() # always run even if dependencies fail
+    runs-on: ubuntu-latest
+    steps:
+    # fail if ANY dependency has failed or cancelled
+    - if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')"
+      run: exit 1
+    - run: exit 0
