@@ -8,19 +8,33 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! A helper module to probe the Windows Registry when looking for
-//! windows-specific tools.
+//! A helper module to looking for windows-specific tools:
+//! 1. On Windows host, probe the Windows Registry if needed;
+//! 2. On non-Windows host, check specified environment variables.
 
 #![allow(clippy::upper_case_acronyms)]
 
 use std::process::Command;
 
 use crate::Tool;
-#[cfg(windows)]
 use crate::ToolFamily;
 
-#[cfg(windows)]
 const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
+
+#[derive(Copy, Clone)]
+struct TargetArch<'a>(pub &'a str);
+
+impl PartialEq<&str> for TargetArch<'_> {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl<'a> From<TargetArch<'a>> for &'a str {
+    fn from(target: TargetArch<'a>) -> Self {
+        target.0
+    }
+}
 
 /// Attempts to find a tool within an MSVC installation using the Windows
 /// registry as a point to search from.
@@ -41,13 +55,6 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
 /// Similar to the `find` function above, this function will attempt the same
 /// operation (finding a MSVC tool in a local install) but instead returns a
 /// `Tool` which may be introspected.
-#[cfg(not(windows))]
-pub fn find_tool(_target: &str, _tool: &str) -> Option<Tool> {
-    None
-}
-
-/// Documented above.
-#[cfg(windows)]
 pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     // This logic is all tailored for MSVC, if we're not that then bail out
     // early.
@@ -56,15 +63,16 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     }
 
     // Split the target to get the arch.
-    let target = impl_::TargetArch(target.split_once('-')?.0);
+    let target = TargetArch(target.split_once('-')?.0);
 
     // Looks like msbuild isn't located in the same location as other tools like
-    // cl.exe and lib.exe. To handle this we probe for it manually with
-    // dedicated registry keys.
+    // cl.exe and lib.exe.
     if tool.contains("msbuild") {
         return impl_::find_msbuild(target);
     }
 
+    // Looks like devenv isn't located in the same location as other tools like
+    // cl.exe and lib.exe.
     if tool.contains("devenv") {
         return impl_::find_devenv(target);
     }
@@ -103,17 +111,8 @@ pub enum VsVers {
 ///
 /// This is used by the cmake crate to figure out the correct
 /// generator.
-#[cfg(not(windows))]
 pub fn find_vs_version() -> Result<VsVers, String> {
-    Err("not windows".to_string())
-}
-
-/// Documented above
-#[cfg(windows)]
-pub fn find_vs_version() -> Result<VsVers, String> {
-    use std::env;
-
-    match env::var("VisualStudioVersion") {
+    match std::env::var("VisualStudioVersion") {
         Ok(version) => match &version[..] {
             "17.0" => Ok(VsVers::Vs17),
             "16.0" => Ok(VsVers::Vs16),
@@ -157,6 +156,7 @@ pub fn find_vs_version() -> Result<VsVers, String> {
     }
 }
 
+/// Windows Implementation.
 #[cfg(windows)]
 mod impl_ {
     use crate::windows::com;
@@ -180,23 +180,8 @@ mod impl_ {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Once;
 
-    use super::MSVC_FAMILY;
+    use super::{TargetArch, MSVC_FAMILY};
     use crate::Tool;
-
-    #[derive(Copy, Clone)]
-    pub struct TargetArch<'a>(pub &'a str);
-
-    impl PartialEq<&str> for TargetArch<'_> {
-        fn eq(&self, other: &&str) -> bool {
-            self.0 == *other
-        }
-    }
-
-    impl<'a> From<TargetArch<'a>> for &'a str {
-        fn from(target: TargetArch<'a>) -> Self {
-            target.0
-        }
-    }
 
     struct MsvcTool {
         tool: PathBuf,
@@ -312,7 +297,7 @@ mod impl_ {
     }
 
     /// Attempt to find the tool using environment variables set by vcvars.
-    pub fn find_msvc_environment(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_msvc_environment(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
         // Early return if the environment doesn't contain a VC install.
         if env::var_os("VCINSTALLDIR").is_none() {
             return None;
@@ -464,7 +449,7 @@ mod impl_ {
             .collect()
     }
 
-    pub fn find_msvc_15plus(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_msvc_15plus(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
         let iter = vs15plus_instances(target)?;
         iter.into_iter()
             .filter_map(|instance| {
@@ -649,7 +634,7 @@ mod impl_ {
 
     // For MSVC 14 we need to find the Universal CRT as well as either
     // the Windows 10 SDK or Windows 8.1 SDK.
-    pub fn find_msvc_14(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_msvc_14(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
         let vcdir = get_vc_dir("14.0")?;
         let mut tool = get_tool(tool, &vcdir, target)?;
         add_sdks(&mut tool, target)?;
@@ -699,7 +684,7 @@ mod impl_ {
     }
 
     // For MSVC 12 we need to find the Windows 8.1 SDK.
-    pub fn find_msvc_12(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_msvc_12(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
         let vcdir = get_vc_dir("12.0")?;
         let mut tool = get_tool(tool, &vcdir, target)?;
         let sub = lib_subdir(target)?;
@@ -715,7 +700,7 @@ mod impl_ {
     }
 
     // For MSVC 11 we need to find the Windows 8 SDK.
-    pub fn find_msvc_11(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_msvc_11(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
         let vcdir = get_vc_dir("11.0")?;
         let mut tool = get_tool(tool, &vcdir, target)?;
         let sub = lib_subdir(target)?;
@@ -969,7 +954,7 @@ mod impl_ {
         max_key
     }
 
-    pub fn has_msbuild_version(version: &str) -> bool {
+    pub(super) fn has_msbuild_version(version: &str) -> bool {
         match version {
             "17.0" => {
                 find_msbuild_vs17(TargetArch("x86_64")).is_some()
@@ -996,7 +981,7 @@ mod impl_ {
         }
     }
 
-    pub fn find_devenv(target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_devenv(target: TargetArch<'_>) -> Option<Tool> {
         find_devenv_vs15(target)
     }
 
@@ -1005,7 +990,7 @@ mod impl_ {
     }
 
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
-    pub fn find_msbuild(target: TargetArch<'_>) -> Option<Tool> {
+    pub(super) fn find_msbuild(target: TargetArch<'_>) -> Option<Tool> {
         // VS 15 (2017) changed how to locate msbuild
         if let Some(r) = find_msbuild_vs17(target) {
             Some(r)
@@ -1039,5 +1024,77 @@ mod impl_ {
                 }
                 tool
             })
+    }
+}
+
+/// Non-Windows Implementation.
+#[cfg(not(windows))]
+mod impl_ {
+    use std::{env, ffi::OsString};
+
+    use super::{TargetArch, MSVC_FAMILY};
+    use crate::Tool;
+
+    /// Finding msbuild.exe tool under unix system is not currently supported.
+    /// Maybe can check it using an environment variable looks like `MSBUILD_BIN`.
+    pub(super) fn find_msbuild(_target: TargetArch<'_>) -> Option<Tool> {
+        None
+    }
+
+    // Finding devenv.exe tool under unix system is not currently supported.
+    // Maybe can check it using an environment variable looks like `DEVENV_BIN`.
+    pub(super) fn find_devenv(_target: TargetArch<'_>) -> Option<Tool> {
+        None
+    }
+
+    /// Attempt to find the tool using environment variables set by vcvars.
+    pub(super) fn find_msvc_environment(tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
+        // Early return if the environment doesn't contain a VC install.
+        let vc_install_dir = env::var_os("VCINSTALLDIR")?;
+        let vs_install_dir = env::var_os("VSINSTALLDIR")?;
+
+        let get_tool = |install_dir: OsString| {
+            env::split_paths(&install_dir)
+                .map(|p| p.join(tool))
+                .find(|p| p.exists())
+                .map(|path| Tool::with_family(path.into(), MSVC_FAMILY))
+        };
+
+        // Take the path of tool for the vc install directory.
+        get_tool(vc_install_dir)
+            // Take the path of tool for the vs install directory.
+            .or_else(|| get_tool(vs_install_dir))
+            // Take the path of tool for the current path environment.
+            .or_else(|| env::var_os("PATH").and_then(|path| get_tool(path)))
+    }
+
+    pub(super) fn find_msvc_15plus(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
+        None
+    }
+
+    // For MSVC 14 we need to find the Universal CRT as well as either
+    // the Windows 10 SDK or Windows 8.1 SDK.
+    pub(super) fn find_msvc_14(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
+        None
+    }
+
+    // For MSVC 12 we need to find the Windows 8.1 SDK.
+    pub(super) fn find_msvc_12(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
+        None
+    }
+
+    // For MSVC 11 we need to find the Windows 8 SDK.
+    pub(super) fn find_msvc_11(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
+        None
+    }
+
+    pub(super) fn has_msbuild_version(version: &str) -> bool {
+        match version {
+            "17.0" => false,
+            "16.0" => false,
+            "15.0" => false,
+            "12.0" | "14.0" => false,
+            _ => false,
+        }
     }
 }
