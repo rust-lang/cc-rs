@@ -249,7 +249,7 @@ jobs:
     - run: |
         cargo nextest run ${{ matrix.features }} $PATCH_ARGS --workspace
         cargo test --doc ${{ matrix.features }} $PATCH_ARGS --workspace
-      workdir: repo-to-test
+      working-directory: repo-to-test
       env:
         PATCH_ARGS: --config='patch.crates-io.cc.path=\"../cc\"'
 
