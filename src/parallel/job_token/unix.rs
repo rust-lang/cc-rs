@@ -104,7 +104,9 @@ impl JobServerClient {
 
     pub(super) fn done_acquires(&self) {
         if let Some(write) = self.write.as_ref() {
-            let _ = set_blocking(&self.read);
+            if let Err(err) = set_blocking(&self.read) {
+                println!("Failed to set read end of jobserver pipe back to blocking: {}", err);
+            }
             let _ = set_blocking(write);
         }
     }
