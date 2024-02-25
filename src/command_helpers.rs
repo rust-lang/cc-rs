@@ -9,7 +9,10 @@ use std::{
     io::{self, Read, Write},
     path::Path,
     process::{Child, ChildStderr, Command, Stdio},
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use crate::{Error, ErrorKind, Object};
@@ -18,13 +21,17 @@ use crate::{Error, ErrorKind, Object};
 pub(crate) struct CargoOutput {
     pub(crate) metadata: bool,
     pub(crate) warnings: bool,
+    pub(crate) debug: bool,
+    checked_dbg_var: Arc<AtomicBool>,
 }
 
 impl CargoOutput {
-    pub(crate) const fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             metadata: true,
             warnings: true,
+            debug: std::env::var_os("CC_ENABLE_DEBUG_OUTPUT").is_some(),
+            checked_dbg_var: Arc::new(AtomicBool::new(false)),
         }
     }
 
@@ -37,6 +44,16 @@ impl CargoOutput {
     pub(crate) fn print_warning(&self, arg: &dyn Display) {
         if self.warnings {
             println!("cargo:warning={}", arg);
+        }
+    }
+
+    pub(crate) fn print_debug(&self, arg: &dyn Display) {
+        if self.metadata && !self.checked_dbg_var.load(Ordering::Relaxed) {
+            self.checked_dbg_var.store(true, Ordering::Relaxed);
+            println!("cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT");
+        }
+        if self.debug {
+            println!("{}", arg);
         }
     }
 
@@ -217,7 +234,7 @@ fn wait_on_child(
         }
     };
 
-    cargo_output.print_warning(&status);
+    cargo_output.print_debug(&status);
 
     if status.success() {
         Ok(())
@@ -326,7 +343,7 @@ pub(crate) fn spawn(
         }
     }
 
-    cargo_output.print_warning(&format_args!("running: {:?}", cmd));
+    cargo_output.print_debug(&format_args!("running: {:?}", cmd));
 
     let cmd = ResetStderr(cmd);
     let child = cmd.0.stderr(cargo_output.stdio_for_warnings()).spawn();

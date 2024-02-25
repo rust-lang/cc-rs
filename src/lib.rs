@@ -84,6 +84,9 @@
 //! some cross compiling scenarios. Setting this variable
 //! will disable the generation of default compiler
 //! flags.
+//! * `CC_ENABLE_DEBUG_OUTPUT` - if set, compiler command invocations and exit codes will
+//! be logged to stdout. This is useful for debugging build script issues, but can be
+//! overly verbose for normal use.
 //! * `CXX...` - see [C++ Support](#c-support).
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
@@ -1116,6 +1119,16 @@ impl Build {
     /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
     pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
         self.cargo_output.warnings = cargo_warnings;
+        self
+    }
+
+    /// Define whether debug information should be emitted for cargo. Defaults to whether
+    /// or not the environment variable `CC_ENABLE_DEBUG_OUTPUT` is set.
+    ///
+    /// If enabled, the compiler will emit debug information when generating object files,
+    /// such as the command invoked and the exit status.
+    pub fn cargo_debug(&mut self, cargo_debug: bool) -> &mut Build {
+        self.cargo_output.debug = cargo_debug;
         self
     }
 
