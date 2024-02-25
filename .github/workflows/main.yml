@@ -247,7 +247,7 @@ jobs:
         workspaces: "repo-to-test -> target"
 
     - run: |
-        cargo update
+        cargo update $PATCH_ARGS
         cargo nextest run ${{ matrix.features }} $PATCH_ARGS --workspace
         cargo test --doc ${{ matrix.features }} $PATCH_ARGS --workspace
       working-directory: repo-to-test
