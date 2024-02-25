@@ -207,13 +207,13 @@ jobs:
       matrix:
         cc-parallel: [Y, N]
         os: [ubuntu-latest, macos-latest, windows-latest]
+        repo:
+          - sfackler/rust-openssl
+          - gyscos/zstd-rs
+          - rust-lang/libz-sys
         include:
          - repo: sfackler/rust-openssl
            features: --features vendored
-         - repo: gyscos/zstd-rs
-           features: ""
-         - repo: rust-lang/libz-sys
-           features: ""
 
     steps:
     - name: Checkout cc
@@ -251,7 +251,7 @@ jobs:
         cargo test --doc ${{ matrix.features }} $PATCH_ARGS --workspace
       working-directory: repo-to-test
       env:
-        PATCH_ARGS: --config='patch.crates-io.cc.path=\"../cc\"'
+        PATCH_ARGS: --config='patch.crates-io.cc.path="../cc"'
 
   # Dummy job to have a stable name for the "all tests pass" requirement
   tests-pass:
