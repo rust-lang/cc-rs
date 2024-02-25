@@ -251,7 +251,7 @@ jobs:
         cargo test --doc ${{ matrix.features }} $PATCH_ARGS --workspace
       working-directory: repo-to-test
       env:
-        PATCH_ARGS: --config='patch.crates-io.cc.path="../cc"'
+        PATCH_ARGS: --config=patch.crates-io.cc.path="../cc"
 
   # Dummy job to have a stable name for the "all tests pass" requirement
   tests-pass:
