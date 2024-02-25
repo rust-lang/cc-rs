@@ -208,11 +208,11 @@ jobs:
         cc-parallel: [Y, N]
         os: [ubuntu-latest, macos-latest, windows-latest]
         include:
-         - repo: https://github.com/sfackler/rust-openssl
+         - repo: sfackler/rust-openssl
            features: --features vendored
-         - repo: https://github.com/gyscos/zstd-rs
+         - repo: gyscos/zstd-rs
            features: ""
-         - repo: https://github.com/rust-lang/libz-sys
+         - repo: rust-lang/libz-sys
            features: ""
 
     steps:
