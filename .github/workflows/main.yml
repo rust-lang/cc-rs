@@ -239,7 +239,7 @@ jobs:
         tool: cargo-nextest
 
     - name: Enable cc/parallel
-      if: matrix.cc-parallel == "Y"
+      if: matrix.cc-parallel == 'Y'
       run: echo 'default = ["parallel"]' >> cc/Cargo.toml
 
     - uses: Swatinem/rust-cache@v2
