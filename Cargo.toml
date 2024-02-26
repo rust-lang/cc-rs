@@ -32,6 +32,10 @@ tempfile = "3"
 
 [workspace]
 members = [
+    "dev-tools/cc-openssl-test",
     "dev-tools/cc-test",
     "dev-tools/gen-windows-sys-binding",
 ]
+
+[patch.crates-io]
+cc = { path = "." }

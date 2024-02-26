@@ -1,0 +1,12 @@
+[package]
+name = "cc-openssl-test"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[build-dependencies]
+cc = { path = "../.." }
+openssl-src = { version = "300.1.2", features = ["legacy"] }
+
+[features]
+parallel = ["cc/parallel"]
