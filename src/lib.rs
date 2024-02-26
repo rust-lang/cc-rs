@@ -2539,55 +2539,30 @@ impl Build {
                 } else if target.contains("ios-sim") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::Ios, &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(AppleOs::Ios, None, &sdk_details.sdk);
                         cmd.args.push(
-                            format!("--target={}-apple-ios{}-simulator", arch, deployment_target)
-                                .into(),
+                            format!("--target={}-apple-ios{}-simulator", arch, min_version).into(),
                         );
                     }
                 } else if target.contains("watchos-sim") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::WatchOs, &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(AppleOs::WatchOs, None, &sdk_details.sdk);
                         cmd.args.push(
-                            format!(
-                                "--target={}-apple-watchos{}-simulator",
-                                arch, deployment_target
-                            )
-                            .into(),
+                            format!("--target={}-apple-watchos{}-simulator", arch, min_version)
+                                .into(),
                         );
                     }
                 } else if target.contains("tvos-sim") || target.contains("x86_64-apple-tvos") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(AppleOs::TvOs, None, &sdk_details.sdk);
                         cmd.args.push(
-                            format!(
-                                "--target={}-apple-tvos{}-simulator",
-                                arch, deployment_target
-                            )
-                            .into(),
+                            format!("--target={}-apple-tvos{}-simulator", arch, min_version).into(),
                         );
                     }
                 } else if target.contains("aarch64-apple-tvos") {
                     if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
                     {
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Device(""));
-                        let deployment_target =
-                            self.apple_deployment_version(AppleOs::TvOs, None, &sdk_details.sdk);
-                        cmd.args.push(
-                            format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
-                        );
+                        cmd.args
+                            .push(format!("--target={}-apple-tvos{}", arch, min_version).into());
                     }
                 }
             }
