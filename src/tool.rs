@@ -53,7 +53,6 @@ impl Tool {
         )
     }
 
-    #[cfg(windows)]
     /// Explicitly set the `ToolFamily`, skipping name-based detection.
     pub(crate) fn with_family(path: PathBuf, family: ToolFamily) -> Self {
         Self {
