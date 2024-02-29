@@ -3106,7 +3106,12 @@ impl Build {
             Some(t) => t,
             None => {
                 if target.contains("android") {
-                    name = format!("{}-{}", target.replace("armv7", "arm"), tool);
+                    let compiler = self.get_base_compiler()?;
+                    if compiler.family == ToolFamily::Clang {
+                        name = format!("llvm-{}", tool);
+                    } else {
+                        name = format!("{}-{}", target.replace("armv7", "arm"), tool);
+                    }
                     self.cmd(&name)
                 } else if target.contains("msvc") {
                     // NOTE: There isn't really a ranlib on msvc, so arguably we should return
