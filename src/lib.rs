@@ -3106,10 +3106,8 @@ impl Build {
             Some(t) => t,
             None => {
                 if target.contains("android") {
-                    let compiler = self.get_base_compiler()?;
-                    if compiler.family == ToolFamily::Clang {
-                        name = format!("llvm-{}", tool);
-                    } else {
+                    name = format!("llvm-{}", tool);
+                    if !Command::new(&name).arg("--version").output().is_ok() {
                         name = format!("{}-{}", target.replace("armv7", "arm"), tool);
                     }
                     self.cmd(&name)
