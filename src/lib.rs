@@ -3106,7 +3106,11 @@ impl Build {
             Some(t) => t,
             None => {
                 if target.contains("android") {
-                    name = format!("{}-{}", target.replace("armv7", "arm"), tool);
+                    name = format!("llvm-{}", tool);
+                    match Command::new(&name).arg("--version").status() {
+                        Ok(status) if status.success() => (),
+                        _ => name = format!("{}-{}", target.replace("armv7", "arm"), tool),
+                    }
                     self.cmd(&name)
                 } else if target.contains("msvc") {
                     // NOTE: There isn't really a ranlib on msvc, so arguably we should return
