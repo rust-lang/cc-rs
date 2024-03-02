@@ -61,10 +61,10 @@ impl ActiveJobTokenServer {
         }
     }
 
-    pub(crate) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
+    pub(crate) async fn acquire(&self) -> Result<JobToken, Error> {
         match &self {
-            Self::Inherited(jobserver) => jobserver.try_acquire(),
-            Self::InProcess(jobserver) => Ok(jobserver.try_acquire()),
+            Self::Inherited(jobserver) => jobserver.acquire().await,
+            Self::InProcess(jobserver) => Ok(jobserver.acquire().await),
         }
     }
 }
@@ -72,7 +72,7 @@ impl ActiveJobTokenServer {
 mod inherited_jobserver {
     use super::JobToken;
 
-    use crate::{Error, ErrorKind};
+    use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
 
     use std::{
         io,
@@ -145,26 +145,30 @@ mod inherited_jobserver {
             })
         }
 
-        pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
-            if self.jobserver.global_implicit_token.swap(false, AcqRel) {
-                // fast path
-                return Ok(Some(JobToken()));
-            }
-
-            // Cold path, no global implicit token, obtain one
-            match self.rx.try_recv() {
-                Ok(res) => {
-                    let acquired = res?;
-                    acquired.drop_without_releasing();
-                    Ok(Some(JobToken()))
+        pub(super) async fn acquire(&self) -> Result<JobToken, Error> {
+            loop {
+                if self.jobserver.global_implicit_token.swap(false, AcqRel) {
+                    // fast path
+                    break Ok(JobToken());
                 }
-                Err(mpsc::TryRecvError::Disconnected) => Err(Error::new(
-                    ErrorKind::JobserverHelpThreadError,
-                    "jobserver help thread has returned before ActiveJobServer is dropped",
-                )),
-                Err(mpsc::TryRecvError::Empty) => {
-                    self.helper_thread.request_token();
-                    Ok(None)
+
+                // Cold path, no global implicit token, obtain one
+                match self.rx.try_recv() {
+                    Ok(res) => {
+                        let acquired = res?;
+                        acquired.drop_without_releasing();
+                        break Ok(JobToken());
+                    }
+                    Err(mpsc::TryRecvError::Disconnected) => {
+                        break Err(Error::new(
+                            ErrorKind::JobserverHelpThreadError,
+                            "jobserver help thread has returned before ActiveJobServer is dropped",
+                        ))
+                    }
+                    Err(mpsc::TryRecvError::Empty) => {
+                        self.helper_thread.request_token();
+                        YieldOnce::default().await
+                    }
                 }
             }
         }
@@ -173,6 +177,8 @@ mod inherited_jobserver {
 
 mod inprocess_jobserver {
     use super::JobToken;
+
+    use crate::parallel::async_executor::YieldOnce;
 
     use std::{
         env::var,
@@ -204,12 +210,18 @@ mod inprocess_jobserver {
             Self(AtomicU32::new(parallelism))
         }
 
-        pub(super) fn try_acquire(&self) -> Option<JobToken> {
-            let res = self
-                .0
-                .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
+        pub(super) async fn acquire(&self) -> JobToken {
+            loop {
+                let res = self
+                    .0
+                    .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
 
-            res.ok().map(|_| JobToken())
+                if res.is_ok() {
+                    break JobToken();
+                }
+
+                YieldOnce::default().await
+            }
         }
 
         pub(super) fn release_token_raw(&self) {
