@@ -312,6 +312,8 @@ enum ErrorKind {
     ToolNotFound,
     /// One of the function arguments failed validation.
     InvalidArgument,
+    /// jobserver helpthread failure
+    JobserverHelpThreadError,
 }
 
 /// Represents an internal error that occurred, with an explanation.

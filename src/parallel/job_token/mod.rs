@@ -2,14 +2,6 @@ use std::{mem::MaybeUninit, sync::Once};
 
 use crate::Error;
 
-#[cfg(unix)]
-#[path = "unix.rs"]
-mod sys;
-
-#[cfg(windows)]
-#[path = "windows.rs"]
-mod sys;
-
 pub(crate) struct JobToken();
 
 impl Drop for JobToken {
@@ -52,52 +44,46 @@ impl JobTokenServer {
     }
 }
 
-pub(crate) struct ActiveJobTokenServer(&'static JobTokenServer);
+pub(crate) enum ActiveJobTokenServer {
+    Inherited(inherited_jobserver::ActiveJobServer<'static>),
+    InProcess(&'static inprocess_jobserver::JobServer),
+}
 
 impl ActiveJobTokenServer {
     pub(crate) fn new() -> Result<Self, Error> {
-        let jobserver = JobTokenServer::new();
-
-        #[cfg(unix)]
-        if let JobTokenServer::Inherited(inherited_jobserver) = &jobserver {
-            inherited_jobserver.enter_active()?;
-        }
-
-        Ok(Self(jobserver))
+        Ok(match JobTokenServer::new() {
+            JobTokenServer::Inherited(inherited_jobserver) => {
+                Self::Inherited(inherited_jobserver.enter_active()?)
+            }
+            JobTokenServer::InProcess(inprocess_jobserver) => Self::InProcess(inprocess_jobserver),
+        })
     }
 
     pub(crate) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
-        match &self.0 {
-            JobTokenServer::Inherited(jobserver) => jobserver.try_acquire(),
-            JobTokenServer::InProcess(jobserver) => Ok(jobserver.try_acquire()),
-        }
-    }
-}
-
-impl Drop for ActiveJobTokenServer {
-    fn drop(&mut self) {
-        #[cfg(unix)]
-        if let JobTokenServer::Inherited(inherited_jobserver) = &self.0 {
-            inherited_jobserver.exit_active();
+        match &self {
+            Self::Inherited(jobserver) => jobserver.try_acquire(),
+            Self::InProcess(jobserver) => Ok(jobserver.try_acquire()),
         }
     }
 }
 
 mod inherited_jobserver {
-    use super::{sys, Error, JobToken};
+    use super::JobToken;
+
+    use crate::{Error, ErrorKind};
 
     use std::{
-        env::var_os,
-        sync::atomic::{
-            AtomicBool,
-            Ordering::{AcqRel, Acquire},
+        io,
+        sync::{
+            atomic::{
+                AtomicBool,
+                Ordering::{AcqRel, Acquire},
+            },
+            mpsc,
         },
     };
 
-    #[cfg(unix)]
-    use std::sync::{Mutex, MutexGuard, PoisonError};
-
-    pub(crate) struct JobServer {
+    pub(super) struct JobServer {
         /// Implicit token for this process which is obtained and will be
         /// released in parent. Since JobTokens only give back what they got,
         /// there should be at most one global implicit token in the wild.
@@ -106,90 +92,15 @@ mod inherited_jobserver {
         /// we can't just put it back to jobserver and then re-acquire it at
         /// the end of the process.
         global_implicit_token: AtomicBool,
-        inner: sys::JobServerClient,
-        /// number of active clients is required to know when it is safe to clear non-blocking
-        /// flags
-        #[cfg(unix)]
-        active_clients_cnt: Mutex<usize>,
+        inner: jobserver::Client,
     }
 
     impl JobServer {
         pub(super) unsafe fn from_env() -> Option<Self> {
-            let var = var_os("CARGO_MAKEFLAGS")
-                .or_else(|| var_os("MAKEFLAGS"))
-                .or_else(|| var_os("MFLAGS"))?;
-
-            #[cfg(unix)]
-            let var = std::os::unix::ffi::OsStrExt::as_bytes(var.as_os_str());
-            #[cfg(not(unix))]
-            let var = var.to_str()?.as_bytes();
-
-            let makeflags = var.split(u8::is_ascii_whitespace);
-
-            // `--jobserver-auth=` is the only documented makeflags.
-            // `--jobserver-fds=` is actually an internal only makeflags, so we should
-            // always prefer `--jobserver-auth=`.
-            //
-            // Also, according to doc of makeflags, if there are multiple `--jobserver-auth=`
-            // the last one is used
-            if let Some(flag) = makeflags
-                .clone()
-                .filter_map(|s| s.strip_prefix(b"--jobserver-auth="))
-                .last()
-            {
-                sys::JobServerClient::open(flag)
-            } else {
-                sys::JobServerClient::open(
-                    makeflags
-                        .filter_map(|s| s.strip_prefix(b"--jobserver-fds="))
-                        .last()?,
-                )
-            }
-            .map(|inner| Self {
+            jobserver::Client::from_env().map(|inner| Self {
                 inner,
                 global_implicit_token: AtomicBool::new(true),
-                #[cfg(unix)]
-                active_clients_cnt: Mutex::new(0),
             })
-        }
-
-        #[cfg(unix)]
-        fn get_locked_active_cnt(&self) -> MutexGuard<'_, usize> {
-            self.active_clients_cnt
-                .lock()
-                .unwrap_or_else(PoisonError::into_inner)
-        }
-
-        #[cfg(unix)]
-        pub(super) fn enter_active(&self) -> Result<(), Error> {
-            let mut active_cnt = self.get_locked_active_cnt();
-            if *active_cnt == 0 {
-                self.inner.prepare_for_acquires()?;
-            }
-
-            *active_cnt += 1;
-
-            Ok(())
-        }
-
-        #[cfg(unix)]
-        pub(super) fn exit_active(&self) {
-            let mut active_cnt = self.get_locked_active_cnt();
-            *active_cnt -= 1;
-
-            if *active_cnt == 0 {
-                self.inner.done_acquires();
-            }
-        }
-
-        pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
-            if !self.global_implicit_token.swap(false, AcqRel) {
-                // Cold path, no global implicit token, obtain one
-                if self.inner.try_acquire()?.is_none() {
-                    return Ok(None);
-                }
-            }
-            Ok(Some(JobToken()))
         }
 
         pub(super) fn release_token_raw(&self) {
@@ -203,7 +114,56 @@ mod inherited_jobserver {
             {
                 // There's already a global implicit token, so this token must
                 // be released back into jobserver
-                let _ = self.inner.release();
+                let _ = self.inner.release_raw();
+            }
+        }
+
+        pub(super) fn enter_active(&self) -> io::Result<ActiveJobServer<'_>> {
+            ActiveJobServer::new(self)
+        }
+    }
+
+    pub(crate) struct ActiveJobServer<'a> {
+        jobserver: &'a JobServer,
+        helper_thread: jobserver::HelperThread,
+        /// When rx is dropped, all the token stored within it will be dropped.
+        rx: mpsc::Receiver<io::Result<jobserver::Acquired>>,
+    }
+
+    impl<'a> ActiveJobServer<'a> {
+        fn new(jobserver: &'a JobServer) -> io::Result<Self> {
+            let (tx, rx) = mpsc::channel();
+
+            Ok(Self {
+                rx,
+                helper_thread: jobserver.inner.clone().into_helper_thread(move |res| {
+                    let _ = tx.send(res);
+                })?,
+                jobserver,
+            })
+        }
+
+        pub(super) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
+            if self.jobserver.global_implicit_token.swap(false, AcqRel) {
+                // fast path
+                return Ok(Some(JobToken()));
+            }
+
+            // Cold path, no global implicit token, obtain one
+            match self.rx.try_recv() {
+                Ok(res) => {
+                    let acquired = res?;
+                    acquired.drop_without_releasing();
+                    Ok(Some(JobToken()))
+                }
+                Err(mpsc::TryRecvError::Disconnected) => Err(Error::new(
+                    ErrorKind::JobserverHelpThreadError,
+                    "jobserver help thread has returned before ActiveJobServer is dropped",
+                )),
+                Err(mpsc::TryRecvError::Empty) => {
+                    self.helper_thread.request_token();
+                    Ok(None)
+                }
             }
         }
     }
