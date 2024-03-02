@@ -312,6 +312,7 @@ enum ErrorKind {
     ToolNotFound,
     /// One of the function arguments failed validation.
     InvalidArgument,
+    #[cfg(feature = "parallel")]
     /// jobserver helpthread failure
     JobserverHelpThreadError,
 }
