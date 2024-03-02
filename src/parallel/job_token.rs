@@ -146,6 +146,8 @@ mod inherited_jobserver {
         }
 
         pub(super) async fn acquire(&self) -> Result<JobToken, Error> {
+            let mut has_requested_token = false;
+
             loop {
                 if self.jobserver.global_implicit_token.swap(false, AcqRel) {
                     // fast path
@@ -166,7 +168,10 @@ mod inherited_jobserver {
                         ))
                     }
                     Err(mpsc::TryRecvError::Empty) => {
-                        self.helper_thread.request_token();
+                        if !has_requested_token {
+                            self.helper_thread.request_token();
+                            has_requested_token = true;
+                        }
                         YieldOnce::default().await
                     }
                 }
