@@ -75,14 +75,8 @@ mod inherited_jobserver {
     use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
 
     use std::{
-        io,
-        sync::{
-            atomic::{
-                AtomicBool,
-                Ordering::{AcqRel, Acquire},
-            },
-            mpsc,
-        },
+        io, mem,
+        sync::{mpsc, Mutex, MutexGuard, PoisonError},
     };
 
     pub(super) struct JobServer {
@@ -93,7 +87,18 @@ mod inherited_jobserver {
         /// Since Rust does not execute any `Drop` for global variables,
         /// we can't just put it back to jobserver and then re-acquire it at
         /// the end of the process.
-        global_implicit_token: AtomicBool,
+        ///
+        /// Use `Mutex` to avoid race between acquire and release.
+        /// If an `AtomicBool` is used, then it's possible for:
+        ///  - `release_token_raw`: Tries to set `global_implicit_token` to true, but it is already
+        ///    set  to `true`, continue to release it to jobserver
+        ///  - `acquire` takes the global implicit token, set `global_implicit_token` to false
+        ///  - `release_token_raw` now writes the token back into the jobserver, while
+        ///    `global_implicit_token` is `false`
+        ///
+        /// If the program exits here, then cc effectively increases parallelism by one, which is
+        /// incorrect, hence we use a `Mutex` here.
+        global_implicit_token: Mutex<bool>,
         inner: jobserver::Client,
     }
 
@@ -101,22 +106,30 @@ mod inherited_jobserver {
         pub(super) unsafe fn from_env() -> Option<Self> {
             jobserver::Client::from_env().map(|inner| Self {
                 inner,
-                global_implicit_token: AtomicBool::new(true),
+                global_implicit_token: Mutex::new(true),
             })
         }
 
+        fn get_global_implicit_token(&self) -> MutexGuard<'_, bool> {
+            self.global_implicit_token
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+        }
+
+        /// All tokens except for the global implicit token will be put back into the jobserver
+        /// immediately and they cannot be cached, since Rust does not call `Drop::drop` on
+        /// global variables.
         pub(super) fn release_token_raw(&self) {
-            // All tokens will be put back into the jobserver immediately
-            // and they cannot be cached, since Rust does not call `Drop::drop`
-            // on global variables.
-            if self
-                .global_implicit_token
-                .compare_exchange(false, true, AcqRel, Acquire)
-                .is_err()
-            {
+            let mut global_implicit_token = self.get_global_implicit_token();
+
+            if *global_implicit_token {
                 // There's already a global implicit token, so this token must
-                // be released back into jobserver
+                // be released back into jobserver.
+                //
+                // `release_raw` should not block
                 let _ = self.inner.release_raw();
+            } else {
+                *global_implicit_token = true;
             }
         }
 
@@ -149,8 +162,8 @@ mod inherited_jobserver {
             let mut has_requested_token = false;
 
             loop {
-                if self.jobserver.global_implicit_token.swap(false, AcqRel) {
-                    // fast path
+                // Fast path
+                if mem::replace(&mut *self.jobserver.get_global_implicit_token(), false) {
                     break Ok(JobToken());
                 }
 
