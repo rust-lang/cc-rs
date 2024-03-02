@@ -3107,8 +3107,9 @@ impl Build {
             None => {
                 if target.contains("android") {
                     name = format!("llvm-{}", tool);
-                    if !Command::new(&name).arg("--version").output().is_ok() {
-                        name = format!("{}-{}", target.replace("armv7", "arm"), tool);
+                    match Command::new(&name).arg("--version").status() {
+                        Ok(status) if status.success() => (),
+                        _ => name = format!("{}-{}", target.replace("armv7", "arm"), tool),
                     }
                     self.cmd(&name)
                 } else if target.contains("msvc") {
