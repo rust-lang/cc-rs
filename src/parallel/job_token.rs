@@ -51,12 +51,14 @@ pub(crate) enum ActiveJobTokenServer {
 
 impl ActiveJobTokenServer {
     pub(crate) fn new() -> Result<Self, Error> {
-        Ok(match JobTokenServer::new() {
+        match JobTokenServer::new() {
             JobTokenServer::Inherited(inherited_jobserver) => {
-                Self::Inherited(inherited_jobserver.enter_active()?)
+                inherited_jobserver.enter_active().map(Self::Inherited)
             }
-            JobTokenServer::InProcess(inprocess_jobserver) => Self::InProcess(inprocess_jobserver),
-        })
+            JobTokenServer::InProcess(inprocess_jobserver) => {
+                Ok(Self::InProcess(inprocess_jobserver))
+            }
+        }
     }
 
     pub(crate) fn try_acquire(&self) -> Result<Option<JobToken>, Error> {
@@ -118,7 +120,7 @@ mod inherited_jobserver {
             }
         }
 
-        pub(super) fn enter_active(&self) -> io::Result<ActiveJobServer<'_>> {
+        pub(super) fn enter_active(&self) -> Result<ActiveJobServer<'_>, Error> {
             ActiveJobServer::new(self)
         }
     }
@@ -131,7 +133,7 @@ mod inherited_jobserver {
     }
 
     impl<'a> ActiveJobServer<'a> {
-        fn new(jobserver: &'a JobServer) -> io::Result<Self> {
+        fn new(jobserver: &'a JobServer) -> Result<Self, Error> {
             let (tx, rx) = mpsc::channel();
 
             Ok(Self {
