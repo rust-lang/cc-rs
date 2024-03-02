@@ -1,8 +1,14 @@
-use std::{mem::MaybeUninit, sync::Once};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Once};
 
 use crate::Error;
 
-pub(crate) struct JobToken();
+pub(crate) struct JobToken(PhantomData<()>);
+
+impl JobToken {
+    fn new() -> Self {
+        Self(PhantomData)
+    }
+}
 
 impl Drop for JobToken {
     fn drop(&mut self) {
@@ -164,7 +170,7 @@ mod inherited_jobserver {
             loop {
                 // Fast path
                 if mem::replace(&mut *self.jobserver.get_global_implicit_token(), false) {
-                    break Ok(JobToken());
+                    break Ok(JobToken::new());
                 }
 
                 // Cold path, no global implicit token, obtain one
@@ -172,7 +178,7 @@ mod inherited_jobserver {
                     Ok(res) => {
                         let acquired = res?;
                         acquired.drop_without_releasing();
-                        break Ok(JobToken());
+                        break Ok(JobToken::new());
                     }
                     Err(mpsc::TryRecvError::Disconnected) => {
                         break Err(Error::new(
@@ -235,7 +241,7 @@ mod inprocess_jobserver {
                     .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
 
                 if res.is_ok() {
-                    break JobToken();
+                    break JobToken::new();
                 }
 
                 YieldOnce::default().await
