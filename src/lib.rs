@@ -758,6 +758,11 @@ impl Build {
         self
     }
 
+    /// Get the files which will be compiled
+    pub fn get_files(&self) -> impl Iterator<Item = &Path> {
+        self.files.iter().map(AsRef::as_ref)
+    }
+
     /// Set C++ support.
     ///
     /// The other `cpp_*` options will only become active if this is set to
