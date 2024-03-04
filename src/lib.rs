@@ -312,6 +312,9 @@ enum ErrorKind {
     ToolNotFound,
     /// One of the function arguments failed validation.
     InvalidArgument,
+    #[cfg(feature = "parallel")]
+    /// jobserver helpthread failure
+    JobserverHelpThreadError,
 }
 
 /// Represents an internal error that occurred, with an explanation.
@@ -1510,13 +1513,7 @@ impl Build {
         let spawn_future = async {
             for obj in objs {
                 let (mut cmd, program) = self.create_compile_object_cmd(obj)?;
-                let token = loop {
-                    if let Some(token) = tokens.try_acquire()? {
-                        break token;
-                    } else {
-                        YieldOnce::default().await
-                    }
-                };
+                let token = tokens.acquire().await?;
                 let mut child = spawn(&mut cmd, &program, &self.cargo_output)?;
                 let mut stderr_forwarder = StderrForwarder::new(&mut child);
                 stderr_forwarder.set_non_blocking()?;

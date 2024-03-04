@@ -40,16 +40,6 @@ fn set_flags(fd: std::os::unix::io::RawFd, flags: std::os::raw::c_int) -> Result
 }
 
 #[cfg(unix)]
-pub fn set_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
-    // On Unix, switch the pipe to non-blocking mode.
-    // On Windows, we have a different way to be non-blocking.
-    let fd = pipe.as_raw_fd();
-
-    let flags = get_flags(fd)?;
-    set_flags(fd, flags & (!libc::O_NONBLOCK))
-}
-
-#[cfg(unix)]
 pub fn set_non_blocking(pipe: &impl std::os::unix::io::AsRawFd) -> Result<(), Error> {
     // On Unix, switch the pipe to non-blocking mode.
     // On Windows, we have a different way to be non-blocking.
