@@ -1894,7 +1894,10 @@ impl Build {
         // Target flags
         match cmd.family {
             ToolFamily::Clang => {
-                if !(target.contains("android") && cmd.has_internal_target_arg) {
+                if !cmd.has_internal_target_arg
+                    && !(target.contains("android")
+                        && android_clang_compiler_uses_target_arg_internally(&cmd.path))
+                {
                     if target.contains("darwin") {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
