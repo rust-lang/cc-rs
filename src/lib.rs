@@ -1892,39 +1892,93 @@ impl Build {
         }
 
         // Target flags
-        if target.contains("-apple-") {
-            self.apple_flags(cmd, target)?;
-        } else {
-            self.target_flags(cmd, target);
-        }
-
-        if self.static_flag.unwrap_or(false) {
-            cmd.args.push("-static".into());
-        }
-        if self.shared_flag.unwrap_or(false) {
-            cmd.args.push("-shared".into());
-        }
-
-        if self.cpp {
-            match (self.cpp_set_stdlib.as_ref(), cmd.family) {
-                (None, _) => {}
-                (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang) => {
-                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
-                }
-                _ => {
-                    self.cargo_output.print_warning(&format_args!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family));
-                }
-            }
-        }
-
-        Ok(())
-    }
-
-    fn target_flags(&self, cmd: &mut Tool, target: &str) {
         match cmd.family {
             ToolFamily::Clang => {
                 if !(target.contains("android") && cmd.has_internal_target_arg) {
-                    if target.starts_with("riscv64gc-") {
+                    if target.contains("darwin") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            cmd.args
+                                .push(format!("--target={}-apple-darwin", arch).into());
+                        }
+                    } else if target.contains("macabi") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            cmd.args
+                                .push(format!("--target={}-apple-ios-macabi", arch).into());
+                        }
+                    } else if target.contains("ios-sim") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::Ios, &AppleArchSpec::Simulator(""));
+                            let deployment_target =
+                                self.apple_deployment_version(AppleOs::Ios, None, &sdk_details.sdk);
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-ios{}-simulator",
+                                    arch, deployment_target
+                                )
+                                .into(),
+                            );
+                        }
+                    } else if target.contains("watchos-sim") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::WatchOs, &AppleArchSpec::Simulator(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::WatchOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-watchos{}-simulator",
+                                    arch, deployment_target
+                                )
+                                .into(),
+                            );
+                        }
+                    } else if target.contains("tvos-sim") || target.contains("x86_64-apple-tvos") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Simulator(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::TvOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-tvos{}-simulator",
+                                    arch, deployment_target
+                                )
+                                .into(),
+                            );
+                        }
+                    } else if target.contains("aarch64-apple-tvos") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Device(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::TvOs,
+                                None,
+                                &sdk_details.sdk,
+                            );
+                            cmd.args.push(
+                                format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
+                            );
+                        }
+                    } else if target.starts_with("riscv64gc-") {
                         cmd.args.push(
                             format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
                         );
@@ -2007,6 +2061,14 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
+                if target.contains("darwin") {
+                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
+                    {
+                        cmd.args.push("-arch".into());
+                        cmd.args.push(arch.into());
+                    }
+                }
+
                 if target.contains("-kmc-solid_") {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
@@ -2194,6 +2256,31 @@ impl Build {
                 }
             }
         }
+
+        if target.contains("-apple-") {
+            self.apple_flags(cmd)?;
+        }
+
+        if self.static_flag.unwrap_or(false) {
+            cmd.args.push("-static".into());
+        }
+        if self.shared_flag.unwrap_or(false) {
+            cmd.args.push("-shared".into());
+        }
+
+        if self.cpp {
+            match (self.cpp_set_stdlib.as_ref(), cmd.family) {
+                (None, _) => {}
+                (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang) => {
+                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
+                }
+                _ => {
+                    self.cargo_output.print_warning(&format_args!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn has_flags(&self) -> bool {
@@ -2384,7 +2471,8 @@ impl Build {
         Ok(())
     }
 
-    fn apple_flags(&self, cmd: &mut Tool, target: &str) -> Result<(), Error> {
+    fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+        let target = self.get_target()?;
         let os = if target.contains("-darwin") {
             AppleOs::MacOs
         } else if target.contains("-watchos") {
@@ -2513,62 +2601,6 @@ impl Build {
 
             cmd.args.push("-isysroot".into());
             cmd.args.push(sdk_path);
-        }
-
-        match cmd.family {
-            ToolFamily::Gnu => {
-                if target.contains("darwin") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args.push("-arch".into());
-                        cmd.args.push(arch.into());
-                    }
-                }
-            }
-            ToolFamily::Clang => {
-                if target.contains("darwin") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args
-                            .push(format!("--target={}-apple-darwin", arch).into());
-                    }
-                } else if target.contains("macabi") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args
-                            .push(format!("--target={}-apple-ios-macabi", arch).into());
-                    }
-                } else if target.contains("ios-sim") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args.push(
-                            format!("--target={}-apple-ios{}-simulator", arch, min_version).into(),
-                        );
-                    }
-                } else if target.contains("watchos-sim") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args.push(
-                            format!("--target={}-apple-watchos{}-simulator", arch, min_version)
-                                .into(),
-                        );
-                    }
-                } else if target.contains("tvos-sim") || target.contains("x86_64-apple-tvos") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args.push(
-                            format!("--target={}-apple-tvos{}-simulator", arch, min_version).into(),
-                        );
-                    }
-                } else if target.contains("aarch64-apple-tvos") {
-                    if let Some(arch) = map_darwin_target_from_rust_to_compiler_architecture(target)
-                    {
-                        cmd.args
-                            .push(format!("--target={}-apple-tvos{}", arch, min_version).into());
-                    }
-                }
-            }
-            _ => unreachable!("unexpected compiler for apple architectures"),
         }
 
         if let AppleArchSpec::Catalyst(_) = arch {
