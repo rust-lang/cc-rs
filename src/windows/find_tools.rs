@@ -88,7 +88,6 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
         .or_else(|| impl_::find_msvc_15plus(tool, target))
         .or_else(|| impl_::find_msvc_14(tool, target))
         .or_else(|| impl_::find_msvc_12(tool, target))
-        .or_else(|| impl_::find_msvc_11(tool, target))
 }
 
 /// A version of Visual Studio
@@ -699,22 +698,6 @@ mod impl_ {
         Some(tool.into_tool())
     }
 
-    // For MSVC 11 we need to find the Windows 8 SDK.
-    pub(super) fn find_msvc_11(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
-        let vcdir = get_vc_dir("11.0")?;
-        let mut tool = get_tool(tool, &vcdir, target)?;
-        let sub = lib_subdir(target)?;
-        let sdk8 = get_sdk8_dir()?;
-        tool.path.push(sdk8.join("bin").join(sub));
-        let sdk_lib = sdk8.join("lib").join("win8");
-        tool.libs.push(sdk_lib.join("um").join(sub));
-        let sdk_include = sdk8.join("include");
-        tool.include.push(sdk_include.join("shared"));
-        tool.include.push(sdk_include.join("um"));
-        tool.include.push(sdk_include.join("winrt"));
-        Some(tool.into_tool())
-    }
-
     fn add_env(tool: &mut Tool, env: &str, paths: Vec<PathBuf>) {
         let prev = env::var_os(env).unwrap_or(OsString::new());
         let prev = env::split_paths(&prev);
@@ -832,13 +815,6 @@ mod impl_ {
     // instead of user mode applications, we would care.
     fn get_sdk81_dir() -> Option<PathBuf> {
         let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v8.1";
-        let key = LOCAL_MACHINE.open(key.as_ref()).ok()?;
-        let root = key.query_str("InstallationFolder").ok()?;
-        Some(root.into())
-    }
-
-    fn get_sdk8_dir() -> Option<PathBuf> {
-        let key = r"SOFTWARE\Microsoft\Microsoft SDKs\Windows\v8.0";
         let key = LOCAL_MACHINE.open(key.as_ref()).ok()?;
         let root = key.query_str("InstallationFolder").ok()?;
         Some(root.into())
@@ -1080,11 +1056,6 @@ mod impl_ {
 
     // For MSVC 12 we need to find the Windows 8.1 SDK.
     pub(super) fn find_msvc_12(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
-        None
-    }
-
-    // For MSVC 11 we need to find the Windows 8 SDK.
-    pub(super) fn find_msvc_11(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
         None
     }
 
