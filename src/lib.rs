@@ -1985,10 +1985,35 @@ impl Build {
                         cmd.args.push(
                             format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
                         );
+                    } else if target.starts_with("riscv64imac-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv64imac", "riscv64")).into(),
+                        );
                     } else if target.starts_with("riscv32gc-") {
                         cmd.args.push(
                             format!("--target={}", target.replace("riscv32gc", "riscv32")).into(),
                         );
+                    } else if target.starts_with("riscv32i-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv32i", "riscv32")).into(),
+                        )
+                    } else if target.starts_with("riscv32im-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv32im", "riscv32")).into(),
+                        )
+                    } else if target.starts_with("riscv32imc-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv32imc", "riscv32")).into(),
+                        )
+                    } else if target.starts_with("riscv32imac-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv32imac", "riscv32")).into(),
+                        )
+                    } else if target.starts_with("riscv32imafc-") {
+                        cmd.args.push(
+                            format!("--target={}", target.replace("riscv32imafc", "riscv32"))
+                                .into(),
+                        )
                     } else if target.contains("uefi") {
                         if target.contains("x86_64") {
                             cmd.args.push("--target=x86_64-unknown-windows-gnu".into());
