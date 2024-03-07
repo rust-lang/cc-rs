@@ -88,6 +88,8 @@
 //! be logged to stdout. This is useful for debugging build script issues, but can be
 //! overly verbose for normal use.
 //! * `CXX...` - see [C++ Support](#c-support).
+//! * `CUDACXX` - the nvcc program to invoke. Similar to `CC`, this must be an exact
+//! executable name and cannot contain extra flags.
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
 //! to be inspected, for example via the `Build::try_flags_from_environment`
@@ -2402,7 +2404,8 @@ impl Build {
             let dlink = out_dir.join(lib_name.to_owned() + "_dlink.o");
             let mut nvcc = self.get_compiler().to_command();
             nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
-            run(&mut nvcc, "nvcc", &self.cargo_output)?;
+            let program = env::var("CUDACXX").unwrap_or_else(|_| String::from("nvcc"));
+            run(&mut nvcc, &program, &self.cargo_output)?;
             self.assemble_progressive(dst, &[dlink.as_path()])?;
         }
 
