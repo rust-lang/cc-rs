@@ -81,7 +81,7 @@ impl Tool {
 
             let stdout = match run_output(
                 &mut cmd,
-                &path.to_string_lossy(),
+                path,
                 // tool detection issues should always be shown as warnings
                 cargo_output,
             )
