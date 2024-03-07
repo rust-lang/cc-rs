@@ -1439,7 +1439,7 @@ impl Build {
 
         let pendings = Cell::new(Vec::<(
             Command,
-            String,
+            Cow<'static, Path>,
             KillOnDrop,
             parallel::job_token::JobToken,
         )>::new());
@@ -1563,7 +1563,10 @@ impl Build {
         Ok(())
     }
 
-    fn create_compile_object_cmd(&self, obj: &Object) -> Result<(Command, String), Error> {
+    fn create_compile_object_cmd(
+        &self,
+        obj: &Object,
+    ) -> Result<(Command, Cow<'static, Path>), Error> {
         let asm_ext = AsmFileExt::from_path(&obj.src);
         let is_asm = asm_ext.is_some();
         let target = self.get_target()?;
@@ -1574,7 +1577,8 @@ impl Build {
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let (mut cmd, name) = if is_assembler_msvc {
-            self.msvc_macro_assembler()?
+            let (cmd, name) = self.msvc_macro_assembler()?;
+            (cmd, Cow::Borrowed(Path::new(name)))
         } else {
             let mut cmd = compiler.to_command();
             for (a, b) in self.env.iter() {
@@ -1585,9 +1589,9 @@ impl Build {
                 compiler
                     .path
                     .file_name()
-                    .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
-                    .to_string_lossy()
-                    .into_owned(),
+                    .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))
+                    .map(PathBuf::from)
+                    .map(Cow::Owned)?,
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
@@ -2321,7 +2325,7 @@ impl Build {
         }
     }
 
-    fn msvc_macro_assembler(&self) -> Result<(Command, String), Error> {
+    fn msvc_macro_assembler(&self) -> Result<(Command, &'static str), Error> {
         let target = self.get_target()?;
         let tool = if target.contains("x86_64") {
             "ml64.exe"
@@ -2374,7 +2378,7 @@ impl Build {
             cmd.arg("-safeseh");
         }
 
-        Ok((cmd, tool.to_string()))
+        Ok((cmd, tool))
     }
 
     fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
