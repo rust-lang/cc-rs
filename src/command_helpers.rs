@@ -215,7 +215,7 @@ fn write_warning(line: &[u8]) {
 
 fn wait_on_child(
     cmd: &Command,
-    program: &str,
+    program: &Path,
     child: &mut Child,
     cargo_output: &CargoOutput,
 ) -> Result<(), Error> {
@@ -227,8 +227,10 @@ fn wait_on_child(
             return Err(Error::new(
                 ErrorKind::ToolExecError,
                 format!(
-                    "Failed to wait on spawned child process, command {:?} with args {:?}: {}.",
-                    cmd, program, e
+                    "Failed to wait on spawned child process, command {:?} with args {}: {}.",
+                    cmd,
+                    program.display(),
+                    e
                 ),
             ));
         }
@@ -242,8 +244,10 @@ fn wait_on_child(
         Err(Error::new(
             ErrorKind::ToolExecError,
             format!(
-                "Command {:?} with args {:?} did not execute successfully (status code {}).",
-                cmd, program, status
+                "Command {:?} with args {} did not execute successfully (status code {}).",
+                cmd,
+                program.display(),
+                status
             ),
         ))
     }
@@ -299,18 +303,22 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
 
 pub(crate) fn run(
     cmd: &mut Command,
-    program: &str,
+    program: impl AsRef<Path>,
     cargo_output: &CargoOutput,
 ) -> Result<(), Error> {
+    let program = program.as_ref();
+
     let mut child = spawn(cmd, program, cargo_output)?;
     wait_on_child(cmd, program, &mut child, cargo_output)
 }
 
 pub(crate) fn run_output(
     cmd: &mut Command,
-    program: &str,
+    program: impl AsRef<Path>,
     cargo_output: &CargoOutput,
 ) -> Result<Vec<u8>, Error> {
+    let program = program.as_ref();
+
     cmd.stdout(Stdio::piped());
 
     let mut child = spawn(cmd, program, cargo_output)?;
@@ -330,7 +338,7 @@ pub(crate) fn run_output(
 
 pub(crate) fn spawn(
     cmd: &mut Command,
-    program: &str,
+    program: &Path,
     cargo_output: &CargoOutput,
 ) -> Result<Child, Error> {
     struct ResetStderr<'cmd>(&'cmd mut Command);
@@ -358,14 +366,20 @@ for help)"
             };
             Err(Error::new(
                 ErrorKind::ToolNotFound,
-                format!("Failed to find tool. Is `{}` installed?{}", program, extra),
+                format!(
+                    "Failed to find tool. Is `{}` installed?{}",
+                    program.display(),
+                    extra
+                ),
             ))
         }
         Err(e) => Err(Error::new(
             ErrorKind::ToolExecError,
             format!(
-                "Command {:?} with args {:?} failed to start: {:?}",
-                cmd.0, program, e
+                "Command {:?} with args {} failed to start: {:?}",
+                cmd.0,
+                program.display(),
+                e
             ),
         )),
     }
@@ -393,7 +407,7 @@ pub(crate) fn command_add_output_file(
 #[cfg(feature = "parallel")]
 pub(crate) fn try_wait_on_child(
     cmd: &Command,
-    program: &str,
+    program: &Path,
     child: &mut Child,
     stdout: &mut dyn io::Write,
     stderr_forwarder: &mut StderrForwarder,
@@ -412,8 +426,10 @@ pub(crate) fn try_wait_on_child(
                 Err(Error::new(
                     ErrorKind::ToolExecError,
                     format!(
-                        "Command {:?} with args {:?} did not execute successfully (status code {}).",
-                            cmd, program, status
+                        "Command {:?} with args {} did not execute successfully (status code {}).",
+                        cmd,
+                        program.display(),
+                        status
                     ),
                 ))
             }
@@ -424,8 +440,10 @@ pub(crate) fn try_wait_on_child(
             Err(Error::new(
                 ErrorKind::ToolExecError,
                 format!(
-                    "Failed to wait on spawned child process, command {:?} with args {:?}: {}.",
-                    cmd, program, e
+                    "Failed to wait on spawned child process, command {:?} with args {}: {}.",
+                    cmd,
+                    program.display(),
+                    e
                 ),
             ))
         }

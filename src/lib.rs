@@ -1439,7 +1439,7 @@ impl Build {
 
         let pendings = Cell::new(Vec::<(
             Command,
-            String,
+            Cow<'static, Path>,
             KillOnDrop,
             parallel::job_token::JobToken,
         )>::new());
@@ -1563,7 +1563,10 @@ impl Build {
         Ok(())
     }
 
-    fn create_compile_object_cmd(&self, obj: &Object) -> Result<(Command, String), Error> {
+    fn create_compile_object_cmd(
+        &self,
+        obj: &Object,
+    ) -> Result<(Command, Cow<'static, Path>), Error> {
         let asm_ext = AsmFileExt::from_path(&obj.src);
         let is_asm = asm_ext.is_some();
         let target = self.get_target()?;
@@ -1574,7 +1577,8 @@ impl Build {
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let (mut cmd, name) = if is_assembler_msvc {
-            self.msvc_macro_assembler()?
+            let (cmd, name) = self.msvc_macro_assembler()?;
+            (cmd, Cow::Borrowed(Path::new(name)))
         } else {
             let mut cmd = compiler.to_command();
             for (a, b) in self.env.iter() {
@@ -1585,9 +1589,9 @@ impl Build {
                 compiler
                     .path
                     .file_name()
-                    .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
-                    .to_string_lossy()
-                    .into_owned(),
+                    .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))
+                    .map(PathBuf::from)
+                    .map(Cow::Owned)?,
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
@@ -1653,9 +1657,7 @@ impl Build {
         let name = compiler
             .path
             .file_name()
-            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
-            .to_string_lossy()
-            .into_owned();
+            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?;
 
         Ok(run_output(&mut cmd, &name, &self.cargo_output)?)
     }
@@ -2321,7 +2323,7 @@ impl Build {
         }
     }
 
-    fn msvc_macro_assembler(&self) -> Result<(Command, String), Error> {
+    fn msvc_macro_assembler(&self) -> Result<(Command, &'static str), Error> {
         let target = self.get_target()?;
         let tool = if target.contains("x86_64") {
             "ml64.exe"
@@ -2374,7 +2376,7 @@ impl Build {
             cmd.arg("-safeseh");
         }
 
-        Ok((cmd, tool.to_string()))
+        Ok((cmd, tool))
     }
 
     fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
@@ -3026,7 +3028,7 @@ impl Build {
         }
     }
 
-    fn get_ar(&self) -> Result<(Command, String, bool), Error> {
+    fn get_ar(&self) -> Result<(Command, PathBuf, bool), Error> {
         self.try_get_archiver_and_flags()
     }
 
@@ -3059,7 +3061,7 @@ impl Build {
         Ok(self.try_get_archiver_and_flags()?.0)
     }
 
-    fn try_get_archiver_and_flags(&self) -> Result<(Command, String, bool), Error> {
+    fn try_get_archiver_and_flags(&self) -> Result<(Command, PathBuf, bool), Error> {
         let (mut cmd, name) = self.get_base_archiver()?;
         let mut any_flags = false;
         if let Ok(flags) = self.envflags("ARFLAGS") {
@@ -3073,12 +3075,14 @@ impl Build {
         Ok((cmd, name, any_flags))
     }
 
-    fn get_base_archiver(&self) -> Result<(Command, String), Error> {
+    fn get_base_archiver(&self) -> Result<(Command, PathBuf), Error> {
         if let Some(ref a) = self.archiver {
-            return Ok((self.cmd(&**a), a.to_string_lossy().into_owned()));
+            let archiver = &**a;
+            return Ok((self.cmd(archiver), archiver.into()));
         }
 
         self.get_base_archiver_variant("AR", "ar")
+            .map(|(cmd, archiver)| (cmd, archiver.into()))
     }
 
     /// Get the ranlib that's in use for this configuration.
