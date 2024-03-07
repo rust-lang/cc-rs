@@ -247,6 +247,8 @@ mod tool;
 pub use tool::Tool;
 use tool::ToolFamily;
 
+mod tempfile;
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
