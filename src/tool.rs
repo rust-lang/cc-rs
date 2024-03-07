@@ -1,12 +1,17 @@
 use std::{
     collections::HashMap,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
+    io::Write,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::Mutex,
 };
 
-use crate::command_helpers::{run_output, CargoOutput};
+use crate::{
+    command_helpers::{run_output, CargoOutput},
+    tempfile::NamedTempfile,
+    Error, ErrorKind,
+};
 
 /// Configuration used to represent an invocation of a C compiler.
 ///
@@ -34,8 +39,16 @@ impl Tool {
         path: PathBuf,
         cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
+        out_dir: &Path,
     ) -> Self {
-        Self::with_features(path, None, false, cached_compiler_family, cargo_output)
+        Self::with_features(
+            path,
+            None,
+            false,
+            cached_compiler_family,
+            cargo_output,
+            out_dir,
+        )
     }
 
     pub(crate) fn with_clang_driver(
@@ -43,6 +56,7 @@ impl Tool {
         clang_driver: Option<&str>,
         cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
+        out_dir: &Path,
     ) -> Self {
         Self::with_features(
             path,
@@ -50,6 +64,7 @@ impl Tool {
             false,
             cached_compiler_family,
             cargo_output,
+            out_dir,
         )
     }
 
@@ -74,70 +89,91 @@ impl Tool {
         cuda: bool,
         cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
+        out_dir: &Path,
     ) -> Self {
-        fn detect_family_inner(path: &Path, cargo_output: &CargoOutput) -> ToolFamily {
-            let mut cmd = Command::new(path);
-            cmd.arg("--version");
-
-            let stdout = match run_output(
-                &mut cmd,
+        fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> bool {
+            run_output(
+                Command::new(&path).arg("--version"),
                 path,
                 // tool detection issues should always be shown as warnings
                 cargo_output,
             )
-            .ok()
-            .and_then(|o| String::from_utf8(o).ok())
-            {
-                Some(s) => s,
-                None => {
-                    // --version failed. fallback to gnu
-                    cargo_output.print_warning(&format_args!("Failed to run: {:?}", cmd));
-                    return ToolFamily::Gnu;
+            .map(|o| String::from_utf8_lossy(&o).contains("ziglang"))
+            .unwrap_or_default()
+        }
+
+        fn detect_family_inner(
+            path: &Path,
+            cargo_output: &CargoOutput,
+            out_dir: &Path,
+        ) -> Result<ToolFamily, Error> {
+            let tmp = NamedTempfile::new(out_dir, "detect_compiler_family.c")?;
+            tmp.file()
+                .write_all(include_bytes!("detect_compiler_family.c"))?;
+
+            let stdout = run_output(
+                Command::new(path)
+                    .arg("-E")
+                    .arg(tmp.path())
+                    .stderr(Stdio::null()),
+                path,
+                // tool detection issues should always be shown as warnings
+                cargo_output,
+            )?;
+            let stdout = String::from_utf8_lossy(&stdout);
+
+            let clang = stdout.contains("clang");
+            let msvc = stdout.contains("msvc");
+            let gcc = stdout.contains("gcc");
+
+            match (clang, msvc, gcc) {
+                (clang_cl, true, _) => Ok(ToolFamily::Msvc { clang_cl }),
+                (true, false, _) => Ok(ToolFamily::Clang {
+                    zig_cc: is_zig_cc(path, cargo_output),
+                }),
+                (false, false, true) => Ok(ToolFamily::Gnu),
+                (false, false, false) => {
+                    cargo_output.print_warning(&"Compiler family detection failed since it does not define `__clang__`, `__GNUC__` or `_MSC_VER`, fallback to treating it as GNU");
+                    Err(Error::new(
+                        ErrorKind::ToolFamilyMacroNotFound,
+                        "Expects macro `__clang__`, `__GNUC__` or `_MSC_VER`, but found none",
+                    ))
                 }
-            };
-            if stdout.contains("clang") {
-                ToolFamily::Clang
-            } else if stdout.contains("GCC") {
-                ToolFamily::Gnu
-            } else {
-                // --version doesn't include clang for GCC
-                cargo_output.print_warning(&format_args!(
-                    "Compiler version doesn't include clang or GCC: {:?}",
-                    cmd
-                ));
-                ToolFamily::Gnu
             }
         }
-        let detect_family = |path: &Path| -> ToolFamily {
+        let detect_family = |path: &Path| -> Result<ToolFamily, Error> {
             if let Some(family) = cached_compiler_family.lock().unwrap().get(path) {
-                return *family;
+                return Ok(*family);
             }
 
-            let family = detect_family_inner(path, cargo_output);
+            let family = detect_family_inner(path, cargo_output, out_dir)?;
             cached_compiler_family
                 .lock()
                 .unwrap()
                 .insert(path.into(), family);
-            family
+            Ok(family)
         };
 
-        // Try to detect family of the tool from its name, falling back to Gnu.
-        let family = if let Some(fname) = path.file_name().and_then(|p| p.to_str()) {
-            if fname.contains("clang-cl") {
-                ToolFamily::Msvc { clang_cl: true }
-            } else if fname.ends_with("cl") || fname == "cl.exe" {
-                ToolFamily::Msvc { clang_cl: false }
-            } else if fname.contains("clang") {
-                match clang_driver {
-                    Some("cl") => ToolFamily::Msvc { clang_cl: true },
-                    _ => ToolFamily::Clang,
+        let family = detect_family(&path).unwrap_or_else(|e| {
+            cargo_output.print_warning(&format_args!(
+                "Compiler family detection failed due to error: {}",
+                e
+            ));
+            match path.file_name().map(OsStr::to_string_lossy) {
+                Some(fname) if fname.contains("clang-cl") => ToolFamily::Msvc { clang_cl: true },
+                Some(fname) if fname.ends_with("cl") || fname == "cl.exe" => {
+                    ToolFamily::Msvc { clang_cl: false }
                 }
-            } else {
-                detect_family(&path)
+                Some(fname) if fname.contains("clang") => match clang_driver {
+                    Some("cl") => ToolFamily::Msvc { clang_cl: true },
+                    _ => ToolFamily::Clang {
+                        zig_cc: is_zig_cc(&path, cargo_output),
+                    },
+                },
+                Some(fname) if fname.contains("zig") => ToolFamily::Clang { zig_cc: true },
+                _ => ToolFamily::Gnu,
             }
-        } else {
-            detect_family(&path)
-        };
+        });
 
         Tool {
             path,
@@ -303,7 +339,7 @@ impl Tool {
 
     /// Whether the tool is Clang-like.
     pub fn is_like_clang(&self) -> bool {
-        self.family == ToolFamily::Clang
+        matches!(self.family, ToolFamily::Clang { .. })
     }
 
     /// Whether the tool is AppleClang under .xctoolchain
@@ -337,7 +373,7 @@ pub enum ToolFamily {
     Gnu,
     /// Tool is Clang-like. It differs from the GCC in a sense that it accepts superset of flags
     /// and its cross-compilation approach is different.
-    Clang,
+    Clang { zig_cc: bool },
     /// Tool is the MSVC cl.exe.
     Msvc { clang_cl: bool },
 }
@@ -349,7 +385,7 @@ impl ToolFamily {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-Z7".into());
             }
-            ToolFamily::Gnu | ToolFamily::Clang => {
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => {
                 cmd.push_cc_arg(
                     dwarf_version
                         .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{}", v))
@@ -362,7 +398,7 @@ impl ToolFamily {
     /// What the flag to force frame pointers.
     pub(crate) fn add_force_frame_pointer(&self, cmd: &mut Tool) {
         match *self {
-            ToolFamily::Gnu | ToolFamily::Clang => {
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => {
                 cmd.push_cc_arg("-fno-omit-frame-pointer".into());
             }
             _ => (),
@@ -373,7 +409,7 @@ impl ToolFamily {
     pub(crate) fn warnings_flags(&self) -> &'static str {
         match *self {
             ToolFamily::Msvc { .. } => "-W4",
-            ToolFamily::Gnu | ToolFamily::Clang => "-Wall",
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => "-Wall",
         }
     }
 
@@ -381,7 +417,7 @@ impl ToolFamily {
     pub(crate) fn extra_warnings_flags(&self) -> Option<&'static str> {
         match *self {
             ToolFamily::Msvc { .. } => None,
-            ToolFamily::Gnu | ToolFamily::Clang => Some("-Wextra"),
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => Some("-Wextra"),
         }
     }
 
@@ -389,11 +425,11 @@ impl ToolFamily {
     pub(crate) fn warnings_to_errors_flag(&self) -> &'static str {
         match *self {
             ToolFamily::Msvc { .. } => "-WX",
-            ToolFamily::Gnu | ToolFamily::Clang => "-Werror",
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => "-Werror",
         }
     }
 
     pub(crate) fn verbose_stderr(&self) -> bool {
-        *self == ToolFamily::Clang
+        matches!(*self, ToolFamily::Clang { .. })
     }
 }
