@@ -2,7 +2,6 @@
 
 use std::{
     collections::hash_map,
-    convert::AsRef,
     ffi::OsString,
     fmt::Display,
     fs,
