@@ -3030,7 +3030,7 @@ impl Build {
         }
     }
 
-    fn get_ar(&self) -> Result<(Command, String, bool), Error> {
+    fn get_ar(&self) -> Result<(Command, PathBuf, bool), Error> {
         self.try_get_archiver_and_flags()
     }
 
@@ -3063,7 +3063,7 @@ impl Build {
         Ok(self.try_get_archiver_and_flags()?.0)
     }
 
-    fn try_get_archiver_and_flags(&self) -> Result<(Command, String, bool), Error> {
+    fn try_get_archiver_and_flags(&self) -> Result<(Command, PathBuf, bool), Error> {
         let (mut cmd, name) = self.get_base_archiver()?;
         let mut any_flags = false;
         if let Ok(flags) = self.envflags("ARFLAGS") {
@@ -3077,12 +3077,14 @@ impl Build {
         Ok((cmd, name, any_flags))
     }
 
-    fn get_base_archiver(&self) -> Result<(Command, String), Error> {
+    fn get_base_archiver(&self) -> Result<(Command, PathBuf), Error> {
         if let Some(ref a) = self.archiver {
-            return Ok((self.cmd(&**a), a.to_string_lossy().into_owned()));
+            let archiver = &**a;
+            return Ok((self.cmd(archiver), archiver.into()));
         }
 
         self.get_base_archiver_variant("AR", "ar")
+            .map(|(cmd, archiver)| (cmd, archiver.into()))
     }
 
     /// Get the ranlib that's in use for this configuration.
