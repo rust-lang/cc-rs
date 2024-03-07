@@ -337,7 +337,7 @@ pub(crate) fn run_output(
     Ok(stdout)
 }
 
-fn spawn_inner(
+pub(crate) fn spawn(
     cmd: &mut Command,
     program: &Path,
     cargo_output: &CargoOutput,
@@ -386,14 +386,6 @@ for help)"
     }
 }
 
-pub(crate) fn spawn(
-    cmd: &mut Command,
-    program: impl AsRef<Path>,
-    cargo_output: &CargoOutput,
-) -> Result<Child, Error> {
-    spawn_inner(cmd, program.as_ref(), cargo_output)
-}
-
 pub(crate) fn command_add_output_file(
     cmd: &mut Command,
     dst: &Path,
@@ -416,13 +408,11 @@ pub(crate) fn command_add_output_file(
 #[cfg(feature = "parallel")]
 pub(crate) fn try_wait_on_child(
     cmd: &Command,
-    program: impl AsRef<Path>,
+    program: &Path,
     child: &mut Child,
     stdout: &mut dyn io::Write,
     stderr_forwarder: &mut StderrForwarder,
 ) -> Result<Option<()>, Error> {
-    let program = program.as_ref();
-
     stderr_forwarder.forward_available();
 
     match child.try_wait() {

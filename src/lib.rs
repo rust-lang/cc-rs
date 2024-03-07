@@ -1657,9 +1657,7 @@ impl Build {
         let name = compiler
             .path
             .file_name()
-            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?
-            .to_string_lossy()
-            .into_owned();
+            .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?;
 
         Ok(run_output(&mut cmd, &name, &self.cargo_output)?)
     }
