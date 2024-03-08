@@ -117,8 +117,15 @@ impl Tool {
                     .arg(tmp.path())
                     .stderr(Stdio::null()),
                 path,
-                // tool detection issues should always be shown as warnings
-                cargo_output,
+                // When expanding the file, the compiler prints a lot of information to stderr
+                // that it is not an error, but related to expanding itself.
+                //
+                // cc would have to disable warning here to prevent generation of too many warnings.
+                &{
+                    let mut cargo_output = cargo_output.clone();
+                    cargo_output.warnings = false;
+                    cargo_output
+                },
             )?;
             let stdout = String::from_utf8_lossy(&stdout);
 
