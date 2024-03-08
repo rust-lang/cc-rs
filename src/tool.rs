@@ -5,7 +5,7 @@ use std::{
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
     sync::Mutex,
 };
 
@@ -119,10 +119,7 @@ impl Tool {
                 .write_all(include_bytes!("detect_compiler_family.c"))?;
 
             let stdout = run_output(
-                Command::new(path)
-                    .arg("-E")
-                    .arg(tmp.path())
-                    .stderr(Stdio::null()),
+                Command::new(path).arg("-E").arg(tmp.path()),
                 path,
                 // When expanding the file, the compiler prints a lot of information to stderr
                 // that it is not an error, but related to expanding itself.
