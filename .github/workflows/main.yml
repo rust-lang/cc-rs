@@ -4,6 +4,7 @@ on: [push, pull_request]
 env:
   CARGO_INCREMENTAL: 0
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
+  CC_ENABLE_DEBUG_OUTPUT: true
 
 jobs:
   test:
