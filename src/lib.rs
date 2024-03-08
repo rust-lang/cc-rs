@@ -249,6 +249,12 @@ use tool::ToolFamily;
 
 mod target_info;
 
+#[derive(Debug, Eq, PartialEq, Hash)]
+struct CompilerFlag {
+    compiler: Box<Path>,
+    flag: Box<str>,
+}
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
@@ -261,7 +267,7 @@ pub struct Build {
     objects: Vec<Arc<Path>>,
     flags: Vec<Arc<str>>,
     flags_supported: Vec<Arc<str>>,
-    known_flag_support_status: Arc<Mutex<HashMap<String, bool>>>,
+    known_flag_support_status_cache: Arc<Mutex<HashMap<CompilerFlag, bool>>>,
     ar_flags: Vec<Arc<str>>,
     asm_flags: Vec<Arc<str>>,
     no_default_flags: bool,
@@ -382,7 +388,7 @@ impl Build {
             objects: Vec::new(),
             flags: Vec::new(),
             flags_supported: Vec::new(),
-            known_flag_support_status: Arc::new(Mutex::new(HashMap::new())),
+            known_flag_support_status_cache: Arc::new(Mutex::new(HashMap::new())),
             ar_flags: Vec::new(),
             asm_flags: Vec::new(),
             no_default_flags: false,
@@ -592,29 +598,42 @@ impl Build {
     /// `known_flag_support` field. If `is_flag_supported(flag)`
     /// is called again, the result will be read from the hash table.
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        let mut known_status = self.known_flag_support_status.lock().unwrap();
-        if let Some(is_supported) = known_status.get(flag).cloned() {
+        let target = self.get_target()?;
+
+        let mut compiler = {
+            let mut cfg = Build::new();
+            cfg.flag(flag)
+                .cargo_metadata(self.cargo_output.metadata)
+                .target(&target)
+                .opt_level(0)
+                .host(&self.get_host()?)
+                .debug(false)
+                .cpp(self.cpp)
+                .cuda(self.cuda);
+            if let Some(ref c) = self.compiler {
+                cfg.compiler(c.clone());
+            }
+            cfg.try_get_compiler()?
+        };
+
+        let compiler_flag = CompilerFlag {
+            compiler: compiler.path.clone().into(),
+            flag: flag.into(),
+        };
+
+        if let Some(is_supported) = self
+            .known_flag_support_status_cache
+            .lock()
+            .unwrap()
+            .get(&compiler_flag)
+            .cloned()
+        {
             return Ok(is_supported);
         }
 
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
-        let target = self.get_target()?;
-        let host = self.get_host()?;
-        let mut cfg = Build::new();
-        cfg.flag(flag)
-            .cargo_metadata(self.cargo_output.metadata)
-            .target(&target)
-            .opt_level(0)
-            .host(&host)
-            .debug(false)
-            .cpp(self.cpp)
-            .cuda(self.cuda);
-        if let Some(ref c) = self.compiler {
-            cfg.compiler(c.clone());
-        }
-        let mut compiler = cfg.try_get_compiler()?;
 
         // Clang uses stderr for verbose output, which yields a false positive
         // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
@@ -650,7 +669,11 @@ impl Build {
         let output = cmd.output()?;
         let is_supported = output.status.success() && output.stderr.is_empty();
 
-        known_status.insert(flag.to_owned(), is_supported);
+        self.known_flag_support_status_cache
+            .lock()
+            .unwrap()
+            .insert(compiler_flag, is_supported);
+
         Ok(is_supported)
     }
 
