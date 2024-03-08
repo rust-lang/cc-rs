@@ -123,7 +123,7 @@ impl Tool {
                 // cc would have to disable warning here to prevent generation of too many warnings.
                 &{
                     let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = false;
+                    cargo_output.warnings = cargo_output.debug;
                     cargo_output
                 },
             )?;
