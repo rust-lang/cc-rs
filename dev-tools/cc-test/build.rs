@@ -156,7 +156,13 @@ fn run_action_if_forked() -> bool {
     true
 }
 
+fn disable_debug_output() {
+    std::env::remove_var("CC_ENABLE_DEBUG_OUTPUT");
+}
+
 fn build_cargo_warnings(warnings: bool) {
+    disable_debug_output();
+
     cc::Build::new()
         .cargo_metadata(false)
         .cargo_warnings(warnings)
@@ -166,6 +172,8 @@ fn build_cargo_warnings(warnings: bool) {
 }
 
 fn build_cargo_metadata(metadata: bool) {
+    disable_debug_output();
+
     cc::Build::new()
         .cargo_metadata(metadata)
         .file("src/dummy.c")
