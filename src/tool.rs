@@ -1,5 +1,7 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
+    env,
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
@@ -39,7 +41,7 @@ impl Tool {
         path: PathBuf,
         cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
-        out_dir: &Path,
+        out_dir: Option<&Path>,
     ) -> Self {
         Self::with_features(
             path,
@@ -56,7 +58,7 @@ impl Tool {
         clang_driver: Option<&str>,
         cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
-        out_dir: &Path,
+        out_dir: Option<&Path>,
     ) -> Self {
         Self::with_features(
             path,
@@ -89,7 +91,7 @@ impl Tool {
         cuda: bool,
         cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
-        out_dir: &Path,
+        out_dir: Option<&Path>,
     ) -> Self {
         fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> bool {
             run_output(
@@ -105,9 +107,14 @@ impl Tool {
         fn detect_family_inner(
             path: &Path,
             cargo_output: &CargoOutput,
-            out_dir: &Path,
+            out_dir: Option<&Path>,
         ) -> Result<ToolFamily, Error> {
-            let tmp = NamedTempfile::new(out_dir, "detect_compiler_family.c")?;
+            let tmp = NamedTempfile::new(
+                &out_dir
+                    .map(Cow::Borrowed)
+                    .unwrap_or_else(|| Cow::Owned(env::temp_dir())),
+                "detect_compiler_family.c",
+            )?;
             tmp.file()
                 .write_all(include_bytes!("detect_compiler_family.c"))?;
 

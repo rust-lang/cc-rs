@@ -2681,14 +2681,15 @@ impl Build {
     }
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
-        let out_dir = self.get_out_dir()?;
+        let out_dir = self.get_out_dir().ok();
+        let out_dir = out_dir.as_deref();
 
         if let Some(c) = &self.compiler {
             return Ok(Tool::new(
                 (**c).to_owned(),
                 &self.cached_compiler_family,
                 &self.cargo_output,
-                &out_dir,
+                out_dir,
             ));
         }
         let host = self.get_host()?;
@@ -2730,7 +2731,7 @@ impl Build {
                     driver_mode,
                     &self.cached_compiler_family,
                     &self.cargo_output,
-                    &out_dir,
+                    out_dir,
                 );
                 if let Some(cc_wrapper) = wrapper {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
@@ -2749,7 +2750,7 @@ impl Build {
                             PathBuf::from("cmd"),
                             &self.cached_compiler_family,
                             &self.cargo_output,
-                            &out_dir,
+                            out_dir,
                         );
                         t.args.push("/c".into());
                         t.args.push(format!("{}.bat", tool).into());
@@ -2759,7 +2760,7 @@ impl Build {
                             PathBuf::from(tool),
                             &self.cached_compiler_family,
                             &self.cargo_output,
-                            &out_dir,
+                            out_dir,
                         ))
                     }
                 } else {
@@ -2819,7 +2820,7 @@ impl Build {
                     PathBuf::from(compiler),
                     &self.cached_compiler_family,
                     &self.cargo_output,
-                    &out_dir,
+                    out_dir,
                 );
                 if let Some(cc_wrapper) = Self::rustc_wrapper_fallback() {
                     t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
@@ -2843,7 +2844,7 @@ impl Build {
                 self.cuda,
                 &self.cached_compiler_family,
                 &self.cargo_output,
-                &out_dir,
+                out_dir,
             );
             nvcc_tool
                 .args
