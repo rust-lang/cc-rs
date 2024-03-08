@@ -3,10 +3,10 @@
 
 #![cfg_attr(test, allow(dead_code))]
 
-use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*};
 use std::path::PathBuf;
+use std::{env, fs};
 
 fn main() {
     let mut args = env::args();
@@ -70,4 +70,21 @@ fn main() {
             e
         )
     });
+
+    // Handle the compiler detection logic
+    let args = env::args().collect::<Vec<_>>();
+    if args.len() == 3
+        && args[1] == "-E"
+        && fs::read_to_string(&args[2])
+            .map(|s| s == include_str!("../detect_compiler_family.c"))
+            .unwrap_or_default()
+    {
+        match &*program {
+            "cc" | "c++" => println!("gcc"),
+            "cl" | "lib.exe" | "cl.exe" => println!("msvc"),
+            "clang-cl" | "clang-cl.exe" => println!("msvc\nclang"),
+            "clang" | "clang++" => println!("clang"),
+            _ => (),
+        }
+    }
 }
