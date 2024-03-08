@@ -129,6 +129,8 @@ impl Tool {
             )?;
             let stdout = String::from_utf8_lossy(&stdout);
 
+            cargo_output.print_debug(&stdout);
+
             let clang = stdout.contains("clang");
             let msvc = stdout.contains("msvc");
             let gcc = stdout.contains("gcc");
