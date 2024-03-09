@@ -35,6 +35,7 @@ tempfile = "3"
 
 [workspace]
 members = [
-    "dev-tools/cc-test", "dev-tools/gen-target-info",
+    "dev-tools/cc-test",
+    "dev-tools/gen-target-info",
     "dev-tools/gen-windows-sys-binding",
 ]
