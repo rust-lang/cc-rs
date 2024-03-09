@@ -15,7 +15,7 @@ pub fn get_target_specs_from_json() -> RustcTargetSpecs {
     let process::Output { status, stdout, .. } = cmd.output().unwrap();
 
     if !status.success() {
-        panic!("{cmd:?} failed with non-zero exit status: {status}")
+        panic!("{:?} failed with non-zero exit status: {}", cmd, status)
     }
 
     serde_json::from_slice(&stdout).unwrap()
