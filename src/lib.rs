@@ -247,6 +247,8 @@ mod tool;
 pub use tool::Tool;
 use tool::ToolFamily;
 
+mod target_info;
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
@@ -312,6 +314,8 @@ enum ErrorKind {
     ToolNotFound,
     /// One of the function arguments failed validation.
     InvalidArgument,
+    /// Invalid target
+    InvalidTarget,
     #[cfg(feature = "parallel")]
     /// jobserver helpthread failure
     JobserverHelpThreadError,
@@ -1900,6 +1904,13 @@ impl Build {
                     && !(target.contains("android")
                         && android_clang_compiler_uses_target_arg_internally(&cmd.path))
                 {
+                    let (arch, rest) = target.split_once('-').ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::InvalidTarget,
+                            format!("Invalid target `{}`: no `-` in it", target),
+                        )
+                    })?;
+
                     if target.contains("darwin") {
                         if let Some(arch) =
                             map_darwin_target_from_rust_to_compiler_architecture(target)
@@ -1983,39 +1994,17 @@ impl Build {
                                 format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
                             );
                         }
-                    } else if target.starts_with("riscv64gc-") {
+                    } else if let Ok(index) = target_info::RISCV_ARCH_MAPPING
+                        .binary_search_by_key(&arch, |(arch, _)| &arch)
+                    {
                         cmd.args.push(
-                            format!("--target={}", target.replace("riscv64gc", "riscv64")).into(),
+                            format!(
+                                "--target={}-{}",
+                                target_info::RISCV_ARCH_MAPPING[index].1,
+                                rest
+                            )
+                            .into(),
                         );
-                    } else if target.starts_with("riscv64imac-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv64imac", "riscv64")).into(),
-                        );
-                    } else if target.starts_with("riscv32gc-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv32gc", "riscv32")).into(),
-                        );
-                    } else if target.starts_with("riscv32i-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv32i", "riscv32")).into(),
-                        )
-                    } else if target.starts_with("riscv32im-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv32im", "riscv32")).into(),
-                        )
-                    } else if target.starts_with("riscv32imc-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv32imc", "riscv32")).into(),
-                        )
-                    } else if target.starts_with("riscv32imac-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv32imac", "riscv32")).into(),
-                        )
-                    } else if target.starts_with("riscv32imafc-") {
-                        cmd.args.push(
-                            format!("--target={}", target.replace("riscv32imafc", "riscv32"))
-                                .into(),
-                        )
                     } else if target.contains("uefi") {
                         if target.contains("x86_64") {
                             cmd.args.push("--target=x86_64-unknown-windows-gnu".into());
