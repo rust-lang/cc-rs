@@ -4,7 +4,8 @@ pub fn write_string_mapping_to_file(f: &mut fs::File, variable_name: &str, data:
     let mut content = format!("pub const {variable_name}: &[(&str, &str)] = &[\n");
 
     for (f1, f2) in data {
-        write!(&mut content, r#"    ("{f1}", "{f2}"),\n"#).unwrap();
+        write!(&mut content, r#"    ("{f1}", "{f2}"),"#).unwrap();
+        content.push('\n');
     }
 
     content.push_str("];\n");
