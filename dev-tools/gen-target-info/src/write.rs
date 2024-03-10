@@ -1,6 +1,6 @@
 use std::{fmt::Write as _, fs, io::Write as _};
 
-pub fn write_string_mapping_to_file(f: &mut fs::File, variable_name: &str, data: &[(&str, &str)]) {
+pub fn write_target_tuple_mapping(f: &mut fs::File, variable_name: &str, data: &[(&str, &str)]) {
     let mut content = format!("pub const {variable_name}: &[(&str, &str)] = &[\n");
 
     for (f1, f2) in data {

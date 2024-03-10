@@ -1,4 +1,4 @@
-use gen_target_info::{get_target_specs_from_json, write_string_mapping_to_file};
+use gen_target_info::{get_target_specs_from_json, write_target_tuple_mapping};
 use std::{fs::File, io::Write as _};
 
 fn main() {
@@ -22,7 +22,7 @@ fn main() {
         .collect::<Vec<_>>();
     riscv_target_mapping.sort_unstable_by_key(|(arch, _)| &**arch);
     riscv_target_mapping.dedup();
-    write_string_mapping_to_file(&mut f, "RISCV_ARCH_MAPPING", &riscv_target_mapping);
+    write_target_tuple_mapping(&mut f, "RISCV_ARCH_MAPPING", &riscv_target_mapping);
 
     // Flush the data onto disk
     f.flush().unwrap();
