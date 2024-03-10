@@ -1,3 +1,6 @@
+//! This file is generated code. Please edit the generator
+//! in dev-tools/gen-target-info if you need to make changes.
+
 pub const RISCV_ARCH_MAPPING: &[(&str, &str)] = &[
     ("riscv32gc", "riscv32"),
     ("riscv32i", "riscv32"),
