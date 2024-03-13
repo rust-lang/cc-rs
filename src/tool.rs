@@ -97,7 +97,10 @@ impl Tool {
             };
             if stdout.contains("clang") {
                 ToolFamily::Clang
-            } else if stdout.contains("GCC") {
+            } else if stdout.contains("GCC")
+                || stdout.contains("gcc")
+                || stdout.contains("Free Software Foundation")
+            {
                 ToolFamily::Gnu
             } else {
                 // --version doesn't include clang for GCC
