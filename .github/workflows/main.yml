@@ -170,8 +170,8 @@ jobs:
       run: cargo +nightly update -Zminimal-versions
     - name: Cache downloaded crates since 1.53 is really slow in fetching
       uses: Swatinem/rust-cache@v2
-    - run: cargo check --lib -p cc
-    - run: cargo check --lib -p cc --all-features
+    - run: cargo check --lib -p cc --locked
+    - run: cargo check --lib -p cc --locked --all-features
 
   clippy:
     name: Clippy
