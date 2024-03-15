@@ -198,9 +198,13 @@ mod impl_ {
         }
 
         /// Get a function pointer to a function in the library.
-        /// SAFETY: The caller must ensure that the function signature matches the actual function.
+        /// # SAFETY
+        ///
+        /// The caller must ensure that the function signature matches the actual function.
         /// The easiest way to do this is to add an entry to windows_sys_no_link.list and use the
         /// generated function for `func_signature`.
+        ///
+        /// The function returned cannot be used after the handle is dropped.
         unsafe fn get_proc_address<F>(&self, name: &[u8]) -> Option<F> {
             let symbol = unsafe { GetProcAddress(self.0, name.as_ptr() as _) };
             symbol.map(|symbol| unsafe { mem::transmute_copy(&symbol) })
