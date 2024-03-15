@@ -247,8 +247,8 @@ mod tool;
 pub use tool::Tool;
 use tool::ToolFamily;
 
-mod tempfile;
 mod target_info;
+mod tempfile;
 
 /// A builder for compilation of a native library.
 ///
