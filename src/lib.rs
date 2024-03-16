@@ -1798,50 +1798,48 @@ impl Build {
     ) -> Result<(), Error> {
         // Non-target flags
         // If the flag is not conditioned on target variable, it belongs here :)
-        match cmd.family {
-            ToolFamily::Msvc { .. } => {
-                cmd.push_cc_arg("-nologo".into());
+        if cmd.is_like_msvc() {
+            cmd.push_cc_arg("-nologo".into());
 
-                let crt_flag = match self.static_crt {
-                    Some(true) => "-MT",
-                    Some(false) => "-MD",
-                    None => {
-                        let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
-                        let features = features.as_deref().unwrap_or_default();
-                        if features.contains("crt-static") {
-                            "-MT"
-                        } else {
-                            "-MD"
-                        }
+            let crt_flag = match self.static_crt {
+                Some(true) => "-MT",
+                Some(false) => "-MD",
+                None => {
+                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
+                    let features = features.as_deref().unwrap_or_default();
+                    if features.contains("crt-static") {
+                        "-MT"
+                    } else {
+                        "-MD"
                     }
-                };
-                cmd.push_cc_arg(crt_flag.into());
-
-                match &opt_level[..] {
-                    // Msvc uses /O1 to enable all optimizations that minimize code size.
-                    "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
-                    // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
-                    "2" | "3" => cmd.push_opt_unless_duplicate("-O2".into()),
-                    _ => {}
                 }
+            };
+            cmd.push_cc_arg(crt_flag.into());
+
+            match &opt_level[..] {
+                // Msvc uses /O1 to enable all optimizations that minimize code size.
+                "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
+                // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
+                "2" | "3" => cmd.push_opt_unless_duplicate("-O2".into()),
+                _ => {}
             }
-            ToolFamily::Gnu | ToolFamily::Clang => {
-                // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
-                // not support '-Oz'
-                if opt_level == "z" && cmd.family != ToolFamily::Clang {
-                    cmd.push_opt_unless_duplicate("-Os".into());
-                } else {
-                    cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
-                }
-
-                if cmd.family == ToolFamily::Clang && target.contains("windows") {
+        } else {
+            // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
+            // not support '-Oz'
+            if opt_level == "z" && cmd.family != ToolFamily::Clang {
+                cmd.push_opt_unless_duplicate("-Os".into());
+            } else {
+                cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
+            }
+            if cmd.family == ToolFamily::Clang {
+                if target.contains("windows") {
                     // Disambiguate mingw and msvc on Windows. Problem is that
                     // depending on the origin clang can default to a mismatchig
                     // run-time.
                     cmd.push_cc_arg(format!("--target={}", target).into());
                 }
 
-                if cmd.family == ToolFamily::Clang && target.contains("android") {
+                if target.contains("android") {
                     // For compatibility with code that doesn't use pre-defined `__ANDROID__` macro.
                     // If compiler used via ndk-build or cmake (officially supported build methods)
                     // this macros is defined.
@@ -1849,27 +1847,35 @@ impl Build {
                     // https://android.googlesource.com/platform/ndk/+/refs/heads/ndk-release-r21/build/core/build-binary.mk#141
                     cmd.push_opt_unless_duplicate("-DANDROID".into());
                 }
+            }
 
-                if !target.contains("apple-ios")
-                    && !target.contains("apple-watchos")
-                    && !target.contains("apple-tvos")
-                {
-                    cmd.push_cc_arg("-ffunction-sections".into());
-                    cmd.push_cc_arg("-fdata-sections".into());
+            if !target.contains("apple-ios")
+                && !target.contains("apple-watchos")
+                && !target.contains("apple-tvos")
+            {
+                cmd.push_cc_arg("-ffunction-sections".into());
+                cmd.push_cc_arg("-fdata-sections".into());
+            }
+            // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
+            if self.pic.unwrap_or(
+                !target.contains("windows")
+                    && !target.contains("-none-")
+                    && !target.contains("uefi"),
+            ) {
+                cmd.push_cc_arg("-fPIC".into());
+                // PLT only applies if code is compiled with PIC support,
+                // and only for ELF targets.
+                if target.contains("linux") && !self.use_plt.unwrap_or(true) {
+                    cmd.push_cc_arg("-fno-plt".into());
                 }
-                // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
-                if self.pic.unwrap_or(
-                    !target.contains("windows")
-                        && !target.contains("-none-")
-                        && !target.contains("uefi"),
-                ) {
-                    cmd.push_cc_arg("-fPIC".into());
-                    // PLT only applies if code is compiled with PIC support,
-                    // and only for ELF targets.
-                    if target.contains("linux") && !self.use_plt.unwrap_or(true) {
-                        cmd.push_cc_arg("-fno-plt".into());
-                    }
-                }
+            }
+
+            if target.contains("i686") || target.contains("i586") {
+                cmd.args.push("-m32".into());
+            } else if target == "x86_64-unknown-linux-gnux32" {
+                cmd.args.push("-mx32".into());
+            } else if target.contains("x86_64") || target.contains("powerpc64") {
+                cmd.args.push("-m64".into());
             }
         }
 
@@ -1885,16 +1891,6 @@ impl Build {
         if self.get_force_frame_pointer() {
             let family = cmd.family;
             family.add_force_frame_pointer(cmd);
-        }
-
-        if !cmd.is_like_msvc() {
-            if target.contains("i686") || target.contains("i586") {
-                cmd.args.push("-m32".into());
-            } else if target == "x86_64-unknown-linux-gnux32" {
-                cmd.args.push("-mx32".into());
-            } else if target.contains("x86_64") || target.contains("powerpc64") {
-                cmd.args.push("-m64".into());
-            }
         }
 
         // Target flags
