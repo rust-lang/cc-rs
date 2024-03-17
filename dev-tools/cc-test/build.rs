@@ -157,6 +157,8 @@ fn run_action_if_forked() -> bool {
 }
 
 fn disable_debug_output() {
+    // That env would break tests for warning/debug output,
+    // and it is set in the CI, to make debugging CI failure easier.
     std::env::remove_var("CC_ENABLE_DEBUG_OUTPUT");
 }
 
