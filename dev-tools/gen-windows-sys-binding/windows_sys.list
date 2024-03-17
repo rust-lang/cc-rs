@@ -37,6 +37,8 @@ Windows.Win32.System.Registry.REG_SZ
 
 Windows.Win32.System.SystemInformation.IMAGE_FILE_MACHINE_AMD64
 
+Windows.Win32.Storage.FileSystem.FILE_ATTRIBUTE_TEMPORARY
+
 Windows.Win32.System.Threading.GetMachineTypeAttributes
 Windows.Win32.System.Threading.ReleaseSemaphore
 Windows.Win32.System.Threading.WaitForSingleObject
