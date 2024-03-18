@@ -2060,14 +2060,11 @@ impl Build {
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
-                } else {
-                    if target.contains("i586") {
-                        cmd.push_cc_arg("-arch:IA32".into());
-                    } else if target.contains("arm64ec") {
-                        cmd.push_cc_arg("-arm64EC".into());
-                    }
+                } else if target.contains("i586") {
+                    cmd.push_cc_arg("-arch:IA32".into());
+                } else if target.contains("arm64ec") {
+                    cmd.push_cc_arg("-arm64EC".into());
                 }
-
                 // There is a check in corecrt.h that will generate a
                 // compilation error if
                 // _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE is
@@ -3414,12 +3411,11 @@ impl Build {
                 })
             })
             .map(|prefix| *prefix)
-            .or_else(||
             // If no toolchain was found, provide the first toolchain that was passed in.
             // This toolchain has been shown not to exist, however it will appear in the
             // error that is shown to the user which should make it easier to search for
             // where it should be obtained.
-            prefixes.first().map(|prefix| *prefix))
+            .or_else(|| prefixes.first().map(|prefix| *prefix))
     }
 
     fn get_target(&self) -> Result<Arc<str>, Error> {
@@ -3753,6 +3749,7 @@ enum AppleOs {
     WatchOs,
     TvOs,
 }
+
 impl std::fmt::Debug for AppleOs {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {

@@ -233,10 +233,8 @@ impl Tool {
             if chars.next() != Some('/') {
                 return false;
             }
-        } else if self.is_like_gnu() || self.is_like_clang() {
-            if chars.next() != Some('-') {
-                return false;
-            }
+        } else if (self.is_like_gnu() || self.is_like_clang()) && chars.next() != Some('-') {
+            return false;
         }
 
         // Check for existing optimization flags (-O, /O)
