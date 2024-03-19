@@ -2398,7 +2398,8 @@ impl Build {
         }
 
         let target = self.get_target()?;
-        if target.contains("msvc") {
+        let (mut ar, cmd, _any_flags) = self.get_ar()?;
+        if target.contains("msvc") && ! ar.get_program().to_str().unwrap().contains("llvm-") {
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
@@ -2421,7 +2422,6 @@ impl Build {
             // Non-msvc targets (those using `ar`) need a separate step to add
             // the symbol table to archives since our construction command of
             // `cq` doesn't add it for us.
-            let (mut ar, cmd, _any_flags) = self.get_ar()?;
 
             // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
             // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
@@ -2435,8 +2435,8 @@ impl Build {
     fn assemble_progressive(&self, dst: &Path, objs: &[&Path]) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        if target.contains("msvc") {
-            let (mut cmd, program, any_flags) = self.get_ar()?;
+        let (mut cmd, program, any_flags) = self.get_ar()?;
+        if target.contains("msvc") && !cmd.get_program().to_str().unwrap().contains("llvm-") {
             // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
             // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
             // the caller has explicitly dictated the flags they want. See
@@ -2455,8 +2455,6 @@ impl Build {
             cmd.args(objs);
             run(&mut cmd, &program, &self.cargo_output)?;
         } else {
-            let (mut ar, cmd, _any_flags) = self.get_ar()?;
-
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
             // determinism of builds. AFAIK there's not really official
@@ -2479,12 +2477,12 @@ impl Build {
             //
             // In any case if this doesn't end up getting read, it shouldn't
             // cause that many issues!
-            ar.env("ZERO_AR_DATE", "1");
+            cmd.env("ZERO_AR_DATE", "1");
 
             // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
             // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
             // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
-            run(ar.arg("cq").arg(dst).args(objs), &cmd, &self.cargo_output)?;
+            run(cmd.arg("cq").arg(dst).args(objs), &program, &self.cargo_output)?;
         }
 
         Ok(())
