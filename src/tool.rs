@@ -135,9 +135,9 @@ impl Tool {
 
             cargo_output.print_debug(&stdout);
 
-            let clang = stdout.contains("clang");
-            let msvc = stdout.contains("msvc");
-            let gcc = stdout.contains("gcc");
+            let clang = stdout.contains(r#""clang""#);
+            let msvc = stdout.contains(r#""msvc""#);
+            let gcc = stdout.contains(r#""gcc""#);
 
             match (clang, msvc, gcc) {
                 (clang_cl, true, _) => Ok(ToolFamily::Msvc { clang_cl }),
