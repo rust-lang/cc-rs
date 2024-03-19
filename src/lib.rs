@@ -2399,7 +2399,7 @@ impl Build {
 
         let target = self.get_target()?;
         let (mut ar, cmd, _any_flags) = self.get_ar()?;
-        if target.contains("msvc") && !cmd.to_str().unwrap().contains("llvm-") {
+        if target.contains("msvc") && !cmd.to_string_lossy().contains("llvm-") {
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
@@ -2436,7 +2436,7 @@ impl Build {
         let target = self.get_target()?;
 
         let (mut cmd, program, any_flags) = self.get_ar()?;
-        if target.contains("msvc") && !program.to_str().unwrap().contains("llvm-") {
+        if target.contains("msvc") && !program.to_string_lossy().contains("llvm-") {
             // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
             // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
             // the caller has explicitly dictated the flags they want. See
