@@ -96,6 +96,9 @@ jobs:
         sudo apt-get update
         sudo apt-get install g++-multilib
       if: matrix.build == 'linux32'
+    - name: add clang to path
+      run: $Env:PATH += ";C:\msys64\mingw64\bin"
+      if: matrix.build == 'windows-clang'
     - uses: Swatinem/rust-cache@v2
     - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
     - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
