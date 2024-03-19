@@ -2399,7 +2399,7 @@ impl Build {
 
         let target = self.get_target()?;
         let (mut ar, cmd, _any_flags) = self.get_ar()?;
-        if target.contains("msvc") && ! cmd.to_str().unwrap().contains("llvm-") {
+        if target.contains("msvc") && !cmd.to_str().unwrap().contains("llvm-") {
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
@@ -2482,7 +2482,11 @@ impl Build {
             // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
             // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
             // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
-            run(cmd.arg("cq").arg(dst).args(objs), &program, &self.cargo_output)?;
+            run(
+                cmd.arg("cq").arg(dst).args(objs),
+                &program,
+                &self.cargo_output,
+            )?;
         }
 
         Ok(())
@@ -3122,7 +3126,11 @@ impl Build {
         Ok(self.get_base_archiver_variant("RANLIB", "ranlib")?.0)
     }
 
-    fn get_base_archiver_variant(&self, env: &str, tool: &str) -> Result<(Command, PathBuf), Error> {
+    fn get_base_archiver_variant(
+        &self,
+        env: &str,
+        tool: &str,
+    ) -> Result<(Command, PathBuf), Error> {
         let target = self.get_target()?;
         let mut name = PathBuf::new();
         let tool_opt: Option<Command> = self
