@@ -76,7 +76,7 @@ jobs:
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-            env: AR=llvm-ar CC=clang CXX=clang++ RUSTFLAGS=-Clinker=lld-link
+            env: $Env:AR="llvm-ar" ; $Env:CC="clang" ; $Env:CXX="clang++" ; $Env:RUSTFLAGS="-Clinker=lld-link" ;
     steps:
     - uses: actions/checkout@v4
     - name: Install Rust (rustup)
