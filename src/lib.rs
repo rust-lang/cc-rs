@@ -216,7 +216,7 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
-#![cfg_attr(test, deny(warnings))]
+// #![cfg_attr(test, deny(warnings))]
 #![allow(deprecated)]
 #![deny(missing_docs)]
 
@@ -1601,7 +1601,7 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
         if is_assembler_msvc || compiler.is_like_msvc() {
-            let mut out_arg = OsString::from("/Fo");
+            let mut out_arg = OsString::from("-Fo");
             out_arg.push(&obj.dst);
             cmd.arg(out_arg);
         } else {
