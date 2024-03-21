@@ -1579,8 +1579,6 @@ impl Build {
         let target = self.get_target()?;
         let msvc = target.contains("msvc");
         let compiler = self.try_get_compiler()?;
-        let clang = compiler.is_like_clang();
-        let gnu = compiler.family == ToolFamily::Gnu;
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let (mut cmd, name) = if is_assembler_msvc {
@@ -1602,9 +1600,12 @@ impl Build {
             )
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
-        command_add_output_file(
-            &mut cmd, &obj.dst, self.cuda, msvc, clang, gnu, is_asm, is_arm,
-        );
+        if is_assembler_msvc {
+            cmd.arg("/Fo");
+        } else {
+            cmd.arg("-o");
+        }
+        cmd.arg(&obj.dst);
         // armasm and armasm64 don't requrie -c option
         if !is_assembler_msvc || !is_arm {
             cmd.arg("-c");
