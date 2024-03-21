@@ -76,7 +76,7 @@ jobs:
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-            env: $Env:AR="llvm-ar" ; $Env:CC="clang" ; $Env:CXX="clang++" ; $Env:RUSTFLAGS="-Clinker=lld-link" ;
+            env: AR=llvm-ar CC=clang CXX=clang++ RUSTFLAGS=-Clinker=lld-link
     steps:
     - uses: actions/checkout@v4
     - name: Install Rust (rustup)
@@ -99,6 +99,8 @@ jobs:
     - name: add clang to path
       run: $Env:PATH += ";C:\msys64\mingw64\bin"
       if: matrix.build == 'windows-clang'
+    - run : echo ${{ matrix.env }} >> $GITHUB_ENV
+      shell: bash
     - uses: Swatinem/rust-cache@v2
     - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
     - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
