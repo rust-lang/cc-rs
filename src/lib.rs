@@ -1601,7 +1601,7 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
         if is_assembler_msvc {
-            let mut out_arg = PathBuf::from("/Fo");
+            let mut out_arg = OsString::from("/Fo");
             out_arg.push(&obj.dst);
             cmd.arg(out_arg);
         } else {
