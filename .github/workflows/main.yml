@@ -106,6 +106,8 @@ jobs:
       if: startsWith(matrix.build, 'windows-clang')
     - run : echo ${{ matrix.env }} | xargs -I{} -n1 -- bash -c "echo {} >> $GITHUB_ENV"
       shell: bash
+    - run: env
+      shell: bash
     - uses: Swatinem/rust-cache@v2
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
