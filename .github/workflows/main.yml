@@ -76,12 +76,12 @@ jobs:
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-            env: AR=llvm-ar CC=clang CXX=clang++ RUSTFLAGS=-Clinker=lld-link
+            env: $Env:AR="llvm-ar" ; $Env:CC="clang" ; $Env:CXX="clang++" ; $Env:RUSTFLAGS="-Clinker=lld-link" ;
           - build: windows-clang-cl
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-            env: AR=llvm-ar CC=clang-cl CXX=clang-cl RUSTFLAGS=-Clinker=lld-link
+            env: $Env:AR="llvm-ar" ; $Env:CC="clang-cl" ; $Env:CXX="clang-cl" ; $Env:RUSTFLAGS="-Clinker=lld-link" ;
     steps:
     - uses: actions/checkout@v4
     - name: Install Rust (rustup)
@@ -104,14 +104,10 @@ jobs:
     - name: add clang to path
       run: $Env:PATH += ";C:\msys64\mingw64\bin"
       if: startsWith(matrix.build, 'windows-clang')
-    - run : echo ${{ matrix.env }} | xargs -I{} -n1 -- bash -c "echo {} >> $GITHUB_ENV"
-      shell: bash
-    - run: env
-      shell: bash
     - uses: Swatinem/rust-cache@v2
-    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
+    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
+    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-tvos:
