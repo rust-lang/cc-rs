@@ -575,8 +575,13 @@ mod impl_ {
         // architecture, because it contains dlls like mspdb140.dll compiled for
         // the host architecture.
         let host_dylib_path = host_path.join(host.to_lowercase());
-        let lib_path = path.join("lib").join(target);
-        let alt_lib_path = (target == "arm64ec").then(|| path.join("lib").join("arm64ec"));
+        let lib_fragment = if use_spectre_mitigated_libs() {
+            r"lib\spectre"
+        } else {
+            "lib"
+        };
+        let lib_path = path.join(lib_fragment).join(target);
+        let alt_lib_path = (target == "arm64ec").then(|| path.join(lib_fragment).join("arm64ec"));
         let include_path = path.join("include");
         Some((
             path,
@@ -623,6 +628,10 @@ mod impl_ {
         version_file.read_to_string(&mut version).ok()?;
         version.truncate(version.trim_end().len());
         Some(version)
+    }
+
+    fn use_spectre_mitigated_libs() -> bool {
+        env::var("VSCMD_ARG_VCVARS_SPECTRE").as_deref() == Ok("spectre")
     }
 
     fn atl_paths(target: TargetArch<'_>, path: &Path) -> Option<(PathBuf, PathBuf)> {
