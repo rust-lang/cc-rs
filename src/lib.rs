@@ -1601,11 +1601,12 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
         if is_assembler_msvc {
-            cmd.arg("/Fo");
+            let mut out_arg = PathBuf::from("/Fo");
+            out_arg.push(&obj.dst);
+            cmd.arg(out_arg);
         } else {
-            cmd.arg("-o");
+            cmd.arg("-o").arg(&obj.dst);
         }
-        cmd.arg(&obj.dst);
         // armasm and armasm64 don't requrie -c option
         if !is_assembler_msvc || !is_arm {
             cmd.arg("-c");
