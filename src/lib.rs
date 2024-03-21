@@ -1902,7 +1902,14 @@ impl Build {
 
         // Target flags
         match cmd.family {
-            ToolFamily::Clang { .. } => {
+            ToolFamily::Clang { zig_cc } => {
+                let target = if zig_cc {
+                    Cow::Owned(target.replace("-unknown-", "-"))
+                } else {
+                    Cow::Borrowed(target)
+                };
+                let target = target.as_ref();
+
                 if !cmd.has_internal_target_arg
                     && !(target.contains("android")
                         && android_clang_compiler_uses_target_arg_internally(&cmd.path))
@@ -1998,7 +2005,7 @@ impl Build {
                             );
                         }
                     } else if let Ok(index) = target_info::RISCV_ARCH_MAPPING
-                        .binary_search_by_key(&arch, |(arch, _)| &arch)
+                        .binary_search_by_key(&arch, |(arch, _)| arch)
                     {
                         cmd.args.push(
                             format!(
