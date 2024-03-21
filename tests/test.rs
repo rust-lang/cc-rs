@@ -642,7 +642,8 @@ fn clang_android() {
     {
         let test = Test::new();
         test.shim("arm-linux-androideabi-clang")
-            .shim("arm-linux-androideabi-ar");
+            .shim("arm-linux-androideabi-ar")
+            .shim("llvm-ar");
         test.gcc().target(target).file("foo.c").compile("foo");
         test.cmd(0).must_not_have("--target=arm-linux-androideabi");
     }
