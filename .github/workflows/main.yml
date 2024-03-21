@@ -107,9 +107,9 @@ jobs:
     - run : echo ${{ matrix.env }} >> $GITHUB_ENV
       shell: bash
     - uses: Swatinem/rust-cache@v2
-    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
+    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
+    - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-tvos:
