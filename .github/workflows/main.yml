@@ -103,8 +103,8 @@ jobs:
       if: matrix.build == 'linux32'
     - name: add clang to path
       run: $Env:PATH += ";C:\msys64\mingw64\bin"
-      if: matrix.build == 'windows-clang'
-    - run : echo ${{ matrix.env }} >> $GITHUB_ENV
+      if: startsWith(matrix.build, 'windows-clang')
+    - run : echo ${{ matrix.env }} | xargs -I{} -n1 -- bash -c "echo {} >> $GITHUB_ENV"
       shell: bash
     - uses: Swatinem/rust-cache@v2
     - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
