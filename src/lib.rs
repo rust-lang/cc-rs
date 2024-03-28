@@ -687,7 +687,7 @@ impl Build {
             compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
         }
 
-        let mut cmd = compiler.to_command();
+        let mut cmd = compiler.to_command(None);
         let is_arm = target.contains("aarch64") || target.contains("arm");
         let clang = compiler.is_like_clang();
         let gnu = compiler.family == ToolFamily::Gnu;
@@ -1648,7 +1648,7 @@ impl Build {
             let (cmd, name) = self.msvc_macro_assembler()?;
             (cmd, Cow::Borrowed(Path::new(name)))
         } else {
-            let mut cmd = compiler.to_command();
+            let mut cmd = compiler.to_command(Some(&obj.src));
             for (a, b) in self.env.iter() {
                 cmd.env(a, b);
             }
@@ -1704,7 +1704,7 @@ impl Build {
     /// This will return a result instead of panicking; see expand() for the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
-        let mut cmd = compiler.to_command();
+        let mut cmd = compiler.to_command(None);
         for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
@@ -2508,7 +2508,7 @@ impl Build {
 
             let out_dir = self.get_out_dir()?;
             let dlink = out_dir.join(lib_name.to_owned() + "_dlink.o");
-            let mut nvcc = self.get_compiler().to_command();
+            let mut nvcc = self.get_compiler().to_command(None);
             nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
             run(&mut nvcc, "nvcc", &self.cargo_output)?;
             self.assemble_progressive(dst, &[dlink.as_path()])?;

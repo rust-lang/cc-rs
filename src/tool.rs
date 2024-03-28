@@ -290,19 +290,72 @@ impl Tool {
         }
     }
 
+    /// Returns preferred compiler for source file.
+    fn preferred_compiler_for_source(&self, src: Option<&PathBuf>) -> (PathBuf, &[OsString]) {
+        let mut path = self.path.clone();
+        let mut extra_args: &[OsString] = &[];
+        if let Some(src) = src {
+            let mut is_c = false;
+            let mut is_cpp = false;
+            if let Some(ext) = src.extension().and_then(|x| x.to_str()) {
+                match ext {
+                    "c" => {
+                        is_c = true;
+                    }
+                    "cc" | "cpp" | "cxx" | "c++" => {
+                        is_cpp = true;
+                    }
+                    _ => {}
+                }
+            }
+            match self.family {
+                ToolFamily::Clang { zig_cc } if !zig_cc => {
+                    let s = path.to_string_lossy().to_string();
+                    if is_c {
+                        path = PathBuf::from(s.replace("clang++", "clang"));
+                        extra_args = &self.c_args;
+                    }
+                    if is_cpp {
+                        if s.ends_with("clang") {
+                            path = PathBuf::from(s.replace("clang", "clang++"));
+                        }
+                        extra_args = &self.cpp_args;
+                    }
+                }
+                ToolFamily::Gnu => {
+                    let s = path.to_string_lossy().to_string();
+                    if is_c {
+                        path = PathBuf::from(s.replace("g++", "gcc"));
+                        extra_args = &self.c_args;
+                    }
+                    if is_cpp {
+                        path = PathBuf::from(s.replace("gcc", "g++"));
+                        extra_args = &self.cpp_args;
+                    }
+                }
+                _ => {}
+            }
+        }
+        (path, extra_args)
+    }
+
     /// Converts this compiler into a `Command` that's ready to be run.
     ///
     /// This is useful for when the compiler needs to be executed and the
     /// command returned will already have the initial arguments and environment
     /// variables configured.
-    pub fn to_command(&self) -> Command {
+    ///
+    /// The `src` argument is used to determine the preferred compiler for the
+    /// source file. If `None`, the default compiler is used.
+    pub fn to_command(&self, src: Option<&PathBuf>) -> Command {
+        let (path, extra_args) = self.preferred_compiler_for_source(src);
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
                 let mut cmd = Command::new(cc_wrapper_path);
-                cmd.arg(&self.path);
+                cmd.arg(&path);
                 cmd
             }
-            None => Command::new(&self.path),
+            None => Command::new(&path),
         };
         cmd.args(&self.cc_wrapper_args);
 
@@ -312,6 +365,8 @@ impl Tool {
             .filter(|a| !self.removed_args.contains(a))
             .collect::<Vec<_>>();
         cmd.args(&value);
+
+        cmd.args(extra_args);
 
         for (k, v) in self.env.iter() {
             cmd.env(k, v);
