@@ -270,6 +270,8 @@ pub struct Build {
     known_flag_support_status_cache: Arc<Mutex<HashMap<CompilerFlag, bool>>>,
     ar_flags: Vec<Arc<str>>,
     asm_flags: Vec<Arc<str>>,
+    c_flags: Vec<Arc<str>>,
+    cpp_flags: Vec<Arc<str>>,
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
     cpp: bool,
@@ -393,6 +395,8 @@ impl Build {
             known_flag_support_status_cache: Arc::new(Mutex::new(HashMap::new())),
             ar_flags: Vec::new(),
             asm_flags: Vec::new(),
+            c_flags: Vec::new(),
+            cpp_flags: Vec::new(),
             no_default_flags: false,
             files: Vec::new(),
             shared_flag: None,
@@ -566,6 +570,36 @@ impl Build {
     /// ```
     pub fn asm_flag(&mut self, flag: &str) -> &mut Build {
         self.asm_flags.push(flag.into());
+        self
+    }
+
+    /// Add an arbitrary flag to the invocation of the compiler for c files
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .c_flag("-std=c99")
+    ///     .compile("foo");
+    /// ```
+    pub fn c_flag(&mut self, flag: &str) -> &mut Build {
+        self.c_flags.push(flag.into());
+        self
+    }
+
+    /// Add an arbitrary flag to the invocation of the compiler for cpp files
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.cpp")
+    ///     .cpp_flag("-std=c++17")
+    ///     .compile("foo");
+    /// ```
+    pub fn cpp_flag(&mut self, flag: &str) -> &mut Build {
+        self.cpp_flags.push(flag.into());
         self
     }
 
@@ -1826,6 +1860,14 @@ impl Build {
         if self.warnings_into_errors {
             let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
             cmd.push_cc_arg(warnings_to_errors_flag);
+        }
+
+        for flag in self.c_flags.iter() {
+            cmd.c_args.push((**flag).into());
+        }
+
+        for flag in self.cpp_flags.iter() {
+            cmd.cpp_args.push((**flag).into());
         }
 
         Ok(cmd)
