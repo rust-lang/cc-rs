@@ -216,7 +216,7 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
-// #![cfg_attr(test, deny(warnings))]
+#![cfg_attr(test, deny(warnings))]
 #![allow(deprecated)]
 #![deny(missing_docs)]
 
