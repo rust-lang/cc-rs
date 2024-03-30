@@ -12,7 +12,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        build: [stable, beta, nightly, linux32, macos, aarch64-macos, aarch64-ios, win32, win64, mingw32, mingw64, windows-2019]
+        build:
+          [
+            stable,
+            beta,
+            nightly,
+            linux32,
+            macos,
+            aarch64-macos,
+            aarch64-ios,
+            win32,
+            win64,
+            mingw32,
+            mingw64,
+            windows-2019,
+          ]
         include:
           - build: stable
             os: ubuntu-latest
@@ -76,38 +90,46 @@ jobs:
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-            env: $Env:AR="llvm-ar" ; $Env:CC="clang" ; $Env:CXX="clang++" ; $Env:RUSTFLAGS="-Clinker=lld-link" ;
+            CC: clang
+            CXX: clang++
           - build: windows-clang-cl
             os: windows-2019
             rust: stable
             target: x86_64-pc-windows-msvc
-            env: $Env:AR="llvm-ar" ; $Env:CC="clang-cl" ; $Env:CXX="clang-cl" ; $Env:RUSTFLAGS="-Clinker=lld-link" ;
+            CC: clang-cl
+            CXX: clang-cl
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust (rustup)
-      run: |
-        set -euxo pipefail
-        rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal --target ${{ matrix.target }}
-        rustup default ${{ matrix.rust }}
-      shell: bash
-    - name: Install g++-multilib
-      run: |
-        set -e
-        # Remove the ubuntu-toolchain-r/test PPA, which is added by default.
-        # Some packages were removed, and this is causing the g++multilib
-        # install to fail. Similar issue:
-        # https://github.com/scikit-learn/scikit-learn/issues/13928.
-        sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
-        sudo apt-get update
-        sudo apt-get install g++-multilib
-      if: matrix.build == 'linux32'
-    - name: add clang to path
-      run: $Env:PATH += ";C:\msys64\mingw64\bin"
-      if: startsWith(matrix.build, 'windows-clang')
-    - uses: Swatinem/rust-cache@v2
-    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-    - run: ${{ matrix.env }} cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustup)
+        run: |
+          set -euxo pipefail
+          rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal --target ${{ matrix.target }}
+          rustup default ${{ matrix.rust }}
+        shell: bash
+      - name: Install g++-multilib
+        run: |
+          set -e
+          # Remove the ubuntu-toolchain-r/test PPA, which is added by default.
+          # Some packages were removed, and this is causing the g++multilib
+          # install to fail. Similar issue:
+          # https://github.com/scikit-learn/scikit-learn/issues/13928.
+          sudo add-apt-repository --remove ppa:ubuntu-toolchain-r/test
+          sudo apt-get update
+          sudo apt-get install g++-multilib
+        if: matrix.build == 'linux32'
+      - name: add clang to path
+        if: startsWith(matrix.build, 'windows-clang')
+        run: |
+          echo "C:\msys64\mingw64\bin" >> "$GITHUB_PATH"
+          echo -e "AR=llvm-ar\nRUSTFLAGS=-Clinker=lld-link\nCC=${CC}\nCXX=${CXX}" >> "$GITHUB_ENV"
+        shell: bash
+        env:
+          CC: ${{ matrix.CC }}
+          CXX: ${{ matrix.CXX }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-tvos:
@@ -133,37 +155,37 @@ jobs:
             target: x86_64-apple-tvos
             no_run: --no-run
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust (rustup)
-      run: |
-        set -euxo pipefail
-        rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal
-        rustup component add rust-src --toolchain ${{ matrix.rust }}
-        rustup default ${{ matrix.rust }}
-      shell: bash
-    - uses: Swatinem/rust-cache@v2
-    - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-    - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-    - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustup)
+        run: |
+          set -euxo pipefail
+          rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal
+          rustup component add rust-src --toolchain ${{ matrix.rust }}
+          rustup default ${{ matrix.rust }}
+        shell: bash
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
+      - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
+      - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   cuda:
     name: Test CUDA support
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v4
-    - name: Install cuda-minimal-build-11-8
-      shell: bash
-      run: |
-        # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
-        wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
-        sudo dpkg -i cuda-keyring_1.0-1_all.deb
-        sudo apt-get update
-        sudo apt-get -y install cuda-minimal-build-11-8
-    - uses: Swatinem/rust-cache@v2
-    - name: Test 'cudart' feature
-      shell: bash
-      run: |
-        PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
+      - uses: actions/checkout@v4
+      - name: Install cuda-minimal-build-11-8
+        shell: bash
+        run: |
+          # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
+          sudo dpkg -i cuda-keyring_1.0-1_all.deb
+          sudo apt-get update
+          sudo apt-get -y install cuda-minimal-build-11-8
+      - uses: Swatinem/rust-cache@v2
+      - name: Test 'cudart' feature
+        shell: bash
+        run: |
+          PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
 
   msrv:
     name: MSRV
@@ -173,42 +195,42 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      run: |
-        rustup toolchain install 1.53.0 --no-self-update --profile minimal
-        rustup toolchain install nightly --no-self-update --profile minimal
-        rustup default 1.53.0
-      shell: bash
-    - name: Create Cargo.lock with minimal version
-      run: cargo +nightly update -Zminimal-versions
-    - name: Cache downloaded crates since 1.53 is really slow in fetching
-      uses: Swatinem/rust-cache@v2
-    - run: cargo check --lib -p cc --locked
-    - run: cargo check --lib -p cc --locked --all-features
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.53.0 --no-self-update --profile minimal
+          rustup toolchain install nightly --no-self-update --profile minimal
+          rustup default 1.53.0
+        shell: bash
+      - name: Create Cargo.lock with minimal version
+        run: cargo +nightly update -Zminimal-versions
+      - name: Cache downloaded crates since 1.53 is really slow in fetching
+        uses: Swatinem/rust-cache@v2
+      - run: cargo check --lib -p cc --locked
+      - run: cargo check --lib -p cc --locked --all-features
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      run: |
-        rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
-        rustup default stable
-      shell: bash
-    - uses: Swatinem/rust-cache@v2
-    - run: cargo clippy
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
+          rustup default stable
+        shell: bash
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy
 
   rustfmt:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Install Rust
-      run: |
-        rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
-        rustup default stable
-      shell: bash
-    - uses: Swatinem/rust-cache@v2
-    - run: cargo fmt -- --check
+      - uses: actions/checkout@v4
+      - name: Install Rust
+        run: |
+          rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
+          rustup default stable
+        shell: bash
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt -- --check
