@@ -385,17 +385,20 @@ for help)"
     }
 }
 
-pub(crate) fn command_add_output_file(
-    cmd: &mut Command,
-    dst: &Path,
-    cuda: bool,
-    msvc: bool,
-    clang: bool,
-    gnu: bool,
-    is_asm: bool,
-    is_arm: bool,
-) {
-    if msvc && !clang && !gnu && !cuda && !(is_asm && is_arm) {
+pub(crate) struct CmdAddOutputFileArgs {
+    pub(crate) cuda: bool,
+    pub(crate) is_assembler_msvc: bool,
+    pub(crate) msvc: bool,
+    pub(crate) clang: bool,
+    pub(crate) gnu: bool,
+    pub(crate) is_asm: bool,
+    pub(crate) is_arm: bool,
+}
+
+pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAddOutputFileArgs) {
+    if args.is_assembler_msvc
+        || (args.msvc && !args.clang && !args.gnu && !args.cuda && !(args.is_asm && args.is_arm))
+    {
         let mut s = OsString::from("-Fo");
         s.push(dst);
         cmd.arg(s);

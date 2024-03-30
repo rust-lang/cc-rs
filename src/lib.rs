@@ -637,12 +637,15 @@ impl Build {
         command_add_output_file(
             &mut cmd,
             &obj,
-            self.cuda,
-            target.contains("msvc"),
-            clang,
-            gnu,
-            false,
-            is_arm,
+            CmdAddOutputFileArgs {
+                cuda: self.cuda,
+                is_assembler_msvc: false,
+                msvc: compiler.is_like_msvc(),
+                clang,
+                gnu,
+                is_asm: false,
+                is_arm,
+            },
         );
 
         // Checking for compiler flags does not require linking
@@ -1605,12 +1608,15 @@ impl Build {
         command_add_output_file(
             &mut cmd,
             &obj.dst,
-            self.cuda,
-            is_assembler_msvc || compiler.is_like_msvc(),
-            clang,
-            gnu,
-            is_asm,
-            is_arm,
+            CmdAddOutputFileArgs {
+                cuda: self.cuda,
+                is_assembler_msvc,
+                msvc: compiler.is_like_msvc(),
+                clang,
+                gnu,
+                is_asm,
+                is_arm,
+            },
         );
         // armasm and armasm64 don't requrie -c option
         if !is_assembler_msvc || !is_arm {
