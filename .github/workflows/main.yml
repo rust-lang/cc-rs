@@ -126,9 +126,6 @@ jobs:
         env:
           CC: ${{ matrix.CC }}
           CXX: ${{ matrix.CXX }}
-      - name: setup dev environment
-        uses: ilammy/msvc-dev-cmd@v1
-        if: startsWith(matrix.build, 'windows-clang')
       - uses: Swatinem/rust-cache@v2
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release

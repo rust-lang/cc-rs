@@ -2412,7 +2412,7 @@ impl Build {
 
         let target = self.get_target()?;
         let (mut ar, cmd, _any_flags) = self.get_ar()?;
-        if target.contains("msvc") && !cmd.to_string_lossy().contains("llvm-") {
+        if target.contains("msvc") {
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
