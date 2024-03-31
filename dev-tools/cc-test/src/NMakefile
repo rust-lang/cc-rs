@@ -2,7 +2,7 @@ all: $(OUT_DIR)/msvc.lib $(OUT_DIR)/msvc.exe
 
 !IF "$(CC_FRONTEND)" == "MSVC"
 EXTRA_CFLAGS=-nologo
-CFLAG_OUTPUT=-Fo:
+CFLAG_OUTPUT=-Fo
 !ELSE
 CFLAG_OUTPUT=-o
 !ENDIF
