@@ -92,7 +92,7 @@ fn main() {
         } else if compiler.is_like_clang() {
             "CLANG"
         } else {
-            unimplemented!("Unknown compiler that targets msvc but isn't clang-link or msvc-like")
+            unimplemented!("Unknown compiler that targets msvc but isn't clang-like or msvc-like")
         };
 
         let out = out.join("tmp");

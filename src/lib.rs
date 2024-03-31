@@ -2411,7 +2411,6 @@ impl Build {
         }
 
         let target = self.get_target()?;
-        let (mut ar, cmd, _any_flags) = self.get_ar()?;
         if target.contains("msvc") {
             // The Rust compiler will look for libfoo.a and foo.lib, but the
             // MSVC linker will also be passed foo.lib, so be sure that both
@@ -2435,6 +2434,7 @@ impl Build {
             // Non-msvc targets (those using `ar`) need a separate step to add
             // the symbol table to archives since our construction command of
             // `cq` doesn't add it for us.
+            let (mut ar, cmd, _any_flags) = self.get_ar()?;
 
             // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
             // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
