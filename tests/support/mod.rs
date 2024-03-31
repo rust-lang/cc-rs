@@ -34,6 +34,11 @@ impl Test {
         // lesser of the two evils.
         env::remove_var("RUSTC_WRAPPER");
 
+        // cc-rs prefers these env vars to the wrappers. We set these in some tests, so unset them so the wrappers get used
+        env::remove_var("CC");
+        env::remove_var("CXX");
+        env::remove_var("AR");
+
         let mut gcc = env::current_exe().unwrap();
         gcc.pop();
         if gcc.ends_with("deps") {
