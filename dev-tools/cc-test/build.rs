@@ -112,7 +112,7 @@ fn main() {
         fs::create_dir(&out).unwrap();
 
         // windows registry won't find clang in path
-        if compiler.is_like_msvc() {
+        if !compiler.path().to_string_lossy().starts_with("clang-") {
             env::remove_var("PATH");
         }
         env::remove_var("VCINSTALLDIR");
