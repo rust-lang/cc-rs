@@ -1,14 +1,20 @@
 all: $(OUT_DIR)/msvc.lib $(OUT_DIR)/msvc.exe
 
+!IF "$(CC_FRONTEND)" == "MSVC"
+EXTRA_CFLAGS=-nologo
+CFLAG_OUTPUT=-Fo
+!ELSE
+CFLAG_OUTPUT=-o
+!ENDIF
+
 $(OUT_DIR)/msvc.lib: $(OUT_DIR)/msvc.o
 	lib -nologo -out:$(OUT_DIR)/msvc.lib $(OUT_DIR)/msvc.o
-	rc -h
 
 $(OUT_DIR)/msvc.o: src/msvc.c
-	$(CC) -nologo -c -Fo:$@ src/msvc.c -MD
+	$(CC) $(EXTRA_CFLAGS) -c $(CFLAG_OUTPUT)$@ src/msvc.c -MD
 
 $(OUT_DIR)/msvc.exe: $(OUT_DIR)/msvc2.o
-	$(CC) -nologo -Fo:$@ $(OUT_DIR)/msvc2.o
+	$(CC) $(EXTRA_CFLAGS) $(CFLAG_OUTPUT)$@ $(OUT_DIR)/msvc2.o
 
 $(OUT_DIR)/msvc2.o: src/msvc.c
-	$(CC) -nologo -c -Fo:$@ src/msvc.c -DMAIN -MD
+	$(CC) $(EXTRA_CFLAGS) -c $(CFLAG_OUTPUT)$@ src/msvc.c -DMAIN -MD

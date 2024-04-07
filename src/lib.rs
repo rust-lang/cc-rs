@@ -656,12 +656,15 @@ impl Build {
         command_add_output_file(
             &mut cmd,
             &obj,
-            self.cuda,
-            target.contains("msvc"),
-            clang,
-            gnu,
-            false,
-            is_arm,
+            CmdAddOutputFileArgs {
+                cuda: self.cuda,
+                is_assembler_msvc: false,
+                msvc: compiler.is_like_msvc(),
+                clang,
+                gnu,
+                is_asm: false,
+                is_arm,
+            },
         );
 
         // Checking for compiler flags does not require linking
@@ -1626,7 +1629,17 @@ impl Build {
         };
         let is_arm = target.contains("aarch64") || target.contains("arm");
         command_add_output_file(
-            &mut cmd, &obj.dst, self.cuda, msvc, clang, gnu, is_asm, is_arm,
+            &mut cmd,
+            &obj.dst,
+            CmdAddOutputFileArgs {
+                cuda: self.cuda,
+                is_assembler_msvc,
+                msvc: compiler.is_like_msvc(),
+                clang,
+                gnu,
+                is_asm,
+                is_arm,
+            },
         );
         // armasm and armasm64 don't requrie -c option
         if !is_assembler_msvc || !is_arm {
@@ -2458,8 +2471,8 @@ impl Build {
     fn assemble_progressive(&self, dst: &Path, objs: &[&Path]) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        if target.contains("msvc") {
-            let (mut cmd, program, any_flags) = self.get_ar()?;
+        let (mut cmd, program, any_flags) = self.get_ar()?;
+        if target.contains("msvc") && !program.to_string_lossy().contains("llvm-") {
             // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
             // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
             // the caller has explicitly dictated the flags they want. See
@@ -2478,8 +2491,6 @@ impl Build {
             cmd.args(objs);
             run(&mut cmd, &program, &self.cargo_output)?;
         } else {
-            let (mut ar, cmd, _any_flags) = self.get_ar()?;
-
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
             // determinism of builds. AFAIK there's not really official
@@ -2502,12 +2513,16 @@ impl Build {
             //
             // In any case if this doesn't end up getting read, it shouldn't
             // cause that many issues!
-            ar.env("ZERO_AR_DATE", "1");
+            cmd.env("ZERO_AR_DATE", "1");
 
             // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
             // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
             // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
-            run(ar.arg("cq").arg(dst).args(objs), &cmd, &self.cargo_output)?;
+            run(
+                cmd.arg("cq").arg(dst).args(objs),
+                &program,
+                &self.cargo_output,
+            )?;
         }
 
         Ok(())
@@ -3147,12 +3162,17 @@ impl Build {
         Ok(self.get_base_archiver_variant("RANLIB", "ranlib")?.0)
     }
 
-    fn get_base_archiver_variant(&self, env: &str, tool: &str) -> Result<(Command, String), Error> {
+    fn get_base_archiver_variant(
+        &self,
+        env: &str,
+        tool: &str,
+    ) -> Result<(Command, PathBuf), Error> {
         let target = self.get_target()?;
-        let mut name = String::new();
+        let mut name = PathBuf::new();
         let tool_opt: Option<Command> = self
             .env_tool(env)
             .map(|(tool, _wrapper, args)| {
+                name = tool.clone();
                 let mut cmd = self.cmd(tool);
                 cmd.args(args);
                 cmd
@@ -3162,11 +3182,11 @@ impl Build {
                     // Windows use bat files so we have to be a bit more specific
                     if cfg!(windows) {
                         let mut cmd = self.cmd("cmd");
-                        name = format!("em{}.bat", tool);
+                        name = format!("em{}.bat", tool).into();
                         cmd.arg("/c").arg(&name);
                         Some(cmd)
                     } else {
-                        name = format!("em{}", tool);
+                        name = format!("em{}", tool).into();
                         Some(self.cmd(&name))
                     }
                 } else if target.starts_with("wasm32") {
@@ -3177,7 +3197,7 @@ impl Build {
                     // of "llvm-ar"...
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.is_like_clang() {
-                        name = format!("llvm-{}", tool);
+                        name = format!("llvm-{}", tool).into();
                         search_programs(&mut self.cmd(&compiler.path), &name, &self.cargo_output)
                             .map(|name| self.cmd(name))
                     } else {
@@ -3193,10 +3213,10 @@ impl Build {
             Some(t) => t,
             None => {
                 if target.contains("android") {
-                    name = format!("llvm-{}", tool);
+                    name = format!("llvm-{}", tool).into();
                     match Command::new(&name).arg("--version").status() {
                         Ok(status) if status.success() => (),
-                        _ => name = format!("{}-{}", target.replace("armv7", "arm"), tool),
+                        _ => name = format!("{}-{}", target.replace("armv7", "arm"), tool).into(),
                     }
                     self.cmd(&name)
                 } else if target.contains("msvc") {
@@ -3223,7 +3243,7 @@ impl Build {
                     }
 
                     if lib.is_empty() {
-                        name = String::from("lib.exe");
+                        name = PathBuf::from("lib.exe");
                         let mut cmd = match windows_registry::find(&target, "lib.exe") {
                             Some(t) => t,
                             None => self.cmd("lib.exe"),
@@ -3233,7 +3253,7 @@ impl Build {
                         }
                         cmd
                     } else {
-                        name = lib;
+                        name = lib.into();
                         self.cmd(&name)
                     }
                 } else if target.contains("illumos") {
@@ -3241,7 +3261,7 @@ impl Build {
                     // but the OS comes bundled with a GNU-compatible variant.
                     //
                     // Use the GNU-variant to match other Unix systems.
-                    name = format!("g{}", tool);
+                    name = format!("g{}", tool).into();
                     self.cmd(&name)
                 } else if self.get_host()? != target {
                     match self.prefix_for_target(&target) {
@@ -3261,16 +3281,16 @@ impl Build {
                                     break;
                                 }
                             }
-                            name = chosen;
+                            name = chosen.into();
                             self.cmd(&name)
                         }
                         None => {
-                            name = default;
+                            name = default.into();
                             self.cmd(&name)
                         }
                     }
                 } else {
-                    name = default;
+                    name = default.into();
                     self.cmd(&name)
                 }
             }
@@ -3962,7 +3982,7 @@ fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
 }
 
 // search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
-fn search_programs(cc: &mut Command, prog: &str, cargo_output: &CargoOutput) -> Option<PathBuf> {
+fn search_programs(cc: &mut Command, prog: &Path, cargo_output: &CargoOutput) -> Option<PathBuf> {
     let search_dirs = run_output(
         cc.arg("-print-search-dirs"),
         "cc",
@@ -3975,7 +3995,7 @@ fn search_programs(cc: &mut Command, prog: &str, cargo_output: &CargoOutput) -> 
     let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
     for dirs in search_dirs.split(|c| c == '\r' || c == '\n') {
         if let Some(path) = dirs.strip_prefix("programs: =") {
-            return which(Path::new(prog), Some(OsString::from(path)));
+            return which(prog, Some(OsString::from(path)));
         }
     }
     None

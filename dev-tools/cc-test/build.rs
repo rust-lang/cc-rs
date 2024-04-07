@@ -30,13 +30,16 @@ fn main() {
         run_forked_capture_output(&out, "warnings-on");
     }
 
-    cc::Build::new()
+    let mut build = cc::Build::new();
+    build
         .file("src/foo.c")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wfoo-bar-this-flag-does-not-exist")
         .define("FOO", None)
         .define("BAR", "1")
         .compile("foo");
+
+    let compiler = build.get_compiler();
 
     cc::Build::new()
         .file("src/bar1.c")
@@ -84,6 +87,14 @@ fn main() {
     // nmake which runs vanilla cl, and then also test it after we remove all
     // the relevant env vars from our own process.
     if target.contains("msvc") {
+        let cc_frontend = if compiler.is_like_msvc() {
+            "MSVC"
+        } else if compiler.is_like_clang() {
+            "CLANG"
+        } else {
+            unimplemented!("Unknown compiler that targets msvc but isn't clang-like or msvc-like")
+        };
+
         let out = out.join("tmp");
         fs::create_dir(&out).unwrap();
         println!("nmake 1");
@@ -92,6 +103,7 @@ fn main() {
             .env_remove("MAKEFLAGS")
             .arg("/fsrc/NMakefile")
             .env("OUT_DIR", &out)
+            .env("CC_FRONTEND", cc_frontend)
             .status()
             .unwrap();
         assert!(status.success());
@@ -99,7 +111,10 @@ fn main() {
         fs::remove_dir_all(&out).unwrap();
         fs::create_dir(&out).unwrap();
 
-        env::remove_var("PATH");
+        // windows registry won't find clang in path
+        if !compiler.path().to_string_lossy().starts_with("clang") {
+            env::remove_var("PATH");
+        }
         env::remove_var("VCINSTALLDIR");
         env::remove_var("INCLUDE");
         env::remove_var("LIB");
@@ -109,6 +124,7 @@ fn main() {
             .env_remove("MAKEFLAGS")
             .arg("/fsrc/NMakefile")
             .env("OUT_DIR", &out)
+            .env("CC_FRONTEND", cc_frontend)
             .status()
             .unwrap();
         assert!(status.success());
