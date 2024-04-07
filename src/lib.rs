@@ -2963,16 +2963,17 @@ impl Build {
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
     fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<String>, Vec<String>)> {
         let tool = match self.getenv_with_target_prefixes(name) {
-            Ok(tool) => tool,
-            Err(_) => return None,
+            Ok(tool) if !tool.trim().is_empty() => tool,
+            _ => return None,
         };
+        let tool = tool.trim();
 
         // If this is an exact path on the filesystem we don't want to do any
         // interpretation at all, just pass it on through. This'll hopefully get
         // us to support spaces-in-paths.
-        if Path::new(&*tool).exists() {
+        if Path::new(tool).exists() {
             return Some((
-                PathBuf::from(&*tool),
+                PathBuf::from(tool),
                 Self::rustc_wrapper_fallback(),
                 Vec::new(),
             ));
