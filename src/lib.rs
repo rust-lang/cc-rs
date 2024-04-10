@@ -1892,6 +1892,7 @@ impl Build {
                 if !target.contains("apple-ios")
                     && !target.contains("apple-watchos")
                     && !target.contains("apple-tvos")
+                    && !target.contains("apple-visionos")
                 {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
@@ -2031,6 +2032,42 @@ impl Build {
                             );
                             cmd.args.push(
                                 format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
+                            );
+                        }
+                    } else if target.contains("visionos-sim") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details = apple_os_sdk_parts(
+                                AppleOs::VisionOS,
+                                &AppleArchSpec::Simulator(""),
+                            );
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::VisionOS,
+                                None,
+                                &sdk_details.sdk,
+                            );
+                            cmd.args.push(
+                                format!(
+                                    "--target={}-apple-xros{}-simulator",
+                                    arch, deployment_target
+                                )
+                                .into(),
+                            );
+                        }
+                    } else if target.contains("visionos") {
+                        if let Some(arch) =
+                            map_darwin_target_from_rust_to_compiler_architecture(target)
+                        {
+                            let sdk_details =
+                                apple_os_sdk_parts(AppleOs::VisionOS, &AppleArchSpec::Device(""));
+                            let deployment_target = self.apple_deployment_version(
+                                AppleOs::VisionOS,
+                                None,
+                                &sdk_details.sdk,
+                            );
+                            cmd.args.push(
+                                format!("--target={}-apple-xros{}", arch, deployment_target).into(),
                             );
                         }
                     } else if let Ok(index) = target_info::RISCV_ARCH_MAPPING
@@ -2536,6 +2573,8 @@ impl Build {
             AppleOs::WatchOs
         } else if target.contains("-tvos") {
             AppleOs::TvOs
+        } else if target.contains("-visionos") {
+            AppleOs::VisionOS
         } else {
             AppleOs::Ios
         };
@@ -2805,6 +2844,7 @@ impl Build {
                 } else if target.contains("apple-ios")
                     | target.contains("apple-watchos")
                     | target.contains("apple-tvos")
+                    | target.contains("apple-visionos")
                 {
                     clang.to_string()
                 } else if target.contains("android") {
@@ -3720,7 +3760,7 @@ impl Build {
                         return None;
                     }
                 }
-                // watchOS, tvOS, and others are all new enough that libc++ is their baseline.
+                // watchOS, tvOS, visionOS, and others are all new enough that libc++ is their baseline.
                 _ => {}
             }
 
@@ -3764,6 +3804,10 @@ impl Build {
             AppleOs::TvOs => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "9.0".into()),
+
+            AppleOs::VisionOS => deployment_from_env("VISIONOS_DEPLOYMENT_TARGET")
+                .or_else(default_deployment_from_sdk)
+                .unwrap_or_else(|| "1.0".into()),
         }
     }
 
@@ -3792,6 +3836,7 @@ enum AppleOs {
     Ios,
     WatchOs,
     TvOs,
+    VisionOS,
 }
 
 impl std::fmt::Debug for AppleOs {
@@ -3801,6 +3846,7 @@ impl std::fmt::Debug for AppleOs {
             AppleOs::Ios => f.write_str("iOS"),
             AppleOs::WatchOs => f.write_str("WatchOS"),
             AppleOs::TvOs => f.write_str("AppleTVOS"),
+            AppleOs::VisionOS => f.write_str("visionOS"),
         }
     }
 }
@@ -3817,6 +3863,7 @@ fn apple_os_sdk_parts(os: AppleOs, arch: &AppleArchSpec) -> AppleSdkTargetParts 
         AppleOs::Ios => ("iphone", "ios-"),
         AppleOs::WatchOs => ("watch", "watch"),
         AppleOs::TvOs => ("appletv", "appletv"),
+        AppleOs::VisionOS => ("xr", "xr"),
     };
     let sdk = match arch {
         AppleArchSpec::Device(_) if os == AppleOs::MacOs => Cow::Borrowed("macosx"),
