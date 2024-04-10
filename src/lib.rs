@@ -3805,7 +3805,7 @@ impl Build {
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "9.0".into()),
 
-            AppleOs::VisionOS => deployment_from_env("VISIONOS_DEPLOYMENT_TARGET")
+            AppleOs::VisionOS => deployment_from_env("XROS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "1.0".into()),
         }
