@@ -603,6 +603,15 @@ fn clang_apple_tvsimulator() {
 #[cfg(target_os = "macos")]
 #[test]
 fn clang_apple_visionos() {
+    // Only run this test if visionOS is available on the host machine
+    let output = std::process::Command::new("xcrun")
+        .args(["--show-sdk-version", "--sdk", "xros"])
+        .output()
+        .unwrap();
+    if !output.status.success() {
+        return;
+    }
+
     let test = Test::clang();
     test.gcc()
         .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
