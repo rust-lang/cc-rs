@@ -2664,9 +2664,14 @@ impl Build {
             AppleArchSpec::Device(arch) => {
                 cmd.args.push("-arch".into());
                 cmd.args.push(arch.into());
-                cmd.args.push(
-                    format!("-m{}os-version-min={}", sdk_details.sdk_prefix, min_version).into(),
-                );
+                // `-mxros-version-min` does not exist
+                // https://github.com/llvm/llvm-project/issues/88271
+                if os != AppleOs::VisionOS {
+                    cmd.args.push(
+                        format!("-m{}os-version-min={}", sdk_details.sdk_prefix, min_version)
+                            .into(),
+                    );
+                }
             }
             AppleArchSpec::Simulator(arch) => {
                 if arch.starts_with('-') {
@@ -2676,13 +2681,15 @@ impl Build {
                     cmd.args.push("-arch".into());
                     cmd.args.push(arch.into());
                 }
-                cmd.args.push(
-                    format!(
-                        "-m{}simulator-version-min={}",
-                        sdk_details.sim_prefix, min_version
-                    )
-                    .into(),
-                );
+                if os != AppleOs::VisionOS {
+                    cmd.args.push(
+                        format!(
+                            "-m{}simulator-version-min={}",
+                            sdk_details.sim_prefix, min_version
+                        )
+                        .into(),
+                    );
+                }
             }
             AppleArchSpec::Catalyst(_) => {}
         };
