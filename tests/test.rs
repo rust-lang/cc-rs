@@ -600,6 +600,32 @@ fn clang_apple_tvsimulator() {
     }
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn clang_apple_visionos() {
+    // Only run this test if visionOS is available on the host machine
+    let output = std::process::Command::new("xcrun")
+        .args(["--show-sdk-version", "--sdk", "xros"])
+        .output()
+        .unwrap();
+    if !output.status.success() {
+        return;
+    }
+
+    let test = Test::clang();
+    test.gcc()
+        .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
+        .target("aarch64-apple-visionos")
+        .file("foo.c")
+        .compile("foo");
+
+    dbg!(test.cmd(0).args);
+
+    test.cmd(0).must_have("--target=arm64-apple-xros1.0");
+    test.cmd(0).must_not_have("-mxros-version-min=1.0");
+    test.cmd(0).must_not_have("-mxrsimulator-version-min=1.0");
+}
+
 #[test]
 fn compile_intermediates() {
     let test = Test::gnu();
