@@ -28,6 +28,7 @@ jobs:
             windows-2019,
             windows-clang,
             windows-clang-cl,
+            windows-aarch64,
           ]
         cargo_flag: ["", "--release", "--features parallel", "--release --features parallel"]
         include:
