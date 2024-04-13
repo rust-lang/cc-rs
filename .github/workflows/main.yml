@@ -26,6 +26,8 @@ jobs:
             mingw32,
             mingw64,
             windows-2019,
+            windows-clang,
+            windows-clang-cl,
           ]
         cargo_flag: ["", "--release", "--features parallel", "--release --features parallel"]
         include:
