@@ -3704,7 +3704,7 @@ impl Build {
 
             let version = run_output(
                 self.cmd("xcrun")
-                    .arg("--show-sdk-platform-version")
+                    .arg("--show-sdk-version")
                     .arg("--sdk")
                     .arg(sdk),
                 "xcrun",
