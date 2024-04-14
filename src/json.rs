@@ -1,10 +1,8 @@
 // Vendored from `smoljson` bef592c5da1c3fe38b2462a8d231b0e0c8a86f80, with explicit permission
 // from the author (`thomcc`). Minimized for cc/simplicity. Modifications and additions made to fit cc's needs.
-#![allow(dead_code)]
 
 use std::borrow::Cow;
-/// First lifetime is for strings borrowed from the source.
-/// Second lifetime is for strings borrowed from the parser.
+
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) enum Token<'s> {
     Null,
@@ -55,24 +53,9 @@ impl<'a> Reader<'a> {
         }
     }
 
-    #[inline]
-    pub fn position(&self) -> usize {
-        self.pos.min(self.bytes.len())
-    }
-
     #[cold]
     pub(super) fn err(&self) -> Error {
         Error(())
-    }
-
-    /// Returns `Err` if there are any more non-whitespace/non-comment (if this
-    /// reader's dialect allows comments) characters in the input.
-    pub fn finish(mut self) -> Result<()> {
-        match self.next_token() {
-            Ok(Some(_)) => Err(self.err()),
-            Ok(None) => Ok(()),
-            Err(e) => Err(e),
-        }
     }
 
     fn bnext_if(&mut self, b: u8) -> bool {
@@ -109,28 +92,9 @@ impl<'a> Reader<'a> {
         }
     }
 
-    fn bpeek_or_nul(&mut self) -> u8 {
-        self.bpeek().unwrap_or(b'\0')
-    }
-
     fn bump(&mut self) {
         self.pos += 1;
         debug_assert!(self.pos <= self.input.len());
-    }
-
-    fn finished(&self) -> bool {
-        self.pos >= self.bytes.len()
-    }
-
-    pub(super) fn ref_stash(&self) -> Option<&Token<'a>> {
-        self.stash.as_ref()
-    }
-
-    pub(super) fn mut_stash(&mut self) -> &mut Option<Token<'a>> {
-        &mut self.stash
-    }
-    pub(super) fn take_stash(&mut self) -> Option<Token<'a>> {
-        self.stash.take()
     }
 
     pub(super) fn skipnpeek(&mut self) -> Result<Option<u8>> {
@@ -184,10 +148,6 @@ impl<'a> Reader<'a> {
         self.pos = p;
     }
 
-    fn cur_ch(&self) -> Option<char> {
-        self.input[self.pos..].chars().next()
-    }
-
     fn single_hex_escape(&mut self) -> Result<u16> {
         let mut acc = 0;
         for _ in 0..4 {
@@ -204,8 +164,6 @@ impl<'a> Reader<'a> {
     }
 
     fn read_hex_escape(&mut self) -> Result<()> {
-        // todo: option where we reutrn an error (instead using replacement
-        // char) if unescaping produces unpaired surrogates.
         use core::char::REPLACEMENT_CHARACTER as REPLACEMENT;
         const LEAD: core::ops::Range<u16> = 0xd800..0xdc00;
         const TRAIL: core::ops::Range<u16> = 0xdc00..0xe000;
@@ -281,10 +239,6 @@ impl<'a> Reader<'a> {
         Ok(t)
     }
 
-    pub(crate) fn unpeek(&mut self, t: Token<'a>) {
-        assert!(self.stash.is_none());
-        self.stash = Some(t);
-    }
     pub(crate) fn next_token(&mut self) -> Result<Option<Token<'a>>> {
         if let Some(t) = self.stash.take() {
             return Ok(Some(t));
@@ -377,57 +331,12 @@ impl<'a> Reader<'a> {
     }
 }
 
-macro_rules! tok_tester {
-    ($($func:ident matches $tok:ident);*) => {$(
-        pub(crate) fn $func(&mut self) -> Result<()> {
-            match self.next_token() {
-                Ok(Some(Token::$tok)) => Ok(()),
-                Err(e) => Err(e),
-                _ => Err(self.err()),
-            }
-        }
-    )*};
-}
 impl<'a> Reader<'a> {
     pub(crate) fn next(&mut self) -> Result<Token<'a>> {
         match self.next_token() {
             Ok(Some(v)) => Ok(v),
             Err(e) => Err(e),
             _ => Err(self.err()),
-        }
-    }
-    tok_tester! {
-        array_begin matches ArrayBegin;
-        // array_end matches ArrayEnd;
-        obj_begin matches ObjectBegin;
-        // obj_end matches ObjectEnd;
-        comma matches Comma;
-        colon matches Colon;
-        null matches Null
-    }
-    pub(crate) fn comma_or_obj_end(&mut self) -> Result<bool> {
-        match self.next_token() {
-            Ok(Some(Token::Comma)) => Ok(true),
-            Ok(Some(Token::ObjectEnd)) => Ok(false),
-            Err(e) => Err(e),
-            _ => Err(self.err()),
-        }
-    }
-    pub(crate) fn comma_or_array_end(&mut self) -> Result<bool> {
-        match self.next_token() {
-            Ok(Some(Token::Comma)) => Ok(true),
-            Ok(Some(Token::ArrayEnd)) => Ok(false),
-            Err(e) => Err(e),
-            _ => Err(self.err()),
-        }
-    }
-    pub(crate) fn key(&mut self) -> Result<Cow<'a, str>> {
-        match self.next_token() {
-            Ok(Some(Token::StrBorrow(b))) => Ok(Cow::Borrowed(b)),
-            Ok(Some(Token::StrOwn(b))) => Ok(Cow::Owned(b.into())),
-            Err(e) => Err(e),
-            Ok(Some(_t)) => Err(self.err()),
-            _o => Err(self.err()),
         }
     }
 }
