@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use crate::{parallel::once_lock::OnceLock, Error};
+use crate::Error;
+
+use once_cell::sync::OnceCell;
 
 pub(crate) struct JobToken(PhantomData<()>);
 
@@ -34,7 +36,7 @@ impl JobTokenServer {
     ///    that has to be static so that it will be shared by all cc
     ///    compilation.
     fn new() -> &'static Self {
-        static JOBSERVER: OnceLock<JobTokenServer> = OnceLock::new();
+        static JOBSERVER: OnceCell<JobTokenServer> = OnceCell::new();
 
         JOBSERVER.get_or_init(|| {
             unsafe { inherited_jobserver::JobServer::from_env() }
@@ -70,7 +72,7 @@ impl ActiveJobTokenServer {
 }
 
 mod inherited_jobserver {
-    use super::{JobToken, OnceLock};
+    use super::{JobToken, OnceCell};
 
     use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
 
@@ -136,7 +138,7 @@ mod inherited_jobserver {
         pub(super) fn enter_active(&self) -> Result<ActiveJobServer<'_>, Error> {
             Ok(ActiveJobServer {
                 jobserver: self,
-                helper_thread: OnceLock::new(),
+                helper_thread: OnceCell::new(),
             })
         }
     }
@@ -162,7 +164,7 @@ mod inherited_jobserver {
 
     pub(crate) struct ActiveJobServer<'a> {
         jobserver: &'a JobServer,
-        helper_thread: OnceLock<HelperThread>,
+        helper_thread: OnceCell<HelperThread>,
     }
 
     impl<'a> ActiveJobServer<'a> {
