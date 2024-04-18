@@ -52,14 +52,12 @@ pub(crate) enum ActiveJobTokenServer {
 }
 
 impl ActiveJobTokenServer {
-    pub(crate) fn new() -> Result<Self, Error> {
+    pub(crate) fn new() -> Self {
         match JobTokenServer::new() {
             JobTokenServer::Inherited(inherited_jobserver) => {
-                inherited_jobserver.enter_active().map(Self::Inherited)
+                Self::Inherited(inherited_jobserver.enter_active())
             }
-            JobTokenServer::InProcess(inprocess_jobserver) => {
-                Ok(Self::InProcess(inprocess_jobserver))
-            }
+            JobTokenServer::InProcess(inprocess_jobserver) => Self::InProcess(inprocess_jobserver),
         }
     }
 
@@ -135,11 +133,11 @@ mod inherited_jobserver {
             }
         }
 
-        pub(super) fn enter_active(&self) -> Result<ActiveJobServer<'_>, Error> {
-            Ok(ActiveJobServer {
+        pub(super) fn enter_active(&self) -> ActiveJobServer<'_> {
+            ActiveJobServer {
                 jobserver: self,
                 helper_thread: OnceCell::new(),
-            })
+            }
         }
     }
 
