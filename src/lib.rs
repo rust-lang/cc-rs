@@ -1496,8 +1496,7 @@ impl Build {
 
                 cell_update(&pendings, |mut pendings| {
                     // Try waiting on them.
-                    parallel::retain_unordered_mut(
-                        &mut pendings,
+                    pending.retain_mut(
                         |(cmd, program, child, _token)| {
                             match try_wait_on_child(
                                 cmd,
