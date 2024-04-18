@@ -34,6 +34,7 @@ impl JobTokenServer {
     ///    that has to be static so that it will be shared by all cc
     ///    compilation.
     fn new() -> &'static Self {
+        // TODO: Replace with a OnceLock once MSRV is 1.70
         static INIT: Once = Once::new();
         static mut JOBSERVER: MaybeUninit<JobTokenServer> = MaybeUninit::uninit();
 
@@ -42,10 +43,9 @@ impl JobTokenServer {
                 let server = inherited_jobserver::JobServer::from_env()
                     .map(Self::Inherited)
                     .unwrap_or_else(|| Self::InProcess(inprocess_jobserver::JobServer::new()));
-                JOBSERVER = MaybeUninit::new(server);
+                JOBSERVER.write(server);
             });
-            // TODO: Poor man's assume_init_ref, as that'd require a MSRV of 1.55.
-            &*JOBSERVER.as_ptr()
+            JOBSERVER.assume_init_ref()
         }
     }
 }
