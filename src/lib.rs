@@ -1496,38 +1496,35 @@ impl Build {
 
                 cell_update(&pendings, |mut pendings| {
                     // Try waiting on them.
-                    parallel::retain_unordered_mut(
-                        &mut pendings,
-                        |(cmd, program, child, _token)| {
-                            match try_wait_on_child(
-                                cmd,
-                                program,
-                                &mut child.0,
-                                &mut stdout,
-                                &mut child.1,
-                            ) {
-                                Ok(Some(())) => {
-                                    // Task done, remove the entry
-                                    has_made_progress.set(true);
-                                    false
-                                }
-                                Ok(None) => true, // Task still not finished, keep the entry
-                                Err(err) => {
-                                    // Task fail, remove the entry.
-                                    // Since we can only return one error, log the error to make
-                                    // sure users always see all the compilation failures.
-                                    has_made_progress.set(true);
-
-                                    if self.cargo_output.warnings {
-                                        let _ = writeln!(stdout, "cargo:warning={}", err);
-                                    }
-                                    error = Some(err);
-
-                                    false
-                                }
+                    pendings.retain_mut(|(cmd, program, child, _token)| {
+                        match try_wait_on_child(
+                            cmd,
+                            program,
+                            &mut child.0,
+                            &mut stdout,
+                            &mut child.1,
+                        ) {
+                            Ok(Some(())) => {
+                                // Task done, remove the entry
+                                has_made_progress.set(true);
+                                false
                             }
-                        },
-                    );
+                            Ok(None) => true, // Task still not finished, keep the entry
+                            Err(err) => {
+                                // Task fail, remove the entry.
+                                // Since we can only return one error, log the error to make
+                                // sure users always see all the compilation failures.
+                                has_made_progress.set(true);
+
+                                if self.cargo_output.warnings {
+                                    let _ = writeln!(stdout, "cargo:warning={}", err);
+                                }
+                                error = Some(err);
+
+                                false
+                            }
+                        }
+                    });
                     pendings_is_empty = pendings.is_empty();
                     pendings
                 });

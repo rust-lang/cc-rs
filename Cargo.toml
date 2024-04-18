@@ -17,7 +17,7 @@ categories = ["development-tools::build-utils"]
 # The binary target is only used by tests.
 exclude = ["/.github", "tests", "src/bin"]
 edition = "2018"
-rust-version = "1.53"
+rust-version = "1.63"
 
 [dependencies]
 jobserver = { version = "0.1.20", default-features = false, optional = true }
