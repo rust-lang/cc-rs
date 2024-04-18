@@ -1,6 +1,6 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Once};
+use std::marker::PhantomData;
 
-use crate::Error;
+use crate::{parallel::once_lock::OnceLock, Error};
 
 pub(crate) struct JobToken(PhantomData<()>);
 
@@ -34,19 +34,13 @@ impl JobTokenServer {
     ///    that has to be static so that it will be shared by all cc
     ///    compilation.
     fn new() -> &'static Self {
-        // TODO: Replace with a OnceLock once MSRV is 1.70
-        static INIT: Once = Once::new();
-        static mut JOBSERVER: MaybeUninit<JobTokenServer> = MaybeUninit::uninit();
+        static JOBSERVER: OnceLock<JobTokenServer> = OnceLock::new();
 
-        unsafe {
-            INIT.call_once(|| {
-                let server = inherited_jobserver::JobServer::from_env()
-                    .map(Self::Inherited)
-                    .unwrap_or_else(|| Self::InProcess(inprocess_jobserver::JobServer::new()));
-                JOBSERVER.write(server);
-            });
-            JOBSERVER.assume_init_ref()
-        }
+        JOBSERVER.get_or_init(|| {
+            unsafe { inherited_jobserver::JobServer::from_env() }
+                .map(Self::Inherited)
+                .unwrap_or_else(|| Self::InProcess(inprocess_jobserver::JobServer::new()))
+        })
     }
 }
 
@@ -76,12 +70,9 @@ impl ActiveJobTokenServer {
 }
 
 mod inherited_jobserver {
-    use super::JobToken;
+    use super::{JobToken, OnceLock};
 
-    use crate::{
-        parallel::{async_executor::YieldOnce, once_lock::OnceLock},
-        Error, ErrorKind,
-    };
+    use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
 
     use std::{
         io, mem,

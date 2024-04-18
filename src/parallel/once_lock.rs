@@ -3,7 +3,12 @@
 //! is initialised and MSRV is high enoguh to use it.
 
 use std::{
-    cell::UnsafeCell, convert::Infallible, marker::PhantomData, mem::MaybeUninit, sync::Once,
+    cell::UnsafeCell,
+    convert::Infallible,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    panic::{RefUnwindSafe, UnwindSafe},
+    sync::Once,
 };
 
 pub struct OnceLock<T> {
@@ -31,6 +36,12 @@ pub struct OnceLock<T> {
     _marker: PhantomData<T>,
 }
 
+unsafe impl<T: Sync + Send> Sync for OnceLock<T> {}
+unsafe impl<T: Send> Send for OnceLock<T> {}
+
+impl<T: RefUnwindSafe + UnwindSafe> RefUnwindSafe for OnceLock<T> {}
+impl<T: UnwindSafe> UnwindSafe for OnceLock<T> {}
+
 impl<T> OnceLock<T> {
     pub const fn new() -> OnceLock<T> {
         OnceLock {
@@ -49,7 +60,6 @@ impl<T> OnceLock<T> {
         }
     }
 
-    #[allow(dead_code)]
     pub fn get_or_init<F>(&self, f: F) -> &T
     where
         F: FnOnce() -> T,
