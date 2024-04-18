@@ -21,12 +21,12 @@ rust-version = "1.63"
 
 [dependencies]
 jobserver = { version = "0.1.30", default-features = false, optional = true }
+once_cell = { version = "1.19", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 # Don't turn on the feature "std" for this, see https://github.com/rust-lang/cargo/issues/4866
 # which is still an issue with `resolver = "1"`.
 libc = { version = "0.2.62", default-features = false, optional = true }
-once_cell = { version = "1.19", optional = true }
 
 [features]
 parallel = ["libc", "jobserver", "once_cell"]
