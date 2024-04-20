@@ -1,6 +1,8 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Once};
+use std::marker::PhantomData;
 
 use crate::Error;
+
+use once_cell::sync::OnceCell;
 
 pub(crate) struct JobToken(PhantomData<()>);
 
@@ -35,18 +37,13 @@ impl JobTokenServer {
     ///    compilation.
     fn new() -> &'static Self {
         // TODO: Replace with a OnceLock once MSRV is 1.70
-        static INIT: Once = Once::new();
-        static mut JOBSERVER: MaybeUninit<JobTokenServer> = MaybeUninit::uninit();
+        static JOBSERVER: OnceCell<JobTokenServer> = OnceCell::new();
 
-        unsafe {
-            INIT.call_once(|| {
-                let server = inherited_jobserver::JobServer::from_env()
-                    .map(Self::Inherited)
-                    .unwrap_or_else(|| Self::InProcess(inprocess_jobserver::JobServer::new()));
-                JOBSERVER.write(server);
-            });
-            JOBSERVER.assume_init_ref()
-        }
+        JOBSERVER.get_or_init(|| {
+            unsafe { inherited_jobserver::JobServer::from_env() }
+                .map(Self::Inherited)
+                .unwrap_or_else(|| Self::InProcess(inprocess_jobserver::JobServer::new()))
+        })
     }
 }
 
@@ -56,14 +53,12 @@ pub(crate) enum ActiveJobTokenServer {
 }
 
 impl ActiveJobTokenServer {
-    pub(crate) fn new() -> Result<Self, Error> {
+    pub(crate) fn new() -> Self {
         match JobTokenServer::new() {
             JobTokenServer::Inherited(inherited_jobserver) => {
-                inherited_jobserver.enter_active().map(Self::Inherited)
+                Self::Inherited(inherited_jobserver.enter_active())
             }
-            JobTokenServer::InProcess(inprocess_jobserver) => {
-                Ok(Self::InProcess(inprocess_jobserver))
-            }
+            JobTokenServer::InProcess(inprocess_jobserver) => Self::InProcess(inprocess_jobserver),
         }
     }
 
@@ -76,7 +71,7 @@ impl ActiveJobTokenServer {
 }
 
 mod inherited_jobserver {
-    use super::JobToken;
+    use super::{JobToken, OnceCell};
 
     use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
 
@@ -139,31 +134,39 @@ mod inherited_jobserver {
             }
         }
 
-        pub(super) fn enter_active(&self) -> Result<ActiveJobServer<'_>, Error> {
-            ActiveJobServer::new(self)
+        pub(super) fn enter_active(&self) -> ActiveJobServer<'_> {
+            ActiveJobServer {
+                jobserver: self,
+                helper_thread: OnceCell::new(),
+            }
+        }
+    }
+
+    struct HelperThread {
+        inner: jobserver::HelperThread,
+        /// When rx is dropped, all the token stored within it will be dropped.
+        rx: mpsc::Receiver<io::Result<jobserver::Acquired>>,
+    }
+
+    impl HelperThread {
+        fn new(jobserver: &JobServer) -> Result<Self, Error> {
+            let (tx, rx) = mpsc::channel();
+
+            Ok(Self {
+                rx,
+                inner: jobserver.inner.clone().into_helper_thread(move |res| {
+                    let _ = tx.send(res);
+                })?,
+            })
         }
     }
 
     pub(crate) struct ActiveJobServer<'a> {
         jobserver: &'a JobServer,
-        helper_thread: jobserver::HelperThread,
-        /// When rx is dropped, all the token stored within it will be dropped.
-        rx: mpsc::Receiver<io::Result<jobserver::Acquired>>,
+        helper_thread: OnceCell<HelperThread>,
     }
 
     impl<'a> ActiveJobServer<'a> {
-        fn new(jobserver: &'a JobServer) -> Result<Self, Error> {
-            let (tx, rx) = mpsc::channel();
-
-            Ok(Self {
-                rx,
-                helper_thread: jobserver.inner.clone().into_helper_thread(move |res| {
-                    let _ = tx.send(res);
-                })?,
-                jobserver,
-            })
-        }
-
         pub(super) async fn acquire(&self) -> Result<JobToken, Error> {
             let mut has_requested_token = false;
 
@@ -173,26 +176,38 @@ mod inherited_jobserver {
                     break Ok(JobToken::new());
                 }
 
-                // Cold path, no global implicit token, obtain one
-                match self.rx.try_recv() {
-                    Ok(res) => {
-                        let acquired = res?;
+                match self.jobserver.inner.try_acquire() {
+                    Ok(Some(acquired)) => {
                         acquired.drop_without_releasing();
                         break Ok(JobToken::new());
                     }
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        break Err(Error::new(
-                            ErrorKind::JobserverHelpThreadError,
-                            "jobserver help thread has returned before ActiveJobServer is dropped",
-                        ))
-                    }
-                    Err(mpsc::TryRecvError::Empty) => {
-                        if !has_requested_token {
-                            self.helper_thread.request_token();
-                            has_requested_token = true;
+                    Ok(None) => YieldOnce::default().await,
+                    Err(err) if err.kind() == io::ErrorKind::Unsupported => {
+                        // Fallback to creating a help thread with blocking acquire
+                        let helper_thread = self
+                            .helper_thread
+                            .get_or_try_init(|| HelperThread::new(&self.jobserver))?;
+
+                        match helper_thread.rx.try_recv() {
+                            Ok(res) => {
+                                let acquired = res?;
+                                acquired.drop_without_releasing();
+                                break Ok(JobToken::new());
+                            }
+                            Err(mpsc::TryRecvError::Disconnected) => break Err(Error::new(
+                                ErrorKind::JobserverHelpThreadError,
+                                "jobserver help thread has returned before ActiveJobServer is dropped",
+                            )),
+                            Err(mpsc::TryRecvError::Empty) => {
+                                if !has_requested_token {
+                                    helper_thread.inner.request_token();
+                                    has_requested_token = true;
+                                }
+                                YieldOnce::default().await
+                            }
                         }
-                        YieldOnce::default().await
                     }
+                    Err(err) => break Err(err.into()),
                 }
             }
         }
