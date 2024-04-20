@@ -36,6 +36,7 @@ impl JobTokenServer {
     ///    that has to be static so that it will be shared by all cc
     ///    compilation.
     fn new() -> &'static Self {
+        // TODO: Replace with a OnceLock once MSRV is 1.70
         static JOBSERVER: OnceCell<JobTokenServer> = OnceCell::new();
 
         JOBSERVER.get_or_init(|| {
