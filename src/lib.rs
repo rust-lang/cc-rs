@@ -1773,15 +1773,15 @@ impl Build {
             cmd.push_cc_arg(format!("-std{}{}", separator, std).into());
         }
 
+        for directory in self.include_directories.iter() {
+            cmd.args.push("-I".into());
+            cmd.args.push(directory.as_os_str().into());
+        }
+
         if let Ok(flags) = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
             for arg in flags {
                 cmd.push_cc_arg(arg.into());
             }
-        }
-
-        for directory in self.include_directories.iter() {
-            cmd.args.push("-I".into());
-            cmd.args.push(directory.as_os_str().into());
         }
 
         // If warnings and/or extra_warnings haven't been explicitly set,
