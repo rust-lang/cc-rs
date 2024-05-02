@@ -3653,8 +3653,42 @@ impl Build {
     }
 
     fn apple_sdk_root(&self, sdk: &str) -> Result<OsString, Error> {
-        if let Some(sdkroot) = env::var_os("SDKROOT") {
-            return Ok(sdkroot);
+        // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
+        if let Ok(sdkroot) = env::var("SDKROOT") {
+            let p = Path::new(&sdkroot);
+            match sdk {
+                // Ignore `SDKROOT` if it's clearly set for the wrong platform.
+                "appletvos"
+                    if sdkroot.contains("TVSimulator.platform")
+                        || sdkroot.contains("MacOSX.platform") => {}
+                "appletvsimulator"
+                    if sdkroot.contains("TVOS.platform") || sdkroot.contains("MacOSX.platform") => {
+                }
+                "iphoneos"
+                    if sdkroot.contains("iPhoneSimulator.platform")
+                        || sdkroot.contains("MacOSX.platform") => {}
+                "iphonesimulator"
+                    if sdkroot.contains("iPhoneOS.platform")
+                        || sdkroot.contains("MacOSX.platform") => {}
+                "macosx10.15"
+                    if sdkroot.contains("iPhoneOS.platform")
+                        || sdkroot.contains("iPhoneSimulator.platform") => {}
+                "watchos"
+                    if sdkroot.contains("WatchSimulator.platform")
+                        || sdkroot.contains("MacOSX.platform") => {}
+                "watchsimulator"
+                    if sdkroot.contains("WatchOS.platform")
+                        || sdkroot.contains("MacOSX.platform") => {}
+                "xros"
+                    if sdkroot.contains("XRSimulator.platform")
+                        || sdkroot.contains("MacOSX.platform") => {}
+                "xrsimulator"
+                    if sdkroot.contains("XROS.platform") || sdkroot.contains("MacOSX.platform") => {
+                }
+                // Ignore `SDKROOT` if it's not a valid path.
+                _ if !p.is_absolute() || p == Path::new("/") || !p.exists() => {}
+                _ => return Ok(sdkroot.into()),
+            }
         }
 
         let mut cache = self
