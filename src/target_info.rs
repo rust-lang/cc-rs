@@ -5,6 +5,7 @@ pub const RISCV_ARCH_MAPPING: &[(&str, &str)] = &[
     ("riscv32gc", "riscv32"),
     ("riscv32i", "riscv32"),
     ("riscv32im", "riscv32"),
+    ("riscv32ima", "riscv32"),
     ("riscv32imac", "riscv32"),
     ("riscv32imafc", "riscv32"),
     ("riscv32imc", "riscv32"),
