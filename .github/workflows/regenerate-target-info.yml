@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git commit -am "dep: Regenerate target info"
+          git commit -am "Regenerate target info"
           git push origin HEAD
 
       - name: Open pull request if needed
