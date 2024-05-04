@@ -16,12 +16,13 @@ jobs:
 
       - name: Generate branch name
         run: |
-          git checkout -b regenerate-target-info/${{ github.run_id }}
+          git checkout -b regenerate-target-info-${{ github.run_id }}
 
       - name: Install rust
         run: |
-          rustup toolchain install stable --no-self-update --profile minimal
-
+          rustup toolchain install stable nightly --no-self-update --profile minimal
+  
+      - uses: Swatinem/rust-cache@v2
       - name: Regenerate target info
         run: cargo run -p gen-target-info
 
@@ -45,4 +46,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create --base main --fill
+          gh pr create --base main --title "Update src/target_info.rs" --body "Automatically regenerated in CI"
