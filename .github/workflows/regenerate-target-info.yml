@@ -23,7 +23,7 @@ jobs:
           rustup toolchain install stable --no-self-update --profile minimal
 
       - name: Regenerate target info
-        run: cargo run --bin gen-target-info
+        run: cargo run -p gen-target-info
 
       - name: Detect changes
         id: changes
