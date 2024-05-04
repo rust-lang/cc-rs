@@ -2812,11 +2812,9 @@ impl Build {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
                     if cfg!(windows) {
-                        let mut t = Tool::new(
+                        let mut t = Tool::with_family(
                             PathBuf::from("cmd"),
-                            &self.cached_compiler_family,
-                            &self.cargo_output,
-                            out_dir,
+                            ToolFamily::Clang { zig_cc: false },
                         );
                         t.args.push("/c".into());
                         t.args.push(format!("{}.bat", tool).into());
