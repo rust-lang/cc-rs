@@ -601,26 +601,17 @@ impl Build {
     /// `known_flag_support` field. If `is_flag_supported(flag)`
     /// is called again, the result will be read from the hash table.
     pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        let target = self.get_target()?;
+        self.is_flag_supported_inner(flag, self.get_base_compiler()?.path(), &self.get_target()?)
+    }
 
-        let mut compiler = {
-            let mut cfg = Build::new();
-            cfg.flag(flag)
-                .cargo_metadata(self.cargo_output.metadata)
-                .target(&target)
-                .opt_level(0)
-                .host(&self.get_host()?)
-                .debug(false)
-                .cpp(self.cpp)
-                .cuda(self.cuda);
-            if let Some(ref c) = self.compiler {
-                cfg.compiler(c.clone());
-            }
-            cfg.try_get_compiler()?
-        };
-
+    fn is_flag_supported_inner(
+        &self,
+        flag: &str,
+        compiler_path: &Path,
+        target: &str,
+    ) -> Result<bool, Error> {
         let compiler_flag = CompilerFlag {
-            compiler: compiler.path.clone().into(),
+            compiler: compiler_path.into(),
             flag: flag.into(),
         };
 
@@ -637,6 +628,20 @@ impl Build {
         let out_dir = self.get_out_dir()?;
         let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
+
+        let mut compiler = {
+            let mut cfg = Build::new();
+            cfg.flag(flag)
+                .compiler(compiler_path)
+                .cargo_metadata(self.cargo_output.metadata)
+                .target(target)
+                .opt_level(0)
+                .host(&self.get_host()?)
+                .debug(false)
+                .cpp(self.cpp)
+                .cuda(self.cuda);
+            cfg.try_get_compiler()?
+        };
 
         // Clang uses stderr for verbose output, which yields a false positive
         // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
@@ -1803,7 +1808,10 @@ impl Build {
         }
 
         for flag in self.flags_supported.iter() {
-            if self.is_flag_supported(flag).unwrap_or(false) {
+            if self
+                .is_flag_supported_inner(flag, &cmd.path, &target)
+                .unwrap_or(false)
+            {
                 cmd.push_cc_arg((**flag).into());
             }
         }
