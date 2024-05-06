@@ -3654,7 +3654,7 @@ impl Build {
 
     fn apple_sdk_root(&self, sdk: &str) -> Result<OsString, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
-        if let Ok(sdkroot) = env::var("SDKROOT") {
+        if let Some(sdkroot) = env::var_os("SDKROOT") {
             let p = Path::new(&sdkroot);
             match sdk {
                 // Ignore `SDKROOT` if it's clearly set for the wrong platform.
