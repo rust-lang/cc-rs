@@ -1761,8 +1761,6 @@ impl Build {
 
         if !no_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
-        } else {
-            println!("Info: default compiler flags are disabled");
         }
 
         if let Some(ref std) = self.std {
