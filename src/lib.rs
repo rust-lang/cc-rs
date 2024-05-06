@@ -3656,7 +3656,7 @@ impl Build {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = env::var_os("SDKROOT") {
             let p = PathBuf::from(sdkroot);
-            let sdkroot = sdkroot.to_string_lossy();
+            let sdkroot = p.to_string_lossy();
             match sdk {
                 // Ignore `SDKROOT` if it's clearly set for the wrong platform.
                 "appletvos"
