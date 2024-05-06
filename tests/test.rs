@@ -626,6 +626,32 @@ fn clang_apple_visionos() {
     test.cmd(0).must_not_have("-mxrsimulator-version-min=1.0");
 }
 
+#[cfg(target_os = "macos")]
+#[test]
+fn apple_sdkroot_wrong() {
+    let output = std::process::Command::new("xcrun")
+        .args(["--show-sdk-path", "--sdk", "iphoneos"])
+        .output()
+        .unwrap();
+    if !output.status.success() {
+        return;
+    }
+
+    let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
+    let test = Test::clang();
+    test.gcc()
+        .__set_env("SDKROOT", wrong_sdkroot)
+        .target("aarch64-apple-ios")
+        .file("foo.c")
+        .compile("foo");
+
+    dbg!(test.cmd(0).args);
+
+    test.cmd(0)
+        .must_have(std::str::from_utf8(&output.stdout).unwrap().trim());
+    test.cmd(0).must_not_have(wrong_sdkroot);
+}
+
 #[test]
 fn compile_intermediates() {
     let test = Test::gnu();
