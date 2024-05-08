@@ -5,7 +5,6 @@
 // All files in the project carrying such notice may not be copied, modified, or distributed
 // except according to those terms.
 
-#![allow(unused)]
 use crate::windows::{
     winapi::{IUnknown, Interface},
     windows_sys::{
@@ -15,9 +14,9 @@ use crate::windows::{
 };
 use std::{
     convert::TryInto,
-    ffi::{OsStr, OsString},
+    ffi::OsString,
     ops::Deref,
-    os::windows::ffi::{OsStrExt, OsStringExt},
+    os::windows::ffi::OsStringExt,
     ptr::{null, null_mut},
     slice::from_raw_parts,
 };
@@ -107,36 +106,5 @@ impl BStr {
 impl Drop for BStr {
     fn drop(&mut self) {
         unsafe { SysFreeString(self.0) };
-    }
-}
-
-pub trait ToWide {
-    fn to_wide(&self) -> Vec<u16>;
-    fn to_wide_null(&self) -> Vec<u16>;
-}
-impl<T> ToWide for T
-where
-    T: AsRef<OsStr>,
-{
-    fn to_wide(&self) -> Vec<u16> {
-        self.as_ref().encode_wide().collect()
-    }
-    fn to_wide_null(&self) -> Vec<u16> {
-        self.as_ref().encode_wide().chain(Some(0)).collect()
-    }
-}
-pub trait FromWide
-where
-    Self: Sized,
-{
-    fn from_wide(wide: &[u16]) -> Self;
-    fn from_wide_null(wide: &[u16]) -> Self {
-        let len = wide.iter().take_while(|&&c| c != 0).count();
-        Self::from_wide(&wide[..len])
-    }
-}
-impl FromWide for OsString {
-    fn from_wide(wide: &[u16]) -> OsString {
-        OsStringExt::from_wide(wide)
     }
 }
