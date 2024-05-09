@@ -586,6 +586,43 @@ fn clang_apple_tvos() {
 
 #[cfg(target_os = "macos")]
 #[test]
+fn clang_apple_mac_catalyst() {
+    let output = std::process::Command::new("xcrun")
+        .args(["--show-sdk-path", "--sdk", "macosx"])
+        .output()
+        .unwrap();
+    if !output.status.success() {
+        return;
+    }
+    let sdkroot = std::str::from_utf8(&output.stdout).unwrap().trim();
+
+    let test = Test::clang();
+    test.gcc()
+        .target("aarch64-apple-ios-macabi")
+        .__set_env("IPHONEOS_DEPLOYMENT_TARGET", "15.0")
+        .file("foo.c")
+        .compile("foo");
+    let execution = test.cmd(0);
+
+    // TODO: Add version to target here
+    execution.must_have("--target=arm64-apple-ios-macabi");
+    execution.must_have_in_order("-isysroot", sdkroot);
+    execution.must_have_in_order(
+        "-isystem",
+        &format!("{sdkroot}/System/iOSSupport/usr/include"),
+    );
+    execution.must_have_in_order(
+        "-iframework",
+        &format!("{sdkroot}/System/iOSSupport/System/Library/Frameworks"),
+    );
+    execution.must_have(&format!("-L{sdkroot}/System/iOSSupport/usr/lib"));
+    execution.must_have(&format!(
+        "-F{sdkroot}/System/iOSSupport/System/Library/Frameworks"
+    ));
+}
+
+#[cfg(target_os = "macos")]
+#[test]
 fn clang_apple_tvsimulator() {
     for target in &["x86_64-apple-tvos"] {
         let test = Test::clang();
