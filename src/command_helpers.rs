@@ -130,6 +130,8 @@ impl StderrForwarder {
                             self.bytes_available_failed = true;
                             MIN_BUFFER_CAPACITY
                         }
+                        #[cfg(target_family = "wasm")]
+                        Err(_) => unimplemented!(),
                         Ok(bytes_available) => MIN_BUFFER_CAPACITY.max(bytes_available),
                     }
                 } else {
