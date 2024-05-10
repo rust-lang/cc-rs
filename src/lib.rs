@@ -2705,39 +2705,38 @@ impl Build {
             let sdk_path = self.apple_sdk_root(&sdk_details.sdk)?;
 
             cmd.args.push("-isysroot".into());
-            cmd.args.push(sdk_path);
-        }
+            cmd.args.push(sdk_path.clone());
 
-        if let AppleArchSpec::Catalyst(_) = arch {
-            // Mac Catalyst uses the macOS SDK, but to compile against and
-            // link to iOS-specific frameworks, we should have the support
-            // library stubs in the include and library search path.
-            let sdk_path = self.apple_sdk_root(&sdk_details.sdk)?;
-            let ios_support = PathBuf::from(sdk_path).join("/System/iOSSupport");
+            if let AppleArchSpec::Catalyst(_) = arch {
+                // Mac Catalyst uses the macOS SDK, but to compile against and
+                // link to iOS-specific frameworks, we should have the support
+                // library stubs in the include and library search path.
+                let ios_support = PathBuf::from(sdk_path).join("System/iOSSupport");
 
-            cmd.args.extend([
-                // Header search path
-                OsString::from("-isystem"),
-                ios_support.join("/usr/include").into(),
-                // Framework header search path
-                OsString::from("-iframework"),
-                ios_support.join("/System/Library/Frameworks").into(),
-                // Library search path
-                {
-                    let mut s = OsString::from("-L");
-                    s.push(&ios_support.join("/usr/lib"));
-                    s
-                },
-                // Framework linker search path
-                {
-                    // Technically, we _could_ avoid emitting `-F`, as
-                    // `-iframework` implies it, but let's keep it in for
-                    // clarity.
-                    let mut s = OsString::from("-F");
-                    s.push(&ios_support.join("/System/Library/Frameworks"));
-                    s
-                },
-            ]);
+                cmd.args.extend([
+                    // Header search path
+                    OsString::from("-isystem"),
+                    ios_support.join("usr/include").into(),
+                    // Framework header search path
+                    OsString::from("-iframework"),
+                    ios_support.join("System/Library/Frameworks").into(),
+                    // Library search path
+                    {
+                        let mut s = OsString::from("-L");
+                        s.push(&ios_support.join("usr/lib"));
+                        s
+                    },
+                    // Framework linker search path
+                    {
+                        // Technically, we _could_ avoid emitting `-F`, as
+                        // `-iframework` implies it, but let's keep it in for
+                        // clarity.
+                        let mut s = OsString::from("-F");
+                        s.push(&ios_support.join("System/Library/Frameworks"));
+                        s
+                    },
+                ]);
+            }
         }
 
         Ok(())
