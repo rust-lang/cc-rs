@@ -125,8 +125,8 @@ impl Tool {
                 NamedTempfile::new(&out_dir, "detect_compiler_family.c").map_err(|err| Error {
                     kind: ErrorKind::IOError,
                     message: format!(
-                        "failed to create detect_compiler_family.c temp file in '{:?}': {}",
-                        out_dir, err
+                        "failed to create detect_compiler_family.c temp file in '{}': {}",
+                        out_dir.display(), err
                     )
                     .into(),
                 })?;
