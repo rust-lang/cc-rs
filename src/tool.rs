@@ -118,7 +118,8 @@ impl Tool {
             // will fail
             std::fs::create_dir_all(&out_dir).map_err(|err| Error {
                 kind: ErrorKind::IOError,
-                message: format!("failed to create OUT_DIR '{}': {}", out_dir.display(), err).into(),
+                message: format!("failed to create OUT_DIR '{}': {}", out_dir.display(), err)
+                    .into(),
             })?;
 
             let tmp =
@@ -126,7 +127,8 @@ impl Tool {
                     kind: ErrorKind::IOError,
                     message: format!(
                         "failed to create detect_compiler_family.c temp file in '{}': {}",
-                        out_dir.display(), err
+                        out_dir.display(),
+                        err
                     )
                     .into(),
                 })?;
