@@ -110,12 +110,28 @@ impl Tool {
             cargo_output: &CargoOutput,
             out_dir: Option<&Path>,
         ) -> Result<ToolFamily, Error> {
-            let tmp = NamedTempfile::new(
-                &out_dir
-                    .map(Cow::Borrowed)
-                    .unwrap_or_else(|| Cow::Owned(env::temp_dir())),
-                "detect_compiler_family.c",
-            )?;
+            let out_dir = out_dir
+                .map(Cow::Borrowed)
+                .unwrap_or_else(|| Cow::Owned(env::temp_dir()));
+
+            // Ensure all the parent directories exist otherwise temp file creation
+            // will fail
+            std::fs::create_dir_all(&out_dir).map_err(|err| Error {
+                kind: ErrorKind::IOError,
+                message: format!("failed to create OUT_DIR '{}': {}", out_dir.display(), err)
+                    .into(),
+            })?;
+
+            let tmp =
+                NamedTempfile::new(&out_dir, "detect_compiler_family.c").map_err(|err| Error {
+                    kind: ErrorKind::IOError,
+                    message: format!(
+                        "failed to create detect_compiler_family.c temp file in '{}': {}",
+                        out_dir.display(),
+                        err
+                    )
+                    .into(),
+                })?;
             tmp.file()
                 .write_all(include_bytes!("detect_compiler_family.c"))?;
 
