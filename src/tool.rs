@@ -422,12 +422,12 @@ impl ToolFamily {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-Z7".into());
             }
+            ToolFamily::Clang { .. } if dwarf_version.is_some() => {
+                cmd.push_cc_arg(format!("-gdwarf-{}", dwarf_version.unwrap()).into());
+            }
+            // Don't assume gcc supports the same dwarf version rust/llvm does (#1075)
             ToolFamily::Gnu | ToolFamily::Clang { .. } => {
-                cmd.push_cc_arg(
-                    dwarf_version
-                        .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{}", v))
-                        .into(),
-                );
+                cmd.push_cc_arg("-g".into());
             }
         }
     }
