@@ -1912,6 +1912,10 @@ impl Build {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
                 }
+                if target.contains("wasm32") {
+                    // WASI does not support exceptions yet.
+                    cmd.push_cc_arg("-fno-exceptions".into());
+                }
             }
         }
 
@@ -2861,7 +2865,11 @@ impl Build {
                     || target == "wasm32-unknown-wasi"
                     || target == "wasm32-unknown-unknown"
                 {
-                    "clang".to_string()
+                    if self.cpp {
+                        "clang++".to_string()
+                    } else {
+                        "clang".to_string()
+                    }
                 } else if target.contains("vxworks") {
                     if self.cpp {
                         "wr-c++".to_string()
@@ -3099,6 +3107,7 @@ impl Build {
                         | target.contains("openbsd")
                         | target.contains("aix")
                         | target.contains("linux-ohos")
+                        | target.contains("wasm32")
                     {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
