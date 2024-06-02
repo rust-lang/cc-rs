@@ -166,7 +166,7 @@ impl StderrForwarder {
                             write_warning(&buffer[..old_data_end]);
                         }
 
-                        let child_pid = self.inner.take().unwrap().id();
+                        let id = self.inner.take().unwrap().id();
                         if let Err(err) = res {
                             write_warning(format!("Failed to read from child {id} stderr: {err}").as_bytes());
                         }
