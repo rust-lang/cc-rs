@@ -138,7 +138,9 @@ impl StderrForwarder {
                 buffer.reserve(to_reserve);
 
                 // Safety: stderr.read only writes to the spare part of the buffer, it never reads from it
-                match stderr.read(unsafe { &mut *(buffer.spare_capacity_mut() as *mut _ as *mut [u8]) }) {
+                match stderr
+                    .read(unsafe { &mut *(buffer.spare_capacity_mut() as *mut _ as *mut [u8]) })
+                {
                     Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                         // No data currently, yield back.
                         break false;
@@ -166,9 +168,11 @@ impl StderrForwarder {
                             write_warning(&buffer[..old_data_end]);
                         }
 
-                        let id = self.inner.take().unwrap().id();
+                        let id = self.inner.take().unwrap().0.id();
                         if let Err(err) = res {
-                            write_warning(format!("Failed to read from child {id} stderr: {err}").as_bytes());
+                            write_warning(
+                                format!("Failed to read from child {id} stderr: {err}").as_bytes(),
+                            );
                         }
                         break true;
                     }
