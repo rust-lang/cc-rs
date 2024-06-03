@@ -301,6 +301,25 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
     Ok(objects)
 }
 
+/// Create executable path from given input.
+pub(crate) fn executable_path_from_file(
+    dst: &Path,
+    executable_name: &str,
+) -> Result<Arc<Path>, Error> {
+    let out = dst.join(executable_name);
+    match out.parent() {
+        Some(s) => fs::create_dir_all(s)?,
+        None => {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "dst is an invalid path with no parent",
+            ));
+        }
+    };
+
+    Ok(out.into())
+}
+
 pub(crate) fn run(
     cmd: &mut Command,
     program: impl AsRef<Path>,

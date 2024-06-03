@@ -303,7 +303,7 @@ pub struct Build {
     apple_versions_cache: Arc<Mutex<HashMap<String, String>>>,
     emit_rerun_if_env_changed: bool,
     cached_compiler_family: Arc<Mutex<HashMap<Box<Path>, ToolFamily>>>,
-    as_excutable: bool,
+    as_executable: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -427,7 +427,7 @@ impl Build {
             apple_versions_cache: Arc::new(Mutex::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
             cached_compiler_family: Arc::default(),
-            as_excutable: false,
+            as_executable: false,
         }
     }
 
@@ -1224,13 +1224,13 @@ impl Build {
         self
     }
 
-    /// Set whether output to be excutable.
+    /// Set whether output to be executable.
     /// if this flag is true, just compile as single excutable
     /// and do not add it as library (don't run ar)
     ///
     /// This option defaults to `false`
-    pub fn as_excutable(&mut self, as_excutable: bool) -> &mut Build {
-        self.as_excutable = as_excutable;
+    pub fn as_excutable(&mut self, as_executable: bool) -> &mut Build {
+        self.as_executable = as_executable;
         self
     }
 
@@ -1267,7 +1267,7 @@ impl Build {
             }
         }
 
-        if !self.as_excutable {
+        if !self.as_executable {
             let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
                 (&output[3..output.len() - 2], output.to_owned())
             } else {
@@ -1380,11 +1380,22 @@ impl Build {
                 }
             }
         } else {
+            // self.as_executable == true
+
             let dst = self.get_out_dir()?;
 
-            let objects = objects_from_files(&self.files, &dst)?;
+            if self.files.is_empty() {
+                return Err(Error::new(
+                    ErrorKind::InvalidArgument,
+                    "No file for compile",
+                ));
+            }
 
-            self.compile_objects(&objects)?;
+            let executable = executable_path_from_file(&dst, output)?;
+
+            let _ = fs::remove_file(&executable);
+
+            self.compile_executable(&executable)?;
         }
 
         Ok(())
@@ -1665,8 +1676,7 @@ impl Build {
             },
         );
         // armasm and armasm64 don't requrie -c option
-        // and if wanted output is executable, do not add -c option
-        if (!is_assembler_msvc || !is_arm) && !self.as_excutable {
+        if !is_assembler_msvc || !is_arm {
             cmd.arg("-c");
         }
         if self.cuda && self.cuda_file_count() > 1 {
@@ -1683,6 +1693,61 @@ impl Build {
             cmd.arg("--");
         }
         cmd.arg(&obj.src);
+        if cfg!(target_os = "macos") {
+            self.fix_env_for_apple_os(&mut cmd)?;
+        }
+
+        Ok((cmd, name))
+    }
+
+    fn compile_executable(&self, excutable: &Path) -> Result<(), Error> {
+        let (mut cmd, name) = self.create_compile_executable_cmd(excutable)?;
+
+        run(&mut cmd, &name, &self.cargo_output)?;
+
+        Ok(())
+    }
+
+    fn create_compile_executable_cmd(
+        &self,
+        excutable: &Path,
+    ) -> Result<(Command, Cow<'static, Path>), Error> {
+        let target = self.get_target()?;
+        let msvc = target.contains("msvc");
+        let compiler = self.try_get_compiler()?;
+        let clang = compiler.is_like_clang();
+        let gnu = compiler.family == ToolFamily::Gnu;
+
+        let (mut cmd, name) = {
+            let mut cmd = compiler.to_command();
+            for (a, b) in self.env.iter() {
+                cmd.env(a, b);
+            }
+            (
+                cmd,
+                compiler
+                    .path
+                    .file_name()
+                    .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))
+                    .map(PathBuf::from)
+                    .map(Cow::Owned)?,
+            )
+        };
+
+        // add source files
+        for f in self.files.iter() {
+            cmd.arg(f.as_os_str());
+        }
+
+        if msvc {
+            // the .exe file will be created on given path
+            let mut s = OsString::from("-Fe");
+            s.push(excutable);
+            cmd.arg(s);
+        } else if clang || gnu {
+            cmd.arg("-o").arg(excutable);
+        }
+
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
