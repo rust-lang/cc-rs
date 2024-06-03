@@ -1613,8 +1613,6 @@ impl Build {
         for obj in objs {
             let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
 
-            dbg!(&cmd, &name);
-
             run(&mut cmd, &name, &self.cargo_output)?;
         }
 
