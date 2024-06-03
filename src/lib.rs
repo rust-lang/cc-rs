@@ -303,6 +303,7 @@ pub struct Build {
     apple_versions_cache: Arc<Mutex<HashMap<String, String>>>,
     emit_rerun_if_env_changed: bool,
     cached_compiler_family: Arc<Mutex<HashMap<Box<Path>, ToolFamily>>>,
+    as_excutable: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -426,6 +427,7 @@ impl Build {
             apple_versions_cache: Arc::new(Mutex::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
             cached_compiler_family: Arc::default(),
+            as_excutable: false,
         }
     }
 
@@ -1222,6 +1224,16 @@ impl Build {
         self
     }
 
+    /// Set whether output to be excutable.
+    /// if this flag is true, just compile as single excutable
+    /// and do not add it as library (don't run ar)
+    ///
+    /// This option defaults to `false`
+    pub fn as_excutable(&mut self, as_excutable: bool) -> &mut Build {
+        self.as_excutable = as_excutable;
+        self
+    }
+
     /// Configures whether the /MT flag or the /MD flag will be passed to msvc build tools.
     ///
     /// This option defaults to `false`, and affect only msvc targets.
@@ -1255,115 +1267,124 @@ impl Build {
             }
         }
 
-        let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
-            (&output[3..output.len() - 2], output.to_owned())
-        } else {
-            let mut gnu = String::with_capacity(5 + output.len());
-            gnu.push_str("lib");
-            gnu.push_str(output);
-            gnu.push_str(".a");
-            (output, gnu)
-        };
-        let dst = self.get_out_dir()?;
+        if !self.as_excutable {
+            let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
+                (&output[3..output.len() - 2], output.to_owned())
+            } else {
+                let mut gnu = String::with_capacity(5 + output.len());
+                gnu.push_str("lib");
+                gnu.push_str(output);
+                gnu.push_str(".a");
+                (output, gnu)
+            };
+            let dst = self.get_out_dir()?;
 
-        let objects = objects_from_files(&self.files, &dst)?;
+            let objects = objects_from_files(&self.files, &dst)?;
 
-        self.compile_objects(&objects)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+            self.compile_objects(&objects)?;
 
-        if self.get_target()?.contains("msvc") {
-            let compiler = self.get_base_compiler()?;
-            let atlmfc_lib = compiler
-                .env()
-                .iter()
-                .find(|&(var, _)| var.as_os_str() == OsStr::new("LIB"))
-                .and_then(|(_, lib_paths)| {
-                    env::split_paths(lib_paths).find(|path| {
-                        let sub = Path::new("atlmfc/lib");
-                        path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
-                    })
-                });
+            self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
-            if let Some(atlmfc_lib) = atlmfc_lib {
-                self.cargo_output.print_metadata(&format_args!(
-                    "cargo:rustc-link-search=native={}",
-                    atlmfc_lib.display()
-                ));
-            }
-        }
+            if self.get_target()?.contains("msvc") {
+                let compiler = self.get_base_compiler()?;
+                let atlmfc_lib = compiler
+                    .env()
+                    .iter()
+                    .find(|&(var, _)| var.as_os_str() == OsStr::new("LIB"))
+                    .and_then(|(_, lib_paths)| {
+                        env::split_paths(lib_paths).find(|path| {
+                            let sub = Path::new("atlmfc/lib");
+                            path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
+                        })
+                    });
 
-        if self.link_lib_modifiers.is_empty() {
-            self.cargo_output
-                .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
-        } else {
-            let m = self.link_lib_modifiers.join(",");
-            self.cargo_output.print_metadata(&format_args!(
-                "cargo:rustc-link-lib=static:{}={}",
-                m, lib_name
-            ));
-        }
-        self.cargo_output.print_metadata(&format_args!(
-            "cargo:rustc-link-search=native={}",
-            dst.display()
-        ));
-
-        // Add specific C++ libraries, if enabled.
-        if self.cpp {
-            if let Some(stdlib) = self.get_cpp_link_stdlib()? {
-                self.cargo_output
-                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
-            }
-        }
-
-        let cudart = match &self.cudart {
-            Some(opt) => &*opt, // {none|shared|static}
-            None => "none",
-        };
-        if cudart != "none" {
-            if let Some(nvcc) = which(&self.get_compiler().path, None) {
-                // Try to figure out the -L search path. If it fails,
-                // it's on user to specify one by passing it through
-                // RUSTFLAGS environment variable.
-                let mut libtst = false;
-                let mut libdir = nvcc;
-                libdir.pop(); // remove 'nvcc'
-                libdir.push("..");
-                let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
-                if cfg!(target_os = "linux") {
-                    libdir.push("targets");
-                    libdir.push(target_arch.to_owned() + "-linux");
-                    libdir.push("lib");
-                    libtst = true;
-                } else if cfg!(target_env = "msvc") {
-                    libdir.push("lib");
-                    match target_arch.as_str() {
-                        "x86_64" => {
-                            libdir.push("x64");
-                            libtst = true;
-                        }
-                        "x86" => {
-                            libdir.push("Win32");
-                            libtst = true;
-                        }
-                        _ => libtst = false,
-                    }
-                }
-                if libtst && libdir.is_dir() {
+                if let Some(atlmfc_lib) = atlmfc_lib {
                     self.cargo_output.print_metadata(&format_args!(
                         "cargo:rustc-link-search=native={}",
-                        libdir.to_str().unwrap()
+                        atlmfc_lib.display()
                     ));
                 }
-
-                // And now the -l flag.
-                let lib = match cudart {
-                    "shared" => "cudart",
-                    "static" => "cudart_static",
-                    bad => panic!("unsupported cudart option: {}", bad),
-                };
-                self.cargo_output
-                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", lib));
             }
+
+            if self.link_lib_modifiers.is_empty() {
+                self.cargo_output
+                    .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
+            } else {
+                let m = self.link_lib_modifiers.join(",");
+                self.cargo_output.print_metadata(&format_args!(
+                    "cargo:rustc-link-lib=static:{}={}",
+                    m, lib_name
+                ));
+            }
+            self.cargo_output.print_metadata(&format_args!(
+                "cargo:rustc-link-search=native={}",
+                dst.display()
+            ));
+
+            // Add specific C++ libraries, if enabled.
+            if self.cpp {
+                if let Some(stdlib) = self.get_cpp_link_stdlib()? {
+                    self.cargo_output
+                        .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
+                }
+            }
+
+            let cudart = match &self.cudart {
+                Some(opt) => &*opt, // {none|shared|static}
+                None => "none",
+            };
+            if cudart != "none" {
+                if let Some(nvcc) = which(&self.get_compiler().path, None) {
+                    // Try to figure out the -L search path. If it fails,
+                    // it's on user to specify one by passing it through
+                    // RUSTFLAGS environment variable.
+                    let mut libtst = false;
+                    let mut libdir = nvcc;
+                    libdir.pop(); // remove 'nvcc'
+                    libdir.push("..");
+                    let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+                    if cfg!(target_os = "linux") {
+                        libdir.push("targets");
+                        libdir.push(target_arch.to_owned() + "-linux");
+                        libdir.push("lib");
+                        libtst = true;
+                    } else if cfg!(target_env = "msvc") {
+                        libdir.push("lib");
+                        match target_arch.as_str() {
+                            "x86_64" => {
+                                libdir.push("x64");
+                                libtst = true;
+                            }
+                            "x86" => {
+                                libdir.push("Win32");
+                                libtst = true;
+                            }
+                            _ => libtst = false,
+                        }
+                    }
+                    if libtst && libdir.is_dir() {
+                        self.cargo_output.print_metadata(&format_args!(
+                            "cargo:rustc-link-search=native={}",
+                            libdir.to_str().unwrap()
+                        ));
+                    }
+
+                    // And now the -l flag.
+                    let lib = match cudart {
+                        "shared" => "cudart",
+                        "static" => "cudart_static",
+                        bad => panic!("unsupported cudart option: {}", bad),
+                    };
+                    self.cargo_output
+                        .print_metadata(&format_args!("cargo:rustc-link-lib={}", lib));
+                }
+            }
+        } else {
+            let dst = self.get_out_dir()?;
+
+            let objects = objects_from_files(&self.files, &dst)?;
+
+            self.compile_objects(&objects)?;
         }
 
         Ok(())
@@ -1591,6 +1612,9 @@ impl Build {
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         for obj in objs {
             let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
+
+            dbg!(&cmd, &name);
+
             run(&mut cmd, &name, &self.cargo_output)?;
         }
 
@@ -1643,7 +1667,8 @@ impl Build {
             },
         );
         // armasm and armasm64 don't requrie -c option
-        if !is_assembler_msvc || !is_arm {
+        // and if wanted output is executable, do not add -c option
+        if (!is_assembler_msvc || !is_arm) && !self.as_excutable {
             cmd.arg("-c");
         }
         if self.cuda && self.cuda_file_count() > 1 {
