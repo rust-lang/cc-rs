@@ -302,7 +302,7 @@ mod impl_ {
     pub(super) fn find_msvc_environment(tool: &str, target: TargetArch<'_>) -> Option<Tool> {
         // Early return if the environment doesn't contain a VC install.
         env::var_os("VCINSTALLDIR")?;
-        let vs_install_dir = env::var_os("VSINSTALLDIR")?.into();
+        let vs_install_dir: PathBuf = env::var_os("VSINSTALLDIR")?.into();
 
         // If the vscmd target differs from the requested target then
         // attempt to get the tool using the VS install directory.
@@ -503,7 +503,7 @@ mod impl_ {
     fn tool_from_vs15plus_instance(
         tool: &str,
         target: TargetArch<'_>,
-        instance_path: &PathBuf,
+        instance_path: &Path,
     ) -> Option<Tool> {
         let (root_path, bin_path, host_dylib_path, lib_path, alt_lib_path, include_path) =
             vs15plus_vc_paths(target, instance_path)?;
