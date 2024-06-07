@@ -392,10 +392,7 @@ impl Tool {
 
     /// Whether the tool is MSVC-like.
     pub fn is_like_msvc(&self) -> bool {
-        match self.family {
-            ToolFamily::Msvc { .. } => true,
-            _ => false,
-        }
+        matches!(self.family, ToolFamily::Msvc { .. })
     }
 }
 

@@ -2590,10 +2590,7 @@ impl Build {
         } else {
             AppleOs::Ios
         };
-        let is_mac = match os {
-            AppleOs::MacOs => true,
-            _ => false,
-        };
+        let is_mac = matches!(os, AppleOs::MacOs);
 
         let arch_str = target.split('-').nth(0).ok_or_else(|| {
             Error::new(
