@@ -860,9 +860,7 @@ impl Build {
     /// not support that compiler. In this case, you can remove the `-ccbin`
     /// flag so that NVCC will choose the host compiler by itself.
     pub fn ccbin(&mut self, ccbin: bool) -> &mut Build {
-        if self.cuda {
-            self.ccbin = ccbin;
-        }
+        self.ccbin = ccbin;
         self
     }
 
