@@ -277,6 +277,7 @@ pub struct Build {
     cpp_set_stdlib: Option<Arc<str>>,
     cuda: bool,
     cudart: Option<Arc<str>>,
+    ccbin: bool,
     std: Option<Arc<str>>,
     target: Option<Arc<str>>,
     host: Option<Arc<str>>,
@@ -402,6 +403,7 @@ impl Build {
             cpp_set_stdlib: None,
             cuda: false,
             cudart: None,
+            ccbin: true,
             std: None,
             target: None,
             host: None,
@@ -847,6 +849,18 @@ impl Build {
         if self.cuda {
             self.cudart = Some(cudart.into());
         }
+        self
+    }
+
+    /// Set CUDA host compiler.
+    ///
+    /// By default, a `-ccbin` flag will be passed to NVCC to specify the
+    /// underlying host compiler. The value of `-ccbin` is the same as the
+    /// chosen C++ compiler. This is not always desired, because NVCC might
+    /// not support that compiler. In this case, you can remove the `-ccbin`
+    /// flag so that NVCC will choose the host compiler by itself.
+    pub fn ccbin(&mut self, ccbin: bool) -> &mut Build {
+        self.ccbin = ccbin;
         self
     }
 
@@ -2915,9 +2929,11 @@ impl Build {
                 &self.cargo_output,
                 out_dir,
             );
-            nvcc_tool
-                .args
-                .push(format!("-ccbin={}", tool.path.display()).into());
+            if self.ccbin {
+                nvcc_tool
+                    .args
+                    .push(format!("-ccbin={}", tool.path.display()).into());
+            }
             nvcc_tool.family = tool.family;
             nvcc_tool
         } else {
