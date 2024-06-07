@@ -337,9 +337,9 @@ mod impl_ {
         };
         Box::new(instances.into_iter().filter_map(move |instance| {
             let installation_name = instance.installation_name()?;
-            if installation_name.starts_with(&format!("VisualStudio/{}.", version)) {
-                Some(instance.installation_path()?)
-            } else if installation_name.starts_with(&format!("VisualStudioPreview/{}.", version)) {
+            if installation_name.starts_with(&format!("VisualStudio/{}.", version))
+                || installation_name.starts_with(&format!("VisualStudioPreview/{}.", version))
+            {
                 Some(instance.installation_path()?)
             } else {
                 None
