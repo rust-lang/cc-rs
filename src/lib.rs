@@ -1330,7 +1330,7 @@ impl Build {
         }
 
         let cudart = match &self.cudart {
-            Some(opt) => &*opt, // {none|shared|static}
+            Some(opt) => opt, // {none|shared|static}
             None => "none",
         };
         if cudart != "none" {
@@ -1717,7 +1717,7 @@ impl Build {
             .file_name()
             .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?;
 
-        Ok(run_output(&mut cmd, &name, &self.cargo_output)?)
+        run_output(&mut cmd, name, &self.cargo_output)
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
@@ -1872,7 +1872,7 @@ impl Build {
                 };
                 cmd.push_cc_arg(crt_flag.into());
 
-                match &opt_level[..] {
+                match opt_level {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
                     "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
@@ -2087,7 +2087,7 @@ impl Build {
                             );
                         }
                     } else if let Ok(index) = target_info::RISCV_ARCH_MAPPING
-                        .binary_search_by_key(&arch, |(arch, _)| &arch)
+                        .binary_search_by_key(&arch, |(arch, _)| arch)
                     {
                         cmd.args.push(
                             format!(
@@ -2394,11 +2394,7 @@ impl Build {
     fn has_flags(&self) -> bool {
         let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
         let flags_env_var_value = self.getenv_with_target_prefixes(flags_env_var_name);
-        if let Ok(_) = flags_env_var_value {
-            true
-        } else {
-            false
-        }
+        flags_env_var_value.is_ok()
     }
 
     fn msvc_macro_assembler(&self) -> Result<(Command, &'static str), Error> {
@@ -2737,7 +2733,7 @@ impl Build {
                     // Library search path
                     {
                         let mut s = OsString::from("-L");
-                        s.push(&ios_support.join("usr/lib"));
+                        s.push(ios_support.join("usr/lib"));
                         s
                     },
                     // Framework linker search path
@@ -2746,7 +2742,7 @@ impl Build {
                         // `-iframework` implies it, but let's keep it in for
                         // clarity.
                         let mut s = OsString::from("-F");
-                        s.push(&ios_support.join("System/Library/Frameworks"));
+                        s.push(ios_support.join("System/Library/Frameworks"));
                         s
                     },
                 ]);
@@ -2987,7 +2983,7 @@ impl Build {
         // of the box" experience.
         if let Some(cl_exe) = cl_exe {
             if tool.family == (ToolFamily::Msvc { clang_cl: true })
-                && tool.env.len() == 0
+                && tool.env.is_empty()
                 && target.contains("msvc")
             {
                 for (k, v) in cl_exe.env.iter() {
@@ -3009,7 +3005,7 @@ impl Build {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        const VALID_WRAPPERS: &[&'static str] = &["sccache", "cachepot"];
+        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot"];
 
         let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
@@ -3164,7 +3160,7 @@ impl Build {
         let (mut cmd, name) = self.get_base_archiver()?;
         let mut any_flags = false;
         if let Ok(flags) = self.envflags("ARFLAGS") {
-            any_flags = any_flags | !flags.is_empty();
+            any_flags |= !flags.is_empty();
             cmd.args(flags);
         }
         for flag in &self.ar_flags {
@@ -3181,7 +3177,6 @@ impl Build {
         }
 
         self.get_base_archiver_variant("AR", "ar")
-            .map(|(cmd, archiver)| (cmd, archiver.into()))
     }
 
     /// Get the ranlib that's in use for this configuration.
@@ -3235,7 +3230,7 @@ impl Build {
         let tool_opt: Option<Command> = self
             .env_tool(env)
             .map(|(tool, _wrapper, args)| {
-                name = tool.clone();
+                name.clone_from(&tool);
                 let mut cmd = self.cmd(tool);
                 cmd.args(args);
                 cmd
@@ -3300,7 +3295,7 @@ impl Build {
                             cmd.pop();
                             cmd.push("llvm-lib.exe");
                             if let Some(llvm_lib) = which(&cmd, None) {
-                                lib = llvm_lib.to_str().unwrap().to_owned();
+                                llvm_lib.to_str().unwrap().clone_into(&mut lib);
                             }
                         }
                     }
@@ -3370,7 +3365,7 @@ impl Build {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         let cc_env = self.getenv("CROSS_COMPILE");
         let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-').to_owned());
-        cross_compile.or(linker_prefix).or(match &target[..] {
+        cross_compile.or(linker_prefix).or(match target {
             // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
             "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
             "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
@@ -3516,12 +3511,12 @@ impl Build {
                     None
                 })
             })
-            .map(|prefix| *prefix)
+            .copied()
             // If no toolchain was found, provide the first toolchain that was passed in.
             // This toolchain has been shown not to exist, however it will appear in the
             // error that is shown to the user which should make it easier to search for
             // where it should be obtained.
-            .or_else(|| prefixes.first().map(|prefix| *prefix))
+            .or_else(|| prefixes.first().copied())
     }
 
     fn get_target(&self) -> Result<Arc<str>, Error> {

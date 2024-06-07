@@ -96,7 +96,7 @@ impl Tool {
     ) -> Self {
         fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> bool {
             run_output(
-                Command::new(&path).arg("--version"),
+                Command::new(path).arg("--version"),
                 path,
                 // tool detection issues should always be shown as warnings
                 cargo_output,

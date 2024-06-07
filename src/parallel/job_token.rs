@@ -186,7 +186,7 @@ mod inherited_jobserver {
                         // Fallback to creating a help thread with blocking acquire
                         let helper_thread = self
                             .helper_thread
-                            .get_or_try_init(|| HelperThread::new(&self.jobserver))?;
+                            .get_or_try_init(|| HelperThread::new(self.jobserver))?;
 
                         match helper_thread.rx.try_recv() {
                             Ok(res) => {
