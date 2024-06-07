@@ -163,7 +163,7 @@ mod impl_ {
     use crate::windows::setup_config::SetupConfiguration;
     use crate::windows::vs_instances::{VsInstances, VswhereInstance};
     use crate::windows::windows_sys::{
-        FreeLibrary, GetMachineTypeAttributes, GetProcAddress, LoadLibraryA, UserEnabled, HMODULE,
+        GetMachineTypeAttributes, GetProcAddress, LoadLibraryA, UserEnabled, HMODULE,
         IMAGE_FILE_MACHINE_AMD64, MACHINE_ATTRIBUTES, S_OK,
     };
     use std::convert::TryFrom;
@@ -208,12 +208,6 @@ mod impl_ {
         unsafe fn get_proc_address<F>(&self, name: &[u8]) -> Option<F> {
             let symbol = unsafe { GetProcAddress(self.0, name.as_ptr() as _) };
             symbol.map(|symbol| unsafe { mem::transmute_copy(&symbol) })
-        }
-    }
-
-    impl Drop for LibraryHandle {
-        fn drop(&mut self) {
-            unsafe { FreeLibrary(self.0) };
         }
     }
 
