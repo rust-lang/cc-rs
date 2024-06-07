@@ -1956,8 +1956,8 @@ impl Build {
         // Target flags
         match cmd.family {
             ToolFamily::Clang { .. } => {
-                if !cmd.has_internal_target_arg
-                    && !(target.contains("android")
+                if !(cmd.has_internal_target_arg
+                    || target.contains("android")
                         && android_clang_compiler_uses_target_arg_internally(&cmd.path))
                 {
                     let (arch, rest) = target.split_once('-').ok_or_else(|| {
