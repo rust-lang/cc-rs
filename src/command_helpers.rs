@@ -90,7 +90,6 @@ impl StderrForwarder {
         }
     }
 
-    #[allow(clippy::uninit_vec)]
     fn forward_available(&mut self) -> bool {
         if let Some((stderr, buffer)) = self.inner.as_mut() {
             loop {
