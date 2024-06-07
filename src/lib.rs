@@ -19,13 +19,10 @@
 //!
 //! ```rust,no_run
 //! // build.rs
-//!
-//! fn main() {
-//!     cc::Build::new()
-//!         .file("foo.c")
-//!         .file("bar.c")
-//!         .compile("foo");
-//! }
+//! cc::Build::new()
+//!     .file("foo.c")
+//!     .file("bar.c")
+//!     .compile("foo");
 //! ```
 //!
 //! And that's it! Running `cargo build` should take care of the rest and your Rust
@@ -159,12 +156,10 @@
 //! `Build`:
 //!
 //! ```rust,no_run
-//! fn main() {
-//!     cc::Build::new()
-//!         .cpp(true) // Switch to C++ library compilation.
-//!         .file("foo.cpp")
-//!         .compile("foo");
-//! }
+//! cc::Build::new()
+//!     .cpp(true) // Switch to C++ library compilation.
+//!     .file("foo.cpp")
+//!     .compile("foo");
 //! ```
 //!
 //! For C++ libraries, the `CXX` and `CXXFLAGS` environment variables are used instead of `CC` and `CFLAGS`.
@@ -173,13 +168,11 @@
 //!
 //! 1. by using the `cpp_link_stdlib` method on `Build`:
 //! ```rust,no_run
-//! fn main() {
-//!     cc::Build::new()
-//!         .cpp(true)
-//!         .file("foo.cpp")
-//!         .cpp_link_stdlib("stdc++") // use libstdc++
-//!         .compile("foo");
-//! }
+//! cc::Build::new()
+//!     .cpp(true)
+//!     .file("foo.cpp")
+//!     .cpp_link_stdlib("stdc++") // use libstdc++
+//!     .compile("foo");
 //! ```
 //! 2. by setting the `CXXSTDLIB` environment variable.
 //!
@@ -193,26 +186,24 @@
 //! on `Build`:
 //!
 //! ```rust,no_run
-//! fn main() {
-//!     cc::Build::new()
-//!         // Switch to CUDA C++ library compilation using NVCC.
-//!         .cuda(true)
-//!         .cudart("static")
-//!         // Generate code for Maxwell (GTX 970, 980, 980 Ti, Titan X).
-//!         .flag("-gencode").flag("arch=compute_52,code=sm_52")
-//!         // Generate code for Maxwell (Jetson TX1).
-//!         .flag("-gencode").flag("arch=compute_53,code=sm_53")
-//!         // Generate code for Pascal (GTX 1070, 1080, 1080 Ti, Titan Xp).
-//!         .flag("-gencode").flag("arch=compute_61,code=sm_61")
-//!         // Generate code for Pascal (Tesla P100).
-//!         .flag("-gencode").flag("arch=compute_60,code=sm_60")
-//!         // Generate code for Pascal (Jetson TX2).
-//!         .flag("-gencode").flag("arch=compute_62,code=sm_62")
-//!         // Generate code in parallel
-//!         .flag("-t0")
-//!         .file("bar.cu")
-//!         .compile("bar");
-//! }
+//! cc::Build::new()
+//!     // Switch to CUDA C++ library compilation using NVCC.
+//!     .cuda(true)
+//!     .cudart("static")
+//!     // Generate code for Maxwell (GTX 970, 980, 980 Ti, Titan X).
+//!     .flag("-gencode").flag("arch=compute_52,code=sm_52")
+//!     // Generate code for Maxwell (Jetson TX1).
+//!     .flag("-gencode").flag("arch=compute_53,code=sm_53")
+//!     // Generate code for Pascal (GTX 1070, 1080, 1080 Ti, Titan Xp).
+//!     .flag("-gencode").flag("arch=compute_61,code=sm_61")
+//!     // Generate code for Pascal (Tesla P100).
+//!     .flag("-gencode").flag("arch=compute_60,code=sm_60")
+//!     // Generate code for Pascal (Jetson TX2).
+//!     .flag("-gencode").flag("arch=compute_62,code=sm_62")
+//!     // Generate code in parallel
+//!     .flag("-t0")
+//!     .file("bar.cu")
+//!     .compile("bar");
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
