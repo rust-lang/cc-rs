@@ -12,7 +12,7 @@ fn generate_riscv_arch_mapping(f: &mut File, target_specs: &RustcTargetSpecs) {
         .iter()
         .filter_map(|(target, target_spec)| {
             let arch = target.split_once('-').unwrap().0;
-            (arch.contains("riscv") && arch != &target_spec.arch)
+            (arch.contains("riscv") && arch != target_spec.arch)
                 .then_some((arch, &*target_spec.arch))
         })
         .collect::<Vec<_>>();
