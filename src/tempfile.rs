@@ -72,13 +72,17 @@ impl NamedTempfile {
     pub(super) fn file(&self) -> &File {
         self.file.as_ref().unwrap()
     }
+
+    pub(super) fn close(&mut self) {
+        self.file.take();
+    }
 }
 
 impl Drop for NamedTempfile {
     fn drop(&mut self) {
         // On Windows you have to close all handle to it before
         // removing the file.
-        self.file.take();
+        self.close();
         let _ = remove_file(&self.path);
     }
 }
