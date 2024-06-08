@@ -69,8 +69,8 @@ impl NamedTempfile {
         &self.path
     }
 
-    pub(super) fn file(&self) -> &File {
-        self.file.as_ref().unwrap()
+    pub(super) fn take_file(&mut self) -> Option<File> {
+        self.file.take()
     }
 }
 
