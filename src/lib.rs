@@ -19,13 +19,10 @@
 //!
 //! ```rust,no_run
 //! // build.rs
-//!
-//! fn main() {
-//!     cc::Build::new()
-//!         .file("foo.c")
-//!         .file("bar.c")
-//!         .compile("foo");
-//! }
+//! cc::Build::new()
+//!     .file("foo.c")
+//!     .file("bar.c")
+//!     .compile("foo");
 //! ```
 //!
 //! And that's it! Running `cargo build` should take care of the rest and your Rust
@@ -159,12 +156,10 @@
 //! `Build`:
 //!
 //! ```rust,no_run
-//! fn main() {
-//!     cc::Build::new()
-//!         .cpp(true) // Switch to C++ library compilation.
-//!         .file("foo.cpp")
-//!         .compile("foo");
-//! }
+//! cc::Build::new()
+//!     .cpp(true) // Switch to C++ library compilation.
+//!     .file("foo.cpp")
+//!     .compile("foo");
 //! ```
 //!
 //! For C++ libraries, the `CXX` and `CXXFLAGS` environment variables are used instead of `CC` and `CFLAGS`.
@@ -173,13 +168,11 @@
 //!
 //! 1. by using the `cpp_link_stdlib` method on `Build`:
 //! ```rust,no_run
-//! fn main() {
-//!     cc::Build::new()
-//!         .cpp(true)
-//!         .file("foo.cpp")
-//!         .cpp_link_stdlib("stdc++") // use libstdc++
-//!         .compile("foo");
-//! }
+//! cc::Build::new()
+//!     .cpp(true)
+//!     .file("foo.cpp")
+//!     .cpp_link_stdlib("stdc++") // use libstdc++
+//!     .compile("foo");
 //! ```
 //! 2. by setting the `CXXSTDLIB` environment variable.
 //!
@@ -193,26 +186,24 @@
 //! on `Build`:
 //!
 //! ```rust,no_run
-//! fn main() {
-//!     cc::Build::new()
-//!         // Switch to CUDA C++ library compilation using NVCC.
-//!         .cuda(true)
-//!         .cudart("static")
-//!         // Generate code for Maxwell (GTX 970, 980, 980 Ti, Titan X).
-//!         .flag("-gencode").flag("arch=compute_52,code=sm_52")
-//!         // Generate code for Maxwell (Jetson TX1).
-//!         .flag("-gencode").flag("arch=compute_53,code=sm_53")
-//!         // Generate code for Pascal (GTX 1070, 1080, 1080 Ti, Titan Xp).
-//!         .flag("-gencode").flag("arch=compute_61,code=sm_61")
-//!         // Generate code for Pascal (Tesla P100).
-//!         .flag("-gencode").flag("arch=compute_60,code=sm_60")
-//!         // Generate code for Pascal (Jetson TX2).
-//!         .flag("-gencode").flag("arch=compute_62,code=sm_62")
-//!         // Generate code in parallel
-//!         .flag("-t0")
-//!         .file("bar.cu")
-//!         .compile("bar");
-//! }
+//! cc::Build::new()
+//!     // Switch to CUDA C++ library compilation using NVCC.
+//!     .cuda(true)
+//!     .cudart("static")
+//!     // Generate code for Maxwell (GTX 970, 980, 980 Ti, Titan X).
+//!     .flag("-gencode").flag("arch=compute_52,code=sm_52")
+//!     // Generate code for Maxwell (Jetson TX1).
+//!     .flag("-gencode").flag("arch=compute_53,code=sm_53")
+//!     // Generate code for Pascal (GTX 1070, 1080, 1080 Ti, Titan Xp).
+//!     .flag("-gencode").flag("arch=compute_61,code=sm_61")
+//!     // Generate code for Pascal (Tesla P100).
+//!     .flag("-gencode").flag("arch=compute_60,code=sm_60")
+//!     // Generate code for Pascal (Jetson TX2).
+//!     .flag("-gencode").flag("arch=compute_62,code=sm_62")
+//!     // Generate code in parallel
+//!     .flag("-t0")
+//!     .file("bar.cu")
+//!     .compile("bar");
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
@@ -1330,7 +1321,7 @@ impl Build {
         }
 
         let cudart = match &self.cudart {
-            Some(opt) => &*opt, // {none|shared|static}
+            Some(opt) => opt, // {none|shared|static}
             None => "none",
         };
         if cudart != "none" {
@@ -1717,7 +1708,7 @@ impl Build {
             .file_name()
             .ok_or_else(|| Error::new(ErrorKind::IOError, "Failed to get compiler path."))?;
 
-        Ok(run_output(&mut cmd, &name, &self.cargo_output)?)
+        run_output(&mut cmd, name, &self.cargo_output)
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
@@ -1872,7 +1863,7 @@ impl Build {
                 };
                 cmd.push_cc_arg(crt_flag.into());
 
-                match &opt_level[..] {
+                match opt_level {
                     // Msvc uses /O1 to enable all optimizations that minimize code size.
                     "z" | "s" | "1" => cmd.push_opt_unless_duplicate("-O1".into()),
                     // -O3 is a valid value for gcc and clang compilers, but not msvc. Cap to /O2.
@@ -1956,9 +1947,9 @@ impl Build {
         // Target flags
         match cmd.family {
             ToolFamily::Clang { .. } => {
-                if !cmd.has_internal_target_arg
-                    && !(target.contains("android")
-                        && android_clang_compiler_uses_target_arg_internally(&cmd.path))
+                if !(cmd.has_internal_target_arg
+                    || (target.contains("android")
+                        && android_clang_compiler_uses_target_arg_internally(&cmd.path)))
                 {
                     let (arch, rest) = target.split_once('-').ok_or_else(|| {
                         Error::new(
@@ -2087,7 +2078,7 @@ impl Build {
                             );
                         }
                     } else if let Ok(index) = target_info::RISCV_ARCH_MAPPING
-                        .binary_search_by_key(&arch, |(arch, _)| &arch)
+                        .binary_search_by_key(&arch, |(arch, _)| arch)
                     {
                         cmd.args.push(
                             format!(
@@ -2394,11 +2385,7 @@ impl Build {
     fn has_flags(&self) -> bool {
         let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
         let flags_env_var_value = self.getenv_with_target_prefixes(flags_env_var_name);
-        if let Ok(_) = flags_env_var_value {
-            true
-        } else {
-            false
-        }
+        flags_env_var_value.is_ok()
     }
 
     fn msvc_macro_assembler(&self) -> Result<(Command, &'static str), Error> {
@@ -2594,10 +2581,7 @@ impl Build {
         } else {
             AppleOs::Ios
         };
-        let is_mac = match os {
-            AppleOs::MacOs => true,
-            _ => false,
-        };
+        let is_mac = matches!(os, AppleOs::MacOs);
 
         let arch_str = target.split('-').nth(0).ok_or_else(|| {
             Error::new(
@@ -2737,7 +2721,7 @@ impl Build {
                     // Library search path
                     {
                         let mut s = OsString::from("-L");
-                        s.push(&ios_support.join("usr/lib"));
+                        s.push(ios_support.join("usr/lib"));
                         s
                     },
                     // Framework linker search path
@@ -2746,7 +2730,7 @@ impl Build {
                         // `-iframework` implies it, but let's keep it in for
                         // clarity.
                         let mut s = OsString::from("-F");
-                        s.push(&ios_support.join("System/Library/Frameworks"));
+                        s.push(ios_support.join("System/Library/Frameworks"));
                         s
                     },
                 ]);
@@ -2987,7 +2971,7 @@ impl Build {
         // of the box" experience.
         if let Some(cl_exe) = cl_exe {
             if tool.family == (ToolFamily::Msvc { clang_cl: true })
-                && tool.env.len() == 0
+                && tool.env.is_empty()
                 && target.contains("msvc")
             {
                 for (k, v) in cl_exe.env.iter() {
@@ -3009,7 +2993,7 @@ impl Build {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        const VALID_WRAPPERS: &[&'static str] = &["sccache", "cachepot"];
+        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot"];
 
         let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
@@ -3164,7 +3148,7 @@ impl Build {
         let (mut cmd, name) = self.get_base_archiver()?;
         let mut any_flags = false;
         if let Ok(flags) = self.envflags("ARFLAGS") {
-            any_flags = any_flags | !flags.is_empty();
+            any_flags |= !flags.is_empty();
             cmd.args(flags);
         }
         for flag in &self.ar_flags {
@@ -3181,7 +3165,6 @@ impl Build {
         }
 
         self.get_base_archiver_variant("AR", "ar")
-            .map(|(cmd, archiver)| (cmd, archiver.into()))
     }
 
     /// Get the ranlib that's in use for this configuration.
@@ -3235,7 +3218,7 @@ impl Build {
         let tool_opt: Option<Command> = self
             .env_tool(env)
             .map(|(tool, _wrapper, args)| {
-                name = tool.clone();
+                name.clone_from(&tool);
                 let mut cmd = self.cmd(tool);
                 cmd.args(args);
                 cmd
@@ -3300,7 +3283,7 @@ impl Build {
                             cmd.pop();
                             cmd.push("llvm-lib.exe");
                             if let Some(llvm_lib) = which(&cmd, None) {
-                                lib = llvm_lib.to_str().unwrap().to_owned();
+                                llvm_lib.to_str().unwrap().clone_into(&mut lib);
                             }
                         }
                     }
@@ -3370,127 +3353,129 @@ impl Build {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         let cc_env = self.getenv("CROSS_COMPILE");
         let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-').to_owned());
-        cross_compile.or(linker_prefix).or(match &target[..] {
-            // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
-            "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
-            "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
-            "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
-            "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
-            "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
-            "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-            "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-            "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-            "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
-            "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
-            "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-            "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
-            "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-            "arm-unknown-netbsd-eabi" => Some("arm--netbsdelf-eabi"),
-            "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
-            "armv7-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-            "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-            "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-            "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-            "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-            "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-            "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-            "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-            "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-            "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
-            "hexagon-unknown-linux-musl" => Some("hexagon-linux-musl"),
-            "i586-unknown-linux-musl" => Some("musl"),
-            "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
-            "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
-            "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
-                "i686-linux-gnu",
-                "x86_64-linux-gnu", // transparently support gcc-multilib
-            ]), // explicit None if not found, so caller knows to fall back
-            "i686-unknown-linux-musl" => Some("musl"),
-            "i686-unknown-netbsd" => Some("i486--netbsdelf"),
-            "loongarch64-unknown-linux-gnu" => Some("loongarch64-linux-gnu"),
-            "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
-            "mips-unknown-linux-musl" => Some("mips-linux-musl"),
-            "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
-            "mipsel-unknown-linux-musl" => Some("mipsel-linux-musl"),
-            "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
-            "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
-            "mipsisa32r6-unknown-linux-gnu" => Some("mipsisa32r6-linux-gnu"),
-            "mipsisa32r6el-unknown-linux-gnu" => Some("mipsisa32r6el-linux-gnu"),
-            "mipsisa64r6-unknown-linux-gnuabi64" => Some("mipsisa64r6-linux-gnuabi64"),
-            "mipsisa64r6el-unknown-linux-gnuabi64" => Some("mipsisa64r6el-linux-gnuabi64"),
-            "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-            "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
-            "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
-            "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-            "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
-            "riscv32i-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                "riscv32-unknown-elf",
-                "riscv64-unknown-elf",
-                "riscv-none-embed",
-            ]),
-            "riscv32imac-esp-espidf" => Some("riscv32-esp-elf"),
-            "riscv32imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                "riscv32-unknown-elf",
-                "riscv64-unknown-elf",
-                "riscv-none-embed",
-            ]),
-            "riscv32imac-unknown-xous-elf" => self.find_working_gnu_prefix(&[
-                "riscv32-unknown-elf",
-                "riscv64-unknown-elf",
-                "riscv-none-embed",
-            ]),
-            "riscv32imc-esp-espidf" => Some("riscv32-esp-elf"),
-            "riscv32imc-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                "riscv32-unknown-elf",
-                "riscv64-unknown-elf",
-                "riscv-none-embed",
-            ]),
-            "riscv64gc-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                "riscv64-unknown-elf",
-                "riscv32-unknown-elf",
-                "riscv-none-embed",
-            ]),
-            "riscv64imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                "riscv64-unknown-elf",
-                "riscv32-unknown-elf",
-                "riscv-none-embed",
-            ]),
-            "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
-            "riscv32gc-unknown-linux-gnu" => Some("riscv32-linux-gnu"),
-            "riscv64gc-unknown-linux-musl" => Some("riscv64-linux-musl"),
-            "riscv32gc-unknown-linux-musl" => Some("riscv32-linux-musl"),
-            "riscv64gc-unknown-netbsd" => Some("riscv64--netbsd"),
-            "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
-            "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
-            "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
-            "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
-            "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
-            "armv7a-none-eabi" => Some("arm-none-eabi"),
-            "armv7a-none-eabihf" => Some("arm-none-eabi"),
-            "armebv7r-none-eabi" => Some("arm-none-eabi"),
-            "armebv7r-none-eabihf" => Some("arm-none-eabi"),
-            "armv7r-none-eabi" => Some("arm-none-eabi"),
-            "armv7r-none-eabihf" => Some("arm-none-eabi"),
-            "armv8r-none-eabihf" => Some("arm-none-eabi"),
-            "thumbv6m-none-eabi" => Some("arm-none-eabi"),
-            "thumbv7em-none-eabi" => Some("arm-none-eabi"),
-            "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
-            "thumbv7m-none-eabi" => Some("arm-none-eabi"),
-            "thumbv8m.base-none-eabi" => Some("arm-none-eabi"),
-            "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
-            "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
-            "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
-            "x86_64-pc-windows-gnullvm" => Some("x86_64-w64-mingw32"),
-            "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
-            "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
-            "x86_64-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
-                "x86_64-linux-gnu", // rustfmt wrap
-            ]), // explicit None if not found, so caller knows to fall back
-            "x86_64-unknown-linux-musl" => Some("musl"),
-            "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-            _ => None,
-        }
-        .map(|x| x.to_owned()))
+        cross_compile.or(linker_prefix).or_else(|| {
+            match target {
+                // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
+                "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
+                "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
+                "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
+                "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
+                "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
+                "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
+                "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
+                "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
+                "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                "arm-unknown-netbsd-eabi" => Some("arm--netbsdelf-eabi"),
+                "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
+                "armv7-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
+                "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
+                "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
+                "hexagon-unknown-linux-musl" => Some("hexagon-linux-musl"),
+                "i586-unknown-linux-musl" => Some("musl"),
+                "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
+                "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
+                "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
+                    "i686-linux-gnu",
+                    "x86_64-linux-gnu", // transparently support gcc-multilib
+                ]), // explicit None if not found, so caller knows to fall back
+                "i686-unknown-linux-musl" => Some("musl"),
+                "i686-unknown-netbsd" => Some("i486--netbsdelf"),
+                "loongarch64-unknown-linux-gnu" => Some("loongarch64-linux-gnu"),
+                "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
+                "mips-unknown-linux-musl" => Some("mips-linux-musl"),
+                "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
+                "mipsel-unknown-linux-musl" => Some("mipsel-linux-musl"),
+                "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
+                "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
+                "mipsisa32r6-unknown-linux-gnu" => Some("mipsisa32r6-linux-gnu"),
+                "mipsisa32r6el-unknown-linux-gnu" => Some("mipsisa32r6el-linux-gnu"),
+                "mipsisa64r6-unknown-linux-gnuabi64" => Some("mipsisa64r6-linux-gnuabi64"),
+                "mipsisa64r6el-unknown-linux-gnuabi64" => Some("mipsisa64r6el-linux-gnuabi64"),
+                "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
+                "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
+                "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
+                "riscv32i-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                    "riscv32-unknown-elf",
+                    "riscv64-unknown-elf",
+                    "riscv-none-embed",
+                ]),
+                "riscv32imac-esp-espidf" => Some("riscv32-esp-elf"),
+                "riscv32imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                    "riscv32-unknown-elf",
+                    "riscv64-unknown-elf",
+                    "riscv-none-embed",
+                ]),
+                "riscv32imac-unknown-xous-elf" => self.find_working_gnu_prefix(&[
+                    "riscv32-unknown-elf",
+                    "riscv64-unknown-elf",
+                    "riscv-none-embed",
+                ]),
+                "riscv32imc-esp-espidf" => Some("riscv32-esp-elf"),
+                "riscv32imc-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                    "riscv32-unknown-elf",
+                    "riscv64-unknown-elf",
+                    "riscv-none-embed",
+                ]),
+                "riscv64gc-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                    "riscv64-unknown-elf",
+                    "riscv32-unknown-elf",
+                    "riscv-none-embed",
+                ]),
+                "riscv64imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
+                    "riscv64-unknown-elf",
+                    "riscv32-unknown-elf",
+                    "riscv-none-embed",
+                ]),
+                "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
+                "riscv32gc-unknown-linux-gnu" => Some("riscv32-linux-gnu"),
+                "riscv64gc-unknown-linux-musl" => Some("riscv64-linux-musl"),
+                "riscv32gc-unknown-linux-musl" => Some("riscv32-linux-musl"),
+                "riscv64gc-unknown-netbsd" => Some("riscv64--netbsd"),
+                "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
+                "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
+                "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
+                "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
+                "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
+                "armv7a-none-eabi" => Some("arm-none-eabi"),
+                "armv7a-none-eabihf" => Some("arm-none-eabi"),
+                "armebv7r-none-eabi" => Some("arm-none-eabi"),
+                "armebv7r-none-eabihf" => Some("arm-none-eabi"),
+                "armv7r-none-eabi" => Some("arm-none-eabi"),
+                "armv7r-none-eabihf" => Some("arm-none-eabi"),
+                "armv8r-none-eabihf" => Some("arm-none-eabi"),
+                "thumbv6m-none-eabi" => Some("arm-none-eabi"),
+                "thumbv7em-none-eabi" => Some("arm-none-eabi"),
+                "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
+                "thumbv7m-none-eabi" => Some("arm-none-eabi"),
+                "thumbv8m.base-none-eabi" => Some("arm-none-eabi"),
+                "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
+                "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
+                "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
+                "x86_64-pc-windows-gnullvm" => Some("x86_64-w64-mingw32"),
+                "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
+                "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
+                "x86_64-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
+                    "x86_64-linux-gnu", // rustfmt wrap
+                ]), // explicit None if not found, so caller knows to fall back
+                "x86_64-unknown-linux-musl" => Some("musl"),
+                "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
+                _ => None,
+            }
+            .map(|x| x.to_owned())
+        })
     }
 
     /// Some platforms have multiple, compatible, canonical prefixes. Look through
@@ -3516,12 +3501,12 @@ impl Build {
                     None
                 })
             })
-            .map(|prefix| *prefix)
+            .copied()
             // If no toolchain was found, provide the first toolchain that was passed in.
             // This toolchain has been shown not to exist, however it will appear in the
             // error that is shown to the user which should make it easier to search for
             // where it should be obtained.
-            .or_else(|| prefixes.first().map(|prefix| *prefix))
+            .or_else(|| prefixes.first().copied())
     }
 
     fn get_target(&self) -> Result<Arc<str>, Error> {

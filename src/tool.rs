@@ -96,7 +96,7 @@ impl Tool {
     ) -> Self {
         fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> bool {
             run_output(
-                Command::new(&path).arg("--version"),
+                Command::new(path).arg("--version"),
                 path,
                 // tool detection issues should always be shown as warnings
                 cargo_output,
@@ -392,10 +392,7 @@ impl Tool {
 
     /// Whether the tool is MSVC-like.
     pub fn is_like_msvc(&self) -> bool {
-        match self.family {
-            ToolFamily::Msvc { .. } => true,
-            _ => false,
-        }
+        matches!(self.family, ToolFamily::Msvc { .. })
     }
 }
 
