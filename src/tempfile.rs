@@ -69,12 +69,8 @@ impl NamedTempfile {
         &self.path
     }
 
-    pub(super) fn file(&self) -> &File {
-        self.file.as_ref().unwrap()
-    }
-
-    pub(super) fn close(&mut self) {
-        self.file.take();
+    pub(super) fn take_file(&mut self) -> Option<File> {
+        self.file.take()
     }
 }
 
@@ -82,7 +78,7 @@ impl Drop for NamedTempfile {
     fn drop(&mut self) {
         // On Windows you have to close all handle to it before
         // removing the file.
-        self.close();
+        self.file.take();
         let _ = remove_file(&self.path);
     }
 }
