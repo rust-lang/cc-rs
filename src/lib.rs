@@ -1313,6 +1313,14 @@ impl Build {
                 self.cargo_output
                     .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
             }
+            // Link c++ lib from WASI sysroot
+            if self.get_target()?.contains("wasi") {
+                let wasi_sysroot = self.wasi_sysroot()?;
+                self.cargo_output.print_metadata(&format_args!(
+                    "cargo:rustc-flags=-L {}/lib/wasm32-wasi -lstatic=c++ -lstatic=c++abi",
+                    wasi_sysroot
+                ));
+            }
         }
 
         let cudart = match &self.cudart {
@@ -1912,18 +1920,13 @@ impl Build {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
                 }
-                if target.contains("wasm32-wasi") {
+                if target.contains("-wasi") {
                     // WASI does not support exceptions yet.
+                    // https://github.com/WebAssembly/exception-handling
                     cmd.push_cc_arg("-fno-exceptions".into());
-                    let wasi_sdk = std::env::var("WASI_SDK").expect("Could not find WASI_SDK. Download it from github & setup environment variable WASI_SDK targetting the folder.");
-                    let wasi_sysroot = format!("{}/share/wasi-sysroot/", wasi_sdk);
-                    // If compiling for c++, link libc++ & libc++abi
-                    if self.cpp {
-                        self.cargo_output.print_metadata(&format_args!(
-                            "cargo:rustc-flags=-L {}/lib/wasm32-wasi -lstatic=c++ -lstatic=c++abi",
-                            wasi_sysroot
-                        ));
-                    }
+                    // Link clang sysroot
+                    let wasi_sysroot = self.wasi_sysroot()?;
+                    cmd.push_cc_arg(format!("--sysroot={}", wasi_sysroot).into());
                 }
             }
         }
@@ -3867,6 +3870,19 @@ impl Build {
             AppleOs::VisionOS => deployment_from_env("XROS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "1.0".into()),
+        }
+    }
+    
+    fn wasi_sysroot(&self) -> Result<String, Error> {
+        if let Some(wasi_sysroot_path) = std::env::var_os("WASI_SYSROOT") {
+            let path = PathBuf::from(wasi_sysroot_path);
+            Ok(String::from(path.to_string_lossy()))
+        }
+        else {
+            Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                "Environment variable WASI_SYSROOT not defined. Download sysroot from github & setup environment variable WASI_SYSROOT targetting the folder.",
+            ))
         }
     }
 
