@@ -3872,13 +3872,12 @@ impl Build {
                 .unwrap_or_else(|| "1.0".into()),
         }
     }
-    
+
     fn wasi_sysroot(&self) -> Result<String, Error> {
         if let Some(wasi_sysroot_path) = std::env::var_os("WASI_SYSROOT") {
             let path = PathBuf::from(wasi_sysroot_path);
             Ok(String::from(path.to_string_lossy()))
-        }
-        else {
+        } else {
             Err(Error::new(
                 ErrorKind::EnvVarNotFound,
                 "Environment variable WASI_SYSROOT not defined. Download sysroot from github & setup environment variable WASI_SYSROOT targetting the folder.",
