@@ -1,0 +1,45 @@
+name: Regenerate windows sys bindings
+
+on:
+  workflow_dispatch: # Allow running on-demand
+  schedule:
+    - cron: '0 3 * * 5'
+
+jobs:
+  regenerate:
+    name: Regenerate windows sys bindings & Open Pull Request if necessary
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Generate branch name
+        run: |
+          git checkout -b regenerate-windows-sys-${{ github.run_id }}
+
+      - uses: Swatinem/rust-cache@v2
+      - name: Regenerate windows sys bindings
+        run: cargo run -p gen-windows-sys-binding
+
+      - name: Detect changes
+        id: changes
+        run:
+          # This output boolean tells us if the dependencies have actually changed
+          echo "count=$(git status --porcelain=v1 | wc -l)" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        # Only push if changes exist
+        if: steps.changes.outputs.count > 0
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git commit -am "Regenerate windows sys bindings"
+          git push origin HEAD
+
+      - name: Open pull request if needed
+        if: steps.changes.outputs.count > 0
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr create --base main --title "Regenerate windows sys bindings" --body "Automatically regenerated in CI"
