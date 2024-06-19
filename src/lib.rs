@@ -261,6 +261,8 @@ pub struct Build {
     known_flag_support_status_cache: Arc<Mutex<HashMap<CompilerFlag, bool>>>,
     ar_flags: Vec<Arc<str>>,
     asm_flags: Vec<Arc<str>>,
+    c_flags: Vec<Arc<str>>,
+    cpp_flags: Vec<Arc<str>>,
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
     cpp: bool,
@@ -385,6 +387,8 @@ impl Build {
             known_flag_support_status_cache: Arc::new(Mutex::new(HashMap::new())),
             ar_flags: Vec::new(),
             asm_flags: Vec::new(),
+            c_flags: Vec::new(),
+            cpp_flags: Vec::new(),
             no_default_flags: false,
             files: Vec::new(),
             shared_flag: None,
@@ -562,6 +566,36 @@ impl Build {
         self
     }
 
+    /// Add an arbitrary flag to the invocation of the compiler for c files
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .c_flag("-std=c99")
+    ///     .compile("foo");
+    /// ```
+    pub fn c_flag(&mut self, flag: &str) -> &mut Build {
+        self.c_flags.push(flag.into());
+        self
+    }
+
+    /// Add an arbitrary flag to the invocation of the compiler for cpp files
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.cpp")
+    ///     .cpp_flag("-std=c++17")
+    ///     .compile("foo");
+    /// ```
+    pub fn cpp_flag(&mut self, flag: &str) -> &mut Build {
+        self.cpp_flags.push(flag.into());
+        self
+    }
+
     fn ensure_check_file(&self) -> Result<PathBuf, Error> {
         let out_dir = self.get_out_dir()?;
         let src = if self.cuda {
@@ -646,7 +680,7 @@ impl Build {
             compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
         }
 
-        let mut cmd = compiler.to_command();
+        let mut cmd = compiler.to_command(None);
         let is_arm = target.contains("aarch64") || target.contains("arm");
         let clang = compiler.is_like_clang();
         let gnu = compiler.family == ToolFamily::Gnu;
@@ -1619,7 +1653,7 @@ impl Build {
             let (cmd, name) = self.msvc_macro_assembler()?;
             (cmd, Cow::Borrowed(Path::new(name)))
         } else {
-            let mut cmd = compiler.to_command();
+            let mut cmd = compiler.to_command(Some(&obj.src));
             for (a, b) in self.env.iter() {
                 cmd.env(a, b);
             }
@@ -1675,7 +1709,7 @@ impl Build {
     /// This will return a result instead of panicking; see expand() for the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
-        let mut cmd = compiler.to_command();
+        let mut cmd = compiler.to_command(None);
         for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
@@ -1831,6 +1865,14 @@ impl Build {
         if self.warnings_into_errors {
             let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
             cmd.push_cc_arg(warnings_to_errors_flag);
+        }
+
+        for flag in self.c_flags.iter() {
+            cmd.c_args.push((**flag).into());
+        }
+
+        for flag in self.cpp_flags.iter() {
+            cmd.cpp_args.push((**flag).into());
         }
 
         Ok(cmd)
@@ -2467,7 +2509,7 @@ impl Build {
 
             let out_dir = self.get_out_dir()?;
             let dlink = out_dir.join(lib_name.to_owned() + "_dlink.o");
-            let mut nvcc = self.get_compiler().to_command();
+            let mut nvcc = self.get_compiler().to_command(None);
             nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
             run(&mut nvcc, "nvcc", &self.cargo_output)?;
             self.assemble_progressive(dst, &[dlink.as_path()])?;
