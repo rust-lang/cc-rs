@@ -1318,7 +1318,7 @@ impl Build {
                 let wasi_sysroot = self.wasi_sysroot()?;
                 self.cargo_output.print_metadata(&format_args!(
                     "cargo:rustc-flags=-L {}/lib/wasm32-wasi -lstatic=c++ -lstatic=c++abi",
-                    wasi_sysroot.display()
+                    wasi_sysroot
                 ));
             }
         }
@@ -1926,7 +1926,7 @@ impl Build {
                     cmd.push_cc_arg("-fno-exceptions".into());
                     // Link clang sysroot
                     let wasi_sysroot = self.wasi_sysroot()?;
-                    cmd.push_cc_arg(format!("--sysroot={}", wasi_sysroot.display()).into());
+                    cmd.push_cc_arg(format!("--sysroot={}", wasi_sysroot).into());
                 }
             }
         }
@@ -3873,10 +3873,9 @@ impl Build {
         }
     }
 
-    fn wasi_sysroot(&self) -> Result<PathBuf, Error> {
+    fn wasi_sysroot(&self) -> Result<Arc<str>, Error> {
         if let Some(wasi_sysroot_path) = self.getenv("WASI_SYSROOT") {
-            let path = PathBuf::from(wasi_sysroot_path.as_ref());
-            Ok(path)
+            Ok(wasi_sysroot_path)
         } else {
             Err(Error::new(
                 ErrorKind::EnvVarNotFound,
