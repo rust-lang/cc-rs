@@ -1318,6 +1318,14 @@ impl Build {
                 self.cargo_output
                     .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
             }
+            // Link c++ lib from WASI sysroot
+            if self.get_target()?.contains("wasi") {
+                let wasi_sysroot = self.wasi_sysroot()?;
+                self.cargo_output.print_metadata(&format_args!(
+                    "cargo:rustc-flags=-L {}/lib/wasm32-wasi -lstatic=c++ -lstatic=c++abi",
+                    wasi_sysroot
+                ));
+            }
         }
 
         let cudart = match &self.cudart {
@@ -1916,6 +1924,14 @@ impl Build {
                     if target.contains("linux") && !self.use_plt.unwrap_or(true) {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
+                }
+                if target == "wasm32-wasip1" {
+                    // WASI does not support exceptions yet.
+                    // https://github.com/WebAssembly/exception-handling
+                    cmd.push_cc_arg("-fno-exceptions".into());
+                    // Link clang sysroot
+                    let wasi_sysroot = self.wasi_sysroot()?;
+                    cmd.push_cc_arg(format!("--sysroot={}", wasi_sysroot).into());
                 }
             }
         }
@@ -2859,7 +2875,11 @@ impl Build {
                     || target == "wasm32-unknown-wasi"
                     || target == "wasm32-unknown-unknown"
                 {
-                    "clang".to_string()
+                    if self.cpp {
+                        "clang++".to_string()
+                    } else {
+                        "clang".to_string()
+                    }
                 } else if target.contains("vxworks") {
                     if self.cpp {
                         "wr-c++".to_string()
@@ -3099,6 +3119,7 @@ impl Build {
                         | target.contains("openbsd")
                         | target.contains("aix")
                         | target.contains("linux-ohos")
+                        | target.contains("-wasi")
                     {
                         Ok(Some("c++".to_string()))
                     } else if target.contains("android") {
@@ -3850,6 +3871,17 @@ impl Build {
             AppleOs::VisionOS => deployment_from_env("XROS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "1.0".into()),
+        }
+    }
+
+    fn wasi_sysroot(&self) -> Result<Arc<str>, Error> {
+        if let Some(wasi_sysroot_path) = self.getenv("WASI_SYSROOT") {
+            Ok(wasi_sysroot_path)
+        } else {
+            Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                "Environment variable WASI_SYSROOT not defined. Download sysroot from github & setup environment variable WASI_SYSROOT targetting the folder.",
+            ))
         }
     }
 
