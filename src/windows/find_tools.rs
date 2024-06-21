@@ -1036,7 +1036,7 @@ mod impl_ {
             env::split_paths(&install_dir)
                 .map(|p| p.join(tool))
                 .find(|p| p.exists())
-                .map(|path| Tool::with_family(path.into(), MSVC_FAMILY))
+                .map(|path| Tool::with_family(path, MSVC_FAMILY))
         };
 
         // Take the path of tool for the vc install directory.
@@ -1044,7 +1044,7 @@ mod impl_ {
             // Take the path of tool for the vs install directory.
             .or_else(|| get_tool(vs_install_dir))
             // Take the path of tool for the current path environment.
-            .or_else(|| env::var_os("PATH").and_then(|path| get_tool(path)))
+            .or_else(|| env::var_os("PATH").and_then(get_tool))
     }
 
     pub(super) fn find_msvc_15plus(_tool: &str, _target: TargetArch<'_>) -> Option<Tool> {
