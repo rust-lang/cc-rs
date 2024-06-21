@@ -637,19 +637,19 @@ fn clang_apple_tvsimulator() {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_arch="aarch64", target_os = "macos"))]
 fn clang_apple_detect_deployment_target(target: &str) {
     let test = Test::clang();
     test.gcc().target(target).file("foo.c").compile("foo");
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_arch="aarch64", target_os = "macos"))]
 #[test]
 fn clang_apple_tvos_detect_deployment_target() {
     clang_apple_detect_deployment_target("aarch64-apple-tvos");
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(target_arch="aarch64", target_os = "macos"))]
 #[test]
 fn clang_apple_visionos_detect_deployment_target() {
     clang_apple_detect_deployment_target("aarch64-apple-visionos");
