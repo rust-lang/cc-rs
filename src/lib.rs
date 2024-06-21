@@ -1920,7 +1920,7 @@ impl Build {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
                 }
-                if target == "wasm32-wasi" {
+                if target == "wasm32-wasip1" {
                     // WASI does not support exceptions yet.
                     // https://github.com/WebAssembly/exception-handling
                     cmd.push_cc_arg("-fno-exceptions".into());
