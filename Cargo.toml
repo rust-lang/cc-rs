@@ -29,7 +29,7 @@ once_cell = { version = "1.19", optional = true }
 libc = { version = "0.2.62", default-features = false, optional = true }
 
 [features]
-parallel = ["libc", "jobserver", "once_cell"]
+parallel = ["dep:libc", "dep:jobserver", "dep:once_cell"]
 
 [dev-dependencies]
 tempfile = "3"
