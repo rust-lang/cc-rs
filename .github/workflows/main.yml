@@ -130,9 +130,9 @@ jobs:
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-clang')
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} -- --nocapture
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release -- --nocapture
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel -- --nocapture
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-tvos:
