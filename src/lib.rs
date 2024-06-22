@@ -1316,7 +1316,7 @@ impl Build {
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
                 self.cargo_output
-                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
+                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
             }
             // Link c++ lib from WASI sysroot
             if self.get_target()?.contains("wasi") {
@@ -3104,15 +3104,15 @@ impl Build {
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
-    fn get_cpp_link_stdlib(&self) -> Result<Option<String>, Error> {
+    fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
         match &self.cpp_link_stdlib {
-            Some(s) => Ok(s.as_ref().map(|s| (*s).to_string())),
+            Some(s) => Ok(s.as_ref().map(|s| Path::new(&**s)).map(Cow::Borrowed)),
             None => {
                 if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
                     if stdlib.is_empty() {
                         Ok(None)
                     } else {
-                        Ok(Some(stdlib.to_string_lossy().into_owned()))
+                        Ok(Some(Cow::Owned(Path::new(&stdlib).to_owned())))
                     }
                 } else {
                     let target = self.get_target()?;
@@ -3125,11 +3125,11 @@ impl Build {
                         | target.contains("linux-ohos")
                         | target.contains("-wasi")
                     {
-                        Ok(Some("c++".to_string()))
+                        Ok(Some(Cow::Borrowed(Path::new("c++"))))
                     } else if target.contains("android") {
-                        Ok(Some("c++_shared".to_string()))
+                        Ok(Some(Cow::Borrowed(Path::new("c++_shared"))))
                     } else {
-                        Ok(Some("stdc++".to_string()))
+                        Ok(Some(Cow::Borrowed(Path::new("stdc++"))))
                     }
                 }
             }
