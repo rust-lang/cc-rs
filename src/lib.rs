@@ -264,8 +264,8 @@ pub struct Build {
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
     cpp: bool,
-    cpp_link_stdlib: Option<Option<Arc<str>>>,
-    cpp_set_stdlib: Option<Arc<str>>,
+    cpp_link_stdlib: Option<Option<Arc<Path>>>,
+    cpp_set_stdlib: Option<Arc<Path>>,
     cuda: bool,
     cudart: Option<Arc<str>>,
     ccbin: bool,
@@ -954,6 +954,43 @@ impl Build {
         self
     }
 
+    /// Backward compatible version of [`Build::cpp_link_stdlib_path`]
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .shared_flag(true)
+    ///     .cpp_link_stdlib("stdc++")
+    ///     .compile("libfoo.so");
+    /// ```
+    #[deprecated(since = "1.0.100", note = "please use `cpp_link_stdlib_path` instead")]
+    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
+        &mut self,
+        cpp_link_stdlib: V,
+    ) -> &mut Build {
+        self.cpp_link_stdlib_path(cpp_link_stdlib.into())
+    }
+
+    /// Backward compatible version of [`Build::cpp_set_stdlib_path`]
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .cpp_set_stdlib("c++")
+    ///     .compile("libfoo.a");
+    /// ```
+    #[deprecated(since = "1.0.100", note = "please use `cpp_set_stdlib_path` instead")]
+    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(
+        &mut self,
+        cpp_set_stdlib: V,
+    ) -> &mut Build {
+        self.cpp_set_stdlib_path(cpp_set_stdlib.into())
+    }
+
     /// Set the standard library to link against when compiling with C++
     /// support.
     ///
@@ -977,14 +1014,14 @@ impl Build {
     /// cc::Build::new()
     ///     .file("src/foo.c")
     ///     .shared_flag(true)
-    ///     .cpp_link_stdlib("stdc++")
+    ///     .cpp_link_stdlib_path(Some("stdc++"))
     ///     .compile("libfoo.so");
     /// ```
-    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
+    pub fn cpp_link_stdlib_path(
         &mut self,
-        cpp_link_stdlib: V,
+        cpp_link_stdlib: Option<impl AsRef<Path>>,
     ) -> &mut Build {
-        self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(|s| s.into()));
+        self.cpp_link_stdlib = Some(cpp_link_stdlib.as_ref().map(AsRef::as_ref).map(Arc::from));
         self
     }
 
@@ -1018,16 +1055,13 @@ impl Build {
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
-    ///     .cpp_set_stdlib("c++")
+    ///     .cpp_set_stdlib_path(Some("c++"))
     ///     .compile("libfoo.a");
     /// ```
-    pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(
-        &mut self,
-        cpp_set_stdlib: V,
-    ) -> &mut Build {
-        let cpp_set_stdlib = cpp_set_stdlib.into();
+    pub fn cpp_set_stdlib_path(&mut self, cpp_set_stdlib: Option<impl AsRef<Path>>) -> &mut Build {
+        let cpp_set_stdlib = cpp_set_stdlib.as_ref().map(AsRef::as_ref);
         self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
-        self.cpp_link_stdlib(cpp_set_stdlib);
+        self.cpp_link_stdlib_path(cpp_set_stdlib);
         self
     }
 
@@ -2389,7 +2423,7 @@ impl Build {
             match (self.cpp_set_stdlib.as_ref(), cmd.family) {
                 (None, _) => {}
                 (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang { .. }) => {
-                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
+                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib.display()).into());
                 }
                 _ => {
                     self.cargo_output.print_warning(&format_args!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family));
@@ -3106,7 +3140,7 @@ impl Build {
     /// `None` for MSVC and `libstdc++` for anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
         match &self.cpp_link_stdlib {
-            Some(s) => Ok(s.as_ref().map(|s| Path::new(&**s)).map(Cow::Borrowed)),
+            Some(s) => Ok(s.as_deref().map(Cow::Borrowed)),
             None => {
                 if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
                     if stdlib.is_empty() {

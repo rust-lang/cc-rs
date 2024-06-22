@@ -273,7 +273,7 @@ fn gnu_set_stdlib() {
 
     let test = Test::gnu();
     test.gcc()
-        .cpp_set_stdlib(Some("foo"))
+        .cpp_set_stdlib_path(Some("foo"))
         .file("foo.c")
         .compile("foo");
 
