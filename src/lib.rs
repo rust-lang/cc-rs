@@ -240,10 +240,13 @@ use tool::ToolFamily;
 mod target_info;
 mod tempfile;
 
+mod utilities;
+use utilities::*;
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 struct CompilerFlag {
     compiler: Box<Path>,
-    flag: Box<str>,
+    flag: Box<OsStr>,
 }
 
 /// A builder for compilation of a native library.
@@ -256,11 +259,11 @@ pub struct Build {
     include_directories: Vec<Arc<Path>>,
     definitions: Vec<(Arc<str>, Option<Arc<str>>)>,
     objects: Vec<Arc<Path>>,
-    flags: Vec<Arc<str>>,
-    flags_supported: Vec<Arc<str>>,
+    flags: Vec<Arc<OsStr>>,
+    flags_supported: Vec<Arc<OsStr>>,
     known_flag_support_status_cache: Arc<Mutex<HashMap<CompilerFlag, bool>>>,
-    ar_flags: Vec<Arc<str>>,
-    asm_flags: Vec<Arc<str>>,
+    ar_flags: Vec<Arc<OsStr>>,
+    asm_flags: Vec<Arc<OsStr>>,
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
     cpp: bool,
@@ -281,7 +284,7 @@ pub struct Build {
     archiver: Option<Arc<Path>>,
     ranlib: Option<Arc<Path>>,
     cargo_output: CargoOutput,
-    link_lib_modifiers: Vec<Arc<str>>,
+    link_lib_modifiers: Vec<Arc<OsStr>>,
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
@@ -504,8 +507,8 @@ impl Build {
     ///     .flag("-ffunction-sections")
     ///     .compile("foo");
     /// ```
-    pub fn flag(&mut self, flag: &str) -> &mut Build {
-        self.flags.push(flag.into());
+    pub fn flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.flags.push(flag.as_ref().into());
         self
     }
 
@@ -538,8 +541,8 @@ impl Build {
     ///     .ar_flag("/NODEFAULTLIB:libc.dll")
     ///     .compile("foo");
     /// ```
-    pub fn ar_flag(&mut self, flag: &str) -> &mut Build {
-        self.ar_flags.push(flag.into());
+    pub fn ar_flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.ar_flags.push(flag.as_ref().into());
         self
     }
 
@@ -557,8 +560,8 @@ impl Build {
     ///     .file("src/bar.c")  // The asm flag will not be applied here
     ///     .compile("foo");
     /// ```
-    pub fn asm_flag(&mut self, flag: &str) -> &mut Build {
-        self.asm_flags.push(flag.into());
+    pub fn asm_flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.asm_flags.push(flag.as_ref().into());
         self
     }
 
@@ -592,13 +595,17 @@ impl Build {
     /// Note: Once computed, the result of this call is stored in the
     /// `known_flag_support` field. If `is_flag_supported(flag)`
     /// is called again, the result will be read from the hash table.
-    pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        self.is_flag_supported_inner(flag, self.get_base_compiler()?.path(), &self.get_target()?)
+    pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
+        self.is_flag_supported_inner(
+            flag.as_ref(),
+            self.get_base_compiler()?.path(),
+            &self.get_target()?,
+        )
     }
 
     fn is_flag_supported_inner(
         &self,
-        flag: &str,
+        flag: &OsStr,
         compiler_path: &Path,
         target: &str,
     ) -> Result<bool, Error> {
@@ -691,8 +698,8 @@ impl Build {
     ///     .flag_if_supported("-Wunreachable-code") // only supported by clang
     ///     .compile("foo");
     /// ```
-    pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
-        self.flags_supported.push(flag.into());
+    pub fn flag_if_supported(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.flags_supported.push(flag.as_ref().into());
         self
     }
 
@@ -721,7 +728,11 @@ impl Build {
     ///
     pub fn try_flags_from_environment(&mut self, environ_key: &str) -> Result<&mut Build, Error> {
         let flags = self.envflags(environ_key)?;
-        self.flags.extend(flags.into_iter().map(Into::into));
+        self.flags.extend(
+            flags
+                .into_iter()
+                .map(|flag| Arc::from(OsString::from(flag).as_os_str())),
+        );
         Ok(self)
     }
 
@@ -1221,8 +1232,9 @@ impl Build {
     /// emitted for cargo if `cargo_metadata` is enabled.
     /// See <https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library>
     /// for the list of modifiers accepted by rustc.
-    pub fn link_lib_modifier(&mut self, link_lib_modifier: &str) -> &mut Build {
-        self.link_lib_modifiers.push(link_lib_modifier.into());
+    pub fn link_lib_modifier(&mut self, link_lib_modifier: impl AsRef<OsStr>) -> &mut Build {
+        self.link_lib_modifiers
+            .push(link_lib_modifier.as_ref().into());
         self
     }
 
@@ -1335,10 +1347,13 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
         } else {
-            let m = self.link_lib_modifiers.join(",");
             self.cargo_output.print_metadata(&format_args!(
                 "cargo:rustc-link-lib=static:{}={}",
-                m, lib_name
+                JoinOsStrs {
+                    slice: &self.link_lib_modifiers,
+                    delimiter: ','
+                },
+                lib_name
             ));
         }
         self.cargo_output.print_metadata(&format_args!(
