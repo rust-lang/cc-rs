@@ -3688,11 +3688,10 @@ impl Build {
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={}", v));
         }
         let r = env::var_os(v).map(Arc::from);
-        // TODO: Use OsStr::display once it is stablised
         self.cargo_output.print_metadata(&format_args!(
-            "{} = {:?}",
+            "{} = {}",
             v,
-            r.as_deref().map(OsStr::to_string_lossy)
+            OptionOsStrDisplay(r.as_deref())
         ));
         self.env_cache.write().unwrap().insert(v.into(), r.clone());
         r
