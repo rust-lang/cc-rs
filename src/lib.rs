@@ -3404,18 +3404,20 @@ impl Build {
         Ok((tool, name))
     }
 
-    fn prefix_for_target(&self, target: &str) -> Option<String> {
+    fn prefix_for_target(&self, target: &str) -> Option<Cow<'static, str>> {
         // Put aside RUSTC_LINKER's prefix to be used as second choice, after CROSS_COMPILE
         let linker_prefix = self.getenv("RUSTC_LINKER").and_then(|var| {
             var.to_string_lossy()
                 .strip_suffix("-gcc")
                 .map(str::to_string)
+                .map(Cow::Owned)
         });
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         let cc_env = self.getenv("CROSS_COMPILE");
         let cross_compile = cc_env
             .as_deref()
-            .map(|s| s.to_string_lossy().trim_end_matches('-').to_owned());
+            .map(|s| s.to_string_lossy().trim_end_matches('-').to_owned())
+            .map(Cow::Owned);
         cross_compile.or(linker_prefix).or_else(|| {
             match target {
                 // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
@@ -3537,7 +3539,7 @@ impl Build {
                 "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
                 _ => None,
             }
-            .map(|x| x.to_owned())
+            .map(Cow::Borrowed)
         })
     }
 
