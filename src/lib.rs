@@ -294,8 +294,8 @@ pub struct Build {
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
     env_cache: Arc<RwLock<HashMap<Box<str>, Option<Arc<OsStr>>>>>,
-    apple_sdk_root_cache: Arc<RwLock<HashMap<String, OsString>>>,
-    apple_versions_cache: Arc<RwLock<HashMap<String, String>>>,
+    apple_sdk_root_cache: Arc<RwLock<HashMap<Box<str>, Arc<OsStr>>>>,
+    apple_versions_cache: Arc<RwLock<HashMap<Box<str>, Arc<str>>>>,
     emit_rerun_if_env_changed: bool,
     cached_compiler_family: Arc<RwLock<HashMap<Box<Path>, ToolFamily>>>,
 }
@@ -2736,13 +2736,13 @@ impl Build {
             let sdk_path = self.apple_sdk_root(&sdk_details.sdk)?;
 
             cmd.args.push("-isysroot".into());
-            cmd.args.push(sdk_path.clone());
+            cmd.args.push(OsStr::new(&sdk_path).to_owned());
 
             if let AppleArchSpec::Catalyst(_) = arch {
                 // Mac Catalyst uses the macOS SDK, but to compile against and
                 // link to iOS-specific frameworks, we should have the support
                 // library stubs in the include and library search path.
-                let ios_support = PathBuf::from(sdk_path).join("System/iOSSupport");
+                let ios_support = PathBuf::from(&sdk_path).join("System/iOSSupport");
 
                 cmd.args.extend([
                     // Header search path
@@ -3715,43 +3715,43 @@ impl Build {
         Ok(())
     }
 
-    fn apple_sdk_root(&self, sdk: &str) -> Result<OsString, Error> {
+    fn apple_sdk_root(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
-        if let Some(sdkroot) = env::var_os("SDKROOT") {
-            let p = PathBuf::from(sdkroot);
-            let sdkroot = p.to_string_lossy();
+        if let Some(sdkroot) = self.getenv("SDKROOT") {
+            let p = PathBuf::from(&sdkroot);
+            let sdkroot_str = p.to_string_lossy();
             match sdk {
                 // Ignore `SDKROOT` if it's clearly set for the wrong platform.
                 "appletvos"
-                    if sdkroot.contains("TVSimulator.platform")
-                        || sdkroot.contains("MacOSX.platform") => {}
+                    if sdkroot_str.contains("TVSimulator.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "appletvsimulator"
-                    if sdkroot.contains("TVOS.platform") || sdkroot.contains("MacOSX.platform") => {
-                }
+                    if sdkroot_str.contains("TVOS.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "iphoneos"
-                    if sdkroot.contains("iPhoneSimulator.platform")
-                        || sdkroot.contains("MacOSX.platform") => {}
+                    if sdkroot_str.contains("iPhoneSimulator.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "iphonesimulator"
-                    if sdkroot.contains("iPhoneOS.platform")
-                        || sdkroot.contains("MacOSX.platform") => {}
+                    if sdkroot_str.contains("iPhoneOS.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "macosx10.15"
-                    if sdkroot.contains("iPhoneOS.platform")
-                        || sdkroot.contains("iPhoneSimulator.platform") => {}
+                    if sdkroot_str.contains("iPhoneOS.platform")
+                        || sdkroot_str.contains("iPhoneSimulator.platform") => {}
                 "watchos"
-                    if sdkroot.contains("WatchSimulator.platform")
-                        || sdkroot.contains("MacOSX.platform") => {}
+                    if sdkroot_str.contains("WatchSimulator.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "watchsimulator"
-                    if sdkroot.contains("WatchOS.platform")
-                        || sdkroot.contains("MacOSX.platform") => {}
+                    if sdkroot_str.contains("WatchOS.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "xros"
-                    if sdkroot.contains("XRSimulator.platform")
-                        || sdkroot.contains("MacOSX.platform") => {}
+                    if sdkroot_str.contains("XRSimulator.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 "xrsimulator"
-                    if sdkroot.contains("XROS.platform") || sdkroot.contains("MacOSX.platform") => {
-                }
+                    if sdkroot_str.contains("XROS.platform")
+                        || sdkroot_str.contains("MacOSX.platform") => {}
                 // Ignore `SDKROOT` if it's not a valid path.
                 _ if !p.is_absolute() || p == Path::new("/") || !p.exists() => {}
-                _ => return Ok(p.into()),
+                _ => return Ok(sdkroot),
             }
         }
 
@@ -3783,7 +3783,7 @@ impl Build {
                 ));
             }
         };
-        let ret: OsString = sdk_path.trim().into();
+        let ret: Arc<OsStr> = Arc::from(OsStr::new(sdk_path.trim()));
         self.apple_sdk_root_cache
             .write()
             .expect("apple_sdk_root_cache lock failed")
@@ -3791,8 +3791,8 @@ impl Build {
         Ok(ret)
     }
 
-    fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> String {
-        let default_deployment_from_sdk = || {
+    fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> Arc<str> {
+        let default_deployment_from_sdk = || -> Option<Arc<str>> {
             if let Some(ret) = self
                 .apple_versions_cache
                 .read()
@@ -3813,7 +3813,7 @@ impl Build {
             )
             .ok()?;
 
-            let version = std::str::from_utf8(&version).ok()?.trim().to_owned();
+            let version: Arc<str> = Arc::from(std::str::from_utf8(&version).ok()?.trim());
             self.apple_versions_cache
                 .write()
                 .expect("apple_versions_cache lock failed")
@@ -3821,21 +3821,24 @@ impl Build {
             Some(version)
         };
 
-        let deployment_from_env = |name: &str| {
+        let deployment_from_env = |name: &str| -> Option<Arc<str>> {
             // note this isn't hit in production codepaths, its mostly just for tests which don't
             // set the real env
-            if let Some((_, v)) = self.env.iter().find(|(k, _)| &**k == OsStr::new(name)) {
-                Some(v.to_str().unwrap().to_string())
-            } else {
-                env::var(name).ok()
-            }
+            self.env
+                .iter()
+                .find(|(k, _)| &**k == OsStr::new(name))
+                .map(|(_, v)| v)
+                .cloned()
+                .or_else(|| self.getenv(name))?
+                .to_str()
+                .map(Arc::from)
         };
 
         // Determines if the acquired deployment target is too low to support modern C++ on some Apple platform.
         //
         // A long time ago they used libstdc++, but since macOS 10.9 and iOS 7 libc++ has been the library the SDKs provide to link against.
         // If a `cc`` config wants to use C++, we round up to these versions as the baseline.
-        let maybe_cpp_version_baseline = |deployment_target_ver: String| -> Option<String> {
+        let maybe_cpp_version_baseline = |deployment_target_ver: Arc<str>| -> Option<Arc<str>> {
             if !self.cpp {
                 return Some(deployment_target_ver);
             }
