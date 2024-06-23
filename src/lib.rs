@@ -965,6 +965,40 @@ impl Build {
         self
     }
 
+    /// Set the standard library to link against when compiling with C++
+    /// support.
+    ///
+    /// If the `CXXSTDLIB` environment variable is set, its value will
+    /// override the default value, but not the value explicitly set by calling
+    /// this function.
+    ///
+    /// A value of `None` indicates that no automatic linking should happen,
+    /// otherwise cargo will link against the specified library.
+    ///
+    /// The given library name must not contain the `lib` prefix.
+    ///
+    /// Common values:
+    /// - `stdc++` for GNU
+    /// - `c++` for Clang
+    /// - `c++_shared` or `c++_static` for Android
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .shared_flag(true)
+    ///     .cpp_link_stdlib("stdc++")
+    ///     .compile("libfoo.so");
+    /// ```
+    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
+        &mut self,
+        cpp_link_stdlib: V,
+    ) -> &mut Build {
+        self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(Arc::from));
+        self
+    }
+
     /// Force the C++ compiler to use the specified standard library.
     ///
     /// Setting this option will automatically set `cpp_link_stdlib` to the same
@@ -989,41 +1023,6 @@ impl Build {
     /// Common values:
     /// - `stdc++` for GNU
     /// - `c++` for Clang
-    ///
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// cc::Build::new()
-    ///     .file("src/foo.c")
-    ///     .shared_flag(true)
-    ///     .cpp_link_stdlib("stdc++")
-    ///     .compile("libfoo.so");
-    /// ```
-    pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
-        &mut self,
-        cpp_link_stdlib: V,
-    ) -> &mut Build {
-        self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(Arc::from));
-        self
-    }
-
-    /// Set the standard library to link against when compiling with C++
-    /// support.
-    ///
-    /// If the `CXXSTDLIB` environment variable is set, its value will
-    /// override the default value, but not the value explicitly set by calling
-    /// this function.
-    ///
-    /// A value of `None` indicates that no automatic linking should happen,
-    /// otherwise cargo will link against the specified library.
-    ///
-    /// The given library name must not contain the `lib` prefix.
-    ///
-    /// Common values:
-    /// - `stdc++` for GNU
-    /// - `c++` for Clang
-    /// - `c++_shared` or `c++_static` for Android
     ///
     /// # Example
     ///
