@@ -3719,36 +3719,29 @@ impl Build {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = self.getenv("SDKROOT") {
             let p = Path::new(&sdkroot);
-            let sdkroot_str = p.to_string_lossy();
+            let does_sdkroot_contain = |strings: &[&str]| {
+                let sdkroot_str = p.to_string_lossy();
+                strings.iter().any(|s| sdkroot_str.contains(s))
+            };
             match sdk {
                 // Ignore `SDKROOT` if it's clearly set for the wrong platform.
                 "appletvos"
-                    if sdkroot_str.contains("TVSimulator.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
+                    if does_sdkroot_contain(&["TVSimulator.platform", "MacOSX.platform"]) => {}
                 "appletvsimulator"
-                    if sdkroot_str.contains("TVOS.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
+                    if does_sdkroot_contain(&["TVOS.platform", "MacOSX.platform"]) => {}
                 "iphoneos"
-                    if sdkroot_str.contains("iPhoneSimulator.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
+                    if does_sdkroot_contain(&["iPhoneSimulator.platform", "MacOSX.platform"]) => {}
                 "iphonesimulator"
-                    if sdkroot_str.contains("iPhoneOS.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
+                    if does_sdkroot_contain(&["iPhoneOS.platform", "MacOSX.platform"]) => {}
                 "macosx10.15"
-                    if sdkroot_str.contains("iPhoneOS.platform")
-                        || sdkroot_str.contains("iPhoneSimulator.platform") => {}
+                    if does_sdkroot_contain(&["iPhoneOS.platform", "iPhoneSimulator.platform"]) => {
+                }
                 "watchos"
-                    if sdkroot_str.contains("WatchSimulator.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
+                    if does_sdkroot_contain(&["WatchSimulator.platform", "MacOSX.platform"]) => {}
                 "watchsimulator"
-                    if sdkroot_str.contains("WatchOS.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
-                "xros"
-                    if sdkroot_str.contains("XRSimulator.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
-                "xrsimulator"
-                    if sdkroot_str.contains("XROS.platform")
-                        || sdkroot_str.contains("MacOSX.platform") => {}
+                    if does_sdkroot_contain(&["WatchOS.platform", "MacOSX.platform"]) => {}
+                "xros" if does_sdkroot_contain(&["XRSimulator.platform", "MacOSX.platform"]) => {}
+                "xrsimulator" if does_sdkroot_contain(&["XROS.platform", "MacOSX.platform"]) => {}
                 // Ignore `SDKROOT` if it's not a valid path.
                 _ if !p.is_absolute() || p == Path::new("/") || !p.exists() => {}
                 _ => return Ok(sdkroot),
