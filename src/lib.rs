@@ -221,7 +221,7 @@ use std::path::{Component, Path, PathBuf};
 #[cfg(feature = "parallel")]
 use std::process::Child;
 use std::process::Command;
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 #[cfg(feature = "parallel")]
 mod parallel;
@@ -261,7 +261,7 @@ pub struct Build {
     objects: Vec<Arc<Path>>,
     flags: Vec<Arc<OsStr>>,
     flags_supported: Vec<Arc<OsStr>>,
-    known_flag_support_status_cache: Arc<Mutex<HashMap<CompilerFlag, bool>>>,
+    known_flag_support_status_cache: Arc<RwLock<HashMap<CompilerFlag, bool>>>,
     ar_flags: Vec<Arc<OsStr>>,
     asm_flags: Vec<Arc<OsStr>>,
     no_default_flags: bool,
@@ -294,10 +294,10 @@ pub struct Build {
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
     env_cache: Arc<RwLock<HashMap<Box<str>, Option<Arc<OsStr>>>>>,
-    apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
-    apple_versions_cache: Arc<Mutex<HashMap<String, String>>>,
+    apple_sdk_root_cache: Arc<RwLock<HashMap<String, OsString>>>,
+    apple_versions_cache: Arc<RwLock<HashMap<String, String>>>,
     emit_rerun_if_env_changed: bool,
-    cached_compiler_family: Arc<Mutex<HashMap<Box<Path>, ToolFamily>>>,
+    cached_compiler_family: Arc<RwLock<HashMap<Box<Path>, ToolFamily>>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -385,7 +385,7 @@ impl Build {
             objects: Vec::new(),
             flags: Vec::new(),
             flags_supported: Vec::new(),
-            known_flag_support_status_cache: Arc::new(Mutex::new(HashMap::new())),
+            known_flag_support_status_cache: Arc::new(RwLock::new(HashMap::new())),
             ar_flags: Vec::new(),
             asm_flags: Vec::new(),
             no_default_flags: false,
@@ -418,8 +418,8 @@ impl Build {
             extra_warnings: None,
             warnings_into_errors: false,
             env_cache: Arc::new(RwLock::new(HashMap::new())),
-            apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
-            apple_versions_cache: Arc::new(Mutex::new(HashMap::new())),
+            apple_sdk_root_cache: Arc::new(RwLock::new(HashMap::new())),
+            apple_versions_cache: Arc::new(RwLock::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
             cached_compiler_family: Arc::default(),
         }
@@ -616,7 +616,7 @@ impl Build {
 
         if let Some(is_supported) = self
             .known_flag_support_status_cache
-            .lock()
+            .read()
             .unwrap()
             .get(&compiler_flag)
             .cloned()
@@ -680,7 +680,7 @@ impl Build {
         let is_supported = output.status.success() && output.stderr.is_empty();
 
         self.known_flag_support_status_cache
-            .lock()
+            .write()
             .unwrap()
             .insert(compiler_flag, is_supported);
 
@@ -3755,12 +3755,14 @@ impl Build {
             }
         }
 
-        let mut cache = self
+        if let Some(ret) = self
             .apple_sdk_root_cache
-            .lock()
-            .expect("apple_sdk_root_cache lock failed");
-        if let Some(ret) = cache.get(sdk) {
-            return Ok(ret.clone());
+            .read()
+            .expect("apple_sdk_root_cache lock failed")
+            .get(sdk)
+            .cloned()
+        {
+            return Ok(ret);
         }
 
         let sdk_path = run_output(
@@ -3782,19 +3784,23 @@ impl Build {
             }
         };
         let ret: OsString = sdk_path.trim().into();
-        cache.insert(sdk.into(), ret.clone());
+        self.apple_sdk_root_cache
+            .write()
+            .expect("apple_sdk_root_cache lock failed")
+            .insert(sdk.into(), ret.clone());
         Ok(ret)
     }
 
     fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> String {
         let default_deployment_from_sdk = || {
-            let mut cache = self
+            if let Some(ret) = self
                 .apple_versions_cache
-                .lock()
-                .expect("apple_versions_cache lock failed");
-
-            if let Some(ret) = cache.get(sdk) {
-                return Some(ret.clone());
+                .read()
+                .expect("apple_versions_cache lock failed")
+                .get(sdk)
+                .cloned()
+            {
+                return Some(ret);
             }
 
             let version = run_output(
@@ -3808,8 +3814,10 @@ impl Build {
             .ok()?;
 
             let version = std::str::from_utf8(&version).ok()?.trim().to_owned();
-
-            cache.insert(sdk.into(), version.clone());
+            self.apple_versions_cache
+                .write()
+                .expect("apple_versions_cache lock failed")
+                .insert(sdk.into(), version.clone());
             Some(version)
         };
 
