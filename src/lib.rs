@@ -3699,7 +3699,7 @@ impl Build {
             .getenv_with_target_prefixes(name)?
             .to_string_lossy()
             .split_ascii_whitespace()
-            .map(|slice| slice.to_string())
+            .map(ToString::to_string)
             .collect())
     }
 
