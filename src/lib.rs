@@ -221,7 +221,7 @@ use std::path::{Component, Path, PathBuf};
 #[cfg(feature = "parallel")]
 use std::process::Child;
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, RwLock};
 
 #[cfg(feature = "parallel")]
 mod parallel;
@@ -240,10 +240,13 @@ use tool::ToolFamily;
 mod target_info;
 mod tempfile;
 
+mod utilities;
+use utilities::*;
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 struct CompilerFlag {
     compiler: Box<Path>,
-    flag: Box<str>,
+    flag: Box<OsStr>,
 }
 
 /// A builder for compilation of a native library.
@@ -256,11 +259,11 @@ pub struct Build {
     include_directories: Vec<Arc<Path>>,
     definitions: Vec<(Arc<str>, Option<Arc<str>>)>,
     objects: Vec<Arc<Path>>,
-    flags: Vec<Arc<str>>,
-    flags_supported: Vec<Arc<str>>,
+    flags: Vec<Arc<OsStr>>,
+    flags_supported: Vec<Arc<OsStr>>,
     known_flag_support_status_cache: Arc<Mutex<HashMap<CompilerFlag, bool>>>,
-    ar_flags: Vec<Arc<str>>,
-    asm_flags: Vec<Arc<str>>,
+    ar_flags: Vec<Arc<OsStr>>,
+    asm_flags: Vec<Arc<OsStr>>,
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
     cpp: bool,
@@ -281,7 +284,7 @@ pub struct Build {
     archiver: Option<Arc<Path>>,
     ranlib: Option<Arc<Path>>,
     cargo_output: CargoOutput,
-    link_lib_modifiers: Vec<Arc<str>>,
+    link_lib_modifiers: Vec<Arc<OsStr>>,
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
@@ -290,7 +293,7 @@ pub struct Build {
     warnings_into_errors: bool,
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
-    env_cache: Arc<Mutex<HashMap<String, Option<Arc<str>>>>>,
+    env_cache: Arc<RwLock<HashMap<Box<str>, Option<Arc<OsStr>>>>>,
     apple_sdk_root_cache: Arc<Mutex<HashMap<String, OsString>>>,
     apple_versions_cache: Arc<Mutex<HashMap<String, String>>>,
     emit_rerun_if_env_changed: bool,
@@ -414,7 +417,7 @@ impl Build {
             warnings: None,
             extra_warnings: None,
             warnings_into_errors: false,
-            env_cache: Arc::new(Mutex::new(HashMap::new())),
+            env_cache: Arc::new(RwLock::new(HashMap::new())),
             apple_sdk_root_cache: Arc::new(Mutex::new(HashMap::new())),
             apple_versions_cache: Arc::new(Mutex::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
@@ -504,8 +507,8 @@ impl Build {
     ///     .flag("-ffunction-sections")
     ///     .compile("foo");
     /// ```
-    pub fn flag(&mut self, flag: &str) -> &mut Build {
-        self.flags.push(flag.into());
+    pub fn flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.flags.push(flag.as_ref().into());
         self
     }
 
@@ -538,8 +541,8 @@ impl Build {
     ///     .ar_flag("/NODEFAULTLIB:libc.dll")
     ///     .compile("foo");
     /// ```
-    pub fn ar_flag(&mut self, flag: &str) -> &mut Build {
-        self.ar_flags.push(flag.into());
+    pub fn ar_flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.ar_flags.push(flag.as_ref().into());
         self
     }
 
@@ -557,8 +560,8 @@ impl Build {
     ///     .file("src/bar.c")  // The asm flag will not be applied here
     ///     .compile("foo");
     /// ```
-    pub fn asm_flag(&mut self, flag: &str) -> &mut Build {
-        self.asm_flags.push(flag.into());
+    pub fn asm_flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.asm_flags.push(flag.as_ref().into());
         self
     }
 
@@ -592,13 +595,17 @@ impl Build {
     /// Note: Once computed, the result of this call is stored in the
     /// `known_flag_support` field. If `is_flag_supported(flag)`
     /// is called again, the result will be read from the hash table.
-    pub fn is_flag_supported(&self, flag: &str) -> Result<bool, Error> {
-        self.is_flag_supported_inner(flag, self.get_base_compiler()?.path(), &self.get_target()?)
+    pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
+        self.is_flag_supported_inner(
+            flag.as_ref(),
+            self.get_base_compiler()?.path(),
+            &self.get_target()?,
+        )
     }
 
     fn is_flag_supported_inner(
         &self,
-        flag: &str,
+        flag: &OsStr,
         compiler_path: &Path,
         target: &str,
     ) -> Result<bool, Error> {
@@ -691,8 +698,8 @@ impl Build {
     ///     .flag_if_supported("-Wunreachable-code") // only supported by clang
     ///     .compile("foo");
     /// ```
-    pub fn flag_if_supported(&mut self, flag: &str) -> &mut Build {
-        self.flags_supported.push(flag.into());
+    pub fn flag_if_supported(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
+        self.flags_supported.push(flag.as_ref().into());
         self
     }
 
@@ -721,7 +728,11 @@ impl Build {
     ///
     pub fn try_flags_from_environment(&mut self, environ_key: &str) -> Result<&mut Build, Error> {
         let flags = self.envflags(environ_key)?;
-        self.flags.extend(flags.into_iter().map(Into::into));
+        self.flags.extend(
+            flags
+                .into_iter()
+                .map(|flag| Arc::from(OsString::from(flag).as_os_str())),
+        );
         Ok(self)
     }
 
@@ -984,7 +995,7 @@ impl Build {
         &mut self,
         cpp_link_stdlib: V,
     ) -> &mut Build {
-        self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(|s| s.into()));
+        self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(Arc::from));
         self
     }
 
@@ -1025,9 +1036,9 @@ impl Build {
         &mut self,
         cpp_set_stdlib: V,
     ) -> &mut Build {
-        let cpp_set_stdlib = cpp_set_stdlib.into();
-        self.cpp_set_stdlib = cpp_set_stdlib.map(|s| s.into());
-        self.cpp_link_stdlib(cpp_set_stdlib);
+        let cpp_set_stdlib = cpp_set_stdlib.into().map(Arc::from);
+        self.cpp_set_stdlib = cpp_set_stdlib.clone();
+        self.cpp_link_stdlib = Some(cpp_set_stdlib);
         self
     }
 
@@ -1187,8 +1198,9 @@ impl Build {
     /// emitted for cargo if `cargo_metadata` is enabled.
     /// See <https://doc.rust-lang.org/rustc/command-line-arguments.html#-l-link-the-generated-crate-to-a-native-library>
     /// for the list of modifiers accepted by rustc.
-    pub fn link_lib_modifier(&mut self, link_lib_modifier: &str) -> &mut Build {
-        self.link_lib_modifiers.push(link_lib_modifier.into());
+    pub fn link_lib_modifier(&mut self, link_lib_modifier: impl AsRef<OsStr>) -> &mut Build {
+        self.link_lib_modifiers
+            .push(link_lib_modifier.as_ref().into());
         self
     }
 
@@ -1301,10 +1313,13 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
         } else {
-            let m = self.link_lib_modifiers.join(",");
             self.cargo_output.print_metadata(&format_args!(
                 "cargo:rustc-link-lib=static:{}={}",
-                m, lib_name
+                JoinOsStrs {
+                    slice: &self.link_lib_modifiers,
+                    delimiter: ','
+                },
+                lib_name
             ));
         }
         self.cargo_output.print_metadata(&format_args!(
@@ -1316,14 +1331,14 @@ impl Build {
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
                 self.cargo_output
-                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib));
+                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
             }
             // Link c++ lib from WASI sysroot
             if self.get_target()?.contains("wasi") {
                 let wasi_sysroot = self.wasi_sysroot()?;
                 self.cargo_output.print_metadata(&format_args!(
                     "cargo:rustc-flags=-L {}/lib/wasm32-wasi -lstatic=c++ -lstatic=c++abi",
-                    wasi_sysroot
+                    Path::new(&wasi_sysroot).display()
                 ));
             }
         }
@@ -1862,7 +1877,7 @@ impl Build {
                     None => {
                         let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
                         let features = features.as_deref().unwrap_or_default();
-                        if features.contains("crt-static") {
+                        if features.to_string_lossy().contains("crt-static") {
                             "-MT"
                         } else {
                             "-MD"
@@ -1931,7 +1946,9 @@ impl Build {
                     cmd.push_cc_arg("-fno-exceptions".into());
                     // Link clang sysroot
                     let wasi_sysroot = self.wasi_sysroot()?;
-                    cmd.push_cc_arg(format!("--sysroot={}", wasi_sysroot).into());
+                    cmd.push_cc_arg(
+                        format!("--sysroot={}", Path::new(&wasi_sysroot).display()).into(),
+                    );
                 }
             }
         }
@@ -2191,7 +2208,7 @@ impl Build {
                 if self.static_flag.is_none() {
                     let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
                     let features = features.as_deref().unwrap_or_default();
-                    if features.contains("crt-static") {
+                    if features.to_string_lossy().contains("crt-static") {
                         cmd.args.push("-static".into());
                     }
                 }
@@ -3028,11 +3045,13 @@ impl Build {
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
     fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<String>, Vec<String>)> {
-        let tool = match self.getenv_with_target_prefixes(name) {
-            Ok(tool) if !tool.trim().is_empty() => tool,
-            _ => return None,
-        };
+        let tool = self.getenv_with_target_prefixes(name).ok()?;
+        let tool = tool.to_string_lossy();
         let tool = tool.trim();
+
+        if tool.is_empty() {
+            return None;
+        }
 
         // If this is an exact path on the filesystem we don't want to do any
         // interpretation at all, just pass it on through. This'll hopefully get
@@ -3100,15 +3119,15 @@ impl Build {
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
     /// `None` for MSVC and `libstdc++` for anything else.
-    fn get_cpp_link_stdlib(&self) -> Result<Option<String>, Error> {
+    fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
         match &self.cpp_link_stdlib {
-            Some(s) => Ok(s.as_ref().map(|s| (*s).to_string())),
+            Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
             None => {
                 if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
                     if stdlib.is_empty() {
                         Ok(None)
                     } else {
-                        Ok(Some(stdlib.to_string()))
+                        Ok(Some(Cow::Owned(Path::new(&stdlib).to_owned())))
                     }
                 } else {
                     let target = self.get_target()?;
@@ -3121,11 +3140,11 @@ impl Build {
                         | target.contains("linux-ohos")
                         | target.contains("-wasi")
                     {
-                        Ok(Some("c++".to_string()))
+                        Ok(Some(Cow::Borrowed(Path::new("c++"))))
                     } else if target.contains("android") {
-                        Ok(Some("c++_shared".to_string()))
+                        Ok(Some(Cow::Borrowed(Path::new("c++_shared"))))
                     } else {
-                        Ok(Some("stdc++".to_string()))
+                        Ok(Some(Cow::Borrowed(Path::new("stdc++"))))
                     }
                 }
             }
@@ -3366,14 +3385,20 @@ impl Build {
         Ok((tool, name))
     }
 
-    fn prefix_for_target(&self, target: &str) -> Option<String> {
+    fn prefix_for_target(&self, target: &str) -> Option<Cow<'static, str>> {
         // Put aside RUSTC_LINKER's prefix to be used as second choice, after CROSS_COMPILE
-        let linker_prefix = self
-            .getenv("RUSTC_LINKER")
-            .and_then(|var| var.strip_suffix("-gcc").map(str::to_string));
+        let linker_prefix = self.getenv("RUSTC_LINKER").and_then(|var| {
+            var.to_string_lossy()
+                .strip_suffix("-gcc")
+                .map(str::to_string)
+                .map(Cow::Owned)
+        });
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         let cc_env = self.getenv("CROSS_COMPILE");
-        let cross_compile = cc_env.as_ref().map(|s| s.trim_end_matches('-').to_owned());
+        let cross_compile = cc_env
+            .as_deref()
+            .map(|s| s.to_string_lossy().trim_end_matches('-').to_owned())
+            .map(Cow::Owned);
         cross_compile.or(linker_prefix).or_else(|| {
             match target {
                 // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
@@ -3495,7 +3520,7 @@ impl Build {
                 "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
                 _ => None,
             }
-            .map(|x| x.to_owned())
+            .map(Cow::Borrowed)
         })
     }
 
@@ -3530,24 +3555,34 @@ impl Build {
             .or_else(|| prefixes.first().copied())
     }
 
-    fn get_target(&self) -> Result<Arc<str>, Error> {
+    fn getenv_unwrap_str(&self, v: &str) -> Result<String, Error> {
+        let env = self.getenv_unwrap(v)?;
+        env.to_str().map(String::from).ok_or_else(|| {
+            Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!("Environment variable {} is not valid utf-8.", v),
+            )
+        })
+    }
+
+    fn get_target(&self) -> Result<Cow<'_, str>, Error> {
         match &self.target {
-            Some(t) => Ok(t.clone()),
-            None => self.getenv_unwrap("TARGET"),
+            Some(t) => Ok(Cow::Borrowed(t)),
+            None => self.getenv_unwrap_str("TARGET").map(Cow::Owned),
         }
     }
 
-    fn get_host(&self) -> Result<Arc<str>, Error> {
+    fn get_host(&self) -> Result<Cow<'_, str>, Error> {
         match &self.host {
-            Some(h) => Ok(h.clone()),
-            None => self.getenv_unwrap("HOST"),
+            Some(h) => Ok(Cow::Borrowed(h)),
+            None => self.getenv_unwrap_str("HOST").map(Cow::Owned),
         }
     }
 
-    fn get_opt_level(&self) -> Result<Arc<str>, Error> {
+    fn get_opt_level(&self) -> Result<Cow<'_, str>, Error> {
         match &self.opt_level {
-            Some(ol) => Ok(ol.clone()),
-            None => self.getenv_unwrap("OPT_LEVEL"),
+            Some(ol) => Ok(Cow::Borrowed(ol)),
+            None => self.getenv_unwrap_str("OPT_LEVEL").map(Cow::Owned),
         }
     }
 
@@ -3596,7 +3631,7 @@ impl Build {
         }
     }
 
-    fn getenv(&self, v: &str) -> Option<Arc<str>> {
+    fn getenv(&self, v: &str) -> Option<Arc<OsStr>> {
         // Returns true for environment variables cargo sets for build scripts:
         // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
         //
@@ -3611,22 +3646,24 @@ impl Build {
                 _ => false,
             }
         }
-        let mut cache = self.env_cache.lock().unwrap();
-        if let Some(val) = cache.get(v) {
-            return val.clone();
+        if let Some(val) = self.env_cache.read().unwrap().get(v).cloned() {
+            return val;
         }
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={}", v));
         }
-        let r = env::var(v).ok().map(Arc::from);
-        self.cargo_output
-            .print_metadata(&format_args!("{} = {:?}", v, r));
-        cache.insert(v.to_string(), r.clone());
+        let r = env::var_os(v).map(Arc::from);
+        self.cargo_output.print_metadata(&format_args!(
+            "{} = {}",
+            v,
+            OptionOsStrDisplay(r.as_deref())
+        ));
+        self.env_cache.write().unwrap().insert(v.into(), r.clone());
         r
     }
 
-    fn getenv_unwrap(&self, v: &str) -> Result<Arc<str>, Error> {
+    fn getenv_unwrap(&self, v: &str) -> Result<Arc<OsStr>, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
             None => Err(Error::new(
@@ -3636,7 +3673,7 @@ impl Build {
         }
     }
 
-    fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<Arc<str>, Error> {
+    fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<Arc<OsStr>, Error> {
         let target = self.get_target()?;
         let host = self.get_host()?;
         let kind = if host == target { "HOST" } else { "TARGET" };
@@ -3659,6 +3696,7 @@ impl Build {
     fn envflags(&self, name: &str) -> Result<Vec<String>, Error> {
         Ok(self
             .getenv_with_target_prefixes(name)?
+            .to_string_lossy()
             .split_ascii_whitespace()
             .map(|slice| slice.to_string())
             .collect())
@@ -3874,7 +3912,7 @@ impl Build {
         }
     }
 
-    fn wasi_sysroot(&self) -> Result<Arc<str>, Error> {
+    fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
         if let Some(wasi_sysroot_path) = self.getenv("WASI_SYSROOT") {
             Ok(wasi_sysroot_path)
         } else {
