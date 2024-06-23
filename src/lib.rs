@@ -2835,7 +2835,7 @@ impl Build {
                     out_dir,
                 );
                 if let Some(cc_wrapper) = wrapper {
-                    t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
+                    t.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
                 }
                 for arg in args {
                     t.cc_wrapper_args.push(arg.into());
@@ -2926,8 +2926,8 @@ impl Build {
                     &self.cargo_output,
                     out_dir,
                 );
-                if let Some(cc_wrapper) = Self::rustc_wrapper_fallback() {
-                    t.cc_wrapper_path = Some(PathBuf::from(cc_wrapper));
+                if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
+                    t.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
                 }
                 t
             }
@@ -3026,25 +3026,25 @@ impl Build {
     }
 
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
-    fn rustc_wrapper_fallback() -> Option<String> {
+    fn rustc_wrapper_fallback(&self) -> Option<Arc<OsStr>> {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
         const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot"];
 
-        let rustc_wrapper = std::env::var_os("RUSTC_WRAPPER")?;
+        let rustc_wrapper = self.getenv("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
         let wrapper_stem = wrapper_path.file_stem()?;
 
         if VALID_WRAPPERS.contains(&wrapper_stem.to_str()?) {
-            Some(rustc_wrapper.to_str()?.to_owned())
+            Some(rustc_wrapper)
         } else {
             None
         }
     }
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
-    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<String>, Vec<String>)> {
+    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<Arc<OsStr>>, Vec<String>)> {
         let tool = self.getenv_with_target_prefixes(name).ok()?;
         let tool = tool.to_string_lossy();
         let tool = tool.trim();
@@ -3059,7 +3059,7 @@ impl Build {
         if Path::new(tool).exists() {
             return Some((
                 PathBuf::from(tool),
-                Self::rustc_wrapper_fallback(),
+                self.rustc_wrapper_fallback(),
                 Vec::new(),
             ));
         }
@@ -3092,16 +3092,12 @@ impl Build {
             None => return None,
         };
 
-        let file_stem = Path::new(maybe_wrapper)
-            .file_stem()
-            .unwrap()
-            .to_str()
-            .unwrap();
+        let file_stem = Path::new(maybe_wrapper).file_stem()?.to_str()?;
         if known_wrappers.contains(&file_stem) {
             if let Some(compiler) = parts.next() {
                 return Some((
                     compiler.into(),
-                    Some(maybe_wrapper.to_string()),
+                    Some(Arc::<OsStr>::from(OsStr::new(&maybe_wrapper))),
                     parts.map(|s| s.to_string()).collect(),
                 ));
             }
@@ -3109,7 +3105,7 @@ impl Build {
 
         Some((
             maybe_wrapper.into(),
-            Self::rustc_wrapper_fallback(),
+            self.rustc_wrapper_fallback(),
             parts.map(|s| s.to_string()).collect(),
         ))
     }
