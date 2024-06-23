@@ -976,7 +976,6 @@ impl Build {
     ///     .cpp_link_stdlib("stdc++")
     ///     .compile("libfoo.so");
     /// ```
-    #[deprecated(since = "1.0.100", note = "please use `cpp_link_stdlib_path` instead")]
     pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
         &mut self,
         cpp_link_stdlib: V,
@@ -994,7 +993,6 @@ impl Build {
     ///     .cpp_set_stdlib("c++")
     ///     .compile("libfoo.a");
     /// ```
-    #[deprecated(since = "1.0.100", note = "please use `cpp_set_stdlib_path` instead")]
     pub fn cpp_set_stdlib<'a, V: Into<Option<&'a str>>>(
         &mut self,
         cpp_set_stdlib: V,
