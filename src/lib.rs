@@ -3715,7 +3715,7 @@ impl Build {
         Ok(())
     }
 
-    fn apple_sdk_root(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
+    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = self.getenv("SDKROOT") {
             let p = Path::new(&sdkroot);
@@ -3755,16 +3755,6 @@ impl Build {
             }
         }
 
-        if let Some(ret) = self
-            .apple_sdk_root_cache
-            .read()
-            .expect("apple_sdk_root_cache lock failed")
-            .get(sdk)
-            .cloned()
-        {
-            return Ok(ret);
-        }
-
         let sdk_path = run_output(
             self.cmd("xcrun")
                 .arg("--show-sdk-path")
@@ -3783,12 +3773,25 @@ impl Build {
                 ));
             }
         };
-        let ret: Arc<OsStr> = Arc::from(OsStr::new(sdk_path.trim()));
+        Ok(Arc::from(OsStr::new(sdk_path.trim())))
+    }
+
+    fn apple_sdk_root(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
+        if let Some(ret) = self
+            .apple_sdk_root_cache
+            .read()
+            .expect("apple_sdk_root_cache lock failed")
+            .get(sdk)
+            .cloned()
+        {
+            return Ok(ret);
+        }
+        let sdk_path = self.apple_sdk_root_inner(sdk)?;
         self.apple_sdk_root_cache
             .write()
             .expect("apple_sdk_root_cache lock failed")
-            .insert(sdk.into(), ret.clone());
-        Ok(ret)
+            .insert(sdk.into(), sdk_path.clone());
+        Ok(sdk_path)
     }
 
     fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> Arc<str> {
