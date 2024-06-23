@@ -3792,17 +3792,17 @@ impl Build {
     }
 
     fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> Arc<str> {
-        let default_deployment_from_sdk = || -> Option<Arc<str>> {
-            if let Some(ret) = self
-                .apple_versions_cache
-                .read()
-                .expect("apple_versions_cache lock failed")
-                .get(sdk)
-                .cloned()
-            {
-                return Some(ret);
-            }
+        if let Some(ret) = self
+            .apple_versions_cache
+            .read()
+            .expect("apple_versions_cache lock failed")
+            .get(sdk)
+            .cloned()
+        {
+            return ret;
+        }
 
+        let default_deployment_from_sdk = || -> Option<Arc<str>> {
             let version = run_output(
                 self.cmd("xcrun")
                     .arg("--show-sdk-version")
@@ -3813,16 +3813,11 @@ impl Build {
             )
             .ok()?;
 
-            let version: Arc<str> = Arc::from(std::str::from_utf8(&version).ok()?.trim());
-            self.apple_versions_cache
-                .write()
-                .expect("apple_versions_cache lock failed")
-                .insert(sdk.into(), version.clone());
-            Some(version)
+            Some(Arc::from(std::str::from_utf8(&version).ok()?.trim()))
         };
 
         let deployment_from_env = |name: &str| -> Option<Arc<str>> {
-            // note this isn't hit in production codepaths, its mostly just for tests which don't
+            // note that self.env isn't hit in production codepaths, its mostly just for tests which don't
             // set the real env
             self.env
                 .iter()
@@ -3892,7 +3887,7 @@ impl Build {
         //
         // The ordering of env -> XCode SDK -> old rustc defaults is intentional for performance when using
         // an explicit target.
-        match os {
+        let version: Arc<str> = match os {
             AppleOs::MacOs => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
                 .and_then(maybe_cpp_version_baseline)
                 .or_else(default_deployment_from_sdk)
@@ -3900,8 +3895,8 @@ impl Build {
                     if arch_str == Some("aarch64") {
                         "11.0".into()
                     } else {
-                        let default = "10.7";
-                        maybe_cpp_version_baseline(default.into()).unwrap_or_else(|| default.into())
+                        let default: Arc<str> = Arc::from("10.7");
+                        maybe_cpp_version_baseline(default.clone()).unwrap_or(default)
                     }
                 }),
 
@@ -3921,7 +3916,14 @@ impl Build {
             AppleOs::VisionOS => deployment_from_env("XROS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "1.0".into()),
-        }
+        };
+
+        self.apple_versions_cache
+            .write()
+            .expect("apple_versions_cache lock failed")
+            .insert(sdk.into(), version.clone());
+
+        version
     }
 
     fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
