@@ -209,6 +209,7 @@
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
 #![cfg_attr(test, deny(warnings))]
 #![deny(missing_docs)]
+#![deny(clippy::disallowed_methods)]
 
 use std::borrow::Cow;
 use std::collections::HashMap;
