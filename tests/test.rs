@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 use crate::support::Test;
 
 mod support;

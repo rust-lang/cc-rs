@@ -250,6 +250,8 @@ struct CompilerFlag {
     flag: Box<OsStr>,
 }
 
+type Env = Option<Arc<OsStr>>;
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
@@ -294,7 +296,7 @@ pub struct Build {
     warnings_into_errors: bool,
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
-    env_cache: Arc<RwLock<HashMap<Box<str>, Option<Arc<OsStr>>>>>,
+    env_cache: Arc<RwLock<HashMap<Box<str>, Env>>>,
     apple_sdk_root_cache: Arc<RwLock<HashMap<Box<str>, Arc<OsStr>>>>,
     apple_versions_cache: Arc<RwLock<HashMap<Box<str>, Arc<str>>>>,
     emit_rerun_if_env_changed: bool,
@@ -1038,7 +1040,7 @@ impl Build {
         cpp_set_stdlib: V,
     ) -> &mut Build {
         let cpp_set_stdlib = cpp_set_stdlib.into().map(Arc::from);
-        self.cpp_set_stdlib = cpp_set_stdlib.clone();
+        self.cpp_set_stdlib.clone_from(&cpp_set_stdlib);
         self.cpp_link_stdlib = Some(cpp_set_stdlib);
         self
     }
@@ -1349,7 +1351,7 @@ impl Build {
             None => "none",
         };
         if cudart != "none" {
-            if let Some(nvcc) = which(&self.get_compiler().path, None) {
+            if let Some(nvcc) = self.which(&self.get_compiler().path, None) {
                 // Try to figure out the -L search path. If it fails,
                 // it's on user to specify one by passing it through
                 // RUSTFLAGS environment variable.
@@ -1357,7 +1359,7 @@ impl Build {
                 let mut libdir = nvcc;
                 libdir.pop(); // remove 'nvcc'
                 libdir.push("..");
-                let target_arch = env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+                let target_arch = self.getenv_unwrap_str("CARGO_CFG_TARGET_ARCH")?;
                 if cfg!(target_os = "linux") {
                     libdir.push("targets");
                     libdir.push(target_arch.to_owned() + "-linux");
@@ -3281,8 +3283,12 @@ impl Build {
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.is_like_clang() {
                         name = format!("llvm-{}", tool).into();
-                        search_programs(&mut self.cmd(&compiler.path), &name, &self.cargo_output)
-                            .map(|name| self.cmd(name))
+                        self.search_programs(
+                            &mut self.cmd(&compiler.path),
+                            &name,
+                            &self.cargo_output,
+                        )
+                        .map(|name| self.cmd(name))
                     } else {
                         None
                     }
@@ -3316,10 +3322,10 @@ impl Build {
                         // next to 'clang-cl' and use 'search_programs()' to locate
                         // 'llvm-lib'. This is because 'clang-cl' doesn't support
                         // the -print-search-dirs option.
-                        if let Some(mut cmd) = which(&compiler.path, None) {
+                        if let Some(mut cmd) = self.which(&compiler.path, None) {
                             cmd.pop();
                             cmd.push("llvm-lib.exe");
-                            if let Some(llvm_lib) = which(&cmd, None) {
+                            if let Some(llvm_lib) = self.which(&cmd, None) {
                                 llvm_lib.to_str().unwrap().clone_into(&mut lib);
                             }
                         }
@@ -3532,7 +3538,7 @@ impl Build {
         // Loop through PATH entries searching for each toolchain. This ensures that we
         // are more likely to discover the toolchain early on, because chances are good
         // that the desired toolchain is in one of the higher-priority paths.
-        env::var_os("PATH")
+        self.getenv("PATH")
             .as_ref()
             .and_then(|path_entries| {
                 env::split_paths(path_entries).find_map(|path_entry| {
@@ -3607,7 +3613,9 @@ impl Build {
     fn get_out_dir(&self) -> Result<Cow<'_, Path>, Error> {
         match &self.out_dir {
             Some(p) => Ok(Cow::Borrowed(&**p)),
-            None => env::var_os("OUT_DIR")
+            None => self
+                .getenv("OUT_DIR")
+                .as_deref()
                 .map(PathBuf::from)
                 .map(Cow::Owned)
                 .ok_or_else(|| {
@@ -3619,6 +3627,7 @@ impl Build {
         }
     }
 
+    #[allow(clippy::disallowed_methods)]
     fn getenv(&self, v: &str) -> Option<Arc<OsStr>> {
         // Returns true for environment variables cargo sets for build scripts:
         // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
@@ -3936,6 +3945,54 @@ impl Build {
             .filter(|file| file.extension() == Some(OsStr::new("cu")))
             .count()
     }
+
+    fn which(&self, tool: &Path, path_entries: Option<&OsStr>) -> Option<PathBuf> {
+        fn check_exe(mut exe: PathBuf) -> Option<PathBuf> {
+            let exe_ext = std::env::consts::EXE_EXTENSION;
+            let check =
+                exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists());
+            check.then_some(exe)
+        }
+
+        // Loop through PATH entries searching for the |tool|.
+        let find_exe_in_path = |path_entries: &OsStr| -> Option<PathBuf> {
+            env::split_paths(path_entries).find_map(|path_entry| check_exe(path_entry.join(tool)))
+        };
+
+        // If |tool| is not just one "word," assume it's an actual path...
+        if tool.components().count() > 1 {
+            check_exe(PathBuf::from(tool))
+        } else {
+            path_entries
+                .and_then(find_exe_in_path)
+                .or_else(|| find_exe_in_path(&self.getenv("PATH")?))
+        }
+    }
+
+    /// search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
+    fn search_programs(
+        &self,
+        cc: &mut Command,
+        prog: &Path,
+        cargo_output: &CargoOutput,
+    ) -> Option<PathBuf> {
+        let search_dirs = run_output(
+            cc.arg("-print-search-dirs"),
+            "cc",
+            // this doesn't concern the compilation so we always want to show warnings.
+            cargo_output,
+        )
+        .ok()?;
+        // clang driver appears to be forcing UTF-8 output even on Windows,
+        // hence from_utf8 is assumed to be usable in all cases.
+        let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
+        for dirs in search_dirs.split(|c| c == '\r' || c == '\n') {
+            if let Some(path) = dirs.strip_prefix("programs: =") {
+                return self.which(prog, Some(OsStr::new(path)));
+            }
+        }
+        None
+    }
 }
 
 impl Default for Build {
@@ -4122,50 +4179,6 @@ fn map_darwin_target_from_rust_to_compiler_architecture(target: &str) -> Option<
     } else {
         None
     }
-}
-
-fn which(tool: &Path, path_entries: Option<OsString>) -> Option<PathBuf> {
-    fn check_exe(exe: &mut PathBuf) -> bool {
-        let exe_ext = std::env::consts::EXE_EXTENSION;
-        exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists())
-    }
-
-    // If |tool| is not just one "word," assume it's an actual path...
-    if tool.components().count() > 1 {
-        let mut exe = PathBuf::from(tool);
-        return if check_exe(&mut exe) { Some(exe) } else { None };
-    }
-
-    // Loop through PATH entries searching for the |tool|.
-    let path_entries = path_entries.or(env::var_os("PATH"))?;
-    env::split_paths(&path_entries).find_map(|path_entry| {
-        let mut exe = path_entry.join(tool);
-        if check_exe(&mut exe) {
-            Some(exe)
-        } else {
-            None
-        }
-    })
-}
-
-// search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
-fn search_programs(cc: &mut Command, prog: &Path, cargo_output: &CargoOutput) -> Option<PathBuf> {
-    let search_dirs = run_output(
-        cc.arg("-print-search-dirs"),
-        "cc",
-        // this doesn't concern the compilation so we always want to show warnings.
-        cargo_output,
-    )
-    .ok()?;
-    // clang driver appears to be forcing UTF-8 output even on Windows,
-    // hence from_utf8 is assumed to be usable in all cases.
-    let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
-    for dirs in search_dirs.split(|c| c == '\r' || c == '\n') {
-        if let Some(path) = dirs.strip_prefix("programs: =") {
-            return which(prog, Some(OsString::from(path)));
-        }
-    }
-    None
 }
 
 #[derive(Clone, Copy, PartialEq)]

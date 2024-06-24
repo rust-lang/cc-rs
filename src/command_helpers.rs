@@ -27,6 +27,7 @@ pub(crate) struct CargoOutput {
 
 impl CargoOutput {
     pub(crate) fn new() -> Self {
+        #[allow(clippy::disallowed_methods)]
         Self {
             metadata: true,
             warnings: true,
