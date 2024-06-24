@@ -3921,8 +3921,14 @@ impl Build {
             ))
         }
     }
-    fn is_wasi_target(target : &str) -> bool {
-        const TARGETS : [&'static str; 5] = ["wasm32-wasi", "wasm32-wasip1", "wasm32-wasip1-threads", "wasm32-wasip2", "wasm32-wasi-threads"];
+    fn is_wasi_target(target: &str) -> bool {
+        const TARGETS: [&'static str; 5] = [
+            "wasm32-wasi",
+            "wasm32-wasip1",
+            "wasm32-wasip1-threads",
+            "wasm32-wasip2",
+            "wasm32-wasi-threads",
+        ];
         return TARGETS.contains(&target);
     }
 
