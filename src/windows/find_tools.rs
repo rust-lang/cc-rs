@@ -60,7 +60,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
     find_tool_inner(target, tool, env::var_os)
 }
 
-pub(super) fn find_tool_inner<F, R>(target: &str, tool: &str, get_env: F) -> Option<Tool>
+pub(crate) fn find_tool_inner<F, R>(target: &str, tool: &str, get_env: F) -> Option<Tool>
 where
     F: Fn(&'static str) -> Option<R>,
     R: AsRef<OsStr> + 'static,

@@ -1,4 +1,7 @@
 disallowed-methods = [
     { path = "std::env::var_os", reason = "Please use Build::getenv" },
     { path = "std::env::var", reason = "Please use Build::getenv" },
+    { path = "windows_registry::find", reason = "Please use find_tool_inner" },
+    { path = "windows_registry::find_tool", reason = "Please use find_tool_inner" },
+    { path = "windows_registry::find_vs_version", reason = "No" },
 ]

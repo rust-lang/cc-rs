@@ -2435,7 +2435,9 @@ impl Build {
         } else {
             "ml.exe"
         };
-        let mut cmd = windows_registry::find(&target, tool).unwrap_or_else(|| self.cmd(tool));
+        let mut cmd = self
+            .windows_registry_find(&target, tool)
+            .unwrap_or_else(|| self.cmd(tool));
         cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(&**directory);
@@ -2815,7 +2817,7 @@ impl Build {
             traditional
         };
 
-        let cl_exe = windows_registry::find_tool(target, "cl.exe");
+        let cl_exe = self.windows_registry_find_tool(target, "cl.exe");
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
@@ -3333,7 +3335,7 @@ impl Build {
 
                     if lib.is_empty() {
                         name = PathBuf::from("lib.exe");
-                        let mut cmd = match windows_registry::find(&target, "lib.exe") {
+                        let mut cmd = match self.windows_registry_find(&target, "lib.exe") {
                             Some(t) => t,
                             None => self.cmd("lib.exe"),
                         };
@@ -3992,6 +3994,15 @@ impl Build {
             }
         }
         None
+    }
+
+    fn windows_registry_find(&self, target: &str, tool: &str) -> Option<Command> {
+        self.windows_registry_find_tool(target, tool)
+            .map(|c| c.to_command())
+    }
+
+    fn windows_registry_find_tool(&self, target: &str, tool: &str) -> Option<Tool> {
+        windows_registry::find_tool_inner(target, tool, |env| self.getenv(env))
     }
 }
 
