@@ -1288,7 +1288,8 @@ impl Build {
         self.compile_objects(&objects)?;
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
-        if self.get_target()?.contains("msvc") {
+        let target = self.get_target()?;
+        if target.contains("msvc") {
             let compiler = self.get_base_compiler()?;
             let atlmfc_lib = compiler
                 .env()
@@ -1334,11 +1335,12 @@ impl Build {
                     .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
             }
             // Link c++ lib from WASI sysroot
-            if self.get_target()?.contains("wasi") {
+            if Build::is_wasi_target(target.as_ref()) {
                 let wasi_sysroot = self.wasi_sysroot()?;
                 self.cargo_output.print_metadata(&format_args!(
-                    "cargo:rustc-flags=-L {}/lib/wasm32-wasi -lstatic=c++ -lstatic=c++abi",
-                    Path::new(&wasi_sysroot).display()
+                    "cargo:rustc-flags=-L {}/lib/{} -lstatic=c++ -lstatic=c++abi",
+                    Path::new(&wasi_sysroot).display(),
+                    target
                 ));
             }
         }
@@ -1940,7 +1942,7 @@ impl Build {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
                 }
-                if target == "wasm32-wasip1" {
+                if Build::is_wasi_target(target) {
                     // WASI does not support exceptions yet.
                     // https://github.com/WebAssembly/exception-handling
                     cmd.push_cc_arg("-fno-exceptions".into());
@@ -2888,10 +2890,7 @@ impl Build {
                     autodetect_android_compiler(target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
-                } else if target == "wasm32-wasi"
-                    || target == "wasm32-unknown-wasi"
-                    || target == "wasm32-unknown-unknown"
-                {
+                } else if Build::is_wasi_target(target) {
                     if self.cpp {
                         "clang++".to_string()
                     } else {
@@ -3921,6 +3920,10 @@ impl Build {
                 "Environment variable WASI_SYSROOT not defined. Download sysroot from github & setup environment variable WASI_SYSROOT targetting the folder.",
             ))
         }
+    }
+    fn is_wasi_target(target : &str) -> bool {
+        const TARGETS : [&'static str; 5] = ["wasm32-wasi", "wasm32-wasip1", "wasm32-wasip1-threads", "wasm32-wasip2", "wasm32-wasi-threads"];
+        return TARGETS.contains(&target);
     }
 
     fn cuda_file_count(&self) -> usize {
