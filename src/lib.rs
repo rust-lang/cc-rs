@@ -2742,7 +2742,7 @@ impl Build {
                 // Mac Catalyst uses the macOS SDK, but to compile against and
                 // link to iOS-specific frameworks, we should have the support
                 // library stubs in the include and library search path.
-                let ios_support = PathBuf::from(&sdk_path).join("System/iOSSupport");
+                let ios_support = Path:: new(&sdk_path).join("System/iOSSupport");
 
                 cmd.args.extend([
                     // Header search path
