@@ -900,14 +900,14 @@ mod impl_ {
     // if one is already configured.
     fn get_sdk10_dir(env_getter: &dyn EnvGetter) -> Option<(PathBuf, String)> {
         if let (Some(root), Some(version)) = (
-            env_getter.get_env("WindowsSdkDir").as_ref(),
+            env_getter.get_env("WindowsSdkDir"),
             env_getter
                 .get_env("WindowsSDKVersion")
                 .as_ref()
                 .and_then(|version| version.as_ref().to_str()),
         ) {
             return Some((
-                Path::new(root).to_owned(),
+                PathBuf::from(root),
                 version.trim_end_matches('\\').to_string(),
             ));
         }
