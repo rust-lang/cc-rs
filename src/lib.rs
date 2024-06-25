@@ -4002,7 +4002,15 @@ impl Build {
     }
 
     fn windows_registry_find_tool(&self, target: &str, tool: &str) -> Option<Tool> {
-        windows_registry::find_tool_inner(target, tool, |env| self.getenv(env))
+        struct BuildEnvGetter<'s>(&'s Build);
+
+        impl windows_registry::EnvGetter for BuildEnvGetter<'_> {
+            fn get_env(&self, name: &str) -> Option<windows_registry::Env> {
+                self.0.getenv(name).map(windows_registry::Env::Arced)
+            }
+        }
+
+        windows_registry::find_tool_inner(target, tool, &BuildEnvGetter(self))
     }
 }
 
