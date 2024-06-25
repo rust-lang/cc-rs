@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 use crate::support::Test;
 
 mod support;
@@ -575,8 +577,8 @@ fn clang_apple_tvos() {
         let test = Test::clang();
         test.gcc()
             .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
-            .target(&target)
-            .host(&target)
+            .target(target)
+            .host(target)
             .file("foo.c")
             .compile("foo");
 
@@ -628,8 +630,8 @@ fn clang_apple_tvsimulator() {
         let test = Test::clang();
         test.gcc()
             .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
-            .target(&target)
-            .host(&target)
+            .target(target)
+            .host(target)
             .file("foo.c")
             .compile("foo");
 

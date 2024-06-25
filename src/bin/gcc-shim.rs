@@ -2,6 +2,7 @@
 //! It is not intended for users and is not published with the library code to crates.io.
 
 #![cfg_attr(test, allow(dead_code))]
+#![allow(clippy::disallowed_methods)]
 
 use std::env;
 use std::fs::File;

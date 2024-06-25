@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::disallowed_methods)]
 
 use std::env;
 use std::ffi::{OsStr, OsString};
