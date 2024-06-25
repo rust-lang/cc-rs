@@ -171,6 +171,10 @@ pub enum VsVers {
 /// generator.
 #[allow(clippy::disallowed_methods)]
 pub fn find_vs_version() -> Result<VsVers, String> {
+    fn has_msbuild_version(version: &str) -> bool {
+        impl_::has_msbuild_version(version, &StdEnvGetter)
+    }
+
     match std::env::var("VisualStudioVersion") {
         Ok(version) => match &version[..] {
             "17.0" => Ok(VsVers::Vs17),
@@ -191,15 +195,15 @@ pub fn find_vs_version() -> Result<VsVers, String> {
         _ => {
             // Check for the presence of a specific registry key
             // that indicates visual studio is installed.
-            if impl_::has_msbuild_version("17.0", &StdEnvGetter) {
+            if has_msbuild_version("17.0") {
                 Ok(VsVers::Vs17)
-            } else if impl_::has_msbuild_version("16.0", &StdEnvGetter) {
+            } else if has_msbuild_version("16.0") {
                 Ok(VsVers::Vs16)
-            } else if impl_::has_msbuild_version("15.0", &StdEnvGetter) {
+            } else if has_msbuild_version("15.0") {
                 Ok(VsVers::Vs15)
-            } else if impl_::has_msbuild_version("14.0", &StdEnvGetter) {
+            } else if has_msbuild_version("14.0") {
                 Ok(VsVers::Vs14)
-            } else if impl_::has_msbuild_version("12.0", &StdEnvGetter) {
+            } else if has_msbuild_version("12.0") {
                 Ok(VsVers::Vs12)
             } else {
                 Err("\n\n\
@@ -1047,6 +1051,7 @@ mod impl_ {
         max_key
     }
 
+    #[inline(always)]
     pub(super) fn has_msbuild_version(version: &str, env_getter: &dyn EnvGetter) -> bool {
         match version {
             "17.0" => {
@@ -1203,6 +1208,7 @@ mod impl_ {
         None
     }
 
+    #[inline(always)]
     pub(super) fn has_msbuild_version(version: &str, _: &dyn EnvGetter) -> bool {
         match version {
             "17.0" => false,
