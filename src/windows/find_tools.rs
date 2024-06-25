@@ -1130,12 +1130,14 @@ mod impl_ {
 
     /// Finding msbuild.exe tool under unix system is not currently supported.
     /// Maybe can check it using an environment variable looks like `MSBUILD_BIN`.
+    #[inline(always)]
     pub(super) fn find_msbuild<F>(_target: TargetArch<'_>, _: F) -> Option<Tool> {
         None
     }
 
     // Finding devenv.exe tool under unix system is not currently supported.
     // Maybe can check it using an environment variable looks like `DEVENV_BIN`.
+    #[inline(always)]
     pub(super) fn find_devenv<F>(_target: TargetArch<'_>, _: F) -> Option<Tool> {
         None
     }
@@ -1171,17 +1173,20 @@ mod impl_ {
             })
     }
 
+    #[inline(always)]
     pub(super) fn find_msvc_15plus<F>(_tool: &str, _target: TargetArch<'_>, _: F) -> Option<Tool> {
         None
     }
 
     // For MSVC 14 we need to find the Universal CRT as well as either
     // the Windows 10 SDK or Windows 8.1 SDK.
+    #[inline(always)]
     pub(super) fn find_msvc_14<F>(_tool: &str, _target: TargetArch<'_>, _: F) -> Option<Tool> {
         None
     }
 
     // For MSVC 12 we need to find the Windows 8.1 SDK.
+    #[inline(always)]
     pub(super) fn find_msvc_12<F>(_tool: &str, _target: TargetArch<'_>, _: F) -> Option<Tool> {
         None
     }
