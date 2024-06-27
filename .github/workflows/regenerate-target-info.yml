@@ -21,8 +21,13 @@ jobs:
       - name: Install rust
         run: |
           rustup toolchain install stable nightly --no-self-update --profile minimal
+
+      - name: Create lockfile
+        run: cargo update
   
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: 'true'
       - name: Regenerate target info
         run: cargo run -p gen-target-info
 

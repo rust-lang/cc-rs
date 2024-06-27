@@ -18,7 +18,13 @@ jobs:
         run: |
           git checkout -b regenerate-windows-sys-${{ github.run_id }}
 
+      - name: Create lockfile
+        run: cargo update
+  
       - uses: Swatinem/rust-cache@v2
+        with:
+          cache-all-crates: 'true'
+      
       - name: Regenerate windows sys bindings
         run: cargo run -p gen-windows-sys-binding
 
