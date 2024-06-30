@@ -1339,12 +1339,13 @@ impl Build {
             }
             // Link c++ lib from WASI sysroot
             if Build::is_wasi_target(target.as_ref()) {
-                let wasi_sysroot = self.wasi_sysroot()?;
-                self.cargo_output.print_metadata(&format_args!(
-                    "cargo:rustc-flags=-L {}/lib/{} -lstatic=c++ -lstatic=c++abi",
-                    Path::new(&wasi_sysroot).display(),
-                    target
-                ));
+                if let Ok(wasi_sysroot) = self.wasi_sysroot() {
+                    self.cargo_output.print_metadata(&format_args!(
+                        "cargo:rustc-flags=-L {}/lib/{} -lstatic=c++ -lstatic=c++abi",
+                        Path::new(&wasi_sysroot).display(),
+                        target
+                    ));
+                }
             }
         }
 
@@ -1950,10 +1951,11 @@ impl Build {
                     // https://github.com/WebAssembly/exception-handling
                     cmd.push_cc_arg("-fno-exceptions".into());
                     // Link clang sysroot
-                    let wasi_sysroot = self.wasi_sysroot()?;
-                    cmd.push_cc_arg(
-                        format!("--sysroot={}", Path::new(&wasi_sysroot).display()).into(),
-                    );
+                    if let Ok(wasi_sysroot) = self.wasi_sysroot() {
+                        cmd.push_cc_arg(
+                            format!("--sysroot={}", Path::new(&wasi_sysroot).display()).into(),
+                        );
+                    }
                 }
             }
         }
@@ -3940,12 +3942,14 @@ impl Build {
         }
     }
     fn is_wasi_target(target: &str) -> bool {
-        const TARGETS: [&'static str; 5] = [
+        const TARGETS: [&'static str; 7] = [
             "wasm32-wasi",
             "wasm32-wasip1",
             "wasm32-wasip1-threads",
             "wasm32-wasip2",
             "wasm32-wasi-threads",
+            "wasm32-unknown-wasi",
+            "wasm32-unknown-unknown",
         ];
         return TARGETS.contains(&target);
     }
