@@ -2212,14 +2212,6 @@ impl Build {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
 
-                if self.static_flag.is_none() {
-                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
-                    let features = features.as_deref().unwrap_or_default();
-                    if features.to_string_lossy().contains("crt-static") {
-                        cmd.args.push("-static".into());
-                    }
-                }
-
                 // armv7 targets get to use armv7 instructions
                 if (target.starts_with("armv7") || target.starts_with("thumbv7"))
                     && (target.contains("-linux-") || target.contains("-kmc-solid_"))
