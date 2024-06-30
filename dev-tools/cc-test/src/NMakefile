@@ -14,7 +14,7 @@ $(OUT_DIR)/msvc.o: src/msvc.c
 	$(CC) $(EXTRA_CFLAGS) -c $(CFLAG_OUTPUT)$@ src/msvc.c -MD
 
 $(OUT_DIR)/msvc.exe: $(OUT_DIR)/msvc2.o
-	$(CC) $(EXTRA_CFLAGS) $(CFLAG_OUTPUT)$@ $(OUT_DIR)/msvc2.o
+	$(CC) $(EXTRA_CFLAGS) $(CFLAG_OUTPUT)$@ $(OUT_DIR)/msvc2.o -Fe:$(OUT_DIR)/msvc.exe
 
 $(OUT_DIR)/msvc2.o: src/msvc.c
 	$(CC) $(EXTRA_CFLAGS) -c $(CFLAG_OUTPUT)$@ src/msvc.c -DMAIN -MD

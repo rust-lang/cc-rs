@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![allow(clippy::disallowed_methods)]
 
 use std::env;
 use std::ffi::{OsStr, OsString};
@@ -7,7 +8,6 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
-use cc;
 use tempfile::{Builder, TempDir};
 
 pub struct Test {
@@ -86,12 +86,10 @@ impl Test {
         let mut cfg = cc::Build::new();
         let target = if self.msvc {
             "x86_64-pc-windows-msvc"
+        } else if cfg!(target_os = "macos") {
+            "x86_64-apple-darwin"
         } else {
-            if cfg!(target_os = "macos") {
-                "x86_64-apple-darwin"
-            } else {
-                "x86_64-unknown-linux-gnu"
-            }
+            "x86_64-unknown-linux-gnu"
         };
 
         cfg.target(target)

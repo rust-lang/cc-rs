@@ -6,7 +6,7 @@ use std::{
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
-    sync::Mutex,
+    sync::RwLock,
 };
 
 use crate::{
@@ -40,7 +40,7 @@ pub struct Tool {
 impl Tool {
     pub(crate) fn new(
         path: PathBuf,
-        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
+        cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
@@ -57,7 +57,7 @@ impl Tool {
     pub(crate) fn with_clang_driver(
         path: PathBuf,
         clang_driver: Option<&str>,
-        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
+        cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
@@ -90,13 +90,13 @@ impl Tool {
         path: PathBuf,
         clang_driver: Option<&str>,
         cuda: bool,
-        cached_compiler_family: &Mutex<HashMap<Box<Path>, ToolFamily>>,
+        cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
         fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> bool {
             run_output(
-                Command::new(&path).arg("--version"),
+                Command::new(path).arg("--version"),
                 path,
                 // tool detection issues should always be shown as warnings
                 cargo_output,
@@ -122,7 +122,7 @@ impl Tool {
                     .into(),
             })?;
 
-            let tmp =
+            let mut tmp =
                 NamedTempfile::new(&out_dir, "detect_compiler_family.c").map_err(|err| Error {
                     kind: ErrorKind::IOError,
                     message: format!(
@@ -132,8 +132,13 @@ impl Tool {
                     )
                     .into(),
                 })?;
-            tmp.file()
-                .write_all(include_bytes!("detect_compiler_family.c"))?;
+            let mut tmp_file = tmp.take_file().unwrap();
+            tmp_file.write_all(include_bytes!("detect_compiler_family.c"))?;
+            // Close the file handle *now*, otherwise the compiler may fail to open it on Windows
+            // (#1082). The file stays on disk and its path remains valid until `tmp` is dropped.
+            tmp_file.flush()?;
+            tmp_file.sync_data()?;
+            drop(tmp_file);
 
             let stdout = run_output(
                 Command::new(path).arg("-E").arg(tmp.path()),
@@ -181,13 +186,13 @@ impl Tool {
             }
         }
         let detect_family = |path: &Path| -> Result<ToolFamily, Error> {
-            if let Some(family) = cached_compiler_family.lock().unwrap().get(path) {
+            if let Some(family) = cached_compiler_family.read().unwrap().get(path) {
                 return Ok(*family);
             }
 
             let family = detect_family_inner(path, cargo_output, out_dir)?;
             cached_compiler_family
-                .lock()
+                .write()
                 .unwrap()
                 .insert(path.into(), family);
             Ok(family)
@@ -392,10 +397,7 @@ impl Tool {
 
     /// Whether the tool is MSVC-like.
     pub fn is_like_msvc(&self) -> bool {
-        match self.family {
-            ToolFamily::Msvc { .. } => true,
-            _ => false,
-        }
+        matches!(self.family, ToolFamily::Msvc { .. })
     }
 }
 

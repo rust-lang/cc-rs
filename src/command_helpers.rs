@@ -27,6 +27,7 @@ pub(crate) struct CargoOutput {
 
 impl CargoOutput {
     pub(crate) fn new() -> Self {
+        #[allow(clippy::disallowed_methods)]
         Self {
             metadata: true,
             warnings: true,
@@ -90,7 +91,6 @@ impl StderrForwarder {
         }
     }
 
-    #[allow(clippy::uninit_vec)]
     fn forward_available(&mut self) -> bool {
         if let Some((stderr, buffer)) = self.inner.as_mut() {
             loop {
@@ -104,7 +104,7 @@ impl StderrForwarder {
                 let to_reserve = if self.is_non_blocking && !self.bytes_available_failed {
                     match crate::parallel::stderr::bytes_available(stderr) {
                         #[cfg(windows)]
-                        Ok(0) => return false,
+                        Ok(0) => break false,
                         #[cfg(unix)]
                         Ok(0) => {
                             // On Unix, depending on the implementation, we may sometimes get 0 in a
@@ -120,7 +120,7 @@ impl StderrForwarder {
                                 write_warning(&buffer[..]);
                             }
                             self.inner = None;
-                            return true;
+                            break true;
                         }
                         #[cfg(unix)]
                         Err(_) => {
@@ -137,32 +137,21 @@ impl StderrForwarder {
                 };
                 buffer.reserve(to_reserve);
 
-                // SAFETY: 1) the length is set to the capacity, so we are never using memory beyond
-                // the underlying buffer and 2) we always call `truncate` below to set the len back
-                // to the initialized data.
-                unsafe {
-                    buffer.set_len(buffer.capacity());
-                }
-                match stderr.read(&mut buffer[old_data_end..]) {
+                // Safety: stderr.read only writes to the spare part of the buffer, it never reads from it
+                match stderr
+                    .read(unsafe { &mut *(buffer.spare_capacity_mut() as *mut _ as *mut [u8]) })
+                {
                     Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                         // No data currently, yield back.
-                        buffer.truncate(old_data_end);
-                        return false;
+                        break false;
                     }
                     Err(err) if err.kind() == std::io::ErrorKind::Interrupted => {
                         // Interrupted, try again.
-                        buffer.truncate(old_data_end);
+                        continue;
                     }
-                    Ok(0) | Err(_) => {
-                        // End of stream: flush remaining data and bail.
-                        if old_data_end > 0 {
-                            write_warning(&buffer[..old_data_end]);
-                        }
-                        self.inner = None;
-                        return true;
-                    }
-                    Ok(bytes_read) => {
-                        buffer.truncate(old_data_end + bytes_read);
+                    Ok(bytes_read) if bytes_read != 0 => {
+                        // Safety: bytes_read bytes is written to spare part of the buffer
+                        unsafe { buffer.set_len(old_data_end + bytes_read) };
                         let mut consumed = 0;
                         for line in buffer.split_inclusive(|&b| b == b'\n') {
                             // Only forward complete lines, leave the rest in the buffer.
@@ -172,6 +161,19 @@ impl StderrForwarder {
                             }
                         }
                         buffer.drain(..consumed);
+                    }
+                    res => {
+                        // End of stream: flush remaining data and bail.
+                        if old_data_end > 0 {
+                            write_warning(&buffer[..old_data_end]);
+                        }
+                        if let Err(err) = res {
+                            write_warning(
+                                format!("Failed to read from child stderr: {err}").as_bytes(),
+                            );
+                        }
+                        self.inner.take();
+                        break true;
                     }
                 }
             }
@@ -397,7 +399,7 @@ pub(crate) struct CmdAddOutputFileArgs {
 
 pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAddOutputFileArgs) {
     if args.is_assembler_msvc
-        || (args.msvc && !args.clang && !args.gnu && !args.cuda && !(args.is_asm && args.is_arm))
+        || !(!args.msvc || args.clang || args.gnu || args.cuda || (args.is_asm && args.is_arm))
     {
         let mut s = OsString::from("-Fo");
         s.push(dst);

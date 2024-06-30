@@ -1,3 +1,5 @@
+#![allow(clippy::disallowed_methods)]
+
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -169,7 +171,7 @@ fn main() {
 #[track_caller]
 fn run_forked_capture_output(out: &Path, action: &str) {
     let program = env::current_exe().unwrap();
-    let output = Command::new(&program).arg(action).output().unwrap();
+    let output = Command::new(program).arg(action).output().unwrap();
     assert!(output.status.success(), "output: {:#?}", output);
     // we've captured the output and now we write it to a dedicated directory in the
     // build output so our tests can access the output.

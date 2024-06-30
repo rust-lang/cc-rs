@@ -1,4 +1,4 @@
-name: Regenerate target info
+name: Regenerate windows sys bindings
 
 on:
   workflow_dispatch: # Allow running on-demand
@@ -7,7 +7,7 @@ on:
 
 jobs:
   regenerate:
-    name: Regenerate target info & Open Pull Request if necessary
+    name: Regenerate windows sys bindings & Open Pull Request if necessary
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -16,11 +16,7 @@ jobs:
 
       - name: Generate branch name
         run: |
-          git checkout -b regenerate-target-info-${{ github.run_id }}
-
-      - name: Install rust
-        run: |
-          rustup toolchain install stable nightly --no-self-update --profile minimal
+          git checkout -b regenerate-windows-sys-${{ github.run_id }}
 
       - name: Create lockfile
         run: cargo update
@@ -28,8 +24,9 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-all-crates: 'true'
-      - name: Regenerate target info
-        run: cargo run -p gen-target-info
+      
+      - name: Regenerate windows sys bindings
+        run: cargo run -p gen-windows-sys-binding
 
       - name: Detect changes
         id: changes
@@ -43,7 +40,7 @@ jobs:
         run: |
           git config user.name github-actions
           git config user.email github-actions@github.com
-          git commit -am "Regenerate target info"
+          git commit -am "Regenerate windows sys bindings"
           git push origin HEAD
 
       - name: Open pull request if needed
@@ -51,4 +48,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create --base main --title "Update src/target_info.rs" --body "Automatically regenerated in CI"
+          gh pr create --base main --title "Regenerate windows sys bindings" --body "Automatically regenerated in CI"

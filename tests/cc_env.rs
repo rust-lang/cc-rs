@@ -55,22 +55,16 @@ fn ccache_env_flags() {
         compiler.cc_env(),
         OsString::from("ccache lol-this-is-not-a-compiler")
     );
-    assert!(
-        compiler
-            .cflags_env()
-            .into_string()
-            .unwrap()
-            .contains("ccache")
-            == false
-    );
-    assert!(
-        compiler
-            .cflags_env()
-            .into_string()
-            .unwrap()
-            .contains(" lol-this-is-not-a-compiler")
-            == false
-    );
+    assert!(!compiler
+        .cflags_env()
+        .into_string()
+        .unwrap()
+        .contains("ccache"));
+    assert!(!compiler
+        .cflags_env()
+        .into_string()
+        .unwrap()
+        .contains(" lol-this-is-not-a-compiler"));
 
     env::set_var("CC", "");
 }
