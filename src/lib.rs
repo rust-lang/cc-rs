@@ -771,6 +771,10 @@ impl Build {
     ///     .static_flag(true)
     ///     .compile("foo");
     /// ```
+    #[deprecated(
+        since = "1.0.99",
+        note = "cc itself always generates an archive. If you really need `-static`, use `cc::Tool::to_command()` and add it to the `Command` arguments."
+    )]
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
         self.static_flag = Some(static_flag);
         self
