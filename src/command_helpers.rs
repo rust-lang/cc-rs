@@ -361,7 +361,7 @@ pub(crate) fn spawn(
         Ok(child) => Ok(child),
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
             let extra = if cfg!(windows) {
-                " (see https://github.com/rust-lang/cc-rs#compile-time-requirements \
+                " (see https://docs.rs/cc/latest/cc/#compile-time-requirements \
 for help)"
             } else {
                 ""
