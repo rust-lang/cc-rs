@@ -2368,29 +2368,42 @@ impl Build {
                     let mut parts = target.split('-');
                     if let Some(arch) = parts.next() {
                         let arch = &arch[5..];
-                        if arch.starts_with("64") {
-                            if target.contains("linux")
-                                | target.contains("freebsd")
-                                | target.contains("netbsd")
-                                | target.contains("linux")
-                            {
-                                cmd.args.push(("-march=rv64gc").into());
-                                cmd.args.push("-mabi=lp64d".into());
-                            } else {
-                                cmd.args.push(("-march=rv".to_owned() + arch).into());
-                                cmd.args.push("-mabi=lp64".into());
-                            }
-                        } else if arch.starts_with("32") {
-                            if target.contains("linux") {
-                                cmd.args.push(("-march=rv32gc").into());
-                                cmd.args.push("-mabi=ilp32d".into());
-                            } else {
-                                cmd.args.push(("-march=rv".to_owned() + arch).into());
-                                cmd.args.push("-mabi=ilp32".into());
-                            }
+
+                        // Assume that "rv{arch}" is a valid RISC-V ISA string.
+                        // The compiler would error out otherwise, and we fix
+                        // that later.
+                        cmd.args.push(format!("-march=rv{arch}").into());
+
+                        // Detect single-letter extensions from `arch`, assuming
+                        // no version numbers and canonical order
+                        let single_letter = arch
+                            .split(['_', 'z', 's'])
+                            .next()
+                            // The arch string starts with 32 or 64
+                            .expect("arch string cannot be empty");
+
+                        let riscv_implements = |ext| single_letter.contains(ext);
+
+                        // Detect ABI to select based on de facto standard
+
+                        let float_abi = if riscv_implements("g") || riscv_implements("d") {
+                            // Implements "d" (double-float), use double-float ABI
+                            "d"
+                        } else if riscv_implements("f") {
+                            // Implements "f" (single-float), use single-float ABI
+                            "f"
                         } else {
-                            cmd.args.push("-mcmodel=medany".into());
+                            // No floating support, use soft-float ABI
+                            ""
+                        };
+
+                        if arch.starts_with("64") {
+                            cmd.args.push(format!("-mabi=lp64{float_abi}").into());
+                        } else {
+                            cmd.args.push(format!("-mabi=ilp32{float_abi}").into());
                         }
+
+                        cmd.args.push("-mcmodel=medany".into());
                     }
                 }
             }
