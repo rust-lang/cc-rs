@@ -27,7 +27,6 @@ fn main() -> io::Result<()> {
     // Common args to windows_bindgen.
     let mut args = vec![
         "--config",
-        "std",
         "flatten",
         "--out",
         temp_file.path().to_str().unwrap(),
