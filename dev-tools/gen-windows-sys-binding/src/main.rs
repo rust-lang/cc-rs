@@ -86,6 +86,7 @@ fn main() {
         }
 
         f.write_all(r#"extern "C" {}"#.as_bytes()).unwrap();
+        f.write_all("\n".as_bytes()).unwrap();
     }
 
     f.into_inner().unwrap().sync_all().unwrap();
