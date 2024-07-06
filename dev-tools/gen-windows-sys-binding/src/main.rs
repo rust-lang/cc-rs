@@ -28,6 +28,7 @@ fn main() -> io::Result<()> {
     let mut args = vec![
         "--config",
         "flatten",
+        "sys",
         "--out",
         temp_file.path().to_str().unwrap(),
         "--filter",
