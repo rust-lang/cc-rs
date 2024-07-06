@@ -29,6 +29,7 @@ fn main() -> io::Result<()> {
         "--config",
         "flatten",
         "sys",
+        "minimal",
         "--out",
         temp_file.path().to_str().unwrap(),
         "--filter",
