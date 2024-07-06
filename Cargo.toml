@@ -28,6 +28,9 @@ once_cell = { version = "1.19", optional = true }
 # which is still an issue with `resolver = "1"`.
 libc = { version = "0.2.62", default-features = false, optional = true }
 
+[target.'cfg(windows)'.dependencies]
+windows-targets = "0.52"
+
 [features]
 parallel = ["dep:libc", "dep:jobserver", "dep:once_cell"]
 
