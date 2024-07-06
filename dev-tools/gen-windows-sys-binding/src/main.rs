@@ -3,7 +3,7 @@
 
 use std::{
     fs,
-    io::{BufWriter, Read as _, Write as _},
+    io::{BufWriter, Write as _},
 };
 
 use regex::Regex;
@@ -51,16 +51,12 @@ fn main() {
     // Generate bindings.
     windows_bindgen::bindgen(&args).expect("running bindgen failed");
 
-    let mut bindings = String::new();
-    fs::File::open(temp_file.path())
-        .expect("failed to open temp windows_sys.rs")
-        .read_to_string(&mut bindings)
-        .expect("failed to read temp windows_sys.rs");
-
-    let bindings = bindings.replace(
-        "windows_targets::link!",
-        "super::windows_targets::link_macro!",
-    );
+    let bindings = fs::read_to_string(temp_file.path())
+        .expect("failed to read temp windows_sys.rs")
+        .replace(
+            "windows_targets::link!",
+            "super::windows_targets::link_macro!",
+        );
 
     let mut f = fs::File::create(format!("{manifest_dir}/../../src/windows/windows_sys.rs"))
         .map(BufWriter::new)
