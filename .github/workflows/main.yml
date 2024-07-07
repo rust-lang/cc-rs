@@ -223,7 +223,7 @@ jobs:
           rustup default stable
         shell: bash
       - uses: Swatinem/rust-cache@v2
-      - run: cargo clippy
+      - run: cargo clippy --no-deps
 
   rustfmt:
     name: Rustfmt
