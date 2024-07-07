@@ -9,7 +9,7 @@ macro_rules! link_macro {
         // have in this repo. So instead we always link kernel32.lib and add the rest of the import
         // libraries below by using an empty extern block. This works because extern blocks are not
         // connected to the library given in the #[link] attribute.
-        #[link(name = "kernel32")]
+        #[link(name = "kernel32", kind = "raw-dylib")]
         extern $abi {
             $(#[link_name=$link_name])?
             pub fn $($function)*;

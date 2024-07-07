@@ -114,8 +114,4 @@ pub const WAIT_OBJECT_0: WAIT_EVENT = 0u32;
 pub const WAIT_TIMEOUT: WAIT_EVENT = 258u32;
 pub type WIN32_ERROR = u32;
 
-#[link(name = "advapi32")]
-#[link(name = "ole32")]
-#[link(name = "oleaut32")]
-extern "C" {}
 use super::windows_targets;
