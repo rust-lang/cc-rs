@@ -257,7 +257,7 @@ mod impl_ {
     impl LibraryHandle {
         fn new(name: &[u8]) -> Option<Self> {
             let handle = unsafe { LoadLibraryA(name.as_ptr() as _) };
-            (!handle.is_null()).then(|| Self(handle))
+            (!handle.is_null()).then_some(Self(handle))
         }
 
         /// Get a function pointer to a function in the library.

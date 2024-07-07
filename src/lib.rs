@@ -1196,6 +1196,20 @@ impl Build {
         self
     }
 
+    /// Define whether compiler output (to stdout) should be emitted. Defaults to `true`
+    /// (forward compiler stdout to this process' stdout)
+    ///
+    /// Some compilers emit errors to stdout, so if you *really* need stdout to be clean
+    /// you should also set this to `false`.
+    pub fn cargo_output(&mut self, cargo_output: bool) -> &mut Build {
+        self.cargo_output.output = if cargo_output {
+            OutputKind::Forward
+        } else {
+            OutputKind::Discard
+        };
+        self
+    }
+
     /// Adds a native library modifier that will be added to the
     /// `rustc-link-lib=static:MODIFIERS=LIBRARY_NAME` metadata line
     /// emitted for cargo if `cargo_metadata` is enabled.
