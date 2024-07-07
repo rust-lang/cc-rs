@@ -573,17 +573,16 @@ fn macos_cpp_minimums() {
 #[cfg(target_os = "macos")]
 #[test]
 fn clang_apple_tvos() {
-    for target in &["aarch64-apple-tvos"] {
-        let test = Test::clang();
-        test.gcc()
-            .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
-            .target(target)
-            .host(target)
-            .file("foo.c")
-            .compile("foo");
+    let target = "aarch64-apple-tvos";
+    let test = Test::clang();
+    test.gcc()
+        .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
+        .target(target)
+        .host(target)
+        .file("foo.c")
+        .compile("foo");
 
-        test.cmd(0).must_have("-mappletvos-version-min=9.0");
-    }
+    test.cmd(0).must_have("-mappletvos-version-min=9.0");
 }
 
 #[cfg(target_os = "macos")]
@@ -626,17 +625,17 @@ fn clang_apple_mac_catalyst() {
 #[cfg(target_os = "macos")]
 #[test]
 fn clang_apple_tvsimulator() {
-    for target in &["x86_64-apple-tvos"] {
-        let test = Test::clang();
-        test.gcc()
-            .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
-            .target(target)
-            .host(target)
-            .file("foo.c")
-            .compile("foo");
+    let target = "x86_64-apple-tvos";
 
-        test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
-    }
+    let test = Test::clang();
+    test.gcc()
+        .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
+        .target(target)
+        .host(target)
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
 }
 
 #[cfg(target_os = "macos")]

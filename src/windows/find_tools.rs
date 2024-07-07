@@ -269,8 +269,8 @@ mod impl_ {
         ///
         /// The function returned cannot be used after the handle is dropped.
         unsafe fn get_proc_address<F>(&self, name: &[u8]) -> Option<F> {
-            let symbol = unsafe { GetProcAddress(self.0, name.as_ptr() as _) };
-            symbol.map(|symbol| unsafe { mem::transmute_copy(&symbol) })
+            let symbol = GetProcAddress(self.0, name.as_ptr() as _);
+            symbol.map(|symbol| mem::transmute_copy(&symbol))
         }
     }
 

@@ -207,7 +207,7 @@
 //! ```
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
-#![cfg_attr(test, deny(warnings))]
+#![deny(warnings)]
 #![deny(missing_docs)]
 #![deny(clippy::disallowed_methods)]
 
@@ -3942,7 +3942,7 @@ impl Build {
         }
     }
     fn is_wasi_target(target: &str) -> bool {
-        const TARGETS: [&'static str; 7] = [
+        const TARGETS: [&str; 7] = [
             "wasm32-wasi",
             "wasm32-wasip1",
             "wasm32-wasip1-threads",
@@ -3951,7 +3951,7 @@ impl Build {
             "wasm32-unknown-wasi",
             "wasm32-unknown-unknown",
         ];
-        return TARGETS.contains(&target);
+        TARGETS.contains(&target)
     }
 
     fn cuda_file_count(&self) -> usize {
