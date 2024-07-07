@@ -16,4 +16,4 @@ macro_rules! link_macro {
         }
     )
 }
-pub(crate) use link_macro;
+pub(crate) use link_macro as link;
