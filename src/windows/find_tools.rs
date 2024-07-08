@@ -146,7 +146,6 @@ pub(crate) fn find_tool_inner(
     impl_::find_msvc_environment(tool, target, env_getter)
         .or_else(|| impl_::find_msvc_15plus(tool, target, env_getter))
         .or_else(|| impl_::find_msvc_14(tool, target, env_getter))
-        .or_else(|| impl_::find_msvc_12(tool, target, env_getter))
 }
 
 /// A version of Visual Studio
@@ -154,6 +153,9 @@ pub(crate) fn find_tool_inner(
 #[non_exhaustive]
 pub enum VsVers {
     /// Visual Studio 12 (2013)
+    #[deprecated(
+        note = "Visual Studio 12 is no longer supported. cc will never return this value."
+    )]
     Vs12,
     /// Visual Studio 14 (2015)
     Vs14,
@@ -181,7 +183,6 @@ pub fn find_vs_version() -> Result<VsVers, String> {
             "16.0" => Ok(VsVers::Vs16),
             "15.0" => Ok(VsVers::Vs15),
             "14.0" => Ok(VsVers::Vs14),
-            "12.0" => Ok(VsVers::Vs12),
             vers => Err(format!(
                 "\n\n\
                  unsupported or unknown VisualStudio version: {}\n\
@@ -203,8 +204,6 @@ pub fn find_vs_version() -> Result<VsVers, String> {
                 Ok(VsVers::Vs15)
             } else if has_msbuild_version("14.0") {
                 Ok(VsVers::Vs14)
-            } else if has_msbuild_version("12.0") {
-                Ok(VsVers::Vs12)
             } else {
                 Err("\n\n\
                      couldn't determine visual studio generator\n\
@@ -257,7 +256,7 @@ mod impl_ {
     impl LibraryHandle {
         fn new(name: &[u8]) -> Option<Self> {
             let handle = unsafe { LoadLibraryA(name.as_ptr() as _) };
-            (!handle.is_null()).then(|| Self(handle))
+            (!handle.is_null()).then_some(Self(handle))
         }
 
         /// Get a function pointer to a function in the library.
@@ -786,26 +785,6 @@ mod impl_ {
         Some(())
     }
 
-    // For MSVC 12 we need to find the Windows 8.1 SDK.
-    pub(super) fn find_msvc_12(
-        tool: &str,
-        target: TargetArch<'_>,
-        env_getter: &dyn EnvGetter,
-    ) -> Option<Tool> {
-        let vcdir = get_vc_dir("12.0")?;
-        let mut tool = get_tool(tool, &vcdir, target)?;
-        let sub = lib_subdir(target)?;
-        let sdk81 = get_sdk81_dir()?;
-        tool.path.push(sdk81.join("bin").join(sub));
-        let sdk_lib = sdk81.join("lib").join("winv6.3");
-        tool.libs.push(sdk_lib.join("um").join(sub));
-        let sdk_include = sdk81.join("include");
-        tool.include.push(sdk_include.join("shared"));
-        tool.include.push(sdk_include.join("um"));
-        tool.include.push(sdk_include.join("winrt"));
-        Some(tool.into_tool(env_getter))
-    }
-
     fn add_env(
         tool: &mut Tool,
         env: &'static str,
@@ -1069,7 +1048,7 @@ mod impl_ {
                     || find_msbuild_vs15(TargetArch("i686"), env_getter).is_some()
                     || find_msbuild_vs15(TargetArch("aarch64"), env_getter).is_some()
             }
-            "12.0" | "14.0" => LOCAL_MACHINE
+            "14.0" => LOCAL_MACHINE
                 .open(&OsString::from(format!(
                     "SOFTWARE\\Microsoft\\MSBuild\\ToolsVersions\\{}",
                     version
@@ -1198,24 +1177,8 @@ mod impl_ {
         None
     }
 
-    // For MSVC 12 we need to find the Windows 8.1 SDK.
     #[inline(always)]
-    pub(super) fn find_msvc_12(
-        _tool: &str,
-        _target: TargetArch<'_>,
-        _: &dyn EnvGetter,
-    ) -> Option<Tool> {
-        None
-    }
-
-    #[inline(always)]
-    pub(super) fn has_msbuild_version(version: &str, _: &dyn EnvGetter) -> bool {
-        match version {
-            "17.0" => false,
-            "16.0" => false,
-            "15.0" => false,
-            "12.0" | "14.0" => false,
-            _ => false,
-        }
+    pub(super) fn has_msbuild_version(_version: &str, _: &dyn EnvGetter) -> bool {
+        false
     }
 }
