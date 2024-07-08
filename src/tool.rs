@@ -5,7 +5,7 @@ use std::{
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::Command,
     sync::RwLock,
 };
 
@@ -13,7 +13,7 @@ use crate::{
     command_helpers::{run_output, CargoOutput},
     run,
     tempfile::NamedTempfile,
-    Error, ErrorKind,
+    Error, ErrorKind, OutputKind,
 };
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -158,14 +158,14 @@ impl Tool {
             cargo_output.print_debug(&stdout);
 
             // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
-            let accepts_cl_style_flags =
-                run(Command::new(path).arg("-?").stdout(Stdio::null()), path, &{
-                    // the errors are not errors!
-                    let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = cargo_output.debug;
-                    cargo_output
-                })
-                .is_ok();
+            let accepts_cl_style_flags = run(Command::new(path).arg("-?"), path, &{
+                // the errors are not errors!
+                let mut cargo_output = cargo_output.clone();
+                cargo_output.warnings = cargo_output.debug;
+                cargo_output.output = OutputKind::Discard;
+                cargo_output
+            })
+            .is_ok();
 
             let clang = stdout.contains(r#""clang""#);
             let gcc = stdout.contains(r#""gcc""#);
@@ -283,7 +283,7 @@ impl Tool {
     /// Don't push optimization arg if it conflicts with existing args.
     pub(crate) fn push_opt_unless_duplicate(&mut self, flag: OsString) {
         if self.is_duplicate_opt_arg(&flag) {
-            println!("Info: Ignoring duplicate arg {:?}", &flag);
+            eprintln!("Info: Ignoring duplicate arg {:?}", &flag);
         } else {
             self.push_cc_arg(flag);
         }

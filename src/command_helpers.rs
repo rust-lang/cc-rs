@@ -22,7 +22,19 @@ pub(crate) struct CargoOutput {
     pub(crate) metadata: bool,
     pub(crate) warnings: bool,
     pub(crate) debug: bool,
+    pub(crate) output: OutputKind,
     checked_dbg_var: Arc<AtomicBool>,
+}
+
+/// Different strategies for handling compiler output (to stdout)
+#[derive(Clone, Debug)]
+pub(crate) enum OutputKind {
+    /// Forward the output to this process' stdout (Stdio::inherit)
+    Forward,
+    /// Discard the output (Stdio::null)
+    Discard,
+    /// Capture the result
+    Capture,
 }
 
 impl CargoOutput {
@@ -31,6 +43,7 @@ impl CargoOutput {
         Self {
             metadata: true,
             warnings: true,
+            output: OutputKind::Forward,
             debug: std::env::var_os("CC_ENABLE_DEBUG_OUTPUT").is_some(),
             checked_dbg_var: Arc::new(AtomicBool::new(false)),
         }
@@ -63,6 +76,14 @@ impl CargoOutput {
             Stdio::piped()
         } else {
             Stdio::null()
+        }
+    }
+
+    fn stdio_for_output(&self) -> Stdio {
+        match self.output {
+            OutputKind::Capture => Stdio::piped(),
+            OutputKind::Forward => Stdio::inherit(),
+            OutputKind::Discard => Stdio::null(),
         }
     }
 }
@@ -321,9 +342,10 @@ pub(crate) fn run_output(
 ) -> Result<Vec<u8>, Error> {
     let program = program.as_ref();
 
-    cmd.stdout(Stdio::piped());
-
-    let mut child = spawn(cmd, program, cargo_output)?;
+    // We specifically need the output to be captured, so override default
+    let mut captured_cargo_output = cargo_output.clone();
+    captured_cargo_output.output = OutputKind::Capture;
+    let mut child = spawn(cmd, program, &captured_cargo_output)?;
 
     let mut stdout = vec![];
     child
@@ -333,6 +355,7 @@ pub(crate) fn run_output(
         .read_to_end(&mut stdout)
         .unwrap();
 
+    // Don't care about this output, use the normal settings
     wait_on_child(cmd, program, &mut child, cargo_output)?;
 
     Ok(stdout)
@@ -356,7 +379,11 @@ pub(crate) fn spawn(
     cargo_output.print_debug(&format_args!("running: {:?}", cmd));
 
     let cmd = ResetStderr(cmd);
-    let child = cmd.0.stderr(cargo_output.stdio_for_warnings()).spawn();
+    let child = cmd
+        .0
+        .stderr(cargo_output.stdio_for_warnings())
+        .stdout(cargo_output.stdio_for_output())
+        .spawn();
     match child {
         Ok(child) => Ok(child),
         Err(ref e) if e.kind() == io::ErrorKind::NotFound => {
