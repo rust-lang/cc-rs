@@ -256,7 +256,7 @@ mod impl_ {
     impl LibraryHandle {
         fn new(name: &[u8]) -> Option<Self> {
             let handle = unsafe { LoadLibraryA(name.as_ptr() as _) };
-            (!handle.is_null()).then(|| Self(handle))
+            (!handle.is_null()).then_some(Self(handle))
         }
 
         /// Get a function pointer to a function in the library.
@@ -1178,7 +1178,7 @@ mod impl_ {
     }
 
     #[inline(always)]
-    pub(super) fn has_msbuild_version(version: &str, _: &dyn EnvGetter) -> bool {
+    pub(super) fn has_msbuild_version(_version: &str, _: &dyn EnvGetter) -> bool {
         false
     }
 }
