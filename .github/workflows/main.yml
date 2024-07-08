@@ -210,8 +210,8 @@ jobs:
       - name: Create Cargo.lock with minimal version
         run: cargo +nightly update -Zminimal-versions
       - uses: Swatinem/rust-cache@v2
-      - run: cargo check --lib -p cc --locked
-      - run: cargo check --lib -p cc --locked --all-features
+      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked
+      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked --all-features
 
   clippy:
     name: Clippy
