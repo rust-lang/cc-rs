@@ -6,6 +6,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.106](https://github.com/rust-lang/cc-rs/compare/cc-v1.0.105...cc-v1.0.106) - 2024-07-08
+
+### Other
+- Drop support for Visual Studio 12 (2013) ([#1046](https://github.com/rust-lang/cc-rs/pull/1046))
+- Use raw-dylib for windows-sys ([#1137](https://github.com/rust-lang/cc-rs/pull/1137))
+- Bump msrv to 1.67 ([#1143](https://github.com/rust-lang/cc-rs/pull/1143))
+- Bump msrv to 1.65 ([#1140](https://github.com/rust-lang/cc-rs/pull/1140))
+- Fix clippy warnings ([#1138](https://github.com/rust-lang/cc-rs/pull/1138))
+
 ## [1.0.105](https://github.com/rust-lang/cc-rs/compare/cc-v1.0.104...cc-v1.0.105) - 2024-07-07
 
 ### Other
