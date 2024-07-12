@@ -641,7 +641,8 @@ impl Build {
                 .host(&self.get_host()?)
                 .debug(false)
                 .cpp(self.cpp)
-                .cuda(self.cuda);
+                .cuda(self.cuda)
+                .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
             cfg.try_get_compiler()?
         };
 
