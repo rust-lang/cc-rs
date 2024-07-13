@@ -68,22 +68,22 @@
 //! number of different environment variables.
 //!
 //! * `CFLAGS` - a series of space separated flags passed to compilers. Note that
-//! individual flags cannot currently contain spaces, so doing
-//! something like: `-L=foo\ bar` is not possible.
+//!   individual flags cannot currently contain spaces, so doing
+//!   something like: `-L=foo\ bar` is not possible.
 //! * `CC` - the actual C compiler used. Note that this is used as an exact
-//! executable name, so (for example) no extra flags can be passed inside
-//! this variable, and the builder must ensure that there aren't any
-//! trailing spaces. This compiler must understand the `-c` flag. For
-//! certain `TARGET`s, it also is assumed to know about other flags (most
-//! common is `-fPIC`).
+//!   executable name, so (for example) no extra flags can be passed inside
+//!   this variable, and the builder must ensure that there aren't any
+//!   trailing spaces. This compiler must understand the `-c` flag. For
+//!   certain `TARGET`s, it also is assumed to know about other flags (most
+//!   common is `-fPIC`).
 //! * `AR` - the `ar` (archiver) executable to use to build the static library.
 //! * `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in
-//! some cross compiling scenarios. Setting this variable
-//! will disable the generation of default compiler
-//! flags.
+//!   some cross compiling scenarios. Setting this variable
+//!   will disable the generation of default compiler
+//!   flags.
 //! * `CC_ENABLE_DEBUG_OUTPUT` - if set, compiler command invocations and exit codes will
-//! be logged to stdout. This is useful for debugging build script issues, but can be
-//! overly verbose for normal use.
+//!   be logged to stdout. This is useful for debugging build script issues, but can be
+//!   overly verbose for normal use.
 //! * `CXX...` - see [C++ Support](#c-support).
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
@@ -133,20 +133,20 @@
 //! required varies per platform, but there are three broad categories:
 //!
 //! * Unix platforms require `cc` to be the C compiler. This can be found by
-//! installing cc/clang on Linux distributions and Xcode on macOS, for example.
+//!   installing cc/clang on Linux distributions and Xcode on macOS, for example.
 //! * Windows platforms targeting MSVC (e.g. your target triple ends in `-msvc`)
-//! require Visual Studio to be installed. `cc-rs` attempts to locate it, and
-//! if it fails, `cl.exe` is expected to be available in `PATH`. This can be
-//! set up by running the appropriate developer tools shell.
+//!   require Visual Studio to be installed. `cc-rs` attempts to locate it, and
+//!   if it fails, `cl.exe` is expected to be available in `PATH`. This can be
+//!   set up by running the appropriate developer tools shell.
 //! * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
-//! require `cc` to be available in `PATH`. We recommend the
-//! [MinGW-w64](https://www.mingw-w64.org/) distribution, which is using the
-//! [Win-builds](http://win-builds.org/) installation system.
-//! You may also acquire it via
-//! [MSYS2](https://www.msys2.org/), as explained [here][msys2-help].  Make sure
-//! to install the appropriate architecture corresponding to your installation of
-//! rustc. GCC from older [MinGW](http://www.mingw.org/) project is compatible
-//! only with 32-bit rust compiler.
+//!   require `cc` to be available in `PATH`. We recommend the
+//!   [MinGW-w64](https://www.mingw-w64.org/) distribution, which is using the
+//!   [Win-builds](http://win-builds.org/) installation system.
+//!   You may also acquire it via
+//!   [MSYS2](https://www.msys2.org/), as explained [here][msys2-help].  Make sure
+//!   to install the appropriate architecture corresponding to your installation of
+//!   rustc. GCC from older [MinGW](http://www.mingw.org/) project is compatible
+//!   only with 32-bit rust compiler.
 //!
 //! [msys2-help]: https://github.com/rust-lang/rust#building-on-windows
 //!
@@ -820,7 +820,7 @@ impl Build {
     /// 1. If [`cpp_link_stdlib`](Build::cpp_link_stdlib) is set, use its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
-    /// `None` for MSVC and `libstdc++` for anything else.
+    ///    `None` for MSVC and `libstdc++` for anything else.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
         self
@@ -3135,7 +3135,7 @@ impl Build {
     /// 1. If [`cpp_link_stdlib`](cc::Build::cpp_link_stdlib) is set, uses its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
-    /// `None` for MSVC and `libstdc++` for anything else.
+    ///    `None` for MSVC and `libstdc++` for anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
         match &self.cpp_link_stdlib {
             Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
