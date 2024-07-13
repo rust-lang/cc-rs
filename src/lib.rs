@@ -3952,7 +3952,7 @@ impl Build {
         } else {
             Err(Error::new(
                 ErrorKind::EnvVarNotFound,
-                "Environment variable WASI_SYSROOT not defined. Download sysroot from github & setup environment variable WASI_SYSROOT targetting the folder.",
+                "Environment variable WASI_SYSROOT not defined. Download sysroot from GitHub & setup environment variable WASI_SYSROOT targeting the folder.",
             ))
         }
     }

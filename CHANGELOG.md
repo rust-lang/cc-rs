@@ -64,7 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 - Update publish.yml to use release-plz ([#1101](https://github.com/rust-lang/cc-rs/pull/1101))
-- Accpet `OsStr` instead of `str` for flags ([#1100](https://github.com/rust-lang/cc-rs/pull/1100))
+- Accept `OsStr` instead of `str` for flags ([#1100](https://github.com/rust-lang/cc-rs/pull/1100))
 - Use `dep:` syntax to avoid implicit features. ([#1099](https://github.com/rust-lang/cc-rs/pull/1099))
 - Minor clippy fixes. ([#1098](https://github.com/rust-lang/cc-rs/pull/1098))
 - Fix WASI compilation for C++ ([#1083](https://github.com/rust-lang/cc-rs/pull/1083))
