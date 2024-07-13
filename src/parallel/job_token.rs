@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use crate::Error;
 
-use once_cell::sync::OnceCell;
+use super::once_cell::OnceCell;
 
 pub(crate) struct JobToken(PhantomData<()>);
 
@@ -163,7 +163,7 @@ mod inherited_jobserver {
 
     pub(crate) struct ActiveJobServer<'a> {
         jobserver: &'a JobServer,
-        helper_thread: OnceCell<HelperThread>,
+        helper_thread: OnceCell<Option<HelperThread>>,
     }
 
     impl<'a> ActiveJobServer<'a> {
@@ -183,10 +183,30 @@ mod inherited_jobserver {
                     }
                     Ok(None) => YieldOnce::default().await,
                     Err(err) if err.kind() == io::ErrorKind::Unsupported => {
+                        let mut err = None;
                         // Fallback to creating a help thread with blocking acquire
-                        let helper_thread = self
-                            .helper_thread
-                            .get_or_try_init(|| HelperThread::new(self.jobserver))?;
+                        let helper_thread = self.helper_thread.get_or_init(|| {
+                            match HelperThread::new(self.jobserver) {
+                                Ok(thread) => Some(thread),
+                                Err(error) => {
+                                    err = Some(error);
+                                    None
+                                }
+                            }
+                        });
+
+                        if let Some(err) = err {
+                            return Err(err.into());
+                        }
+
+                        let helper_thread = if let Some(thread) = helper_thread {
+                            thread
+                        } else {
+                            return Err(Error::new(
+                                ErrorKind::JobserverHelpThreadError,
+                                "Creation failed",
+                            ));
+                        };
 
                         match helper_thread.rx.try_recv() {
                             Ok(res) => {
