@@ -1,3 +1,5 @@
+#![cfg_attr(target_family = "wasm", allow(unused))]
+
 use std::{
     collections::hash_map::RandomState,
     fs::{remove_file, File, OpenOptions},

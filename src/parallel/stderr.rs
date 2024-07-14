@@ -1,3 +1,4 @@
+#![cfg_attr(target_family = "wasm", allow(unused))]
 /// Helpers functions for [ChildStderr].
 use std::{convert::TryInto, process::ChildStderr};
 
