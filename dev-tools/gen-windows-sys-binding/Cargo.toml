@@ -7,3 +7,4 @@ publish = false
 [dependencies]
 windows-bindgen = "0.58"
 tempfile = "3"
+regex = "1"
