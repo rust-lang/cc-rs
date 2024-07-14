@@ -1502,7 +1502,7 @@ impl Build {
         }
 
         // Limit our parallelism globally with a jobserver.
-        let tokens = parallel::job_token::ActiveJobTokenServer::new();
+        let mut tokens = parallel::job_token::ActiveJobTokenServer::new();
 
         // When compiling objects in parallel we do a few dirty tricks to speed
         // things up:

@@ -62,8 +62,8 @@ impl ActiveJobTokenServer {
         }
     }
 
-    pub(crate) async fn acquire(&self) -> Result<JobToken, Error> {
-        match &self {
+    pub(crate) async fn acquire(&mut self) -> Result<JobToken, Error> {
+        match self {
             Self::Inherited(jobserver) => jobserver.acquire().await,
             Self::InProcess(jobserver) => Ok(jobserver.acquire().await),
         }
@@ -71,7 +71,7 @@ impl ActiveJobTokenServer {
 }
 
 mod inherited_jobserver {
-    use super::{JobToken, OnceLock};
+    use super::JobToken;
 
     use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
 
@@ -137,7 +137,7 @@ mod inherited_jobserver {
         pub(super) fn enter_active(&self) -> ActiveJobServer<'_> {
             ActiveJobServer {
                 jobserver: self,
-                helper_thread: OnceLock::new(),
+                helper_thread: None,
             }
         }
     }
@@ -163,11 +163,11 @@ mod inherited_jobserver {
 
     pub(crate) struct ActiveJobServer<'a> {
         jobserver: &'a JobServer,
-        helper_thread: OnceLock<Option<HelperThread>>,
+        helper_thread: Option<HelperThread>,
     }
 
     impl<'a> ActiveJobServer<'a> {
-        pub(super) async fn acquire(&self) -> Result<JobToken, Error> {
+        pub(super) async fn acquire(&mut self) -> Result<JobToken, Error> {
             let mut has_requested_token = false;
 
             loop {
@@ -183,29 +183,12 @@ mod inherited_jobserver {
                     }
                     Ok(None) => YieldOnce::default().await,
                     Err(err) if err.kind() == io::ErrorKind::Unsupported => {
-                        let mut err = None;
                         // Fallback to creating a help thread with blocking acquire
-                        let helper_thread = self.helper_thread.get_or_init(|| {
-                            match HelperThread::new(self.jobserver) {
-                                Ok(thread) => Some(thread),
-                                Err(error) => {
-                                    err = Some(error);
-                                    None
-                                }
-                            }
-                        });
-
-                        if let Some(err) = err {
-                            return Err(err.into());
-                        }
-
-                        let helper_thread = if let Some(thread) = helper_thread {
+                        let helper_thread = if let Some(thread) = self.helper_thread.as_ref() {
                             thread
                         } else {
-                            return Err(Error::new(
-                                ErrorKind::JobserverHelpThreadError,
-                                "Creation failed",
-                            ));
+                            self.helper_thread
+                                .insert(HelperThread::new(self.jobserver)?)
                         };
 
                         match helper_thread.rx.try_recv() {
