@@ -172,7 +172,7 @@ jobs:
       - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
   check-wasm:
-    name: Test build-std
+    name: Test wasm
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -184,9 +184,9 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: bash
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test -Z build-std=std --run-run --workspace --target ${{ matrix.target }}
-      - run: cargo test -Z build-std=std --run-run --workspace --target ${{ matrix.target }} --release
-      - run: cargo test -Z build-std=std --run-run --workspace --target ${{ matrix.target }} --features parallel
+      - run: cargo test --no-run --target ${{ matrix.target }}
+      - run: cargo test --no-run --target ${{ matrix.target }} --release
+      - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
 
   cuda:
     name: Test CUDA support
