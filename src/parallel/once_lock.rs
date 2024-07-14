@@ -6,13 +6,13 @@ use std::{
     sync::Once,
 };
 
-pub(crate) struct OnceCell<T> {
+pub(crate) struct OnceLock<T> {
     once: Once,
     value: UnsafeCell<MaybeUninit<T>>,
     _marker: PhantomData<T>,
 }
 
-impl<T> OnceCell<T> {
+impl<T> OnceLock<T> {
     pub(crate) const fn new() -> Self {
         Self {
             once: Once::new(),
@@ -29,13 +29,13 @@ impl<T> OnceCell<T> {
     }
 }
 
-unsafe impl<T: Sync + Send> Sync for OnceCell<T> {}
-unsafe impl<T: Send> Send for OnceCell<T> {}
+unsafe impl<T: Sync + Send> Sync for OnceLock<T> {}
+unsafe impl<T: Send> Send for OnceLock<T> {}
 
-impl<T: RefUnwindSafe + UnwindSafe> RefUnwindSafe for OnceCell<T> {}
-impl<T: UnwindSafe> UnwindSafe for OnceCell<T> {}
+impl<T: RefUnwindSafe + UnwindSafe> RefUnwindSafe for OnceLock<T> {}
+impl<T: UnwindSafe> UnwindSafe for OnceLock<T> {}
 
-impl<T> Drop for OnceCell<T> {
+impl<T> Drop for OnceLock<T> {
     #[inline]
     fn drop(&mut self) {
         if self.once.is_completed() {
