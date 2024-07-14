@@ -171,6 +171,23 @@ jobs:
       - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
 
+  check-wasm:
+    name: Test wasm
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target: [wasm32-unknown-unknown]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustup)
+        run: |
+          rustup target add ${{ matrix.target }}
+        shell: bash
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --no-run --target ${{ matrix.target }}
+      - run: cargo test --no-run --target ${{ matrix.target }} --release
+      - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
+
   cuda:
     name: Test CUDA support
     runs-on: ubuntu-20.04
