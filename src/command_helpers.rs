@@ -131,7 +131,7 @@ impl StderrForwarder {
                             MIN_BUFFER_CAPACITY
                         }
                         #[cfg(target_family = "wasm")]
-                        Err(_) => unimplemented!(),
+                        Err(_) => panic!("bytes_available should always succeed on wasm"),
                         Ok(bytes_available) => MIN_BUFFER_CAPACITY.max(bytes_available),
                     }
                 } else {
