@@ -198,7 +198,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     env:
-      MSRV: 1.67.0
+      MSRV: 1.63.0
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
