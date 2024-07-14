@@ -41,7 +41,7 @@ impl<T> Drop for OnceLock<T> {
         if self.once.is_completed() {
             // SAFETY: The cell is initialized and being dropped, so it can't
             // be accessed again.
-            unsafe { (&mut *self.value.get()).assume_init_drop() };
+            unsafe { self.value.get_mut().assume_init_drop() };
         }
     }
 }
