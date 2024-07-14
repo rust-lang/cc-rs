@@ -22,7 +22,7 @@ impl<T> OnceLock<T> {
     }
 
     pub(crate) fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
-        self.once.call_once_force(|_| {
+        self.once.call_once(|| {
             unsafe { &mut *self.value.get() }.write(f());
         });
         unsafe { (&*self.value.get()).assume_init_ref() }
