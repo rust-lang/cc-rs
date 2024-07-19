@@ -2470,14 +2470,14 @@ impl Build {
                 cmd.arg("-PreDefine");
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
-                        cmd.arg(&format!("{} SETA {}", key, i));
+                        cmd.arg(format!("{} SETA {}", key, i));
                     } else if value.starts_with('"') && value.ends_with('"') {
-                        cmd.arg(&format!("{} SETS {}", key, value));
+                        cmd.arg(format!("{} SETS {}", key, value));
                     } else {
-                        cmd.arg(&format!("{} SETS \"{}\"", key, value));
+                        cmd.arg(format!("{} SETS \"{}\"", key, value));
                     }
                 } else {
-                    cmd.arg(&format!("{} SETL {}", key, "{TRUE}"));
+                    cmd.arg(format!("{} SETL {}", key, "{TRUE}"));
                 }
             }
         } else {
@@ -2487,9 +2487,9 @@ impl Build {
 
             for (key, value) in self.definitions.iter() {
                 if let Some(ref value) = *value {
-                    cmd.arg(&format!("-D{}={}", key, value));
+                    cmd.arg(format!("-D{}={}", key, value));
                 } else {
-                    cmd.arg(&format!("-D{}", key));
+                    cmd.arg(format!("-D{}", key));
                 }
             }
         }
