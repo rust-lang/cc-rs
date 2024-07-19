@@ -210,6 +210,7 @@
 #![deny(warnings)]
 #![deny(missing_docs)]
 #![deny(clippy::disallowed_methods)]
+#![warn(clippy::doc_markdown)]
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -1277,7 +1278,8 @@ impl Build {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// This will return a result instead of panicking; see compile() for the complete description.
+    /// This will return a result instead of panicking; see [`Self::compile()`] for
+    /// the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
         let mut output_components = Path::new(output).components();
         match (output_components.next(), output_components.next()) {
@@ -1716,7 +1718,8 @@ impl Build {
         Ok((cmd, name))
     }
 
-    /// This will return a result instead of panicking; see expand() for the complete description.
+    /// This will return a result instead of panicking; see [`Self::expand()`] for
+    /// the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
@@ -2470,14 +2473,14 @@ impl Build {
                 cmd.arg("-PreDefine");
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
-                        cmd.arg(&format!("{} SETA {}", key, i));
+                        cmd.arg(format!("{} SETA {}", key, i));
                     } else if value.starts_with('"') && value.ends_with('"') {
-                        cmd.arg(&format!("{} SETS {}", key, value));
+                        cmd.arg(format!("{} SETS {}", key, value));
                     } else {
-                        cmd.arg(&format!("{} SETS \"{}\"", key, value));
+                        cmd.arg(format!("{} SETS \"{}\"", key, value));
                     }
                 } else {
-                    cmd.arg(&format!("{} SETL {}", key, "{TRUE}"));
+                    cmd.arg(format!("{} SETL {}", key, "{TRUE}"));
                 }
             }
         } else {
@@ -2487,9 +2490,9 @@ impl Build {
 
             for (key, value) in self.definitions.iter() {
                 if let Some(ref value) = *value {
-                    cmd.arg(&format!("-D{}={}", key, value));
+                    cmd.arg(format!("-D{}={}", key, value));
                 } else {
-                    cmd.arg(&format!("-D{}", key));
+                    cmd.arg(format!("-D{}", key));
                 }
             }
         }
@@ -4016,7 +4019,7 @@ impl Build {
         // clang driver appears to be forcing UTF-8 output even on Windows,
         // hence from_utf8 is assumed to be usable in all cases.
         let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
-        for dirs in search_dirs.split(|c| c == '\r' || c == '\n') {
+        for dirs in search_dirs.split(['\r', '\n']) {
             if let Some(path) = dirs.strip_prefix("programs: =") {
                 return self.which(prog, Some(OsStr::new(path)));
             }
