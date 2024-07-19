@@ -29,11 +29,11 @@ pub(crate) struct CargoOutput {
 /// Different strategies for handling compiler output (to stdout)
 #[derive(Clone, Debug)]
 pub(crate) enum OutputKind {
-    /// Forward the output to this process' stdout (Stdio::inherit)
+    /// Forward the output to this process' stdout ([`Stdio::inherit()`])
     Forward,
-    /// Discard the output (Stdio::null)
+    /// Discard the output ([`Stdio::null()`])
     Discard,
-    /// Capture the result
+    /// Capture the result (`[Stdio::piped()`])
     Capture,
 }
 

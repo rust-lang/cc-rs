@@ -210,6 +210,7 @@
 #![deny(warnings)]
 #![deny(missing_docs)]
 #![deny(clippy::disallowed_methods)]
+#![warn(clippy::doc_markdown)]
 
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -1277,7 +1278,8 @@ impl Build {
 
     /// Run the compiler, generating the file `output`
     ///
-    /// This will return a result instead of panicking; see compile() for the complete description.
+    /// This will return a result instead of panicking; see [`Self::compile()`] for
+    /// the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
         let mut output_components = Path::new(output).components();
         match (output_components.next(), output_components.next()) {
@@ -1716,7 +1718,8 @@ impl Build {
         Ok((cmd, name))
     }
 
-    /// This will return a result instead of panicking; see expand() for the complete description.
+    /// This will return a result instead of panicking; see [`Self::expand()`] for
+    /// the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
