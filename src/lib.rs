@@ -4016,7 +4016,7 @@ impl Build {
         // clang driver appears to be forcing UTF-8 output even on Windows,
         // hence from_utf8 is assumed to be usable in all cases.
         let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
-        for dirs in search_dirs.split(|c| c == '\r' || c == '\n') {
+        for dirs in search_dirs.split(['\r', '\n']) {
             if let Some(path) = dirs.strip_prefix("programs: =") {
                 return self.which(prog, Some(OsStr::new(path)));
             }
