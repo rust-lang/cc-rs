@@ -1363,6 +1363,12 @@ impl Build {
                         target
                     ));
                 }
+            } else if target.contains("wasm32") && target.contains("linux") {
+                let musl_sysroot = self.wasm_musl_sysroot().unwrap();
+                self.cargo_output.print_metadata(&format_args!(
+                    "cargo:rustc-flags=-L {}/lib -lstatic=c++ -lstatic=c++abi",
+                    Path::new(&musl_sysroot).display(),
+                ));
             }
         }
 
@@ -2178,6 +2184,25 @@ impl Build {
                         }
 
                         cmd.push_cc_arg(format!("--target={}", target).into());
+                    } else if target.contains("wasm32") && target.contains("linux") {
+                        // wasm32-linux currently uses the LLVM-18 wasi threads target
+                        cmd.push_cc_arg("--target=wasm32-wasi-threads".into());
+                        for x in &[
+                            "atomics",
+                            "bulk-memory",
+                            "mutable-globals",
+                            "sign-ext",
+                            "exception-handling",
+                        ] {
+                            cmd.push_cc_arg(format!("-m{}", x).into());
+                        }
+                        for x in &["wasm-exceptions", "declspec"] {
+                            cmd.push_cc_arg(format!("-f{}", x).into());
+                        }
+                        let musl_sysroot = self.wasm_musl_sysroot().unwrap();
+                        cmd.push_cc_arg(
+                            format!("--sysroot={}", Path::new(&musl_sysroot).display()).into(),
+                        );
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
@@ -2915,7 +2940,9 @@ impl Build {
                     autodetect_android_compiler(target, &host, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
-                } else if Build::is_wasi_target(target) {
+                } else if Build::is_wasi_target(target)
+                    || (target.contains("wasm32") && target.contains("linux"))
+                {
                     if self.cpp {
                         "clang++".to_string()
                     } else {
@@ -3947,6 +3974,17 @@ impl Build {
             .insert(sdk.into(), version.clone());
 
         version
+    }
+
+    fn wasm_musl_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+        if let Some(musl_sysroot_path) = self.getenv("WASM_MUSL_SYSROOT") {
+            Ok(musl_sysroot_path)
+        } else {
+            Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                "Environment variable WASM_MUSL_SYSROOT not defined for wasm32. Download sysroot from GitHub & setup environment variable MUSL_SYSROOT targeting the folder.",
+            ))
+        }
     }
 
     fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
