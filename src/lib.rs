@@ -501,6 +501,18 @@ impl Build {
         self
     }
 
+    /// Add arbitrary object files to link in
+    pub fn objects<P>(&mut self, objs: P) -> &mut Build
+    where
+        P: IntoIterator,
+        P::Item: AsRef<Path>,
+    {
+        for obj in objs {
+            self.object(obj);
+        }
+        self
+    }
+
     /// Add an arbitrary flag to the invocation of the compiler
     ///
     /// # Example
