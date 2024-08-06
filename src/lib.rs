@@ -140,8 +140,7 @@
 //!   set up by running the appropriate developer tools shell.
 //! * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
 //!   require `cc` to be available in `PATH`. We recommend the
-//!   [MinGW-w64](https://www.mingw-w64.org/) distribution, which is using the
-//!   [Win-builds](https://github.com/alex85k/winbuilds/blob/master/README.md) installation system.
+//!   [MinGW-w64](https://www.mingw-w64.org/) distribution.
 //!   You may also acquire it via
 //!   [MSYS2](https://www.msys2.org/), as explained [here][msys2-help].  Make sure
 //!   to install the appropriate architecture corresponding to your installation of
