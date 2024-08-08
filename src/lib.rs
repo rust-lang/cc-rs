@@ -3120,7 +3120,11 @@ impl Build {
         //
         // It's true that everything here is a bit of a pain, but apparently if
         // you're not literally make or bash then you get a lot of bug reports.
-        let known_wrappers = ["ccache", "distcc", "sccache", "icecc", "cachepot"];
+        let mut known_wrappers = vec!["ccache", "distcc", "sccache", "icecc", "cachepot"];
+        let custom_wrapper = self.getenv("CC_KNOWN_WRAPPER_CUSTOM");
+        if custom_wrapper.is_some() {
+            known_wrappers.push(custom_wrapper.as_deref().unwrap().to_str().unwrap());
+        }
 
         let mut parts = tool.split_whitespace();
         let maybe_wrapper = match parts.next() {
