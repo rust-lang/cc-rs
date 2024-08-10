@@ -1,5 +1,5 @@
 use gen_target_info::{get_target_specs_from_json, write_target_tuple_mapping, RustcTargetSpecs};
-use std::{fs::File, io::Write as _};
+use std::{collections::BTreeMap, fs::File, io::Write as _};
 
 const PRELUDE: &str = r#"//! This file is generated code. Please edit the generator
 //! in dev-tools/gen-target-info if you need to make changes.
@@ -7,7 +7,7 @@ const PRELUDE: &str = r#"//! This file is generated code. Please edit the genera
 "#;
 
 fn generate_riscv_arch_mapping(f: &mut File, target_specs: &RustcTargetSpecs) {
-    let mut riscv_target_mapping = target_specs
+    let riscv_target_mapping = target_specs
         .0
         .iter()
         .filter_map(|(target, target_spec)| {
@@ -15,14 +15,12 @@ fn generate_riscv_arch_mapping(f: &mut File, target_specs: &RustcTargetSpecs) {
             (arch.contains("riscv") && arch != target_spec.arch)
                 .then_some((arch, &*target_spec.arch))
         })
-        .collect::<Vec<_>>();
-    riscv_target_mapping.sort_unstable_by_key(|(arch, _)| &**arch);
-    riscv_target_mapping.dedup();
+        .collect::<BTreeMap<_, _>>();
     write_target_tuple_mapping(f, "RISCV_ARCH_MAPPING", &riscv_target_mapping);
 }
 
 fn generate_windows_triple_mapping(f: &mut File, target_specs: &RustcTargetSpecs) {
-    let mut windows_target_mapping = target_specs
+    let windows_target_mapping = target_specs
         .0
         .iter()
         .filter_map(|(target, target_spec)| {
@@ -31,9 +29,7 @@ fn generate_windows_triple_mapping(f: &mut File, target_specs: &RustcTargetSpecs
             (os.contains("windows") && target != &*target_spec.llvm_target)
                 .then_some((&**target, &*target_spec.llvm_target))
         })
-        .collect::<Vec<_>>();
-    windows_target_mapping.sort_unstable_by_key(|(triple, _)| &**triple);
-    windows_target_mapping.dedup();
+        .collect::<BTreeMap<_, _>>();
     write_target_tuple_mapping(f, "WINDOWS_TRIPLE_MAPPING", &windows_target_mapping);
 }
 
