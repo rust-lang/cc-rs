@@ -2189,6 +2189,17 @@ impl Build {
                         }
 
                         cmd.push_cc_arg(format!("--target={}", target).into());
+                    } else if let Ok(index) = target_info::WINDOWS_TRIPLE_MAPPING
+                        .binary_search_by_key(&target, |(target, _)| target)
+                    {
+                        cmd.args.push(
+                            format!(
+                                "--target={}-{}",
+                                target_info::WINDOWS_TRIPLE_MAPPING[index].1,
+                                rest
+                            )
+                            .into(),
+                        )
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target).into());
                     }
