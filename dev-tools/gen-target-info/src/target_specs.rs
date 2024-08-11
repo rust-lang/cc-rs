@@ -1,12 +1,12 @@
 use serde::Deserialize;
+use std::collections::BTreeMap;
 
 #[derive(Debug, Deserialize)]
 #[serde(transparent)]
 pub struct PreLinkArgs(
     /// First field in the linker name,
     /// second field is the args.
-    #[serde(with = "tuple_vec_map")]
-    pub Vec<(String, Vec<String>)>,
+    pub BTreeMap<String, Vec<String>>,
 );
 
 #[derive(Debug, Deserialize)]
@@ -28,6 +28,5 @@ pub struct TargetSpec {
 #[serde(transparent)]
 pub struct RustcTargetSpecs(
     /// First field in the tuple is the rustc target
-    #[serde(with = "tuple_vec_map")]
-    pub Vec<(String, TargetSpec)>,
+    pub BTreeMap<String, TargetSpec>,
 );

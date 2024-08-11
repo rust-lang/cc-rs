@@ -6,5 +6,4 @@ publish = false
 
 [dependencies]
 serde = { version = "1.0.163", features = ["derive"] }
-serde-tuple-vec-map = "1.0.1"
 serde_json = "1.0.107"
