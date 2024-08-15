@@ -84,9 +84,10 @@
 //! * `CC_ENABLE_DEBUG_OUTPUT` - if set, compiler command invocations and exit codes will
 //!   be logged to stdout. This is useful for debugging build script issues, but can be
 //!   overly verbose for normal use.
-//! * `CC_SHELL_ESCAPED_FLAGS` - if set, *FLAGS will be parsed as if they were shell
-//!   arguments, similar to `make` and `cmake`. For example, `CFLAGS='a "b c" d\ e'` will
-//!   be parsed as `["a", "b", "c", "d", "e"]` instead of `["a", "\"b", "c\", "d\\", "e"]`
+//! * `CC_SHELL_ESCAPED_FLAGS` - if set, `*FLAGS` will be parsed as if they were shell
+//!   arguments (similar to `make` and `cmake`) rather than splitting them on each space.
+//!   For example, with `CFLAGS='a "b c"'`, the compiler will be invoked with 2 arguments -
+//!   `a` and `b c` - rather than 3: `a`, `"b` and `c"`.
 //! * `CXX...` - see [C++ Support](#c-support).
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
