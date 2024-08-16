@@ -169,18 +169,19 @@ impl Tool {
 
             let clang = stdout.contains(r#""clang""#);
             let gcc = stdout.contains(r#""gcc""#);
+            let emscripten = stdout.contains(r#""emscripten""#);
 
-            match (clang, accepts_cl_style_flags, gcc) {
-                (clang_cl, true, _) => Ok(ToolFamily::Msvc { clang_cl }),
-                (true, false, _) => Ok(ToolFamily::Clang {
+            match (clang, accepts_cl_style_flags, gcc, emscripten) {
+                (clang_cl, true, _, false) => Ok(ToolFamily::Msvc { clang_cl }),
+                (true, _, _, _) | (_, _, _, true) => Ok(ToolFamily::Clang {
                     zig_cc: is_zig_cc(path, cargo_output),
                 }),
-                (false, false, true) => Ok(ToolFamily::Gnu),
-                (false, false, false) => {
-                    cargo_output.print_warning(&"Compiler family detection failed since it does not define `__clang__`, `__GNUC__` or `_MSC_VER`, fallback to treating it as GNU");
+                (false, false, true, _) => Ok(ToolFamily::Gnu),
+                (false, false, false, false) => {
+                    cargo_output.print_warning(&"Compiler family detection failed since it does not define `__clang__`, `__GNUC__` or `__EMSCRIPTEN__`, also does not accept cl style flag `-?`, fallback to treating it as GNU");
                     Err(Error::new(
                         ErrorKind::ToolFamilyMacroNotFound,
-                        "Expects macro `__clang__`, `__GNUC__` or `_MSC_VER`, but found none",
+                        "Expects macro `__clang__`, `__GNUC__` or `__EMSCRIPTEN__`, or accepts cl style flag `-?`, but found none",
                     ))
                 }
             }
