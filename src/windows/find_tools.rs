@@ -361,14 +361,20 @@ mod impl_ {
         target: TargetArch<'_>,
         env_getter: &dyn EnvGetter,
     ) -> Option<Tool> {
-        // Early return if the environment doesn't contain a VC install.
-        env_getter.get_env("VCINSTALLDIR")?;
-        let vs_install_dir: PathBuf = env_getter.get_env("VSINSTALLDIR")?.into();
+        // Early return if the environment isn't one that is known to have compiler toolsets in PATH
+        // `VCINSTALLDIR` is set from vcvarsall.bat (developer command prompt)
+        // `VisualStudioDir` is set by msbuild when invoking custom build steps
+        if env_getter.get_env("VCINSTALLDIR").is_none()
+            && env_getter.get_env("VisualStudioDir").is_none()
+        {
+            return None;
+        }
 
         // If the vscmd target differs from the requested target then
         // attempt to get the tool using the VS install directory.
         if is_vscmd_target(target, env_getter) == Some(false) {
             // We will only get here with versions 15+.
+            let vs_install_dir: PathBuf = env_getter.get_env("VSINSTALLDIR")?.into();
             tool_from_vs15plus_instance(tool, target, &vs_install_dir, env_getter)
         } else {
             // Fallback to simply using the current environment.
