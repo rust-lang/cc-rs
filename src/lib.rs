@@ -2357,12 +2357,13 @@ impl Build {
                     cmd.args.push("-Wl,-melf_i386".into());
                 }
 
+                if (target.starts_with("arm") || target.starts_with("thumb"))
+                    && target.ends_with("-none-eabihf")
+                {
+                    cmd.args.push("-mfloat-abi=hard".into())
+                }
                 if target.starts_with("thumb") {
                     cmd.args.push("-mthumb".into());
-
-                    if target.ends_with("eabihf") {
-                        cmd.args.push("-mfloat-abi=hard".into())
-                    }
                 }
                 if target.starts_with("thumbv6m") {
                     cmd.args.push("-march=armv6s-m".into());
@@ -2401,15 +2402,9 @@ impl Build {
                     cmd.args.push("-march=armv7-r".into());
 
                     if target.ends_with("eabihf") {
-                        // Calling convention
-                        cmd.args.push("-mfloat-abi=hard".into());
-
                         // lowest common denominator FPU
                         // (see Cortex-R4 technical reference manual)
                         cmd.args.push("-mfpu=vfpv3-d16".into())
-                    } else {
-                        // Calling convention
-                        cmd.args.push("-mfloat-abi=soft".into());
                     }
                 }
                 if target.starts_with("armv7a") {
