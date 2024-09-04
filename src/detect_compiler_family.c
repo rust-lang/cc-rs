@@ -10,3 +10,6 @@
 #pragma message "emscripten"
 #endif
 
+#ifdef __VXWORKS__
+#pragma message "VxWorks"
+#endif
