@@ -363,9 +363,10 @@ mod impl_ {
     ) -> Option<Tool> {
         // Early return if the environment isn't one that is known to have compiler toolsets in PATH
         // `VCINSTALLDIR` is set from vcvarsall.bat (developer command prompt)
-        // `VisualStudioDir` is set by msbuild when invoking custom build steps
+        // `VSTEL_MSBuildProjectFullPath` is set by msbuild when invoking custom build steps
+        // NOTE: `VisualStudioDir` used to be used but this isn't set when invoking msbuild from the commandline
         if env_getter.get_env("VCINSTALLDIR").is_none()
-            && env_getter.get_env("VisualStudioDir").is_none()
+            && env_getter.get_env("VSTEL_MSBuildProjectFullPath").is_none()
         {
             return None;
         }
