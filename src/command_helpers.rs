@@ -94,6 +94,8 @@ pub(crate) struct StderrForwarder {
     is_non_blocking: bool,
     #[cfg(feature = "parallel")]
     bytes_available_failed: bool,
+    /// number of bytes buffered in inner
+    bytes_buffered: usize,
 }
 
 const MIN_BUFFER_CAPACITY: usize = 100;
@@ -105,6 +107,7 @@ impl StderrForwarder {
                 .stderr
                 .take()
                 .map(|stderr| (stderr, Vec::with_capacity(MIN_BUFFER_CAPACITY))),
+            bytes_buffered: 0,
             #[cfg(feature = "parallel")]
             is_non_blocking: false,
             #[cfg(feature = "parallel")]
@@ -115,8 +118,6 @@ impl StderrForwarder {
     fn forward_available(&mut self) -> bool {
         if let Some((stderr, buffer)) = self.inner.as_mut() {
             loop {
-                let old_data_end = buffer.len();
-
                 // For non-blocking we check to see if there is data available, so we should try to
                 // read at least that much. For blocking, always read at least the minimum amount.
                 #[cfg(not(feature = "parallel"))]
@@ -158,12 +159,11 @@ impl StderrForwarder {
                 } else {
                     MIN_BUFFER_CAPACITY
                 };
-                buffer.reserve(to_reserve);
+                if self.bytes_buffered + to_reserve > buffer.len() {
+                    buffer.resize(self.bytes_buffered + to_reserve, 0);
+                }
 
-                // Safety: stderr.read only writes to the spare part of the buffer, it never reads from it
-                match stderr
-                    .read(unsafe { &mut *(buffer.spare_capacity_mut() as *mut _ as *mut [u8]) })
-                {
+                match stderr.read(&mut buffer[self.bytes_buffered..]) {
                     Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                         // No data currently, yield back.
                         break false;
@@ -173,22 +173,25 @@ impl StderrForwarder {
                         continue;
                     }
                     Ok(bytes_read) if bytes_read != 0 => {
-                        // Safety: bytes_read bytes is written to spare part of the buffer
-                        unsafe { buffer.set_len(old_data_end + bytes_read) };
+                        self.bytes_buffered += bytes_read;
                         let mut consumed = 0;
-                        for line in buffer.split_inclusive(|&b| b == b'\n') {
+                        for line in buffer[..self.bytes_buffered].split_inclusive(|&b| b == b'\n') {
                             // Only forward complete lines, leave the rest in the buffer.
                             if let Some((b'\n', line)) = line.split_last() {
                                 consumed += line.len() + 1;
                                 write_warning(line);
                             }
                         }
-                        buffer.drain(..consumed);
+                        if consumed > 0 && consumed < self.bytes_buffered {
+                            // Remove the consumed bytes from buffer
+                            buffer.copy_within(consumed.., 0);
+                        }
+                        self.bytes_buffered -= consumed;
                     }
                     res => {
                         // End of stream: flush remaining data and bail.
-                        if old_data_end > 0 {
-                            write_warning(&buffer[..old_data_end]);
+                        if self.bytes_buffered > 0 {
+                            write_warning(&buffer[..self.bytes_buffered]);
                         }
                         if let Err(err) = res {
                             write_warning(
