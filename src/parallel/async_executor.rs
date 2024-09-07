@@ -22,23 +22,6 @@ const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
 );
 const NOOP_RAW_WAKER: RawWaker = RawWaker::new(ptr::null(), &NOOP_WAKER_VTABLE);
 
-#[derive(Default)]
-pub(crate) struct YieldOnce(bool);
-
-impl Future for YieldOnce {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
-        let flag = &mut std::pin::Pin::into_inner(self).0;
-        if !*flag {
-            *flag = true;
-            Poll::Pending
-        } else {
-            Poll::Ready(())
-        }
-    }
-}
-
 /// Execute the futures and return when they are all done.
 ///
 /// Here we use our own homebrew async executor since cc is used in the build

@@ -2,6 +2,9 @@ use std::{
     ffi::OsStr,
     fmt::{self, Write},
     path::Path,
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
 };
 
 pub(super) struct JoinOsStrs<'a, T> {
@@ -40,6 +43,23 @@ where
             write!(f, "Some({})", Path::new(os_str).display())
         } else {
             f.write_str("None")
+        }
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct YieldOnce(bool);
+
+impl Future for YieldOnce {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
+        let flag = &mut std::pin::Pin::into_inner(self).0;
+        if !*flag {
+            *flag = true;
+            Poll::Pending
+        } else {
+            Poll::Ready(())
         }
     }
 }

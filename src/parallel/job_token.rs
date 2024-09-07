@@ -73,7 +73,7 @@ impl ActiveJobTokenServer {
 mod inherited_jobserver {
     use super::JobToken;
 
-    use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
+    use crate::{YieldOnce, Error, ErrorKind};
 
     use std::{
         io, mem,
@@ -220,7 +220,7 @@ mod inherited_jobserver {
 mod inprocess_jobserver {
     use super::JobToken;
 
-    use crate::parallel::async_executor::YieldOnce;
+    use crate::YieldOnce;
 
     use std::{
         env::var,

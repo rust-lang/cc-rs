@@ -1520,7 +1520,7 @@ impl Build {
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         use std::cell::Cell;
 
-        use parallel::async_executor::{block_on, YieldOnce};
+        use parallel::async_executor::block_on;
 
         if objs.len() <= 1 {
             for obj in objs {
