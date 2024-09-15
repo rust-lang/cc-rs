@@ -2697,7 +2697,7 @@ impl Build {
         let arch = if is_mac {
             match arch_str {
                 "i686" => AppleArchSpec::Device("-m32"),
-                "x86_64" | "x86_64h" | "aarch64" => AppleArchSpec::Device("-m64"),
+                "x86_64" | "x86_64h" | "aarch64" | "arm64e" => AppleArchSpec::Device("-m64"),
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
