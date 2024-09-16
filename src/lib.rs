@@ -3088,7 +3088,7 @@ impl Build {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot"];
+        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot", "buildcache"];
 
         let rustc_wrapper = self.getenv("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
@@ -3142,7 +3142,14 @@ impl Build {
         //
         // It's true that everything here is a bit of a pain, but apparently if
         // you're not literally make or bash then you get a lot of bug reports.
-        let mut known_wrappers = vec!["ccache", "distcc", "sccache", "icecc", "cachepot"];
+        let mut known_wrappers = vec![
+            "ccache",
+            "distcc",
+            "sccache",
+            "icecc",
+            "cachepot",
+            "buildcache",
+        ];
         let custom_wrapper = self.getenv("CC_KNOWN_WRAPPER_CUSTOM");
         if custom_wrapper.is_some() {
             known_wrappers.push(custom_wrapper.as_deref().unwrap().to_str().unwrap());
