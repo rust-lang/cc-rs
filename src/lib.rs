@@ -1983,6 +1983,7 @@ impl Build {
                 if self.pic.unwrap_or(
                     !target.contains("windows")
                         && !target.contains("-none-")
+                        && !target.ends_with("-none")
                         && !target.contains("uefi"),
                 ) {
                     cmd.push_cc_arg("-fPIC".into());

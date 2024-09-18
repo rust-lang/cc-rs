@@ -270,6 +270,20 @@ fn gnu_x86_64_no_plt() {
 }
 
 #[test]
+fn gnu_aarch64_none_no_pic() {
+    for target in &["aarch64-unknown-none-gnu", "aarch64-unknown-none"] {
+        let test = Test::gnu();
+        test.gcc()
+            .target(&target)
+            .host(&target)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0).must_not_have("-fPIC");
+    }
+}
+
+#[test]
 fn gnu_set_stdlib() {
     reset_env();
 
