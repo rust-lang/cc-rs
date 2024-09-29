@@ -1269,6 +1269,17 @@ impl Build {
     /// Define whether metadata should be emitted for cargo to detect environment
     /// changes that should trigger a rebuild.
     ///
+    /// NOTE that cc does not emit metadata to detect changes for `PATH`, since it could
+    /// be changed every comilation yet does not affect the result of compilation
+    /// (i.e. rust-analyzer adds temporary directory to `PATH`).
+    ///
+    /// cc in general, has no way detecting changes to compiler, as there are so many ways to
+    /// change it and sidestep the detection, for example the compiler might be wrapped in a script
+    /// so detecting change of the file, or using checksum won't work.
+    ///
+    /// We recommend users to decide for themselves, if they want rebuild if the compiler has been upgraded
+    /// or changed, and how to detect that.
+    ///
     /// This has no effect if the `cargo_metadata` option is `false`.
     ///
     /// This option defaults to `true`.
