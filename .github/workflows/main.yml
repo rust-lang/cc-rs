@@ -6,6 +6,10 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
   CC_ENABLE_DEBUG_OUTPUT: true
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref || github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test
