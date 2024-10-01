@@ -2019,6 +2019,10 @@ impl Build {
                             format!("--sysroot={}", Path::new(&wasi_sysroot).display()).into(),
                         );
                     }
+
+                    if target.contains("threads") {
+                        cmd.push_cc_arg("-pthread".into());
+                    }
                 }
             }
         }

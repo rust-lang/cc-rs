@@ -192,6 +192,49 @@ jobs:
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
 
+  test-wasm32-wasip1-thread:
+    name: Test wasm32-wasip1-thread
+    runs-on: ubuntu-latest
+    env:
+      TARGET: wasm32-wasip1-threads
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust (rustup)
+        run: |
+          rustup toolchain install nightly --no-self-update --profile minimal --target $TARGET
+
+      - name: Get latest version of wasi-sdk
+        env:
+          REPO: WebAssembly/wasi-sdk
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          VERSION="$(gh release list --repo $REPO -L 1 --json tagName --jq '.[]|.tagName')"
+          echo "WASI_TOOLCHAIN_VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Install wasi-sdk
+        working-directory: /tmp
+        env:
+          REPO: WebAssembly/wasi-sdk
+        run: |
+          set -euxo pipefail
+          VERSION="$WASI_TOOLCHAIN_VERSION"
+          FILE="${VERSION}.0-x86_64-linux.deb"
+          wget "https://github.com/$REPO/releases/download/${VERSION}/${FILE}"
+          sudo dpkg -i "${FILE}"
+          WASI_SDK_PATH="/opt/wasi-sdk"
+          CC="${WASI_SDK_PATH}/bin/clang"
+          echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
+          echo "CC=$CC" >> "$GITHUB_ENV"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          env-vars: "WASI_TOOLCHAIN_VERSION"
+          cache-all-crates: "true"
+
+      - name: Run tests
+        run: cargo +nightly build -p $TARGET-test --target $TARGET
+
   cuda:
     name: Test CUDA support
     runs-on: ubuntu-20.04

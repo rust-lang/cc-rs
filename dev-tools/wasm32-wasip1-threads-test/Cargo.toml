@@ -1,0 +1,8 @@
+[package]
+name = "wasm32-wasip1-threads-test"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+rusqlite = { version = "0.32.0", features = ["bundled"] }
