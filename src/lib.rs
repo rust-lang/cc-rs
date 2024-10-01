@@ -283,6 +283,9 @@ pub struct Build {
     ccbin: bool,
     std: Option<Arc<str>>,
     target: Option<Arc<str>>,
+    /// The host compiler.
+    ///
+    /// Try to not access this directly, and instead prefer `cfg!(...)`.
     host: Option<Arc<str>>,
     out_dir: Option<Arc<Path>>,
     opt_level: Option<Arc<str>>,
@@ -658,11 +661,13 @@ impl Build {
                 .cargo_metadata(self.cargo_output.metadata)
                 .target(target)
                 .opt_level(0)
-                .host(&self.get_host()?)
                 .debug(false)
                 .cpp(self.cpp)
                 .cuda(self.cuda)
                 .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
+            if let Some(host) = &self.host {
+                cfg.host(host);
+            }
             cfg.try_get_compiler()?
         };
 
@@ -2866,7 +2871,6 @@ impl Build {
                 out_dir,
             ));
         }
-        let host = self.get_host()?;
         let target = self.get_target()?;
         let target = &*target;
         let (env, msvc, gnu, traditional, clang) = if self.cpp {
@@ -2879,7 +2883,7 @@ impl Build {
         // is not flag-compatible with "gcc".  This history casts a long shadow,
         // and many modern illumos distributions today ship GCC as "gcc" without
         // also making it available as "cc".
-        let default = if host.contains("solaris") || host.contains("illumos") {
+        let default = if cfg!(target_os = "solaris") || cfg!(target_os = "illumos") {
             gnu
         } else {
             traditional
@@ -2944,7 +2948,7 @@ impl Build {
         let tool = match tool_opt {
             Some(t) => t,
             None => {
-                let compiler = if host.contains("windows") && target.contains("windows") {
+                let compiler = if cfg!(windows) && target.contains("windows") {
                     if target.contains("msvc") {
                         msvc.to_string()
                     } else {
@@ -2958,7 +2962,7 @@ impl Build {
                 {
                     clang.to_string()
                 } else if target.contains("android") {
-                    autodetect_android_compiler(target, &host, gnu, clang)
+                    autodetect_android_compiler(target, gnu, clang)
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if Build::is_wasi_target(target) {
@@ -2977,7 +2981,7 @@ impl Build {
                     format!("arm-kmc-eabi-{}", gnu)
                 } else if target.starts_with("aarch64-kmc-solid_") {
                     format!("aarch64-kmc-elf-{}", gnu)
-                } else if &*self.get_host()? != target {
+                } else if self.get_is_cross_compile()? {
                     let prefix = self.prefix_for_target(target);
                     match prefix {
                         Some(prefix) => {
@@ -3042,8 +3046,7 @@ impl Build {
         // on Windows is restricted to around 8k characters instead of around 32k characters.
         // To remove this limit, we call the main clang binary directly and construct the
         // `--target=` ourselves.
-        if host.contains("windows") && android_clang_compiler_uses_target_arg_internally(&tool.path)
-        {
+        if cfg!(windows) && android_clang_compiler_uses_target_arg_internally(&tool.path) {
             if let Some(path) = tool.path.file_name() {
                 let file_name = path.to_str().unwrap().to_owned();
                 let (target, clang) = file_name.split_at(file_name.rfind('-').unwrap());
@@ -3430,7 +3433,7 @@ impl Build {
                     // Use the GNU-variant to match other Unix systems.
                     name = format!("g{}", tool).into();
                     self.cmd(&name)
-                } else if self.get_host()? != target {
+                } else if self.get_is_cross_compile()? {
                     match self.prefix_for_target(&target) {
                         Some(p) => {
                             // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
@@ -3644,11 +3647,13 @@ impl Build {
         }
     }
 
-    fn get_host(&self) -> Result<Cow<'_, str>, Error> {
-        match &self.host {
-            Some(h) => Ok(Cow::Borrowed(h)),
-            None => self.getenv_unwrap_str("HOST").map(Cow::Owned),
-        }
+    fn get_is_cross_compile(&self) -> Result<bool, Error> {
+        let target = self.get_target()?;
+        let host: Cow<'_, str> = match &self.host {
+            Some(h) => Cow::Borrowed(h),
+            None => Cow::Owned(self.getenv_unwrap_str("HOST")?),
+        };
+        Ok(host != target)
     }
 
     fn get_opt_level(&self) -> Result<Cow<'_, str>, Error> {
@@ -3765,8 +3770,11 @@ impl Build {
 
     fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<Arc<OsStr>, Error> {
         let target = self.get_target()?;
-        let host = self.get_host()?;
-        let kind = if host == target { "HOST" } else { "TARGET" };
+        let kind = if self.get_is_cross_compile()? {
+            "TARGET"
+        } else {
+            "HOST"
+        };
         let target_u = target.replace('-', "_");
         let res = self
             .getenv(&format!("{}_{}", var_base, target))
@@ -3799,8 +3807,7 @@ impl Build {
 
     fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
         let target = self.get_target()?;
-        let host = self.get_host()?;
-        if host.contains("apple-darwin") && target.contains("apple-darwin") {
+        if cfg!(target_os = "macos") && target.contains("apple-darwin") {
             // Additionally, `IPHONEOS_DEPLOYMENT_TARGET` must not be set when using the Xcode linker at
             // "/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld",
             // although this is apparently ignored when using the linker at "/usr/bin/ld".
@@ -4209,7 +4216,7 @@ fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool 
     false
 }
 
-fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str) -> String {
+fn autodetect_android_compiler(target: &str, gnu: &str, clang: &str) -> String {
     let new_clang_key = match target {
         "aarch64-linux-android" => Some("aarch64"),
         "armv7-linux-androideabi" => Some("armv7a"),
@@ -4249,7 +4256,7 @@ fn autodetect_android_compiler(target: &str, host: &str, gnu: &str, clang: &str)
     // if not, use clang
     if Command::new(&gnu_compiler).output().is_ok() {
         gnu_compiler
-    } else if host.contains("windows") && Command::new(&clang_compiler_cmd).output().is_ok() {
+    } else if cfg!(windows) && Command::new(&clang_compiler_cmd).output().is_ok() {
         clang_compiler_cmd
     } else {
         clang_compiler
