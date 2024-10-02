@@ -9,7 +9,7 @@ use crate::{Error, ErrorKind};
 /// The parts of `rustc`'s target triple.
 ///
 /// See <https://doc.rust-lang.org/cargo/appendix/glossary.html#target>.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct Target {
     /// The full architecture, including the subarchitecture.
     ///
