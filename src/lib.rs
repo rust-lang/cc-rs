@@ -89,6 +89,13 @@
 //!   For example, with `CFLAGS='a "b c"'`, the compiler will be invoked with 2 arguments -
 //!   `a` and `b c` - rather than 3: `a`, `"b` and `c"`.
 //! * `CXX...` - see [C++ Support](#c-support).
+//! * `CC_FORCE_DISABLE` - If set, `cc` will never run any [`Command`]s, and methods that
+//!   would return an [`Error`]. This is intended for use by third-party build systems
+//!   which want to be absolutely sure that they are in control of building all
+//!   dependencies. Note that operations that return [`Tool`]s such as
+//!   [`Build::get_compiler`] may produce less accurate results as in some cases `cc` runs
+//!   commands in order to locate compilers. Additionally, this does nothing to prevent
+//!   users from running [`Tool::to_command`] and executing the [`Command`] themselves.
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
 //! to be inspected, for example via the `Build::try_flags_from_environment`
@@ -332,6 +339,8 @@ enum ErrorKind {
     ToolFamilyMacroNotFound,
     /// Invalid target
     InvalidTarget,
+    /// `cc` has been disabled by an environment variable.
+    Disabled,
     #[cfg(feature = "parallel")]
     /// jobserver helpthread failure
     JobserverHelpThreadError,
@@ -682,7 +691,7 @@ impl Build {
             compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
         }
 
-        let mut cmd = compiler.to_command();
+        let mut cmd = compiler.try_to_command()?;
         let is_arm = target.contains("aarch64") || target.contains("arm");
         let clang = compiler.is_like_clang();
         let gnu = compiler.family == ToolFamily::Gnu;
@@ -1709,7 +1718,7 @@ impl Build {
             let (cmd, name) = self.msvc_macro_assembler()?;
             (cmd, Cow::Borrowed(Path::new(name)))
         } else {
-            let mut cmd = compiler.to_command();
+            let mut cmd = compiler.try_to_command()?;
             for (a, b) in self.env.iter() {
                 cmd.env(a, b);
             }
@@ -1765,8 +1774,9 @@ impl Build {
     /// This will return a result instead of panicking; see [`Self::expand()`] for
     /// the complete description.
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
+        check_disabled()?;
         let compiler = self.try_get_compiler()?;
-        let mut cmd = compiler.to_command();
+        let mut cmd = compiler.try_to_command()?;
         for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
@@ -2513,8 +2523,9 @@ impl Build {
             "ml.exe"
         };
         let mut cmd = self
-            .windows_registry_find(&target, tool)
-            .unwrap_or_else(|| self.cmd(tool));
+            .windows_registry_find(&target, tool)?
+            .map(Ok)
+            .unwrap_or_else(|| self.cmd(tool))?;
         cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(&**directory);
@@ -2582,7 +2593,7 @@ impl Build {
 
             let out_dir = self.get_out_dir()?;
             let dlink = out_dir.join(lib_name.to_owned() + "_dlink.o");
-            let mut nvcc = self.get_compiler().to_command();
+            let mut nvcc = self.get_compiler().try_to_command()?;
             nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
             run(&mut nvcc, "nvcc", &self.cargo_output)?;
             self.assemble_progressive(dst, &[dlink.as_path()])?;
@@ -2855,12 +2866,12 @@ impl Build {
         Ok(())
     }
 
-    fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
-        let mut cmd = Command::new(prog);
+    fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Result<Command, Error> {
+        let mut cmd = command_new(prog.as_ref())?;
         for (a, b) in self.env.iter() {
             cmd.env(a, b);
         }
-        cmd
+        Ok(cmd)
     }
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
@@ -2868,12 +2879,12 @@ impl Build {
         let out_dir = out_dir.as_deref();
 
         if let Some(c) = &self.compiler {
-            return Ok(Tool::new(
+            return Tool::new(
                 (**c).to_owned(),
                 &self.cached_compiler_family,
                 &self.cargo_output,
                 out_dir,
-            ));
+            );
         }
         let target = self.get_target()?;
         let target = &*target;
@@ -2893,11 +2904,11 @@ impl Build {
             traditional
         };
 
-        let cl_exe = self.windows_registry_find_tool(target, "cl.exe");
+        let cl_exe = self.windows_registry_find_tool(target, "cl.exe")?;
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
-            .map(|(tool, wrapper, args)| {
+            .map(|(tool, wrapper, args)| -> Result<Tool, Error> {
                 // find the driver mode, if any
                 const DRIVER_MODE: &str = "--driver-mode=";
                 let driver_mode = args
@@ -2914,16 +2925,19 @@ impl Build {
                     &self.cached_compiler_family,
                     &self.cargo_output,
                     out_dir,
-                );
+                )?;
                 if let Some(cc_wrapper) = wrapper {
                     t.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
                 }
                 for arg in args {
                     t.cc_wrapper_args.push(arg.into());
                 }
-                t
+                Ok(t)
             })
-            .or_else(|| {
+            .transpose()?;
+        let tool_opt = match tool_opt {
+            Some(v) => Some(v),
+            None => {
                 if target.contains("emscripten") {
                     let tool = if self.cpp { "em++" } else { "emcc" };
                     // Windows uses bat file so we have to be a bit more specific
@@ -2941,13 +2955,13 @@ impl Build {
                             &self.cached_compiler_family,
                             &self.cargo_output,
                             out_dir,
-                        ))
+                        )?)
                     }
                 } else {
                     None
                 }
-            })
-            .or_else(|| cl_exe.clone());
+            }
+        };
 
         let tool = match tool_opt {
             Some(t) => t,
@@ -2966,7 +2980,7 @@ impl Build {
                 {
                     clang.to_string()
                 } else if target.contains("android") {
-                    autodetect_android_compiler(target, gnu, clang)
+                    autodetect_android_compiler(target, gnu, clang)?
                 } else if target.contains("cloudabi") {
                     format!("{}-{}", target, traditional)
                 } else if Build::is_wasi_target(target) {
@@ -3003,7 +3017,7 @@ impl Build {
                     &self.cached_compiler_family,
                     &self.cargo_output,
                     out_dir,
-                );
+                )?;
                 if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
                     t.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
                 }
@@ -3027,7 +3041,7 @@ impl Build {
                 &self.cached_compiler_family,
                 &self.cargo_output,
                 out_dir,
-            );
+            )?;
             if self.ccbin {
                 nvcc_tool
                     .args
@@ -3285,7 +3299,7 @@ impl Build {
     fn get_base_archiver(&self) -> Result<(Command, PathBuf), Error> {
         if let Some(ref a) = self.archiver {
             let archiver = &**a;
-            return Ok((self.cmd(archiver), archiver.into()));
+            return Ok((self.cmd(archiver)?, archiver.into()));
         }
 
         self.get_base_archiver_variant("AR", "ar")
@@ -3326,7 +3340,7 @@ impl Build {
 
     fn get_base_ranlib(&self) -> Result<Command, Error> {
         if let Some(ref r) = self.ranlib {
-            return Ok(self.cmd(&**r));
+            return self.cmd(&**r);
         }
 
         Ok(self.get_base_archiver_variant("RANLIB", "ranlib")?.0)
@@ -3343,18 +3357,21 @@ impl Build {
             .env_tool(env)
             .map(|(tool, _wrapper, args)| {
                 name.clone_from(&tool);
-                let mut cmd = self.cmd(tool);
+                let mut cmd = self.cmd(tool)?;
                 cmd.args(args);
-                cmd
+                Ok(cmd)
             })
             .or_else(|| {
                 if target.contains("emscripten") {
                     // Windows use bat files so we have to be a bit more specific
                     if cfg!(windows) {
-                        let mut cmd = self.cmd("cmd");
+                        let mut cmd = match self.cmd("cmd") {
+                            Ok(cmd) => cmd,
+                            Err(e) => return Some(Err(e)),
+                        };
                         name = format!("em{}.bat", tool).into();
                         cmd.arg("/c").arg(&name);
-                        Some(cmd)
+                        Some(Ok(cmd))
                     } else {
                         name = format!("em{}", tool).into();
                         Some(self.cmd(&name))
@@ -3368,19 +3385,20 @@ impl Build {
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.is_like_clang() {
                         name = format!("llvm-{}", tool).into();
-                        self.search_programs(
-                            &mut self.cmd(&compiler.path),
-                            &name,
-                            &self.cargo_output,
-                        )
-                        .map(|name| self.cmd(name))
+                        let mut cmd = match self.cmd(&compiler.path) {
+                            Ok(cmd) => cmd,
+                            Err(e) => return Some(Err(e)),
+                        };
+                        self.search_programs(&mut cmd, &name, &self.cargo_output)
+                            .map(|name| self.cmd(name))
                     } else {
                         None
                     }
                 } else {
                     None
                 }
-            });
+            })
+            .transpose()?;
 
         let default = tool.to_string();
         let tool = match tool_opt {
@@ -3388,11 +3406,11 @@ impl Build {
             None => {
                 if target.contains("android") {
                     name = format!("llvm-{}", tool).into();
-                    match Command::new(&name).arg("--version").status() {
+                    match command_new(&name)?.arg("--version").status() {
                         Ok(status) if status.success() => (),
                         _ => name = format!("{}-{}", target.replace("armv7", "arm"), tool).into(),
                     }
-                    self.cmd(&name)
+                    self.cmd(&name)?
                 } else if target.contains("msvc") {
                     // NOTE: There isn't really a ranlib on msvc, so arguably we should return
                     // `None` somehow here. But in general, callers will already have to be aware
@@ -3418,9 +3436,9 @@ impl Build {
 
                     if lib.is_empty() {
                         name = PathBuf::from("lib.exe");
-                        let mut cmd = match self.windows_registry_find(&target, "lib.exe") {
+                        let mut cmd = match self.windows_registry_find(&target, "lib.exe")? {
                             Some(t) => t,
-                            None => self.cmd("lib.exe"),
+                            None => self.cmd("lib.exe")?,
                         };
                         if target.contains("arm64ec") {
                             cmd.arg("/machine:arm64ec");
@@ -3428,7 +3446,7 @@ impl Build {
                         cmd
                     } else {
                         name = lib.into();
-                        self.cmd(&name)
+                        self.cmd(&name)?
                     }
                 } else if target.contains("illumos") {
                     // The default 'ar' on illumos uses a non-standard flags,
@@ -3436,7 +3454,7 @@ impl Build {
                     //
                     // Use the GNU-variant to match other Unix systems.
                     name = format!("g{}", tool).into();
-                    self.cmd(&name)
+                    self.cmd(&name)?
                 } else if self.get_is_cross_compile()? {
                     match self.prefix_for_target(&target) {
                         Some(p) => {
@@ -3450,22 +3468,22 @@ impl Build {
                             let mut chosen = default;
                             for &infix in &["", "-gcc"] {
                                 let target_p = format!("{}{}-{}", p, infix, tool);
-                                if Command::new(&target_p).output().is_ok() {
+                                if command_new(&target_p)?.output().is_ok() {
                                     chosen = target_p;
                                     break;
                                 }
                             }
                             name = chosen.into();
-                            self.cmd(&name)
+                            self.cmd(&name)?
                         }
                         None => {
                             name = default.into();
-                            self.cmd(&name)
+                            self.cmd(&name)?
                         }
                     }
                 } else {
                     name = default.into();
-                    self.cmd(&name)
+                    self.cmd(&name)?
                 }
             }
         };
@@ -3854,7 +3872,7 @@ impl Build {
         }
 
         let sdk_path = run_output(
-            self.cmd("xcrun")
+            self.cmd("xcrun")?
                 .arg("--show-sdk-path")
                 .arg("--sdk")
                 .arg(sdk),
@@ -3906,6 +3924,7 @@ impl Build {
         let default_deployment_from_sdk = || -> Option<Arc<str>> {
             let version = run_output(
                 self.cmd("xcrun")
+                    .ok()?
                     .arg("--show-sdk-version")
                     .arg("--sdk")
                     .arg(sdk),
@@ -4105,12 +4124,13 @@ impl Build {
         None
     }
 
-    fn windows_registry_find(&self, target: &str, tool: &str) -> Option<Command> {
-        self.windows_registry_find_tool(target, tool)
-            .map(|c| c.to_command())
+    fn windows_registry_find(&self, target: &str, tool: &str) -> Result<Option<Command>, Error> {
+        self.windows_registry_find_tool(target, tool)?
+            .map(|c| c.try_to_command())
+            .transpose()
     }
 
-    fn windows_registry_find_tool(&self, target: &str, tool: &str) -> Option<Tool> {
+    fn windows_registry_find_tool(&self, target: &str, tool: &str) -> Result<Option<Tool>, Error> {
         struct BuildEnvGetter<'s>(&'s Build);
 
         impl windows_registry::EnvGetter for BuildEnvGetter<'_> {
@@ -4118,8 +4138,12 @@ impl Build {
                 self.0.getenv(name).map(windows_registry::Env::Arced)
             }
         }
-
-        windows_registry::find_tool_inner(target, tool, &BuildEnvGetter(self))
+        check_disabled()?;
+        Ok(windows_registry::find_tool_inner(
+            target,
+            tool,
+            &BuildEnvGetter(self),
+        ))
     }
 }
 
@@ -4220,7 +4244,60 @@ fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool 
     false
 }
 
-fn autodetect_android_compiler(target: &str, gnu: &str, clang: &str) -> String {
+/// Returns true if `cc` has been disabled by `CC_FORCE_DISABLE`.
+pub(crate) fn is_disabled() -> bool {
+    use core::sync::atomic::{AtomicU8, Ordering::Relaxed};
+    static CACHE: AtomicU8 = AtomicU8::new(0);
+    let val = CACHE.load(Relaxed);
+    // We manually cache the environment var, since we need it in some places
+    // where we don't have access to a `Build` instance.
+    #[allow(clippy::disallowed_methods)]
+    fn compute_is_disabled() -> bool {
+        match std::env::var_os("CC_FORCE_DISABLE") {
+            // Not set? Not disabled.
+            None => false,
+            // Respect `CC_FORCE_DISABLE=0` and some simple synonyms.
+            Some(v) if &*v != "0" && &*v != "false" && &*v != "no" => false,
+            // Otherwise, we're disabled. This intentionally includes `CC_FORCE_DISABLE=""`
+            Some(_) => true,
+        }
+    }
+    match val {
+        2 => true,
+        1 => false,
+        0 => {
+            let truth = compute_is_disabled();
+            let encoded_truth = if truth { 2u8 } else { 1 };
+            // Might race against another thread, but we'd both be setting the
+            // same value so it should be fine.
+            CACHE.store(encoded_truth, Relaxed);
+            truth
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// Automates the `if is_disabled() { return error }` check and ensures
+/// we produce a consistent error message for it.
+pub(crate) fn check_disabled() -> Result<(), Error> {
+    if is_disabled() {
+        return Err(Error::new(
+            ErrorKind::Disabled,
+            "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable."
+        ));
+    }
+    Ok(())
+}
+
+/// Like `Command::new`, but produces an `Error` if we're disabled. Should be
+/// used instead of `Command::new`.
+#[allow(clippy::disallowed_methods)]
+pub(crate) fn command_new<S: AsRef<OsStr>>(program: S) -> Result<Command, Error> {
+    check_disabled()?;
+    Ok(Command::new(program))
+}
+
+fn autodetect_android_compiler(target: &str, gnu: &str, clang: &str) -> Result<String, Error> {
     let new_clang_key = match target {
         "aarch64-linux-android" => Some("aarch64"),
         "armv7-linux-androideabi" => Some("armv7a"),
@@ -4238,8 +4315,8 @@ fn autodetect_android_compiler(target: &str, gnu: &str, clang: &str) -> String {
         .unwrap_or(None);
 
     if let Some(new_clang) = new_clang {
-        if Command::new(new_clang).output().is_ok() {
-            return (*new_clang).into();
+        if command_new(new_clang)?.output().is_ok() {
+            return Ok((*new_clang).into());
         }
     }
 
@@ -4258,13 +4335,13 @@ fn autodetect_android_compiler(target: &str, gnu: &str, clang: &str) -> String {
 
     // Check if gnu compiler is present
     // if not, use clang
-    if Command::new(&gnu_compiler).output().is_ok() {
+    Ok(if command_new(&gnu_compiler)?.output().is_ok() {
         gnu_compiler
-    } else if cfg!(windows) && Command::new(&clang_compiler_cmd).output().is_ok() {
+    } else if cfg!(windows) && command_new(&clang_compiler_cmd)?.output().is_ok() {
         clang_compiler_cmd
     } else {
         clang_compiler
-    }
+    })
 }
 
 // Rust and clang/cc don't agree on how to name the target.

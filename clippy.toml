@@ -1,5 +1,7 @@
 disallowed-methods = [
     { path = "std::env::var_os", reason = "Please use Build::getenv" },
     { path = "std::env::var", reason = "Please use Build::getenv" },
+    { path = "std::process::Command::new", reason = "Please use crate::command_new()" },
+    { path = "cc::tool::Tool::to_command", reason = "Bypasses `is_disabled()` check. Use try_to_command() instead." },
 ]
 doc-valid-idents = ["AppleClang", "OpenBSD", ".."]

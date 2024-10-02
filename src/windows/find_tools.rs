@@ -99,6 +99,7 @@ impl EnvGetter for StdEnvGetter {
 /// tool with the appropriate environment variables set.
 ///
 /// Note that this function always returns `None` for non-MSVC targets.
+#[allow(clippy::disallowed_methods)] // `Tool::to_command`
 pub fn find(target: &str, tool: &str) -> Option<Command> {
     find_tool(target, tool).map(|c| c.to_command())
 }
@@ -478,6 +479,11 @@ mod impl_ {
         target: TargetArch<'_>,
         env_getter: &dyn EnvGetter,
     ) -> Option<VsInstances> {
+        if crate::is_disabled() {
+            // If we aren't allowed to run commands, just pretend
+            // vswhere didn't tell us anything useful.
+            return None;
+        }
         let program_files_path = env_getter
             .get_env("ProgramFiles(x86)")
             .or_else(|| env_getter.get_env("ProgramFiles"))?;
@@ -497,7 +503,8 @@ mod impl_ {
             "aarch64" | "arm64ec" => Some("ARM64"),
             _ => None,
         };
-
+        // Already checked `is_disabled()`.
+        #[allow(clippy::disallowed_methods)]
         let vswhere_output = Command::new(vswhere_path)
             .args([
                 "-latest",

@@ -10,8 +10,9 @@ use std::{
 };
 
 use crate::{
+    check_disabled,
     command_helpers::{run_output, CargoOutput},
-    run,
+    command_new, run,
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
 };
@@ -43,7 +44,7 @@ impl Tool {
         cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         Self::with_features(
             path,
             None,
@@ -60,7 +61,7 @@ impl Tool {
         cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
-    ) -> Self {
+    ) -> Result<Self, Error> {
         Self::with_features(
             path,
             clang_driver,
@@ -93,16 +94,16 @@ impl Tool {
         cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
-    ) -> Self {
-        fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> bool {
-            run_output(
-                Command::new(path).arg("--version"),
+    ) -> Result<Self, Error> {
+        fn is_zig_cc(path: &Path, cargo_output: &CargoOutput) -> Result<bool, Error> {
+            Ok(run_output(
+                command_new(path)?.arg("--version"),
                 path,
                 // tool detection issues should always be shown as warnings
                 cargo_output,
             )
             .map(|o| String::from_utf8_lossy(&o).contains("ziglang"))
-            .unwrap_or_default()
+            .unwrap_or_default())
         }
 
         fn detect_family_inner(
@@ -141,7 +142,7 @@ impl Tool {
             drop(tmp_file);
 
             let stdout = run_output(
-                Command::new(path).arg("-E").arg(tmp.path()),
+                command_new(path)?.arg("-E").arg(tmp.path()),
                 path,
                 // When expanding the file, the compiler prints a lot of information to stderr
                 // that it is not an error, but related to expanding itself.
@@ -158,7 +159,7 @@ impl Tool {
             cargo_output.print_debug(&stdout);
 
             // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
-            let accepts_cl_style_flags = run(Command::new(path).arg("-?"), path, &{
+            let accepts_cl_style_flags = run(command_new(path)?.arg("-?"), path, &{
                 // the errors are not errors!
                 let mut cargo_output = cargo_output.clone();
                 cargo_output.warnings = cargo_output.debug;
@@ -175,7 +176,7 @@ impl Tool {
             match (clang, accepts_cl_style_flags, gcc, emscripten, vxworks) {
                 (clang_cl, true, _, false, false) => Ok(ToolFamily::Msvc { clang_cl }),
                 (true, _, _, _, false) | (_, _, _, true, false) => Ok(ToolFamily::Clang {
-                    zig_cc: is_zig_cc(path, cargo_output),
+                    zig_cc: is_zig_cc(path, cargo_output)?,
                 }),
                 (false, false, true, _, false) | (_, _, _, _, true) => Ok(ToolFamily::Gnu),
                 (false, false, false, false, false) => {
@@ -213,7 +214,7 @@ impl Tool {
                 Some(fname) if fname.contains("clang") => match clang_driver {
                     Some("cl") => ToolFamily::Msvc { clang_cl: true },
                     _ => ToolFamily::Clang {
-                        zig_cc: is_zig_cc(&path, cargo_output),
+                        zig_cc: is_zig_cc(&path, cargo_output).unwrap_or(false),
                     },
                 },
                 Some(fname) if fname.contains("zig") => ToolFamily::Clang { zig_cc: true },
@@ -221,7 +222,7 @@ impl Tool {
             }
         });
 
-        Tool {
+        Ok(Tool {
             path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
@@ -231,7 +232,7 @@ impl Tool {
             cuda,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
-        }
+        })
     }
 
     /// Add an argument to be stripped from the final command arguments.
@@ -291,12 +292,21 @@ impl Tool {
         }
     }
 
+    /// Same as [`Tool::to_command`] but checks that `cc` has not been disabled
+    /// first. Use this internally instead of `Tool::to_command`.
+    #[allow(clippy::disallowed_methods)] // `Tool::to_command()`
+    pub(crate) fn try_to_command(&self) -> Result<Command, Error> {
+        check_disabled()?;
+        Ok(self.to_command())
+    }
+
     /// Converts this compiler into a `Command` that's ready to be run.
     ///
     /// This is useful for when the compiler needs to be executed and the
     /// command returned will already have the initial arguments and environment
     /// variables configured.
     pub fn to_command(&self) -> Command {
+        #[allow(clippy::disallowed_methods)] // `Command::new()`
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
                 let mut cmd = Command::new(cc_wrapper_path);
