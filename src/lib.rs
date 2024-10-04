@@ -844,8 +844,8 @@ impl Build {
     /// The name of the C++ standard library to link is decided by:
     /// 1. If [`cpp_link_stdlib`](Build::cpp_link_stdlib) is set, use its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
-    /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
-    ///    `None` for MSVC and `libstdc++` for anything else.
+    /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
+    ///    `None` for MSVC and `stdc++` for anything else.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
         self
@@ -3201,8 +3201,8 @@ impl Build {
     /// Returns the C++ standard library:
     /// 1. If [`cpp_link_stdlib`](cc::Build::cpp_link_stdlib) is set, uses its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
-    /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
-    ///    `None` for MSVC and `libstdc++` for anything else.
+    /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
+    ///    `None` for MSVC and `stdc++` for anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
         match &self.cpp_link_stdlib {
             Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
