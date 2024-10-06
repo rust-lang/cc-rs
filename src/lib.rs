@@ -1952,12 +1952,10 @@ impl Build {
                             } else {
                                 "-MT"
                             }
+                        } else if debug {
+                            "-MDd"
                         } else {
-                            if debug {
-                                "-MDd"
-                            } else {
-                                "-MD"
-                            }
+                            "-MD"
                         }
                     }
                 };
