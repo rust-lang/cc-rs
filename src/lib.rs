@@ -1945,15 +1945,8 @@ impl Build {
                     None => {
                         let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
                         let features = features.as_deref().unwrap_or_default();
-                        let debug = self.get_debug();
                         if features.to_string_lossy().contains("crt-static") {
-                            if debug {
-                                "-MTd"
-                            } else {
-                                "-MT"
-                            }
-                        } else if debug {
-                            "-MDd"
+                            "-MT"
                         } else {
                             "-MD"
                         }
