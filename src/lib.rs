@@ -3752,7 +3752,7 @@ impl Build {
     /// get boolean flag that is either true or false
     fn getenv_boolean(&self, v: &str) -> bool {
         match self.getenv(v) {
-            Some(s) => s != "0" && s != "false",
+            Some(s) => *s != "0" && *s != "false" && *s != "",
             None => false,
         }
     }
