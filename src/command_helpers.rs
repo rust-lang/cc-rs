@@ -44,7 +44,10 @@ impl CargoOutput {
             metadata: true,
             warnings: true,
             output: OutputKind::Forward,
-            debug: std::env::var_os("CC_ENABLE_DEBUG_OUTPUT").is_some(),
+            debug: match std::env::var_os("CC_ENABLE_DEBUG_OUTPUT") {
+                Some(v) => v != "0",
+                None => false,
+            },
             checked_dbg_var: Arc::new(AtomicBool::new(false)),
         }
     }
