@@ -3752,6 +3752,14 @@ impl Build {
         r
     }
 
+    /// get boolean flag that is either true or false
+    fn getenv_boolean(&self, v: &str) -> bool {
+        match self.getenv(v) {
+            Some(s) => s != "0",
+            None => false,
+        }
+    }
+
     fn getenv_unwrap(&self, v: &str) -> Result<Arc<OsStr>, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
