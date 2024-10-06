@@ -1857,7 +1857,7 @@ impl Build {
         let mut cmd = self.get_base_compiler()?;
 
         // Disable default flag generation via `no_default_flags` or environment variable
-        let no_defaults = self.no_default_flags || self.getenv("CRATE_CC_NO_DEFAULTS").is_some();
+        let no_defaults = self.no_default_flags || self.getenv_boolean("CRATE_CC_NO_DEFAULTS");
 
         if !no_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
@@ -3668,15 +3668,12 @@ impl Build {
     }
 
     fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| match self.getenv("DEBUG") {
-            Some(s) => &*s != "false",
-            None => false,
-        })
+        self.debug.unwrap_or_else(|| self.getenv_boolean("DEBUG"))
     }
 
     fn get_shell_escaped_flags(&self) -> bool {
         self.shell_escaped_flags
-            .unwrap_or_else(|| self.getenv("CC_SHELL_ESCAPED_FLAGS").is_some())
+            .unwrap_or_else(|| self.getenv_boolean("CC_SHELL_ESCAPED_FLAGS"))
     }
 
     fn get_dwarf_version(&self) -> Option<u32> {
@@ -3750,6 +3747,14 @@ impl Build {
         ));
         self.env_cache.write().unwrap().insert(v.into(), r.clone());
         r
+    }
+
+    /// get boolean flag that is either true or false
+    fn getenv_boolean(&self, v: &str) -> bool {
+        match self.getenv(v) {
+            Some(s) => &*s != "0" && &*s != "false" && !s.is_empty(),
+            None => false,
+        }
     }
 
     fn getenv_unwrap(&self, v: &str) -> Result<Arc<OsStr>, Error> {
