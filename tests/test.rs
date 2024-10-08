@@ -59,7 +59,7 @@ fn gnu_opt_level_s() {
 fn gnu_debug() {
     let test = Test::gnu();
     test.gcc()
-        .target("x86_64-unknown-linux")
+        .target("x86_64-unknown-linux-none")
         .debug(true)
         .file("foo.c")
         .compile("foo");
@@ -78,7 +78,7 @@ fn gnu_debug() {
 fn gnu_debug_fp_auto() {
     let test = Test::gnu();
     test.gcc()
-        .target("x86_64-unknown-linux")
+        .target("x86_64-unknown-linux-none")
         .debug(true)
         .file("foo.c")
         .compile("foo");
@@ -90,7 +90,7 @@ fn gnu_debug_fp_auto() {
 fn gnu_debug_fp() {
     let test = Test::gnu();
     test.gcc()
-        .target("x86_64-unknown-linux")
+        .target("x86_64-unknown-linux-none")
         .debug(true)
         .file("foo.c")
         .compile("foo");
@@ -104,7 +104,7 @@ fn gnu_debug_nofp() {
 
     let test = Test::gnu();
     test.gcc()
-        .target("x86_64-unknown-linux")
+        .target("x86_64-unknown-linux-none")
         .debug(true)
         .force_frame_pointer(false)
         .file("foo.c")
@@ -114,7 +114,7 @@ fn gnu_debug_nofp() {
 
     let test = Test::gnu();
     test.gcc()
-        .target("x86_64-unknown-linux")
+        .target("x86_64-unknown-linux-none")
         .force_frame_pointer(false)
         .debug(true)
         .file("foo.c")

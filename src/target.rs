@@ -169,6 +169,7 @@ mod tests {
             "thumbv7-unknown-linux-gnueabihf",
             "thumbv7-unknown-linux-musleabihf",
             "x86_64-rumprun-netbsd",
+            "x86_64-unknown-linux",
         ];
 
         for target in targets {
