@@ -1428,7 +1428,7 @@ impl Build {
                 libdir.push("..");
                 if cfg!(target_os = "linux") {
                     libdir.push("targets");
-                    libdir.push(target.arch.clone() + "-linux");
+                    libdir.push(format!("{}-linux", target.arch));
                     libdir.push("lib");
                     libtst = true;
                 } else if cfg!(target_env = "msvc") {

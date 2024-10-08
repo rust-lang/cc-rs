@@ -2,7 +2,7 @@
 //!
 //! See the `target-lexicon` crate for a more principled approach to this.
 
-use std::{env, str::FromStr};
+use std::{borrow::Cow, env, str::FromStr};
 
 use crate::{Error, ErrorKind};
 
@@ -17,27 +17,27 @@ pub(crate) struct Target {
     ///
     /// This differs from `cfg!(target_arch)`, which only specifies the
     /// overall architecture, which is too coarse for certain cases.
-    pub full_arch: String,
+    pub full_arch: Cow<'static, str>,
     /// The overall target architecture.
     ///
     /// This is the same as the value of `cfg!(target_arch)`.
-    pub arch: String,
+    pub arch: Cow<'static, str>,
     /// The target vendor.
     ///
     /// This is the same as the value of `cfg!(target_vendor)`.
-    pub vendor: String,
+    pub vendor: Cow<'static, str>,
     /// The operating system, or `none` on bare-metal targets.
     ///
     /// This is the same as the value of `cfg!(target_os)`.
-    pub os: String,
+    pub os: Cow<'static, str>,
     /// The environment on top of the operating system.
     ///
     /// This is the same as the value of `cfg!(target_env)`.
-    pub env: String,
+    pub env: Cow<'static, str>,
     /// The ABI on top of the operating system.
     ///
     /// This is the same as the value of `cfg!(target_abi)`.
-    pub abi: String,
+    pub abi: Cow<'static, str>,
 }
 
 impl Target {
@@ -66,17 +66,17 @@ impl Target {
         let env = getenv("CARGO_CFG_TARGET_ENV")?;
         // `target_abi` was stabilized in Rust 1.78, so may not always be available.
         let abi = if let Ok(abi) = getenv("CARGO_CFG_TARGET_ABI") {
-            abi
+            abi.into()
         } else {
             Self::from_str(&target)?.abi
         };
 
         Ok(Self {
-            full_arch: full_arch.to_string(),
-            arch,
-            vendor,
-            os,
-            env,
+            full_arch: full_arch.to_string().into(),
+            arch: arch.into(),
+            vendor: vendor.into(),
+            os: os.into(),
+            env: env.into(),
             abi,
         })
     }
@@ -108,7 +108,7 @@ mod tests {
         let (full_arch, _rest) = target.split_once('-').expect("target to have arch");
 
         let mut target = Target {
-            full_arch: full_arch.into(),
+            full_arch: full_arch.to_string().into(),
             arch: "invalid-none-set".into(),
             vendor: "invalid-none-set".into(),
             os: "invalid-none-set".into(),
@@ -127,7 +127,7 @@ mod tests {
                 let value = value.strip_prefix('"').unwrap_or(value);
                 let value = value.strip_suffix('"').unwrap_or(value);
 
-                let value = value.to_string();
+                let value = value.to_string().into();
                 match name {
                     "target_arch" => target.arch = value,
                     "target_vendor" => target.vendor = value,
