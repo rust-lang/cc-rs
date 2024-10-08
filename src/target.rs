@@ -42,34 +42,65 @@ pub(crate) struct Target {
 
 impl Target {
     pub fn from_cargo_environment_variables() -> Result<Self, Error> {
-        let getenv = |name| {
-            // No need to emit `rerun-if-env-changed` for these variables,
-            // as they are controlled by Cargo itself.
-            #[allow(clippy::disallowed_methods)]
-            env::var(name).map_err(|err| {
-                Error::new(
-                    ErrorKind::EnvVarNotFound,
-                    format!("failed reading {name}: {err}"),
-                )
-            })
-        };
+        // `TARGET` must be present.
+        //
+        // No need to emit `rerun-if-env-changed` for this,
+        // as it is controlled by Cargo itself.
+        #[allow(clippy::disallowed_methods)]
+        let target_triple = env::var("TARGET").map_err(|err| {
+            Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!("failed reading TARGET: {err}"),
+            )
+        })?;
 
-        let target = getenv("TARGET")?;
-        let (full_arch, _rest) = target.split_once('-').ok_or(Error::new(
+        // Parse the full architecture name from the target triple.
+        let (full_arch, _rest) = target_triple.split_once('-').ok_or(Error::new(
             ErrorKind::InvalidTarget,
-            format!("target `{target}` had an unknown architecture"),
+            format!("target `{target_triple}` had an unknown architecture"),
         ))?;
 
-        let arch = getenv("CARGO_CFG_TARGET_ARCH")?;
-        let vendor = getenv("CARGO_CFG_TARGET_VENDOR")?;
-        let os = getenv("CARGO_CFG_TARGET_OS")?;
-        let env = getenv("CARGO_CFG_TARGET_ENV")?;
-        // `target_abi` was stabilized in Rust 1.78, so may not always be available.
-        let abi = if let Ok(abi) = getenv("CARGO_CFG_TARGET_ABI") {
-            abi.into()
-        } else {
-            Self::from_str(&target)?.abi
+        let cargo_env = |name, fallback| {
+            // No need to emit `rerun-if-env-changed` for these,
+            // as they are controlled by Cargo itself.
+            #[allow(clippy::disallowed_methods)]
+            match env::var(name) {
+                Ok(var) => Ok(Cow::Owned(var)),
+                Err(err) => match fallback {
+                    Some(fallback) => Ok(fallback),
+                    None => Err(Error::new(
+                        ErrorKind::EnvVarNotFound,
+                        format!("did not find fallback information for target `{target_triple}`, and failed reading {name}: {err}"),
+                    )),
+                },
+            }
         };
+
+        // Prefer to use `CARGO_ENV_*` if set, since these contain the most
+        // correct information relative to the current `rustc`, and makes it
+        // possible to support custom target JSON specs unknown to `rustc`.
+        //
+        // NOTE: If the user is using an older `rustc`, that data may be older
+        // than our pre-generated data, but we still prefer Cargo's view of
+        // the world, since at least `cc` won't differ from `rustc` in that
+        // case.
+        //
+        // These may not be set in case the user depended on being able to
+        // just set `TARGET` outside of build scripts; in those cases, fall
+        // back back to data from the known set of target triples instead.
+        //
+        // See discussion in #1225 for further details.
+        let fallback_target = Target::from_str(&target_triple).ok();
+        let ft = fallback_target.as_ref();
+        let arch = cargo_env("CARGO_CFG_TARGET_ARCH", ft.map(|t| t.arch.clone()))?;
+        let vendor = cargo_env("CARGO_CFG_TARGET_VENDOR", ft.map(|t| t.vendor.clone()))?;
+        let os = cargo_env("CARGO_CFG_TARGET_OS", ft.map(|t| t.os.clone()))?;
+        let env = cargo_env("CARGO_CFG_TARGET_ENV", ft.map(|t| t.env.clone()))?;
+        // `target_abi` was stabilized in Rust 1.78, which is higher than our
+        // MSRV, so it may not always be available; In that case, fall back to
+        // `""`, which is _probably_ correct for unknown target triples.
+        let abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi.clone()))
+            .unwrap_or(Cow::Borrowed(""));
 
         Ok(Self {
             full_arch: full_arch.to_string().into(),
@@ -85,6 +116,7 @@ impl Target {
 impl FromStr for Target {
     type Err = Error;
 
+    /// This will fail when using a custom target triple unknown to `rustc`.
     fn from_str(target_triple: &str) -> Result<Self, Error> {
         if let Some(target) = generated::get(target_triple) {
             Ok(target)
