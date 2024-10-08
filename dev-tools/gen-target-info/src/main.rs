@@ -1,7 +1,9 @@
-use std::fs::File;
 use std::io::Write as _;
+use std::{fs::File, io::BufRead};
 
-use gen_target_info::{get_target_specs_from_json, RustcTargetSpecs};
+use gen_target_info::{
+    get_target_spec_from_msrv, get_target_specs_from_json, get_targets_msrv, RustcTargetSpecs,
+};
 
 const PRELUDE: &str = r#"//! This file is generated code. Please edit the generator
 //! in dev-tools/gen-target-info if you need to make changes.
@@ -44,7 +46,17 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
 }
 
 fn main() {
-    let target_specs = get_target_specs_from_json();
+    // Primarily use information from nightly.
+    let mut target_specs = get_target_specs_from_json();
+    // Next, read from MSRV to support old, removed targets.
+    for target_triple in get_targets_msrv().lines() {
+        let target_triple = target_triple.unwrap();
+        let target_triple = target_triple.trim();
+        target_specs
+            .0
+            .entry(target_triple.to_string())
+            .or_insert_with(|| get_target_spec_from_msrv(target_triple));
+    }
 
     // Open file to write to
     let manifest_dir = env!("CARGO_MANIFEST_DIR");

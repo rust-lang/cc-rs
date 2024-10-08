@@ -485,6 +485,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "newlib".into(),
             abi: "eabihf".into(),
         },
+        "armv7-apple-ios" => Target {
+            full_arch: "armv7".into(),
+            arch: "arm".into(),
+            vendor: "apple".into(),
+            os: "ios".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
         "armv7-linux-androideabi" => Target {
             full_arch: "armv7".into(),
             arch: "arm".into(),
@@ -668,6 +676,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             os: "none".into(),
             env: "".into(),
             abi: "eabihf".into(),
+        },
+        "asmjs-unknown-emscripten" => Target {
+            full_arch: "asmjs".into(),
+            arch: "wasm32".into(),
+            vendor: "unknown".into(),
+            os: "emscripten".into(),
+            env: "".into(),
+            abi: "".into(),
         },
         "avr-unknown-gnu-atmega328" => Target {
             full_arch: "avr".into(),
@@ -1885,6 +1901,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "msvc".into(),
             abi: "".into(),
         },
+        "x86_64-sun-solaris" => Target {
+            full_arch: "x86_64".into(),
+            arch: "x86_64".into(),
+            vendor: "sun".into(),
+            os: "solaris".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
         "x86_64-unikraft-linux-musl" => Target {
             full_arch: "x86_64".into(),
             arch: "x86_64".into(),
@@ -2011,6 +2035,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             vendor: "unknown".into(),
             os: "none".into(),
             env: "".into(),
+            abi: "".into(),
+        },
+        "x86_64-unknown-none-linuxkernel" => Target {
+            full_arch: "x86_64".into(),
+            arch: "x86_64".into(),
+            vendor: "unknown".into(),
+            os: "none".into(),
+            env: "gnu".into(),
             abi: "".into(),
         },
         "x86_64-unknown-openbsd" => Target {
