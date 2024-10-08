@@ -104,10 +104,10 @@ impl Target {
 
         Ok(Self {
             full_arch: full_arch.to_string().into(),
-            arch: arch.into(),
-            vendor: vendor.into(),
-            os: os.into(),
-            env: env.into(),
+            arch,
+            vendor,
+            os,
+            env,
             abi,
         })
     }
