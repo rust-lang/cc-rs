@@ -23,8 +23,8 @@ use std::{
     sync::Arc,
 };
 
-use crate::Tool;
 use crate::ToolFamily;
+use crate::{target::Target, Tool};
 
 const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
 
@@ -107,22 +107,22 @@ pub fn find(target: &str, tool: &str) -> Option<Command> {
 /// operation (finding a MSVC tool in a local install) but instead returns a
 /// `Tool` which may be introspected.
 pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
-    find_tool_inner(target, tool, &StdEnvGetter)
+    find_tool_inner(&target.parse().ok()?, tool, &StdEnvGetter)
 }
 
 pub(crate) fn find_tool_inner(
-    target: &str,
+    target: &Target,
     tool: &str,
     env_getter: &dyn EnvGetter,
 ) -> Option<Tool> {
     // This logic is all tailored for MSVC, if we're not that then bail out
     // early.
-    if !target.contains("msvc") {
+    if target.env != "msvc" {
         return None;
     }
 
-    // Split the target to get the arch.
-    let target = TargetArch(target.split_once('-')?.0);
+    // We only need the arch.
+    let target = TargetArch(&target.full_arch);
 
     // Looks like msbuild isn't located in the same location as other tools like
     // cl.exe and lib.exe.

@@ -21,6 +21,8 @@ pub struct TargetSpec {
     pub os: Option<String>,
     /// `apple`, `pc`
     pub vendor: Option<String>,
+    pub env: Option<String>,
+    pub abi: Option<String>,
     pub pre_link_args: Option<PreLinkArgs>,
 }
 
