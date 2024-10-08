@@ -2023,7 +2023,8 @@ impl Build {
                         );
                     }
 
-                    if target.contains("threads") {
+                    // FIXME(madsmtm): Put `threads` as part of the ABI?
+                    if raw_target.contains("threads") {
                         cmd.push_cc_arg("-pthread".into());
                     }
                 }
