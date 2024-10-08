@@ -271,7 +271,7 @@ fn gnu_x86_64_no_plt() {
 
 #[test]
 fn gnu_aarch64_none_no_pic() {
-    for target in &["aarch64-unknown-none-gnu", "aarch64-unknown-none"] {
+    for target in &["aarch64-unknown-none-softfloat", "aarch64-unknown-none"] {
         let test = Test::gnu();
         test.gcc()
             .target(&target)

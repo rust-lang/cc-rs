@@ -160,8 +160,9 @@ mod tests {
     #[test]
     fn cannot_parse_extra() {
         let targets = [
-            "arm-frc-linux-gnueabi",
+            "aarch64-unknown-none-gnu",
             "aarch64-uwp-windows-gnu",
+            "arm-frc-linux-gnueabi",
             "arm-unknown-netbsd-eabi",
             "armv7neon-unknown-linux-gnueabihf",
             "armv7neon-unknown-linux-musleabihf",
