@@ -2006,8 +2006,8 @@ impl Build {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
-                    if target.os == "linux"
-                        || target.os == "android" && !self.use_plt.unwrap_or(true)
+                    if (target.os == "linux" || target.os == "android")
+                        && !self.use_plt.unwrap_or(true)
                     {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
@@ -2023,7 +2023,7 @@ impl Build {
                         );
                     }
 
-                    // FIXME(madsmtm): Put `threads` as part of the ABI?
+                    // FIXME(madsmtm): Read from `target_features` instead?
                     if raw_target.contains("threads") {
                         cmd.push_cc_arg("-pthread".into());
                     }
