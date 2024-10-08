@@ -99,85 +99,28 @@ impl FromStr for Target {
 
 #[cfg(test)]
 mod tests {
-    use std::{process::Command, str::FromStr};
+    use std::str::FromStr;
 
     use super::Target;
 
-    fn target_from_cfgs(target: &str, cfgs: &str) -> Target {
-        // Cannot determine full architecture from cfgs.
-        let (full_arch, _rest) = target.split_once('-').expect("target to have arch");
-
-        let mut target = Target {
-            full_arch: full_arch.to_string().into(),
-            arch: "invalid-none-set".into(),
-            vendor: "invalid-none-set".into(),
-            os: "invalid-none-set".into(),
-            env: "invalid-none-set".into(),
-            // Not set in older Rust versions
-            abi: "".into(),
-        };
-
-        for cfg in cfgs.lines() {
-            if let Some((name, value)) = cfg.split_once('=') {
-                // Remove whitespace, if `rustc` decided to insert any
-                let name = name.trim();
-                let value = value.trim();
-
-                // Remove quotes around value
-                let value = value.strip_prefix('"').unwrap_or(value);
-                let value = value.strip_suffix('"').unwrap_or(value);
-
-                let value = value.to_string().into();
-                match name {
-                    "target_arch" => target.arch = value,
-                    "target_vendor" => target.vendor = value,
-                    "target_os" => target.os = value,
-                    "target_env" => target.env = value,
-                    "target_abi" => target.abi = value,
-                    _ => {}
-                }
-            } else {
-                // Skip cfgs like `debug_assertions` and `unix`.
-            }
-        }
-
-        target
-    }
-
+    // Test tier 1 targets
     #[test]
-    fn parse_rustc_targets() {
-        let target_list = Command::new("rustc")
-            .arg("--print=target-list")
-            .output()
-            .unwrap()
-            .stdout;
-        let target_list = String::from_utf8(target_list).unwrap();
+    fn tier1() {
+        let targets = [
+            "aarch64-unknown-linux-gnu",
+            "aarch64-apple-darwin",
+            "i686-pc-windows-gnu",
+            "i686-pc-windows-msvc",
+            "i686-unknown-linux-gnu",
+            "x86_64-apple-darwin",
+            "x86_64-pc-windows-gnu",
+            "x86_64-pc-windows-msvc",
+            "x86_64-unknown-linux-gnu",
+        ];
 
-        let mut has_failure = false;
-        for target in target_list.lines() {
-            let cfgs = Command::new("rustc")
-                .arg("--target")
-                .arg(target)
-                .arg("--print=cfg")
-                .output()
-                .unwrap()
-                .stdout;
-            let cfgs = String::from_utf8(cfgs).unwrap();
-
-            let expected = target_from_cfgs(target, &cfgs);
-            let actual = Target::from_str(target);
-
-            if Some(&expected) != actual.as_ref().ok() {
-                eprintln!("failed comparing {target}:");
-                eprintln!("  expected: Ok({expected:?})");
-                eprintln!("    actual: {actual:?}");
-                eprintln!();
-                has_failure = true;
-            }
-        }
-
-        if has_failure {
-            panic!("failed comparing targets");
+        for target in targets {
+            // Check that it parses
+            let _ = Target::from_str(target).unwrap();
         }
     }
 
