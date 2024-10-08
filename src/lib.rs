@@ -847,8 +847,8 @@ impl Build {
     /// The name of the C++ standard library to link is decided by:
     /// 1. If [`cpp_link_stdlib`](Build::cpp_link_stdlib) is set, use its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
-    /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
-    ///    `None` for MSVC and `libstdc++` for anything else.
+    /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
+    ///    `None` for MSVC and `stdc++` for anything else.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
         self
@@ -1859,7 +1859,7 @@ impl Build {
         let mut cmd = self.get_base_compiler()?;
 
         // Disable default flag generation via `no_default_flags` or environment variable
-        let no_defaults = self.no_default_flags || self.getenv("CRATE_CC_NO_DEFAULTS").is_some();
+        let no_defaults = self.no_default_flags || self.getenv_boolean("CRATE_CC_NO_DEFAULTS");
 
         if !no_defaults {
             self.add_default_flags(&mut cmd, &target, &opt_level)?;
@@ -2021,6 +2021,10 @@ impl Build {
                         cmd.push_cc_arg(
                             format!("--sysroot={}", Path::new(&wasi_sysroot).display()).into(),
                         );
+                    }
+
+                    if target.contains("threads") {
+                        cmd.push_cc_arg("-pthread".into());
                     }
                 }
             }
@@ -3123,8 +3127,8 @@ impl Build {
     /// Returns the C++ standard library:
     /// 1. If [`cpp_link_stdlib`](cc::Build::cpp_link_stdlib) is set, uses its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
-    /// 3. Else the default is `libc++` for OS X and BSDs, `libc++_shared` for Android,
-    ///    `None` for MSVC and `libstdc++` for anything else.
+    /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
+    ///    `None` for MSVC and `stdc++` for anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
         match &self.cpp_link_stdlib {
             Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
@@ -3602,15 +3606,12 @@ impl Build {
     }
 
     fn get_debug(&self) -> bool {
-        self.debug.unwrap_or_else(|| match self.getenv("DEBUG") {
-            Some(s) => &*s != "false",
-            None => false,
-        })
+        self.debug.unwrap_or_else(|| self.getenv_boolean("DEBUG"))
     }
 
     fn get_shell_escaped_flags(&self) -> bool {
         self.shell_escaped_flags
-            .unwrap_or_else(|| self.getenv("CC_SHELL_ESCAPED_FLAGS").is_some())
+            .unwrap_or_else(|| self.getenv_boolean("CC_SHELL_ESCAPED_FLAGS"))
     }
 
     fn get_dwarf_version(&self) -> Option<u32> {
@@ -3682,6 +3683,14 @@ impl Build {
         ));
         self.env_cache.write().unwrap().insert(v.into(), r.clone());
         r
+    }
+
+    /// get boolean flag that is either true or false
+    fn getenv_boolean(&self, v: &str) -> bool {
+        match self.getenv(v) {
+            Some(s) => &*s != "0" && &*s != "false" && !s.is_empty(),
+            None => false,
+        }
     }
 
     fn getenv_unwrap(&self, v: &str) -> Result<Arc<OsStr>, Error> {
