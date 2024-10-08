@@ -246,7 +246,6 @@ mod tool;
 pub use tool::Tool;
 use tool::ToolFamily;
 
-mod target_info;
 mod tempfile;
 
 mod utilities;
