@@ -2,6 +2,9 @@
 //! in dev-tools/gen-target-info if you need to make changes.
 
 pub const RISCV_ARCH_MAPPING: &[(&str, &str)] = &[
+    ("riscv32e", "riscv32"),
+    ("riscv32em", "riscv32"),
+    ("riscv32emc", "riscv32"),
     ("riscv32gc", "riscv32"),
     ("riscv32i", "riscv32"),
     ("riscv32im", "riscv32"),
