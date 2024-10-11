@@ -1996,11 +1996,14 @@ impl Build {
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
-                if self.pic.unwrap_or(
-                    !target.contains("windows")
-                        && !target.contains("-none-")
-                        && !target.ends_with("-none")
-                        && !target.contains("uefi"),
+                if self.pic.unwrap_or_else(
+                    || {
+                        !target.contains("windows")
+                            && !target.contains("-none-")
+                            && !target.ends_with("-none")
+                            && !target.contains("uefi")
+                            && !Build::is_wasi_target(target)
+                    }
                 ) {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
