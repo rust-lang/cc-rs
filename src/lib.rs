@@ -3736,6 +3736,7 @@ impl Build {
         if let Some(val) = self.env_cache.read().unwrap().get(v).cloned() {
             return val;
         }
+        // Prevents spurious rebuilds on Windows #1215
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) && v != "PATH" {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={}", v));
