@@ -2001,7 +2001,10 @@ impl Build {
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
                 if self.pic.unwrap_or(
-                    target.os != "windows" && target.os != "none" && target.env != "uefi" && target.os != "wasi",
+                    target.os != "windows"
+                        && target.os != "none"
+                        && target.env != "uefi"
+                        && target.os != "wasi",
                 ) {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
