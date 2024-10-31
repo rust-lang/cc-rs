@@ -112,7 +112,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
         "aarch64-nintendo-switch-freestanding" => Target {
             full_arch: "aarch64".into(),
             arch: "aarch64".into(),
-            vendor: "unknown".into(),
+            vendor: "nintendo".into(),
             os: "horizon".into(),
             env: "".into(),
             abi: "".into(),
@@ -381,6 +381,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "".into(),
             abi: "".into(),
         },
+        "arm64e-apple-tvos" => Target {
+            full_arch: "arm64e".into(),
+            arch: "aarch64".into(),
+            vendor: "apple".into(),
+            os: "tvos".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
         "arm64ec-pc-windows-msvc" => Target {
             full_arch: "arm64ec".into(),
             arch: "arm64ec".into(),
@@ -611,7 +619,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             vendor: "kmc".into(),
             os: "solid_asp3".into(),
             env: "".into(),
-            abi: "".into(),
+            abi: "eabi".into(),
         },
         "armv7a-kmc-solid_asp3-eabihf" => Target {
             full_arch: "armv7a".into(),
@@ -619,7 +627,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             vendor: "kmc".into(),
             os: "solid_asp3".into(),
             env: "".into(),
-            abi: "".into(),
+            abi: "eabihf".into(),
         },
         "armv7a-none-eabi" => Target {
             full_arch: "armv7a".into(),
@@ -690,7 +698,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             arch: "avr".into(),
             vendor: "unknown".into(),
             os: "none".into(),
-            env: "".into(),
+            env: "gnu".into(),
             abi: "".into(),
         },
         "bpfeb-unknown-none" => Target {
@@ -752,7 +760,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
         "i586-pc-nto-qnx700" => Target {
             full_arch: "i586".into(),
             arch: "x86".into(),
-            vendor: "unknown".into(),
+            vendor: "pc".into(),
             os: "nto".into(),
             env: "nto70".into(),
             abi: "".into(),
@@ -947,6 +955,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             vendor: "unknown".into(),
             os: "linux".into(),
             env: "musl".into(),
+            abi: "".into(),
+        },
+        "loongarch64-unknown-linux-ohos" => Target {
+            full_arch: "loongarch64".into(),
+            arch: "loongarch64".into(),
+            vendor: "unknown".into(),
+            os: "linux".into(),
+            env: "ohos".into(),
             abi: "".into(),
         },
         "loongarch64-unknown-none" => Target {
@@ -1285,6 +1301,38 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "musl".into(),
             abi: "".into(),
         },
+        "riscv32-wrs-vxworks" => Target {
+            full_arch: "riscv32".into(),
+            arch: "riscv32".into(),
+            vendor: "wrs".into(),
+            os: "vxworks".into(),
+            env: "gnu".into(),
+            abi: "".into(),
+        },
+        "riscv32e-unknown-none-elf" => Target {
+            full_arch: "riscv32e".into(),
+            arch: "riscv32".into(),
+            vendor: "unknown".into(),
+            os: "none".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
+        "riscv32em-unknown-none-elf" => Target {
+            full_arch: "riscv32em".into(),
+            arch: "riscv32".into(),
+            vendor: "unknown".into(),
+            os: "none".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
+        "riscv32emc-unknown-none-elf" => Target {
+            full_arch: "riscv32emc".into(),
+            arch: "riscv32".into(),
+            vendor: "unknown".into(),
+            os: "none".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
         "riscv32gc-unknown-linux-gnu" => Target {
             full_arch: "riscv32gc".into(),
             arch: "riscv32".into(),
@@ -1421,6 +1469,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "".into(),
             abi: "".into(),
         },
+        "riscv64-wrs-vxworks" => Target {
+            full_arch: "riscv64".into(),
+            arch: "riscv64".into(),
+            vendor: "wrs".into(),
+            os: "vxworks".into(),
+            env: "gnu".into(),
+            abi: "".into(),
+        },
         "riscv64gc-unknown-freebsd" => Target {
             full_arch: "riscv64gc".into(),
             arch: "riscv64".into(),
@@ -1539,7 +1595,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             vendor: "unknown".into(),
             os: "none".into(),
             env: "".into(),
-            abi: "elf".into(),
+            abi: "".into(),
         },
         "sparc64-unknown-linux-gnu" => Target {
             full_arch: "sparc64".into(),
@@ -1789,6 +1845,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "p2".into(),
             abi: "".into(),
         },
+        "wasm32v1-none" => Target {
+            full_arch: "wasm32v1".into(),
+            arch: "wasm32".into(),
+            vendor: "unknown".into(),
+            os: "none".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
         "wasm64-unknown-unknown" => Target {
             full_arch: "wasm64".into(),
             arch: "wasm64".into(),
@@ -1864,7 +1928,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
         "x86_64-pc-nto-qnx710" => Target {
             full_arch: "x86_64".into(),
             arch: "x86_64".into(),
-            vendor: "unknown".into(),
+            vendor: "pc".into(),
             os: "nto".into(),
             env: "nto71".into(),
             abi: "".into(),
@@ -2061,6 +2125,14 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
             env: "relibc".into(),
             abi: "".into(),
         },
+        "x86_64-unknown-trusty" => Target {
+            full_arch: "x86_64".into(),
+            arch: "x86_64".into(),
+            vendor: "unknown".into(),
+            os: "trusty".into(),
+            env: "".into(),
+            abi: "".into(),
+        },
         "x86_64-unknown-uefi" => Target {
             full_arch: "x86_64".into(),
             arch: "x86_64".into(),
@@ -2120,7 +2192,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
         "xtensa-esp32-none-elf" => Target {
             full_arch: "xtensa".into(),
             arch: "xtensa".into(),
-            vendor: "unknown".into(),
+            vendor: "espressif".into(),
             os: "none".into(),
             env: "".into(),
             abi: "".into(),
@@ -2136,7 +2208,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
         "xtensa-esp32s2-none-elf" => Target {
             full_arch: "xtensa".into(),
             arch: "xtensa".into(),
-            vendor: "unknown".into(),
+            vendor: "espressif".into(),
             os: "none".into(),
             env: "".into(),
             abi: "".into(),
@@ -2152,7 +2224,7 @@ pub(crate) fn get(target_triple: &str) -> Option<Target> {
         "xtensa-esp32s3-none-elf" => Target {
             full_arch: "xtensa".into(),
             arch: "xtensa".into(),
-            vendor: "unknown".into(),
+            vendor: "espressif".into(),
             os: "none".into(),
             env: "".into(),
             abi: "".into(),
