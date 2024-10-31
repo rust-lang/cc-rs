@@ -11,7 +11,7 @@ mod generated;
 /// The parts of `rustc`'s target triple.
 ///
 /// See <https://doc.rust-lang.org/cargo/appendix/glossary.html#target>.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub(crate) struct Target {
     /// The full architecture, including the subarchitecture.
     ///
@@ -118,8 +118,11 @@ impl FromStr for Target {
 
     /// This will fail when using a custom target triple unknown to `rustc`.
     fn from_str(target_triple: &str) -> Result<Self, Error> {
-        if let Some(target) = generated::get(target_triple) {
-            Ok(target)
+        if let Ok(index) =
+            generated::LIST.binary_search_by_key(&target_triple, |(target_triple, _)| target_triple)
+        {
+            let (_, target) = &generated::LIST[index];
+            Ok(target.clone())
         } else {
             Err(Error::new(
                 ErrorKind::InvalidTarget,

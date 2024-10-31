@@ -12,12 +12,9 @@ const PRELUDE: &str = r#"//! This file is generated code. Please edit the genera
 
 fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std::io::Result<()> {
     writeln!(f, "use super::Target;")?;
+    writeln!(f, "use std::borrow::Cow;")?;
     writeln!(f)?;
-    writeln!(
-        f,
-        "pub(crate) fn get(target_triple: &str) -> Option<Target> {{"
-    )?;
-    writeln!(f, "    Some(match target_triple {{")?;
+    writeln!(f, "pub(crate) const LIST: &[(&str, Target)] = &[")?;
 
     for (triple, spec) in &target_specs.0 {
         let full_arch = triple.split_once('-').unwrap().0;
@@ -27,20 +24,20 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
 
-        writeln!(f, "        {triple:?} => Target {{")?;
-        writeln!(f, "            full_arch: {full_arch:?}.into(),")?;
-        writeln!(f, "            arch: {arch:?}.into(),")?;
-        writeln!(f, "            vendor: {vendor:?}.into(),")?;
-        writeln!(f, "            os: {os:?}.into(),")?;
-        writeln!(f, "            env: {env:?}.into(),")?;
-        writeln!(f, "            abi: {abi:?}.into(),")?;
+        writeln!(f, "    (")?;
+        writeln!(f, "        {triple:?},")?;
+        writeln!(f, "        Target {{")?;
+        writeln!(f, "            full_arch: Cow::Borrowed({full_arch:?}),")?;
+        writeln!(f, "            arch: Cow::Borrowed({arch:?}),")?;
+        writeln!(f, "            vendor: Cow::Borrowed({vendor:?}),")?;
+        writeln!(f, "            os: Cow::Borrowed({os:?}),")?;
+        writeln!(f, "            env: Cow::Borrowed({env:?}),")?;
+        writeln!(f, "            abi: Cow::Borrowed({abi:?}),")?;
         writeln!(f, "        }},")?;
+        writeln!(f, "    ),")?;
     }
 
-    writeln!(f, "        _ => return None,")?;
-
-    writeln!(f, "    }})")?;
-    writeln!(f, "}}")?;
+    writeln!(f, "];")?;
 
     Ok(())
 }
