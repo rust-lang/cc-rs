@@ -2001,7 +2001,7 @@ impl Build {
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
                 if self.pic.unwrap_or(
-                    target.os != "windows" && target.os != "none" && target.env != "uefi",
+                    target.os != "windows" && target.os != "none" && target.env != "uefi" && target.os != "wasi",
                 ) {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
@@ -3672,6 +3672,8 @@ impl Build {
         if let Some(val) = self.env_cache.read().unwrap().get(v).cloned() {
             return val;
         }
+        // Excluding `PATH` prevents spurious rebuilds on Windows, see
+        // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) && v != "PATH" {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={}", v));
