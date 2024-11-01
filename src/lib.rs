@@ -261,6 +261,9 @@ mod tempfile;
 mod utilities;
 use utilities::*;
 
+mod flags;
+use flags::*;
+
 #[derive(Debug, Eq, PartialEq, Hash)]
 struct CompilerFlag {
     compiler: Box<Path>,
@@ -328,6 +331,7 @@ pub struct Build {
     emit_rerun_if_env_changed: bool,
     shell_escaped_flags: Option<bool>,
     build_cache: Arc<BuildCache>,
+    inherit_rustflags: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -343,10 +347,12 @@ enum ErrorKind {
     ToolNotFound,
     /// One of the function arguments failed validation.
     InvalidArgument,
-    /// No known macro is defined for the compiler when discovering tool family
+    /// No known macro is defined for the compiler when discovering tool family.
     ToolFamilyMacroNotFound,
-    /// Invalid target
+    /// Invalid target.
     InvalidTarget,
+    /// Invalid rustc flag.
+    InvalidFlag,
     #[cfg(feature = "parallel")]
     /// jobserver helpthread failure
     JobserverHelpThreadError,
@@ -449,6 +455,7 @@ impl Build {
             emit_rerun_if_env_changed: true,
             shell_escaped_flags: None,
             build_cache: Arc::default(),
+            inherit_rustflags: true,
         }
     }
 
@@ -563,7 +570,6 @@ impl Build {
     ///     .flag("unwanted_flag")
     ///     .remove_flag("unwanted_flag");
     /// ```
-
     pub fn remove_flag(&mut self, flag: &str) -> &mut Build {
         self.flags.retain(|other_flag| &**other_flag != flag);
         self
@@ -677,6 +683,7 @@ impl Build {
                 .debug(false)
                 .cpp(self.cpp)
                 .cuda(self.cuda)
+                .inherit_rustflags(false)
                 .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
             if let Some(target) = &self.target {
                 cfg.target(target);
@@ -1333,6 +1340,15 @@ impl Build {
         self
     }
 
+    /// Configure whether cc should automatically inherit compatible flags passed to rustc
+    /// from `CARGO_ENCODED_RUSTFLAGS`.
+    ///
+    /// This option defaults to `true`.
+    pub fn inherit_rustflags(&mut self, inherit_rustflags: bool) -> &mut Build {
+        self.inherit_rustflags = inherit_rustflags;
+        self
+    }
+
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
     where
@@ -1928,6 +1944,11 @@ impl Build {
             cmd.args.push((**flag).into());
         }
 
+        // Add cc flags inherited from matching rustc flags
+        if self.inherit_rustflags {
+            self.add_inherited_rustflags(&mut cmd, &target)?;
+        }
+
         for flag in self.flags_supported.iter() {
             if self
                 .is_flag_supported_inner(flag, &cmd.path, &target)
@@ -2362,6 +2383,23 @@ impl Build {
             }
         }
 
+        Ok(())
+    }
+
+    fn add_inherited_rustflags(&self, cmd: &mut Tool, target: &TargetInfo) -> Result<(), Error> {
+        let env_os = match self.getenv("CARGO_ENCODED_RUSTFLAGS") {
+            Some(env) => env,
+            // No encoded RUSTFLAGS -> nothing to do
+            None => return Ok(()),
+        };
+
+        let Tool {
+            family, path, args, ..
+        } = cmd;
+
+        let env = env_os.to_string_lossy();
+        let codegen_flags = RustcCodegenFlags::parse(&env)?;
+        codegen_flags.cc_flags(self, path, *family, target, args);
         Ok(())
     }
 
