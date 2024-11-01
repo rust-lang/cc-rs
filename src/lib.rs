@@ -219,7 +219,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::env;
 use std::ffi::{OsStr, OsString};
-use std::fmt::{self, Display, Formatter};
+use std::fmt::{self, Display};
 use std::fs;
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
@@ -2075,10 +2075,9 @@ impl Build {
                             .push(format!("--target={}-apple-ios-macabi", arch).into());
                     } else if target.os == "ios" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::Ios, &AppleArchSpec::Simulator(""));
+                        let sdk_details = apple_os_sdk_parts("ios", &AppleArchSpec::Simulator(""));
                         let deployment_target =
-                            self.apple_deployment_version(AppleOs::Ios, None, &sdk_details.sdk);
+                            self.apple_deployment_version(target, &sdk_details.sdk);
                         cmd.args.push(
                             format!("--target={}-apple-ios{}-simulator", arch, deployment_target)
                                 .into(),
@@ -2086,9 +2085,9 @@ impl Build {
                     } else if target.os == "watchos" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
                         let sdk_details =
-                            apple_os_sdk_parts(AppleOs::WatchOs, &AppleArchSpec::Simulator(""));
+                            apple_os_sdk_parts("watchos", &AppleArchSpec::Simulator(""));
                         let deployment_target =
-                            self.apple_deployment_version(AppleOs::WatchOs, None, &sdk_details.sdk);
+                            self.apple_deployment_version(target, &sdk_details.sdk);
                         cmd.args.push(
                             format!(
                                 "--target={}-apple-watchos{}-simulator",
@@ -2098,10 +2097,9 @@ impl Build {
                         );
                     } else if target.os == "tvos" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Simulator(""));
+                        let sdk_details = apple_os_sdk_parts("tvos", &AppleArchSpec::Simulator(""));
                         let deployment_target =
-                            self.apple_deployment_version(AppleOs::TvOs, None, &sdk_details.sdk);
+                            self.apple_deployment_version(target, &sdk_details.sdk);
                         cmd.args.push(
                             format!(
                                 "--target={}-apple-tvos{}-simulator",
@@ -2111,22 +2109,18 @@ impl Build {
                         );
                     } else if target.os == "tvos" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details =
-                            apple_os_sdk_parts(AppleOs::TvOs, &AppleArchSpec::Device(""));
+                        let sdk_details = apple_os_sdk_parts("tvos", &AppleArchSpec::Device(""));
                         let deployment_target =
-                            self.apple_deployment_version(AppleOs::TvOs, None, &sdk_details.sdk);
+                            self.apple_deployment_version(target, &sdk_details.sdk);
                         cmd.args.push(
                             format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
                         );
                     } else if target.os == "visionos" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
                         let sdk_details =
-                            apple_os_sdk_parts(AppleOs::VisionOS, &AppleArchSpec::Simulator(""));
-                        let deployment_target = self.apple_deployment_version(
-                            AppleOs::VisionOS,
-                            None,
-                            &sdk_details.sdk,
-                        );
+                            apple_os_sdk_parts("visionos", &AppleArchSpec::Simulator(""));
+                        let deployment_target =
+                            self.apple_deployment_version(target, &sdk_details.sdk);
                         cmd.args.push(
                             format!(
                                 "--target={}-apple-xros{}-simulator",
@@ -2137,12 +2131,9 @@ impl Build {
                     } else if target.os == "visionos" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
                         let sdk_details =
-                            apple_os_sdk_parts(AppleOs::VisionOS, &AppleArchSpec::Device(""));
-                        let deployment_target = self.apple_deployment_version(
-                            AppleOs::VisionOS,
-                            None,
-                            &sdk_details.sdk,
-                        );
+                            apple_os_sdk_parts("visionos", &AppleArchSpec::Device(""));
+                        let deployment_target =
+                            self.apple_deployment_version(target, &sdk_details.sdk);
                         cmd.args.push(
                             format!("--target={}-apple-xros{}", arch, deployment_target).into(),
                         );
@@ -2629,18 +2620,6 @@ impl Build {
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
-        let os = if target.os == "macos" {
-            AppleOs::MacOs
-        } else if target.os == "watchos" {
-            AppleOs::WatchOs
-        } else if target.os == "tvos" {
-            AppleOs::TvOs
-        } else if target.os == "visionos" {
-            AppleOs::VisionOS
-        } else {
-            AppleOs::Ios
-        };
-
         let arch_str = &*target.full_arch;
 
         let arch = if target.os == "macos" {
@@ -2689,14 +2668,14 @@ impl Build {
                 _ => {
                     return Err(Error::new(
                         ErrorKind::ArchitectureInvalid,
-                        format!("Unknown architecture for {:?} target.", os),
+                        format!("Unknown architecture for {:?} target.", target.os),
                     ));
                 }
             }
         };
 
-        let sdk_details = apple_os_sdk_parts(os, &arch);
-        let min_version = self.apple_deployment_version(os, Some(arch_str), &sdk_details.sdk);
+        let sdk_details = apple_os_sdk_parts(&target.os, &arch);
+        let min_version = self.apple_deployment_version(&target, &sdk_details.sdk);
 
         match arch {
             AppleArchSpec::Device(_) if target.os == "macos" => {
@@ -2708,7 +2687,7 @@ impl Build {
                 cmd.args.push(arch.into());
                 // `-mxros-version-min` does not exist
                 // https://github.com/llvm/llvm-project/issues/88271
-                if os != AppleOs::VisionOS {
+                if target.os != "visionos" {
                     cmd.args.push(
                         format!("-m{}os-version-min={}", sdk_details.sdk_prefix, min_version)
                             .into(),
@@ -2723,7 +2702,7 @@ impl Build {
                     cmd.args.push("-arch".into());
                     cmd.args.push(arch.into());
                 }
-                if os != AppleOs::VisionOS {
+                if target.os != "visionos" {
                     cmd.args.push(
                         format!(
                             "-m{}simulator-version-min={}",
@@ -2740,7 +2719,7 @@ impl Build {
         if cmd.is_xctoolchain_clang() || target.os != "macos" {
             self.cargo_output.print_metadata(&format_args!(
                 "Detecting {:?} SDK path for {}",
-                os, sdk_details.sdk
+                target.os, sdk_details.sdk
             ));
             let sdk_path = self.apple_sdk_root(&sdk_details.sdk)?;
 
@@ -3839,7 +3818,7 @@ impl Build {
         Ok(sdk_path)
     }
 
-    fn apple_deployment_version(&self, os: AppleOs, arch_str: Option<&str>, sdk: &str) -> Arc<str> {
+    fn apple_deployment_version(&self, target: &TargetInfo, sdk: &str) -> Arc<str> {
         if let Some(ret) = self
             .apple_versions_cache
             .read()
@@ -3890,8 +3869,8 @@ impl Build {
                 .split('.')
                 .map(|v| v.parse::<u32>().expect("integer version"));
 
-            match os {
-                AppleOs::MacOs => {
+            match &*target.os {
+                "macos" => {
                     let major = deployment_target.next().unwrap_or(0);
                     let minor = deployment_target.next().unwrap_or(0);
 
@@ -3904,7 +3883,7 @@ impl Build {
                         return None;
                     }
                 }
-                AppleOs::Ios => {
+                "ios" => {
                     let major = deployment_target.next().unwrap_or(0);
 
                     // If below 10.7, we ignore it and let the SDK's target definitions handle it.
@@ -3935,12 +3914,12 @@ impl Build {
         //
         // The ordering of env -> XCode SDK -> old rustc defaults is intentional for performance when using
         // an explicit target.
-        let version: Arc<str> = match os {
-            AppleOs::MacOs => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
+        let version: Arc<str> = match &*target.os {
+            "macos" => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
                 .and_then(maybe_cpp_version_baseline)
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| {
-                    if arch_str == Some("aarch64") {
+                    if target.arch == "aarch64" {
                         "11.0".into()
                     } else {
                         let default: Arc<str> = Arc::from("10.7");
@@ -3948,22 +3927,24 @@ impl Build {
                     }
                 }),
 
-            AppleOs::Ios => deployment_from_env("IPHONEOS_DEPLOYMENT_TARGET")
+            "ios" => deployment_from_env("IPHONEOS_DEPLOYMENT_TARGET")
                 .and_then(maybe_cpp_version_baseline)
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "7.0".into()),
 
-            AppleOs::WatchOs => deployment_from_env("WATCHOS_DEPLOYMENT_TARGET")
+            "watchos" => deployment_from_env("WATCHOS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "5.0".into()),
 
-            AppleOs::TvOs => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
+            "tvos" => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "9.0".into()),
 
-            AppleOs::VisionOS => deployment_from_env("XROS_DEPLOYMENT_TARGET")
+            "visionos" => deployment_from_env("XROS_DEPLOYMENT_TARGET")
                 .or_else(default_deployment_from_sdk)
                 .unwrap_or_else(|| "1.0".into()),
+
+            os => unreachable!("unknown Apple OS: {}", os),
         };
 
         self.apple_versions_cache
@@ -4069,43 +4050,23 @@ fn fail(s: &str) -> ! {
     std::process::exit(1);
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum AppleOs {
-    MacOs,
-    Ios,
-    WatchOs,
-    TvOs,
-    VisionOS,
-}
-
-impl std::fmt::Debug for AppleOs {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            AppleOs::MacOs => f.write_str("macOS"),
-            AppleOs::Ios => f.write_str("iOS"),
-            AppleOs::WatchOs => f.write_str("WatchOS"),
-            AppleOs::TvOs => f.write_str("AppleTVOS"),
-            AppleOs::VisionOS => f.write_str("visionOS"),
-        }
-    }
-}
-
 struct AppleSdkTargetParts {
     sdk_prefix: &'static str,
     sim_prefix: &'static str,
     sdk: Cow<'static, str>,
 }
 
-fn apple_os_sdk_parts(os: AppleOs, arch: &AppleArchSpec) -> AppleSdkTargetParts {
+fn apple_os_sdk_parts(os: &str, arch: &AppleArchSpec) -> AppleSdkTargetParts {
     let (sdk_prefix, sim_prefix) = match os {
-        AppleOs::MacOs => ("macosx", ""),
-        AppleOs::Ios => ("iphone", "ios-"),
-        AppleOs::WatchOs => ("watch", "watch"),
-        AppleOs::TvOs => ("appletv", "appletv"),
-        AppleOs::VisionOS => ("xr", "xr"),
+        "macos" => ("macosx", ""),
+        "ios" => ("iphone", "ios-"),
+        "watchos" => ("watch", "watch"),
+        "tvos" => ("appletv", "appletv"),
+        "visionos" => ("xr", "xr"),
+        os => unreachable!("unknown Apple OS {}", os),
     };
     let sdk = match arch {
-        AppleArchSpec::Device(_) if os == AppleOs::MacOs => Cow::Borrowed("macosx"),
+        AppleArchSpec::Device(_) if os == "macos" => Cow::Borrowed("macosx"),
         AppleArchSpec::Device(_) => format!("{}os", sdk_prefix).into(),
         AppleArchSpec::Simulator(_) => format!("{}simulator", sdk_prefix).into(),
         AppleArchSpec::Catalyst(_) => Cow::Borrowed("macosx"),
