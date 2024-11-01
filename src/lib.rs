@@ -1974,14 +1974,6 @@ impl Build {
                     cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
                 }
 
-                if cmd.is_like_clang() && target.os == "windows" {
-                    // Disambiguate mingw and msvc on Windows. Problem is that
-                    // depending on the origin clang can default to a mismatchig
-                    // run-time.
-                    let llvm_target = target.versioned_llvm_target(None);
-                    cmd.push_cc_arg(format!("--target={llvm_target}").into());
-                }
-
                 if cmd.is_like_clang() && target.os == "android" {
                     // For compatibility with code that doesn't use pre-defined `__ANDROID__` macro.
                     // If compiler used via ndk-build or cmake (officially supported build methods)
@@ -2097,6 +2089,8 @@ impl Build {
                         target.versioned_llvm_target(None)
                     };
 
+                    // Pass `--target` with the LLVM target to properly
+                    // configure Clang even when cross-compiling.
                     cmd.args.push(format!("--target={llvm_target}").into());
                 }
             }
