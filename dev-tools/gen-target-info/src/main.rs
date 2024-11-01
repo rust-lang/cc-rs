@@ -30,20 +30,11 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         // FIXME(madsmtm): Should become unnecessary after
         // https://github.com/rust-lang/rust/pull/131037
         let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
-            let mut components = spec.llvm_target.split("-");
-            let arch = components.next().expect("LLVM target should have arch");
-            let vendor = components.next().expect("LLVM target should have vendor");
-            let os = components.next().expect("LLVM target should have os");
-            let environment = components.next();
-            assert_eq!(components.next(), None, "too many LLVM target components");
+            let mut components = spec.llvm_target.split("-").collect::<Vec<_>>();
 
-            let os = os.trim_end_matches(|c: char| c.is_numeric() || c == '.');
+            components[2] = components[2].trim_end_matches(|c: char| c.is_numeric() || c == '.');
 
-            if let Some(env) = environment {
-                format!("{arch}-{vendor}-{os}-{env}")
-            } else {
-                format!("{arch}-{vendor}-{os}")
-            }
+            components.join("-")
         } else {
             spec.llvm_target.clone()
         };
