@@ -59,8 +59,6 @@ pub(crate) fn guess_llvm_target_triple(
     };
     match (env, abi) {
         ("", "") => format!("{arch}-{vendor}-{os}"),
-        (env, "") => format!("{arch}-{vendor}-{os}-{env}"),
-        ("", abi) => format!("{arch}-{vendor}-{os}-{abi}"),
         (env, abi) => format!("{arch}-{vendor}-{os}-{env}{abi}"),
     }
 }
