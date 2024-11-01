@@ -2075,19 +2075,14 @@ impl Build {
                             .push(format!("--target={}-apple-ios-macabi", arch).into());
                     } else if target.os == "ios" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details = apple_os_sdk_parts("ios", &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(target, &sdk_details.sdk);
+                        let deployment_target = self.apple_deployment_target(target);
                         cmd.args.push(
                             format!("--target={}-apple-ios{}-simulator", arch, deployment_target)
                                 .into(),
                         );
                     } else if target.os == "watchos" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details =
-                            apple_os_sdk_parts("watchos", &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(target, &sdk_details.sdk);
+                        let deployment_target = self.apple_deployment_target(target);
                         cmd.args.push(
                             format!(
                                 "--target={}-apple-watchos{}-simulator",
@@ -2097,9 +2092,7 @@ impl Build {
                         );
                     } else if target.os == "tvos" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details = apple_os_sdk_parts("tvos", &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(target, &sdk_details.sdk);
+                        let deployment_target = self.apple_deployment_target(target);
                         cmd.args.push(
                             format!(
                                 "--target={}-apple-tvos{}-simulator",
@@ -2109,18 +2102,13 @@ impl Build {
                         );
                     } else if target.os == "tvos" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details = apple_os_sdk_parts("tvos", &AppleArchSpec::Device(""));
-                        let deployment_target =
-                            self.apple_deployment_version(target, &sdk_details.sdk);
+                        let deployment_target = self.apple_deployment_target(target);
                         cmd.args.push(
                             format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
                         );
                     } else if target.os == "visionos" && target.abi == "sim" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details =
-                            apple_os_sdk_parts("visionos", &AppleArchSpec::Simulator(""));
-                        let deployment_target =
-                            self.apple_deployment_version(target, &sdk_details.sdk);
+                        let deployment_target = self.apple_deployment_target(target);
                         cmd.args.push(
                             format!(
                                 "--target={}-apple-xros{}-simulator",
@@ -2130,10 +2118,7 @@ impl Build {
                         );
                     } else if target.os == "visionos" {
                         let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let sdk_details =
-                            apple_os_sdk_parts("visionos", &AppleArchSpec::Device(""));
-                        let deployment_target =
-                            self.apple_deployment_version(target, &sdk_details.sdk);
+                        let deployment_target = self.apple_deployment_target(target);
                         cmd.args.push(
                             format!("--target={}-apple-xros{}", arch, deployment_target).into(),
                         );
@@ -2675,7 +2660,7 @@ impl Build {
         };
 
         let sdk_details = apple_os_sdk_parts(&target.os, &arch);
-        let min_version = self.apple_deployment_version(&target, &sdk_details.sdk);
+        let min_version = self.apple_deployment_target(&target);
 
         match arch {
             AppleArchSpec::Device(_) if target.os == "macos" => {
@@ -3818,7 +3803,8 @@ impl Build {
         Ok(sdk_path)
     }
 
-    fn apple_deployment_version(&self, target: &TargetInfo, sdk: &str) -> Arc<str> {
+    fn apple_deployment_target(&self, target: &TargetInfo) -> Arc<str> {
+        let sdk = target.apple_sdk_name();
         if let Some(ret) = self
             .apple_versions_cache
             .read()

@@ -6,6 +6,7 @@ use std::{borrow::Cow, env, str::FromStr};
 
 use crate::{Error, ErrorKind};
 
+mod apple;
 mod generated;
 mod llvm;
 
