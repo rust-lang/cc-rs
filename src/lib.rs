@@ -2083,7 +2083,7 @@ impl Build {
 
                     // Add version information to the target.
                     let llvm_target = if target.vendor == "apple" {
-                        let deployment_target = self.apple_deployment_target(&target);
+                        let deployment_target = self.apple_deployment_target(target);
                         target.versioned_llvm_target(Some(&deployment_target))
                     } else {
                         target.versioned_llvm_target(None)
