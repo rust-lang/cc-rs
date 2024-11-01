@@ -12,7 +12,7 @@ mod generated;
 ///
 /// See <https://doc.rust-lang.org/cargo/appendix/glossary.html#target>.
 #[derive(Debug, PartialEq, Clone)]
-pub(crate) struct Target {
+pub(crate) struct TargetInfo {
     /// The full architecture, including the subarchitecture.
     ///
     /// This differs from `cfg!(target_arch)`, which only specifies the
@@ -40,7 +40,7 @@ pub(crate) struct Target {
     pub abi: Cow<'static, str>,
 }
 
-impl Target {
+impl TargetInfo {
     pub fn from_cargo_environment_variables() -> Result<Self, Error> {
         // `TARGET` must be present.
         //
@@ -90,7 +90,7 @@ impl Target {
         // back back to data from the known set of target triples instead.
         //
         // See discussion in #1225 for further details.
-        let fallback_target = Target::from_str(&target_triple).ok();
+        let fallback_target = TargetInfo::from_str(&target_triple).ok();
         let ft = fallback_target.as_ref();
         let arch = cargo_env("CARGO_CFG_TARGET_ARCH", ft.map(|t| t.arch.clone()))?;
         let vendor = cargo_env("CARGO_CFG_TARGET_VENDOR", ft.map(|t| t.vendor.clone()))?;
@@ -113,7 +113,7 @@ impl Target {
     }
 }
 
-impl FromStr for Target {
+impl FromStr for TargetInfo {
     type Err = Error;
 
     /// This will fail when using a custom target triple unknown to `rustc`.
@@ -121,8 +121,8 @@ impl FromStr for Target {
         if let Ok(index) =
             generated::LIST.binary_search_by_key(&target_triple, |(target_triple, _)| target_triple)
         {
-            let (_, target) = &generated::LIST[index];
-            Ok(target.clone())
+            let (_, info) = &generated::LIST[index];
+            Ok(info.clone())
         } else {
             Err(Error::new(
                 ErrorKind::InvalidTarget,
@@ -136,7 +136,7 @@ impl FromStr for Target {
 mod tests {
     use std::str::FromStr;
 
-    use super::Target;
+    use super::TargetInfo;
 
     // Test tier 1 targets
     #[test]
@@ -155,7 +155,7 @@ mod tests {
 
         for target in targets {
             // Check that it parses
-            let _ = Target::from_str(target).unwrap();
+            let _ = TargetInfo::from_str(target).unwrap();
         }
     }
 
@@ -177,7 +177,7 @@ mod tests {
 
         for target in targets {
             // Check that it does not parse
-            let _ = Target::from_str(target).unwrap_err();
+            let _ = TargetInfo::from_str(target).unwrap_err();
         }
     }
 }

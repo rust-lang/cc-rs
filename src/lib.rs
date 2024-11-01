@@ -234,7 +234,7 @@ use shlex::Shlex;
 mod parallel;
 mod target;
 mod windows;
-use target::Target;
+use self::target::TargetInfo;
 // Regardless of whether this should be in this crate's public API,
 // it has been since 2015, so don't break it.
 pub use windows::find_tools as windows_registry;
@@ -634,7 +634,7 @@ impl Build {
         &self,
         flag: &OsStr,
         compiler_path: &Path,
-        target: &Target,
+        target: &TargetInfo,
     ) -> Result<bool, Error> {
         let compiler_flag = CompilerFlag {
             compiler: compiler_path.into(),
@@ -1932,7 +1932,7 @@ impl Build {
     fn add_default_flags(
         &self,
         cmd: &mut Tool,
-        target: &Target,
+        target: &TargetInfo,
         opt_level: &str,
     ) -> Result<(), Error> {
         let raw_target = self.get_raw_target()?;
@@ -3579,10 +3579,10 @@ impl Build {
             .or_else(|| prefixes.first().copied())
     }
 
-    fn get_target(&self) -> Result<Target, Error> {
+    fn get_target(&self) -> Result<TargetInfo, Error> {
         match &self.target {
             Some(t) => t.parse(),
-            None => Target::from_cargo_environment_variables(),
+            None => TargetInfo::from_cargo_environment_variables(),
         }
     }
 
@@ -4040,12 +4040,12 @@ impl Build {
         None
     }
 
-    fn windows_registry_find(&self, target: &Target, tool: &str) -> Option<Command> {
+    fn windows_registry_find(&self, target: &TargetInfo, tool: &str) -> Option<Command> {
         self.windows_registry_find_tool(target, tool)
             .map(|c| c.to_command())
     }
 
-    fn windows_registry_find_tool(&self, target: &Target, tool: &str) -> Option<Tool> {
+    fn windows_registry_find_tool(&self, target: &TargetInfo, tool: &str) -> Option<Tool> {
         struct BuildEnvGetter<'s>(&'s Build);
 
         impl windows_registry::EnvGetter for BuildEnvGetter<'_> {
@@ -4204,7 +4204,7 @@ fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> Stri
 }
 
 // Rust and clang/cc don't agree on how to name the target.
-fn map_darwin_target_from_rust_to_compiler_architecture(target: &Target) -> &str {
+fn map_darwin_target_from_rust_to_compiler_architecture(target: &TargetInfo) -> &str {
     match &*target.full_arch {
         "aarch64" => "arm64",
         "arm64_32" => "arm64_32",

@@ -11,10 +11,10 @@ const PRELUDE: &str = r#"//! This file is generated code. Please edit the genera
 "#;
 
 fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std::io::Result<()> {
-    writeln!(f, "use super::Target;")?;
+    writeln!(f, "use super::TargetInfo;")?;
     writeln!(f, "use std::borrow::Cow;")?;
     writeln!(f)?;
-    writeln!(f, "pub(crate) const LIST: &[(&str, Target)] = &[")?;
+    writeln!(f, "pub(crate) const LIST: &[(&str, TargetInfo)] = &[")?;
 
     for (triple, spec) in &target_specs.0 {
         let full_arch = triple.split_once('-').unwrap().0;
@@ -26,7 +26,7 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
 
         writeln!(f, "    (")?;
         writeln!(f, "        {triple:?},")?;
-        writeln!(f, "        Target {{")?;
+        writeln!(f, "        TargetInfo {{")?;
         writeln!(f, "            full_arch: Cow::Borrowed({full_arch:?}),")?;
         writeln!(f, "            arch: Cow::Borrowed({arch:?}),")?;
         writeln!(f, "            vendor: Cow::Borrowed({vendor:?}),")?;

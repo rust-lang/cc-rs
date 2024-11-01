@@ -24,7 +24,7 @@ use std::{
 };
 
 use crate::ToolFamily;
-use crate::{target::Target, Tool};
+use crate::{target::TargetInfo, Tool};
 
 const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
 
@@ -111,7 +111,7 @@ pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
 }
 
 pub(crate) fn find_tool_inner(
-    target: &Target,
+    target: &TargetInfo,
     tool: &str,
     env_getter: &dyn EnvGetter,
 ) -> Option<Tool> {

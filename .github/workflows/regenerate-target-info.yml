@@ -52,4 +52,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr create --base main --title "Update src/target_info.rs" --body "Automatically regenerated in CI"
+          gh pr create --base main --title "Update src/target/generated.rs" --body "Automatically regenerated in CI"
