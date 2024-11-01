@@ -24,6 +24,30 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
 
+        // Remove deployment target information from LLVM target triples (we
+        // will add this in another part of CC).
+        //
+        // FIXME(madsmtm): Should become unnecessary after
+        // https://github.com/rust-lang/rust/pull/131037
+        let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
+            let mut components = spec.llvm_target.split("-");
+            let arch = components.next().expect("LLVM target should have arch");
+            let vendor = components.next().expect("LLVM target should have vendor");
+            let os = components.next().expect("LLVM target should have os");
+            let environment = components.next();
+            assert_eq!(components.next(), None, "too many LLVM target components");
+
+            let os = os.trim_end_matches(|c: char| c.is_numeric() || c == '.');
+
+            if let Some(env) = environment {
+                format!("{arch}-{vendor}-{os}-{env}")
+            } else {
+                format!("{arch}-{vendor}-{os}")
+            }
+        } else {
+            spec.llvm_target.clone()
+        };
+
         writeln!(f, "    (")?;
         writeln!(f, "        {triple:?},")?;
         writeln!(f, "        TargetInfo {{")?;
@@ -33,6 +57,10 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         writeln!(f, "            os: Cow::Borrowed({os:?}),")?;
         writeln!(f, "            env: Cow::Borrowed({env:?}),")?;
         writeln!(f, "            abi: Cow::Borrowed({abi:?}),")?;
+        writeln!(
+            f,
+            "            unversioned_llvm_target: Cow::Borrowed({unversioned_llvm_target:?}),"
+        )?;
         writeln!(f, "        }},")?;
         writeln!(f, "    ),")?;
     }

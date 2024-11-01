@@ -7,8 +7,9 @@ use std::{borrow::Cow, env, str::FromStr};
 use crate::{Error, ErrorKind};
 
 mod generated;
+mod llvm;
 
-/// The parts of `rustc`'s target triple.
+/// Information specific to a `rustc` target.
 ///
 /// See <https://doc.rust-lang.org/cargo/appendix/glossary.html#target>.
 #[derive(Debug, PartialEq, Clone)]
@@ -38,6 +39,8 @@ pub(crate) struct TargetInfo {
     ///
     /// This is the same as the value of `cfg!(target_abi)`.
     pub abi: Cow<'static, str>,
+    /// The unversioned LLVM/Clang target triple.
+    unversioned_llvm_target: Cow<'static, str>,
 }
 
 impl TargetInfo {
@@ -102,6 +105,12 @@ impl TargetInfo {
         let abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi.clone()))
             .unwrap_or(Cow::Borrowed(""));
 
+        // Prefer `rustc`'s LLVM target triple information.
+        let unversioned_llvm_target = match fallback_target {
+            Some(ft) => ft.unversioned_llvm_target,
+            None => llvm::guess_llvm_target_triple(full_arch, &vendor, &os, &env, &abi).into(),
+        };
+
         Ok(Self {
             full_arch: full_arch.to_string().into(),
             arch,
@@ -109,6 +118,7 @@ impl TargetInfo {
             os,
             env,
             abi,
+            unversioned_llvm_target,
         })
     }
 }

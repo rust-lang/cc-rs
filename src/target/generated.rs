@@ -14,6 +14,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-macosx"),
         },
     ),
     (
@@ -25,6 +26,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-ios"),
         },
     ),
     (
@@ -36,6 +38,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("macabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-ios-macabi"),
         },
     ),
     (
@@ -47,6 +50,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-ios-simulator"),
         },
     ),
     (
@@ -58,6 +62,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-tvos"),
         },
     ),
     (
@@ -69,6 +74,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-tvos-simulator"),
         },
     ),
     (
@@ -80,6 +86,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("visionos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-xros"),
         },
     ),
     (
@@ -91,6 +98,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("visionos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-xros-simulator"),
         },
     ),
     (
@@ -102,6 +110,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-watchos"),
         },
     ),
     (
@@ -113,6 +122,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-watchos-simulator"),
         },
     ),
     (
@@ -124,6 +134,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-fuchsia"),
         },
     ),
     (
@@ -135,6 +146,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("solid_asp3"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
@@ -146,6 +158,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-linux-android"),
         },
     ),
     (
@@ -157,6 +170,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("horizon"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
@@ -168,6 +182,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("llvm"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-pc-windows-gnu"),
         },
     ),
     (
@@ -179,6 +194,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-pc-windows-msvc"),
         },
     ),
     (
@@ -190,6 +206,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-freebsd"),
         },
     ),
     (
@@ -201,6 +218,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-fuchsia"),
         },
     ),
     (
@@ -212,6 +230,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("hermit"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-hermit"),
         },
     ),
     (
@@ -223,6 +242,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("illumos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-solaris2.11"),
         },
     ),
     (
@@ -234,6 +254,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-gnu"),
         },
     ),
     (
@@ -245,6 +266,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("ilp32"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-gnu_ilp32"),
         },
     ),
     (
@@ -256,6 +278,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-musl"),
         },
     ),
     (
@@ -267,6 +290,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-ohos"),
         },
     ),
     (
@@ -278,6 +302,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-netbsd"),
         },
     ),
     (
@@ -289,6 +314,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
@@ -300,6 +326,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("softfloat"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
@@ -311,6 +338,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto70"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-unknown"),
         },
     ),
     (
@@ -322,6 +350,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto71"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-unknown"),
         },
     ),
     (
@@ -333,6 +362,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-openbsd"),
         },
     ),
     (
@@ -344,6 +374,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("redox"),
             env: Cow::Borrowed("relibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-redox"),
         },
     ),
     (
@@ -355,6 +386,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("teeos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
@@ -366,6 +398,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("trusty"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-unknown-musl"),
         },
     ),
     (
@@ -377,6 +410,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("uefi"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-windows"),
         },
     ),
     (
@@ -388,6 +422,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-pc-windows-msvc"),
         },
     ),
     (
@@ -399,6 +434,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-gnu"),
         },
     ),
     (
@@ -410,6 +446,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64_be-unknown-linux-gnu"),
         },
     ),
     (
@@ -421,6 +458,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("ilp32"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64_be-unknown-linux-gnu_ilp32"),
         },
     ),
     (
@@ -432,6 +470,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64_be-unknown-netbsd"),
         },
     ),
     (
@@ -443,6 +482,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm-linux-androideabi"),
         },
     ),
     (
@@ -454,6 +494,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -465,6 +506,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -476,6 +518,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -487,6 +530,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -498,6 +542,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64_32-apple-watchos"),
         },
     ),
     (
@@ -509,6 +554,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64e-apple-macosx"),
         },
     ),
     (
@@ -520,6 +566,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64e-apple-ios"),
         },
     ),
     (
@@ -531,6 +578,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64e-apple-tvos"),
         },
     ),
     (
@@ -542,6 +590,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64ec-pc-windows-msvc"),
         },
     ),
     (
@@ -553,6 +602,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armeb-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -564,6 +614,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armebv7r-none-eabi"),
         },
     ),
     (
@@ -575,6 +626,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armebv7r-none-eabihf"),
         },
     ),
     (
@@ -586,6 +638,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv4t-none-eabi"),
         },
     ),
     (
@@ -597,6 +650,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv4t-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -608,6 +662,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-none-eabi"),
         },
     ),
     (
@@ -619,6 +674,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -630,6 +686,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -641,6 +698,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-unknown-linux-uclibcgnueabi"),
         },
     ),
     (
@@ -652,6 +710,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv6-unknown-freebsd-gnueabihf"),
         },
     ),
     (
@@ -663,6 +722,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv6-unknown-netbsdelf-eabihf"),
         },
     ),
     (
@@ -674,6 +734,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("horizon"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv6k-none-eabihf"),
         },
     ),
     (
@@ -685,6 +746,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("armv7-apple-ios"),
         },
     ),
     (
@@ -696,6 +758,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-none-linux-android"),
         },
     ),
     (
@@ -707,6 +770,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("rtems"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-none-eabihf"),
         },
     ),
     (
@@ -718,6 +782,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vita"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7a-vita-eabihf"),
         },
     ),
     (
@@ -729,6 +794,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-freebsd-gnueabihf"),
         },
     ),
     (
@@ -740,6 +806,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -751,6 +818,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -762,6 +830,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -773,6 +842,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -784,6 +854,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-ohos"),
         },
     ),
     (
@@ -795,6 +866,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabi"),
         },
     ),
     (
@@ -806,6 +878,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -817,6 +890,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-netbsdelf-eabihf"),
         },
     ),
     (
@@ -828,6 +902,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("trusty"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-unknown-gnueabi"),
         },
     ),
     (
@@ -839,6 +914,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -850,6 +926,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("solid_asp3"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabi"),
         },
     ),
     (
@@ -861,6 +938,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("solid_asp3"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabihf"),
         },
     ),
     (
@@ -872,6 +950,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabi"),
         },
     ),
     (
@@ -883,6 +962,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabihf"),
         },
     ),
     (
@@ -894,6 +974,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("armv7k-apple-watchos"),
         },
     ),
     (
@@ -905,6 +986,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7r-none-eabi"),
         },
     ),
     (
@@ -916,6 +998,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7r-none-eabihf"),
         },
     ),
     (
@@ -927,6 +1010,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("armv7s-apple-ios"),
         },
     ),
     (
@@ -938,6 +1022,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv8r-none-eabihf"),
         },
     ),
     (
@@ -949,6 +1034,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("emscripten"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-emscripten"),
         },
     ),
     (
@@ -960,6 +1046,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("avr-unknown-unknown"),
         },
     ),
     (
@@ -971,6 +1058,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("bpfeb"),
         },
     ),
     (
@@ -982,6 +1070,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("bpfel"),
         },
     ),
     (
@@ -993,6 +1082,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abiv2"),
+            unversioned_llvm_target: Cow::Borrowed("csky-unknown-linux-gnuabiv2"),
         },
     ),
     (
@@ -1004,6 +1094,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abiv2hf"),
+            unversioned_llvm_target: Cow::Borrowed("csky-unknown-linux-gnuabiv2"),
         },
     ),
     (
@@ -1015,6 +1106,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("hexagon-unknown-linux-musl"),
         },
     ),
     (
@@ -1026,6 +1118,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("hexagon-unknown-none-elf"),
         },
     ),
     (
@@ -1037,6 +1130,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("i386-apple-ios-simulator"),
         },
     ),
     (
@@ -1048,6 +1142,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto70"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-pc-unknown"),
         },
     ),
     (
@@ -1059,6 +1154,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-pc-windows-msvc"),
         },
     ),
     (
@@ -1070,6 +1166,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-unknown-linux-gnu"),
         },
     ),
     (
@@ -1081,6 +1178,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-unknown-linux-musl"),
         },
     ),
     (
@@ -1092,6 +1190,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-unknown-netbsdelf"),
         },
     ),
     (
@@ -1103,6 +1202,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-apple-macosx"),
         },
     ),
     (
@@ -1114,6 +1214,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-linux-android"),
         },
     ),
     (
@@ -1125,6 +1226,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-gnu"),
         },
     ),
     (
@@ -1136,6 +1238,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("llvm"),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-gnu"),
         },
     ),
     (
@@ -1147,6 +1250,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-msvc"),
         },
     ),
     (
@@ -1158,6 +1262,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-freebsd"),
         },
     ),
     (
@@ -1169,6 +1274,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("haiku"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-haiku"),
         },
     ),
     (
@@ -1180,6 +1286,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("hurd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-hurd-gnu"),
         },
     ),
     (
@@ -1191,6 +1298,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-linux-gnu"),
         },
     ),
     (
@@ -1202,6 +1310,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-linux-musl"),
         },
     ),
     (
@@ -1213,6 +1322,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-netbsdelf"),
         },
     ),
     (
@@ -1224,6 +1334,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-openbsd"),
         },
     ),
     (
@@ -1235,6 +1346,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("redox"),
             env: Cow::Borrowed("relibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-redox"),
         },
     ),
     (
@@ -1246,6 +1358,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("uefi"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-windows-gnu"),
         },
     ),
     (
@@ -1257,6 +1370,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-gnu"),
         },
     ),
     (
@@ -1268,6 +1382,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-msvc"),
         },
     ),
     (
@@ -1279,6 +1394,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-msvc"),
         },
     ),
     (
@@ -1290,6 +1406,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-linux-gnu"),
         },
     ),
     (
@@ -1301,6 +1418,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-linux-gnu"),
         },
     ),
     (
@@ -1312,6 +1430,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-linux-musl"),
         },
     ),
     (
@@ -1323,6 +1442,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-linux-ohos"),
         },
     ),
     (
@@ -1334,6 +1454,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-none"),
         },
     ),
     (
@@ -1345,6 +1466,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("softfloat"),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-none"),
         },
     ),
     (
@@ -1356,6 +1478,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("m68k-unknown-linux-gnu"),
         },
     ),
     (
@@ -1367,6 +1490,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mips-unknown-linux-gnu"),
         },
     ),
     (
@@ -1378,6 +1502,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mips-unknown-linux-musl"),
         },
     ),
     (
@@ -1389,6 +1514,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mips-unknown-linux-uclibc"),
         },
     ),
     (
@@ -1400,6 +1526,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64-unknown-linux-musl"),
         },
     ),
     (
@@ -1411,6 +1538,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64-unknown-linux-gnuabi64"),
         },
     ),
     (
@@ -1422,6 +1550,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64-unknown-linux-musl"),
         },
     ),
     (
@@ -1433,6 +1562,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64el-unknown-linux-gnuabi64"),
         },
     ),
     (
@@ -1444,6 +1574,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64el-unknown-linux-musl"),
         },
     ),
     (
@@ -1455,6 +1586,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("psp"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-sony-psp"),
         },
     ),
     (
@@ -1466,6 +1598,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed("psx"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-sony-psx"),
         },
     ),
     (
@@ -1477,6 +1610,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-linux-gnu"),
         },
     ),
     (
@@ -1488,6 +1622,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-linux-musl"),
         },
     ),
     (
@@ -1499,6 +1634,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-linux-uclibc"),
         },
     ),
     (
@@ -1510,6 +1646,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-netbsd"),
         },
     ),
     (
@@ -1521,6 +1658,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-none"),
         },
     ),
     (
@@ -1532,6 +1670,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa32r6-unknown-linux-gnu"),
         },
     ),
     (
@@ -1543,6 +1682,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa32r6el-unknown-linux-gnu"),
         },
     ),
     (
@@ -1554,6 +1694,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa64r6-unknown-linux-gnuabi64"),
         },
     ),
     (
@@ -1565,6 +1706,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa64r6el-unknown-linux-gnuabi64"),
         },
     ),
     (
@@ -1576,6 +1718,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("msp430-none-elf"),
         },
     ),
     (
@@ -1587,6 +1730,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("cuda"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("nvptx64-nvidia-cuda"),
         },
     ),
     (
@@ -1598,6 +1742,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-freebsd13.0"),
         },
     ),
     (
@@ -1609,6 +1754,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnu"),
         },
     ),
     (
@@ -1620,6 +1766,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("spe"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnuspe"),
         },
     ),
     (
@@ -1631,6 +1778,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-musl"),
         },
     ),
     (
@@ -1642,6 +1790,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("spe"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-muslspe"),
         },
     ),
     (
@@ -1653,6 +1802,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-netbsd"),
         },
     ),
     (
@@ -1664,6 +1814,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-openbsd"),
         },
     ),
     (
@@ -1675,6 +1826,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnu"),
         },
     ),
     (
@@ -1686,6 +1838,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("spe"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnuspe"),
         },
     ),
     (
@@ -1697,6 +1850,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("aix"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("vec-extabi"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-ibm-aix"),
         },
     ),
     (
@@ -1708,6 +1862,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-freebsd"),
         },
     ),
     (
@@ -1719,6 +1874,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-linux-gnu"),
         },
     ),
     (
@@ -1730,6 +1886,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-linux-musl"),
         },
     ),
     (
@@ -1741,6 +1898,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-openbsd"),
         },
     ),
     (
@@ -1752,6 +1910,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-linux-gnu"),
         },
     ),
     (
@@ -1763,6 +1922,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64le-unknown-freebsd"),
         },
     ),
     (
@@ -1774,6 +1934,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64le-unknown-linux-gnu"),
         },
     ),
     (
@@ -1785,6 +1946,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64le-unknown-linux-musl"),
         },
     ),
     (
@@ -1796,6 +1958,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1807,6 +1970,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1818,6 +1982,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1829,6 +1994,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1840,6 +2006,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32-unknown-linux-gnu"),
         },
     ),
     (
@@ -1851,6 +2018,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32-unknown-linux-musl"),
         },
     ),
     (
@@ -1862,6 +2030,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1873,6 +2042,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("zkvm"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1884,6 +2054,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1895,6 +2066,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1906,6 +2078,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1917,6 +2090,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1928,6 +2102,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1939,6 +2114,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("xous"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1950,6 +2126,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1961,6 +2138,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1972,6 +2150,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1983,6 +2162,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -1994,6 +2174,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -2005,6 +2186,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
@@ -2016,6 +2198,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-linux-android"),
         },
     ),
     (
@@ -2027,6 +2210,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
@@ -2038,6 +2222,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-freebsd"),
         },
     ),
     (
@@ -2049,6 +2234,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-fuchsia"),
         },
     ),
     (
@@ -2060,6 +2246,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("hermit"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-hermit"),
         },
     ),
     (
@@ -2071,6 +2258,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-linux-gnu"),
         },
     ),
     (
@@ -2082,6 +2270,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-linux-musl"),
         },
     ),
     (
@@ -2093,6 +2282,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-netbsd"),
         },
     ),
     (
@@ -2104,6 +2294,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
@@ -2115,6 +2306,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
@@ -2126,6 +2318,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-openbsd"),
         },
     ),
     (
@@ -2137,6 +2330,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
@@ -2148,6 +2342,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
@@ -2159,6 +2354,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("s390x-unknown-linux-gnu"),
         },
     ),
     (
@@ -2170,6 +2366,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("s390x-unknown-linux-musl"),
         },
     ),
     (
@@ -2181,6 +2378,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc-unknown-linux-gnu"),
         },
     ),
     (
@@ -2192,6 +2390,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc-unknown-none-elf"),
         },
     ),
     (
@@ -2203,6 +2402,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc64-unknown-linux-gnu"),
         },
     ),
     (
@@ -2214,6 +2414,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc64-unknown-netbsd"),
         },
     ),
     (
@@ -2225,6 +2426,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc64-unknown-openbsd"),
         },
     ),
     (
@@ -2236,6 +2438,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("solaris"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparcv9-sun-solaris"),
         },
     ),
     (
@@ -2247,6 +2450,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv4t-none-eabi"),
         },
     ),
     (
@@ -2258,6 +2462,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv5te-none-eabi"),
         },
     ),
     (
@@ -2269,6 +2474,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv6m-none-eabi"),
         },
     ),
     (
@@ -2280,6 +2486,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv6m-none-eabi"),
         },
     ),
     (
@@ -2291,6 +2498,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7a-pc-windows-msvc"),
         },
     ),
     (
@@ -2302,6 +2510,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7a-pc-windows-msvc"),
         },
     ),
     (
@@ -2313,6 +2522,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabi"),
         },
     ),
     (
@@ -2324,6 +2534,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabihf"),
         },
     ),
     (
@@ -2335,6 +2546,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabi"),
         },
     ),
     (
@@ -2346,6 +2558,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabihf"),
         },
     ),
     (
@@ -2357,6 +2570,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7m-none-eabi"),
         },
     ),
     (
@@ -2368,6 +2582,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7m-none-eabi"),
         },
     ),
     (
@@ -2379,6 +2594,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-none-linux-android"),
         },
     ),
     (
@@ -2390,6 +2606,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -2401,6 +2618,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
@@ -2412,6 +2630,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.base-none-eabi"),
         },
     ),
     (
@@ -2423,6 +2642,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.base-none-eabi"),
         },
     ),
     (
@@ -2434,6 +2654,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabi"),
         },
     ),
     (
@@ -2445,6 +2666,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabihf"),
         },
     ),
     (
@@ -2456,6 +2678,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabi"),
         },
     ),
     (
@@ -2467,6 +2690,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabihf"),
         },
     ),
     (
@@ -2478,6 +2702,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("emscripten"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-emscripten"),
         },
     ),
     (
@@ -2489,6 +2714,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("unknown"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-unknown"),
         },
     ),
     (
@@ -2500,6 +2726,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p1"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasi"),
         },
     ),
     (
@@ -2511,6 +2738,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p1"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasi"),
         },
     ),
     (
@@ -2522,6 +2750,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p1"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasi"),
         },
     ),
     (
@@ -2533,6 +2762,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p2"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasip2"),
         },
     ),
     (
@@ -2544,6 +2774,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-unknown"),
         },
     ),
     (
@@ -2555,6 +2786,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("unknown"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm64-unknown-unknown"),
         },
     ),
     (
@@ -2566,6 +2798,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-macosx"),
         },
     ),
     (
@@ -2577,6 +2810,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-ios-simulator"),
         },
     ),
     (
@@ -2588,6 +2822,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("macabi"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-ios-macabi"),
         },
     ),
     (
@@ -2599,6 +2834,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-tvos-simulator"),
         },
     ),
     (
@@ -2610,6 +2846,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-watchos-simulator"),
         },
     ),
     (
@@ -2621,6 +2858,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("unknown"),
             env: Cow::Borrowed("sgx"),
             abi: Cow::Borrowed("fortanix"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-elf"),
         },
     ),
     (
@@ -2632,6 +2870,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-fuchsia"),
         },
     ),
     (
@@ -2643,6 +2882,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-linux-android"),
         },
     ),
     (
@@ -2654,6 +2894,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto71"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-unknown"),
         },
     ),
     (
@@ -2665,6 +2906,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("solaris"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-solaris"),
         },
     ),
     (
@@ -2676,6 +2918,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-gnu"),
         },
     ),
     (
@@ -2687,6 +2930,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("llvm"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-gnu"),
         },
     ),
     (
@@ -2698,6 +2942,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-msvc"),
         },
     ),
     (
@@ -2709,6 +2954,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("solaris"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-solaris"),
         },
     ),
     (
@@ -2720,6 +2966,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-musl"),
         },
     ),
     (
@@ -2731,6 +2978,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("dragonfly"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-dragonfly"),
         },
     ),
     (
@@ -2742,6 +2990,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-freebsd"),
         },
     ),
     (
@@ -2753,6 +3002,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-fuchsia"),
         },
     ),
     (
@@ -2764,6 +3014,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("haiku"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-haiku"),
         },
     ),
     (
@@ -2775,6 +3026,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("hermit"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-hermit"),
         },
     ),
     (
@@ -2786,6 +3038,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("hurd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-hurd-gnu"),
         },
     ),
     (
@@ -2797,6 +3050,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("illumos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-solaris"),
         },
     ),
     (
@@ -2808,6 +3062,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("l4re"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-l4re-uclibc"),
         },
     ),
     (
@@ -2819,6 +3074,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-gnu"),
         },
     ),
     (
@@ -2830,6 +3086,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("x32"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-gnux32"),
         },
     ),
     (
@@ -2841,6 +3098,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-musl"),
         },
     ),
     (
@@ -2852,6 +3110,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-none"),
         },
     ),
     (
@@ -2863,6 +3122,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-ohos"),
         },
     ),
     (
@@ -2874,6 +3134,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-netbsd"),
         },
     ),
     (
@@ -2885,6 +3146,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-none-elf"),
         },
     ),
     (
@@ -2896,6 +3158,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-none-elf"),
         },
     ),
     (
@@ -2907,6 +3170,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-openbsd"),
         },
     ),
     (
@@ -2918,6 +3182,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("redox"),
             env: Cow::Borrowed("relibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-redox"),
         },
     ),
     (
@@ -2929,6 +3194,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("trusty"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-unknown-musl"),
         },
     ),
     (
@@ -2940,6 +3206,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("uefi"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-windows"),
         },
     ),
     (
@@ -2951,6 +3218,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-gnu"),
         },
     ),
     (
@@ -2962,6 +3230,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-msvc"),
         },
     ),
     (
@@ -2973,6 +3242,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-win7-windows-msvc"),
         },
     ),
     (
@@ -2984,6 +3254,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-gnu"),
         },
     ),
     (
@@ -2995,6 +3266,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64h-apple-macosx"),
         },
     ),
     (
@@ -3006,6 +3278,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
@@ -3017,6 +3290,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
@@ -3028,6 +3302,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
@@ -3039,6 +3314,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
@@ -3050,6 +3326,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
@@ -3061,6 +3338,7 @@ pub(crate) const LIST: &[(&str, TargetInfo)] = &[
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
 ];
