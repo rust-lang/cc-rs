@@ -4,7 +4,6 @@ use super::TargetInfo;
 
 impl TargetInfo {
     /// The versioned LLVM/Clang target triple.
-    #[allow(unused)]
     pub(crate) fn versioned_llvm_target(&self, version: Option<&str>) -> Cow<'_, str> {
         if let Some(version) = version {
             // Only support versioned Apple targets for now.

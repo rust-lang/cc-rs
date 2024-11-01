@@ -1978,8 +1978,8 @@ impl Build {
                     // Disambiguate mingw and msvc on Windows. Problem is that
                     // depending on the origin clang can default to a mismatchig
                     // run-time.
-                    // FIXME: Convert rustc target to Clang target.
-                    cmd.push_cc_arg(format!("--target={raw_target}").into());
+                    let llvm_target = target.versioned_llvm_target(None);
+                    cmd.push_cc_arg(format!("--target={llvm_target}").into());
                 }
 
                 if cmd.is_like_clang() && target.os == "android" {
@@ -2065,77 +2065,7 @@ impl Build {
                     || (target.os == "android"
                         && android_clang_compiler_uses_target_arg_internally(&cmd.path)))
                 {
-                    if target.os == "macos" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        cmd.args
-                            .push(format!("--target={}-apple-darwin", arch).into());
-                    } else if target.abi == "macabi" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        cmd.args
-                            .push(format!("--target={}-apple-ios-macabi", arch).into());
-                    } else if target.os == "ios" && target.abi == "sim" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let deployment_target = self.apple_deployment_target(target);
-                        cmd.args.push(
-                            format!("--target={}-apple-ios{}-simulator", arch, deployment_target)
-                                .into(),
-                        );
-                    } else if target.os == "watchos" && target.abi == "sim" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let deployment_target = self.apple_deployment_target(target);
-                        cmd.args.push(
-                            format!(
-                                "--target={}-apple-watchos{}-simulator",
-                                arch, deployment_target
-                            )
-                            .into(),
-                        );
-                    } else if target.os == "tvos" && target.abi == "sim" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let deployment_target = self.apple_deployment_target(target);
-                        cmd.args.push(
-                            format!(
-                                "--target={}-apple-tvos{}-simulator",
-                                arch, deployment_target
-                            )
-                            .into(),
-                        );
-                    } else if target.os == "tvos" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let deployment_target = self.apple_deployment_target(target);
-                        cmd.args.push(
-                            format!("--target={}-apple-tvos{}", arch, deployment_target).into(),
-                        );
-                    } else if target.os == "visionos" && target.abi == "sim" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let deployment_target = self.apple_deployment_target(target);
-                        cmd.args.push(
-                            format!(
-                                "--target={}-apple-xros{}-simulator",
-                                arch, deployment_target
-                            )
-                            .into(),
-                        );
-                    } else if target.os == "visionos" {
-                        let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                        let deployment_target = self.apple_deployment_target(target);
-                        cmd.args.push(
-                            format!("--target={}-apple-xros{}", arch, deployment_target).into(),
-                        );
-                    } else if target.arch == "riscv32" || target.arch == "riscv64" {
-                        // FIXME: Convert rustc target to Clang target
-                        let (_, rest) = raw_target.split_once('-').unwrap();
-                        cmd.args
-                            .push(format!("--target={}-{}", &target.arch, rest).into());
-                    } else if target.os == "uefi" {
-                        if target.arch == "x86_64" {
-                            cmd.args.push("--target=x86_64-unknown-windows-gnu".into());
-                        } else if target.arch == "x86" {
-                            cmd.args.push("--target=i686-unknown-windows-gnu".into())
-                        } else if target.arch == "aarch64" {
-                            cmd.args.push("--target=aarch64-unknown-windows-gnu".into())
-                        }
-                    } else if target.os == "freebsd" {
+                    if target.os == "freebsd" {
                         // FreeBSD only supports C++11 and above when compiling against libc++
                         // (available from FreeBSD 10 onwards). Under FreeBSD, clang uses libc++ by
                         // default on FreeBSD 10 and newer unless `--target` is manually passed to
@@ -2157,18 +2087,17 @@ impl Build {
                         if self.cpp && self.cpp_set_stdlib.is_none() {
                             cmd.push_cc_arg("-stdlib=libc++".into());
                         }
-
-                        // FIXME: Convert rustc target to Clang target.
-                        cmd.push_cc_arg(format!("--target={}", raw_target).into());
-                    } else if target.os == "windows" {
-                        cmd.args.push(
-                            format!("--target={}-pc-windows-{}", target.full_arch, target.env)
-                                .into(),
-                        )
-                    } else {
-                        // FIXME: Convert rustc target to Clang target.
-                        cmd.push_cc_arg(format!("--target={}", raw_target).into());
                     }
+
+                    // Add version information to the target.
+                    let llvm_target = if target.vendor == "apple" {
+                        let deployment_target = self.apple_deployment_target(&target);
+                        target.versioned_llvm_target(Some(&deployment_target))
+                    } else {
+                        target.versioned_llvm_target(None)
+                    };
+
+                    cmd.args.push(format!("--target={llvm_target}").into());
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -2184,8 +2113,8 @@ impl Build {
                         cmd.push_cc_arg("-m32".into());
                         cmd.push_cc_arg("-arch:IA32".into());
                     } else {
-                        // FIXME: Convert rustc target to Clang target.
-                        cmd.push_cc_arg(format!("--target={}", raw_target).into());
+                        let llvm_target = target.versioned_llvm_target(None);
+                        cmd.push_cc_arg(format!("--target={llvm_target}").into());
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
