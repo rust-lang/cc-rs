@@ -2527,22 +2527,22 @@ impl Build {
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        let min_version = self.apple_deployment_target(&target);
-        let version_flag = match (&*target.os, &*target.abi) {
-            ("macos", "") => Some("-mmacosx-version-min"),
-            ("ios", "") => Some("-miphoneos-version-min"),
-            ("ios", "sim") => Some("-mios-simulator-version-min"),
-            ("tvos", "") => Some("-mappletvos-version-min"),
-            ("tvos", "sim") => Some("-mappletvsimulator-version-min"),
-            ("watchos", "") => Some("-mwatchos-version-min"),
-            ("watchos", "sim") => Some("-mwatchsimulator-version-min"),
-            // `-mxros-version-min` does not exist
-            // https://github.com/llvm/llvm-project/issues/88271
-            _ => None,
-        };
-        if let Some(version_flag) = version_flag {
+        // If the compiler is Clang, then we've already specifed the target
+        // information (including the deployment target) with the `--target`
+        // option, so we don't need to do anything further here.
+        //
+        // If the compiler is GCC, then we need to specify
+        // `-mmacosx-version-min` to set the deployment target, as well
+        // as to say that the target OS is macOS.
+        //
+        // NOTE: GCC does not support `-miphoneos-version-min=` etc. (because
+        // it does not support iOS in general), but we specify them anyhow in
+        // case we actually have a Clang-like compiler disguised as a GNU-like
+        // compiler, or in case GCC adds support for these in the future.
+        if !cmd.is_like_clang() {
+            let min_version = self.apple_deployment_target(&target);
             cmd.args
-                .push(format!("{}={}", version_flag, min_version).into());
+                .push(target.apple_version_flag(&min_version).into());
         }
 
         // AppleClang sometimes requires sysroot even on macOS
