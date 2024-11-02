@@ -1997,7 +1997,7 @@ impl Build {
                 if self.pic.unwrap_or(
                     target.os != "windows"
                         && target.os != "none"
-                        && target.env != "uefi"
+                        && target.os != "uefi"
                         && target.os != "wasi",
                 ) {
                     cmd.push_cc_arg("-fPIC".into());
