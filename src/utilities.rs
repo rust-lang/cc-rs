@@ -70,14 +70,44 @@ impl<T> OnceLock<T> {
         }
     }
 
-    pub(crate) fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
-        self.once.call_once(|| {
-            unsafe { &mut *self.value.get() }.write(f());
-        });
+    #[inline]
+    fn is_initialized(&self) -> bool {
+        self.once.is_completed()
+    }
+
+    unsafe fn get_unchecked(&self) -> &T {
+        debug_assert!(self.is_initialized());
         #[allow(clippy::needless_borrow)]
         unsafe {
             (&*self.value.get()).assume_init_ref()
         }
+    }
+
+    pub(crate) fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
+        self.once.call_once(|| {
+            unsafe { &mut *self.value.get() }.write(f());
+        });
+        unsafe { self.get_unchecked() }
+    }
+
+    pub(crate) fn get(&self) -> Option<&T> {
+        if self.is_initialized() {
+            // Safe b/c checked is_initialized
+            Some(unsafe { self.get_unchecked() })
+        } else {
+            None
+        }
+    }
+}
+
+impl<T: fmt::Debug> fmt::Debug for OnceLock<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut d = f.debug_tuple("OnceLock");
+        match self.get() {
+            Some(v) => d.field(v),
+            None => d.field(&format_args!("<uninit>")),
+        };
+        d.finish()
     }
 }
 
