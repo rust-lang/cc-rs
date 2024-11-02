@@ -11,10 +11,10 @@ const PRELUDE: &str = r#"//! This file is generated code. Please edit the genera
 "#;
 
 fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std::io::Result<()> {
-    writeln!(f, "use super::Target;")?;
+    writeln!(f, "use super::TargetInfo;")?;
     writeln!(f, "use std::borrow::Cow;")?;
     writeln!(f)?;
-    writeln!(f, "pub(crate) const LIST: &[(&str, Target)] = &[")?;
+    writeln!(f, "pub(crate) const LIST: &[(&str, TargetInfo)] = &[")?;
 
     for (triple, spec) in &target_specs.0 {
         let full_arch = triple.split_once('-').unwrap().0;
@@ -24,15 +24,34 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
 
+        // Remove deployment target information from LLVM target triples (we
+        // will add this in another part of CC).
+        //
+        // FIXME(madsmtm): Should become unnecessary after
+        // https://github.com/rust-lang/rust/pull/131037
+        let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
+            let mut components = spec.llvm_target.split("-").collect::<Vec<_>>();
+
+            components[2] = components[2].trim_end_matches(|c: char| c.is_numeric() || c == '.');
+
+            components.join("-")
+        } else {
+            spec.llvm_target.clone()
+        };
+
         writeln!(f, "    (")?;
         writeln!(f, "        {triple:?},")?;
-        writeln!(f, "        Target {{")?;
+        writeln!(f, "        TargetInfo {{")?;
         writeln!(f, "            full_arch: Cow::Borrowed({full_arch:?}),")?;
         writeln!(f, "            arch: Cow::Borrowed({arch:?}),")?;
         writeln!(f, "            vendor: Cow::Borrowed({vendor:?}),")?;
         writeln!(f, "            os: Cow::Borrowed({os:?}),")?;
         writeln!(f, "            env: Cow::Borrowed({env:?}),")?;
         writeln!(f, "            abi: Cow::Borrowed({abi:?}),")?;
+        writeln!(
+            f,
+            "            unversioned_llvm_target: Cow::Borrowed({unversioned_llvm_target:?}),"
+        )?;
         writeln!(f, "        }},")?;
         writeln!(f, "    ),")?;
     }

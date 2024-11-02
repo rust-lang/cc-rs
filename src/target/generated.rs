@@ -1,3066 +1,3344 @@
 //! This file is generated code. Please edit the generator
 //! in dev-tools/gen-target-info if you need to make changes.
 
-use super::Target;
+use super::TargetInfo;
 use std::borrow::Cow;
 
-pub(crate) const LIST: &[(&str, Target)] = &[
+pub(crate) const LIST: &[(&str, TargetInfo)] = &[
     (
         "aarch64-apple-darwin",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-macosx"),
         },
     ),
     (
         "aarch64-apple-ios",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-ios"),
         },
     ),
     (
         "aarch64-apple-ios-macabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("macabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-ios-macabi"),
         },
     ),
     (
         "aarch64-apple-ios-sim",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-ios-simulator"),
         },
     ),
     (
         "aarch64-apple-tvos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-tvos"),
         },
     ),
     (
         "aarch64-apple-tvos-sim",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-tvos-simulator"),
         },
     ),
     (
         "aarch64-apple-visionos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("visionos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-xros"),
         },
     ),
     (
         "aarch64-apple-visionos-sim",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("visionos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-xros-simulator"),
         },
     ),
     (
         "aarch64-apple-watchos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-watchos"),
         },
     ),
     (
         "aarch64-apple-watchos-sim",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("arm64-apple-watchos-simulator"),
         },
     ),
     (
         "aarch64-fuchsia",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-fuchsia"),
         },
     ),
     (
         "aarch64-kmc-solid_asp3",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("kmc"),
             os: Cow::Borrowed("solid_asp3"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
         "aarch64-linux-android",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-linux-android"),
         },
     ),
     (
         "aarch64-nintendo-switch-freestanding",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("nintendo"),
             os: Cow::Borrowed("horizon"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
         "aarch64-pc-windows-gnullvm",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("llvm"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-pc-windows-gnu"),
         },
     ),
     (
         "aarch64-pc-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-pc-windows-msvc"),
         },
     ),
     (
         "aarch64-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-freebsd"),
         },
     ),
     (
         "aarch64-unknown-fuchsia",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-fuchsia"),
         },
     ),
     (
         "aarch64-unknown-hermit",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("hermit"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-hermit"),
         },
     ),
     (
         "aarch64-unknown-illumos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("illumos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-solaris2.11"),
         },
     ),
     (
         "aarch64-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-gnu"),
         },
     ),
     (
         "aarch64-unknown-linux-gnu_ilp32",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("ilp32"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-gnu_ilp32"),
         },
     ),
     (
         "aarch64-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-musl"),
         },
     ),
     (
         "aarch64-unknown-linux-ohos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-ohos"),
         },
     ),
     (
         "aarch64-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-netbsd"),
         },
     ),
     (
         "aarch64-unknown-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
         "aarch64-unknown-none-softfloat",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("softfloat"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
         "aarch64-unknown-nto-qnx700",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto70"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-unknown"),
         },
     ),
     (
         "aarch64-unknown-nto-qnx710",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto71"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-unknown"),
         },
     ),
     (
         "aarch64-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-openbsd"),
         },
     ),
     (
         "aarch64-unknown-redox",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("redox"),
             env: Cow::Borrowed("relibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-redox"),
         },
     ),
     (
         "aarch64-unknown-teeos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("teeos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-none"),
         },
     ),
     (
         "aarch64-unknown-trusty",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("trusty"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-unknown-musl"),
         },
     ),
     (
         "aarch64-unknown-uefi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("uefi"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-windows"),
         },
     ),
     (
         "aarch64-uwp-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("uwp"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-pc-windows-msvc"),
         },
     ),
     (
         "aarch64-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64-unknown-linux-gnu"),
         },
     ),
     (
         "aarch64_be-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64_be"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64_be-unknown-linux-gnu"),
         },
     ),
     (
         "aarch64_be-unknown-linux-gnu_ilp32",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64_be"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("ilp32"),
+            unversioned_llvm_target: Cow::Borrowed("aarch64_be-unknown-linux-gnu_ilp32"),
         },
     ),
     (
         "aarch64_be-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("aarch64_be"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("aarch64_be-unknown-netbsd"),
         },
     ),
     (
         "arm-linux-androideabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm-linux-androideabi"),
         },
     ),
     (
         "arm-unknown-linux-gnueabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabi"),
         },
     ),
     (
         "arm-unknown-linux-gnueabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabihf"),
         },
     ),
     (
         "arm-unknown-linux-musleabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabi"),
         },
     ),
     (
         "arm-unknown-linux-musleabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("arm-unknown-linux-gnueabihf"),
         },
     ),
     (
         "arm64_32-apple-watchos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm64_32"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64_32-apple-watchos"),
         },
     ),
     (
         "arm64e-apple-darwin",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm64e"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64e-apple-macosx"),
         },
     ),
     (
         "arm64e-apple-ios",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm64e"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64e-apple-ios"),
         },
     ),
     (
         "arm64e-apple-tvos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm64e"),
             arch: Cow::Borrowed("aarch64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64e-apple-tvos"),
         },
     ),
     (
         "arm64ec-pc-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("arm64ec"),
             arch: Cow::Borrowed("arm64ec"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("arm64ec-pc-windows-msvc"),
         },
     ),
     (
         "armeb-unknown-linux-gnueabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armeb"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armeb-unknown-linux-gnueabi"),
         },
     ),
     (
         "armebv7r-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armebv7r"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armebv7r-none-eabi"),
         },
     ),
     (
         "armebv7r-none-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armebv7r"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armebv7r-none-eabihf"),
         },
     ),
     (
         "armv4t-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv4t"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv4t-none-eabi"),
         },
     ),
     (
         "armv4t-unknown-linux-gnueabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv4t"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv4t-unknown-linux-gnueabi"),
         },
     ),
     (
         "armv5te-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv5te"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-none-eabi"),
         },
     ),
     (
         "armv5te-unknown-linux-gnueabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv5te"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-unknown-linux-gnueabi"),
         },
     ),
     (
         "armv5te-unknown-linux-musleabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv5te"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-unknown-linux-gnueabi"),
         },
     ),
     (
         "armv5te-unknown-linux-uclibceabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv5te"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv5te-unknown-linux-uclibcgnueabi"),
         },
     ),
     (
         "armv6-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv6"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv6-unknown-freebsd-gnueabihf"),
         },
     ),
     (
         "armv6-unknown-netbsd-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv6"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv6-unknown-netbsdelf-eabihf"),
         },
     ),
     (
         "armv6k-nintendo-3ds",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv6k"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("nintendo"),
             os: Cow::Borrowed("horizon"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv6k-none-eabihf"),
         },
     ),
     (
         "armv7-apple-ios",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("armv7-apple-ios"),
         },
     ),
     (
         "armv7-linux-androideabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-none-linux-android"),
         },
     ),
     (
         "armv7-rtems-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("rtems"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-none-eabihf"),
         },
     ),
     (
         "armv7-sony-vita-newlibeabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("sony"),
             os: Cow::Borrowed("vita"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7a-vita-eabihf"),
         },
     ),
     (
         "armv7-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-freebsd-gnueabihf"),
         },
     ),
     (
         "armv7-unknown-linux-gnueabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabi"),
         },
     ),
     (
         "armv7-unknown-linux-gnueabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
         "armv7-unknown-linux-musleabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabi"),
         },
     ),
     (
         "armv7-unknown-linux-musleabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
         "armv7-unknown-linux-ohos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-ohos"),
         },
     ),
     (
         "armv7-unknown-linux-uclibceabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabi"),
         },
     ),
     (
         "armv7-unknown-linux-uclibceabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
         "armv7-unknown-netbsd-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-netbsdelf-eabihf"),
         },
     ),
     (
         "armv7-unknown-trusty",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("trusty"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-unknown-gnueabi"),
         },
     ),
     (
         "armv7-wrs-vxworks-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
         "armv7a-kmc-solid_asp3-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7a"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("kmc"),
             os: Cow::Borrowed("solid_asp3"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabi"),
         },
     ),
     (
         "armv7a-kmc-solid_asp3-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7a"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("kmc"),
             os: Cow::Borrowed("solid_asp3"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabihf"),
         },
     ),
     (
         "armv7a-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7a"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabi"),
         },
     ),
     (
         "armv7a-none-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7a"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7a-none-eabihf"),
         },
     ),
     (
         "armv7k-apple-watchos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7k"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("armv7k-apple-watchos"),
         },
     ),
     (
         "armv7r-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7r"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7r-none-eabi"),
         },
     ),
     (
         "armv7r-none-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7r"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7r-none-eabihf"),
         },
     ),
     (
         "armv7s-apple-ios",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv7s"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("armv7s-apple-ios"),
         },
     ),
     (
         "armv8r-none-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("armv8r"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv8r-none-eabihf"),
         },
     ),
     (
         "asmjs-unknown-emscripten",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("asmjs"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("emscripten"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-emscripten"),
         },
     ),
     (
         "avr-unknown-gnu-atmega328",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("avr"),
             arch: Cow::Borrowed("avr"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("avr-unknown-unknown"),
         },
     ),
     (
         "bpfeb-unknown-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("bpfeb"),
             arch: Cow::Borrowed("bpf"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("bpfeb"),
         },
     ),
     (
         "bpfel-unknown-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("bpfel"),
             arch: Cow::Borrowed("bpf"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("bpfel"),
         },
     ),
     (
         "csky-unknown-linux-gnuabiv2",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("csky"),
             arch: Cow::Borrowed("csky"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abiv2"),
+            unversioned_llvm_target: Cow::Borrowed("csky-unknown-linux-gnuabiv2"),
         },
     ),
     (
         "csky-unknown-linux-gnuabiv2hf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("csky"),
             arch: Cow::Borrowed("csky"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abiv2hf"),
+            unversioned_llvm_target: Cow::Borrowed("csky-unknown-linux-gnuabiv2"),
         },
     ),
     (
         "hexagon-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("hexagon"),
             arch: Cow::Borrowed("hexagon"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("hexagon-unknown-linux-musl"),
         },
     ),
     (
         "hexagon-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("hexagon"),
             arch: Cow::Borrowed("hexagon"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("hexagon-unknown-none-elf"),
         },
     ),
     (
         "i386-apple-ios",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i386"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("i386-apple-ios-simulator"),
         },
     ),
     (
         "i586-pc-nto-qnx700",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i586"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto70"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-pc-unknown"),
         },
     ),
     (
         "i586-pc-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i586"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-pc-windows-msvc"),
         },
     ),
     (
         "i586-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i586"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-unknown-linux-gnu"),
         },
     ),
     (
         "i586-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i586"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-unknown-linux-musl"),
         },
     ),
     (
         "i586-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i586"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i586-unknown-netbsdelf"),
         },
     ),
     (
         "i686-apple-darwin",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-apple-macosx"),
         },
     ),
     (
         "i686-linux-android",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-linux-android"),
         },
     ),
     (
         "i686-pc-windows-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-gnu"),
         },
     ),
     (
         "i686-pc-windows-gnullvm",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("llvm"),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-gnu"),
         },
     ),
     (
         "i686-pc-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-msvc"),
         },
     ),
     (
         "i686-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-freebsd"),
         },
     ),
     (
         "i686-unknown-haiku",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("haiku"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-haiku"),
         },
     ),
     (
         "i686-unknown-hurd-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("hurd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-hurd-gnu"),
         },
     ),
     (
         "i686-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-linux-gnu"),
         },
     ),
     (
         "i686-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-linux-musl"),
         },
     ),
     (
         "i686-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-netbsdelf"),
         },
     ),
     (
         "i686-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-openbsd"),
         },
     ),
     (
         "i686-unknown-redox",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("redox"),
             env: Cow::Borrowed("relibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-redox"),
         },
     ),
     (
         "i686-unknown-uefi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("uefi"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-windows-gnu"),
         },
     ),
     (
         "i686-uwp-windows-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("uwp"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-gnu"),
         },
     ),
     (
         "i686-uwp-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("uwp"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-msvc"),
         },
     ),
     (
         "i686-win7-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("win7"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-pc-windows-msvc"),
         },
     ),
     (
         "i686-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("i686"),
             arch: Cow::Borrowed("x86"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("i686-unknown-linux-gnu"),
         },
     ),
     (
         "loongarch64-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("loongarch64"),
             arch: Cow::Borrowed("loongarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-linux-gnu"),
         },
     ),
     (
         "loongarch64-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("loongarch64"),
             arch: Cow::Borrowed("loongarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-linux-musl"),
         },
     ),
     (
         "loongarch64-unknown-linux-ohos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("loongarch64"),
             arch: Cow::Borrowed("loongarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-linux-ohos"),
         },
     ),
     (
         "loongarch64-unknown-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("loongarch64"),
             arch: Cow::Borrowed("loongarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-none"),
         },
     ),
     (
         "loongarch64-unknown-none-softfloat",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("loongarch64"),
             arch: Cow::Borrowed("loongarch64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("softfloat"),
+            unversioned_llvm_target: Cow::Borrowed("loongarch64-unknown-none"),
         },
     ),
     (
         "m68k-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("m68k"),
             arch: Cow::Borrowed("m68k"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("m68k-unknown-linux-gnu"),
         },
     ),
     (
         "mips-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mips-unknown-linux-gnu"),
         },
     ),
     (
         "mips-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mips-unknown-linux-musl"),
         },
     ),
     (
         "mips-unknown-linux-uclibc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mips-unknown-linux-uclibc"),
         },
     ),
     (
         "mips64-openwrt-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips64"),
             arch: Cow::Borrowed("mips64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64-unknown-linux-musl"),
         },
     ),
     (
         "mips64-unknown-linux-gnuabi64",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips64"),
             arch: Cow::Borrowed("mips64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64-unknown-linux-gnuabi64"),
         },
     ),
     (
         "mips64-unknown-linux-muslabi64",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips64"),
             arch: Cow::Borrowed("mips64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64-unknown-linux-musl"),
         },
     ),
     (
         "mips64el-unknown-linux-gnuabi64",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips64el"),
             arch: Cow::Borrowed("mips64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64el-unknown-linux-gnuabi64"),
         },
     ),
     (
         "mips64el-unknown-linux-muslabi64",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mips64el"),
             arch: Cow::Borrowed("mips64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mips64el-unknown-linux-musl"),
         },
     ),
     (
         "mipsel-sony-psp",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("sony"),
             os: Cow::Borrowed("psp"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-sony-psp"),
         },
     ),
     (
         "mipsel-sony-psx",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("sony"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed("psx"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-sony-psx"),
         },
     ),
     (
         "mipsel-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-linux-gnu"),
         },
     ),
     (
         "mipsel-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-linux-musl"),
         },
     ),
     (
         "mipsel-unknown-linux-uclibc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-linux-uclibc"),
         },
     ),
     (
         "mipsel-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-netbsd"),
         },
     ),
     (
         "mipsel-unknown-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsel"),
             arch: Cow::Borrowed("mips"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsel-unknown-none"),
         },
     ),
     (
         "mipsisa32r6-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsisa32r6"),
             arch: Cow::Borrowed("mips32r6"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa32r6-unknown-linux-gnu"),
         },
     ),
     (
         "mipsisa32r6el-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsisa32r6el"),
             arch: Cow::Borrowed("mips32r6"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa32r6el-unknown-linux-gnu"),
         },
     ),
     (
         "mipsisa64r6-unknown-linux-gnuabi64",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsisa64r6"),
             arch: Cow::Borrowed("mips64r6"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa64r6-unknown-linux-gnuabi64"),
         },
     ),
     (
         "mipsisa64r6el-unknown-linux-gnuabi64",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("mipsisa64r6el"),
             arch: Cow::Borrowed("mips64r6"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("abi64"),
+            unversioned_llvm_target: Cow::Borrowed("mipsisa64r6el-unknown-linux-gnuabi64"),
         },
     ),
     (
         "msp430-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("msp430"),
             arch: Cow::Borrowed("msp430"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("msp430-none-elf"),
         },
     ),
     (
         "nvptx64-nvidia-cuda",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("nvptx64"),
             arch: Cow::Borrowed("nvptx64"),
             vendor: Cow::Borrowed("nvidia"),
             os: Cow::Borrowed("cuda"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("nvptx64-nvidia-cuda"),
         },
     ),
     (
         "powerpc-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-freebsd13.0"),
         },
     ),
     (
         "powerpc-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnu"),
         },
     ),
     (
         "powerpc-unknown-linux-gnuspe",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("spe"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnuspe"),
         },
     ),
     (
         "powerpc-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-musl"),
         },
     ),
     (
         "powerpc-unknown-linux-muslspe",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("spe"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-muslspe"),
         },
     ),
     (
         "powerpc-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-netbsd"),
         },
     ),
     (
         "powerpc-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-openbsd"),
         },
     ),
     (
         "powerpc-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnu"),
         },
     ),
     (
         "powerpc-wrs-vxworks-spe",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc"),
             arch: Cow::Borrowed("powerpc"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("spe"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc-unknown-linux-gnuspe"),
         },
     ),
     (
         "powerpc64-ibm-aix",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("ibm"),
             os: Cow::Borrowed("aix"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("vec-extabi"),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-ibm-aix"),
         },
     ),
     (
         "powerpc64-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-freebsd"),
         },
     ),
     (
         "powerpc64-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-linux-gnu"),
         },
     ),
     (
         "powerpc64-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-linux-musl"),
         },
     ),
     (
         "powerpc64-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-openbsd"),
         },
     ),
     (
         "powerpc64-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64-unknown-linux-gnu"),
         },
     ),
     (
         "powerpc64le-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64le"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64le-unknown-freebsd"),
         },
     ),
     (
         "powerpc64le-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64le"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64le-unknown-linux-gnu"),
         },
     ),
     (
         "powerpc64le-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("powerpc64le"),
             arch: Cow::Borrowed("powerpc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("powerpc64le-unknown-linux-musl"),
         },
     ),
     (
         "riscv32-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32e-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32e"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32em-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32em"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32emc-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32emc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32gc-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32gc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32-unknown-linux-gnu"),
         },
     ),
     (
         "riscv32gc-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32gc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32-unknown-linux-musl"),
         },
     ),
     (
         "riscv32i-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32i"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32im-risc0-zkvm-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32im"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("risc0"),
             os: Cow::Borrowed("zkvm"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32im-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32im"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32ima-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32ima"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imac-esp-espidf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imac"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imac-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imac"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imac-unknown-nuttx-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imac"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imac-unknown-xous-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imac"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("xous"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imafc-esp-espidf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imafc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imafc-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imafc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imafc-unknown-nuttx-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imafc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imc-esp-espidf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imc-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv32imc-unknown-nuttx-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv32imc"),
             arch: Cow::Borrowed("riscv32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv32"),
         },
     ),
     (
         "riscv64-linux-android",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-linux-android"),
         },
     ),
     (
         "riscv64-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
         "riscv64gc-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-freebsd"),
         },
     ),
     (
         "riscv64gc-unknown-fuchsia",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-fuchsia"),
         },
     ),
     (
         "riscv64gc-unknown-hermit",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("hermit"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-hermit"),
         },
     ),
     (
         "riscv64gc-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-linux-gnu"),
         },
     ),
     (
         "riscv64gc-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-linux-musl"),
         },
     ),
     (
         "riscv64gc-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-netbsd"),
         },
     ),
     (
         "riscv64gc-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
         "riscv64gc-unknown-nuttx-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
         "riscv64gc-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64gc"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64-unknown-openbsd"),
         },
     ),
     (
         "riscv64imac-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64imac"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
         "riscv64imac-unknown-nuttx-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("riscv64imac"),
             arch: Cow::Borrowed("riscv64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("riscv64"),
         },
     ),
     (
         "s390x-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("s390x"),
             arch: Cow::Borrowed("s390x"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("s390x-unknown-linux-gnu"),
         },
     ),
     (
         "s390x-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("s390x"),
             arch: Cow::Borrowed("s390x"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("s390x-unknown-linux-musl"),
         },
     ),
     (
         "sparc-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("sparc"),
             arch: Cow::Borrowed("sparc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc-unknown-linux-gnu"),
         },
     ),
     (
         "sparc-unknown-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("sparc"),
             arch: Cow::Borrowed("sparc"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc-unknown-none-elf"),
         },
     ),
     (
         "sparc64-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("sparc64"),
             arch: Cow::Borrowed("sparc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc64-unknown-linux-gnu"),
         },
     ),
     (
         "sparc64-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("sparc64"),
             arch: Cow::Borrowed("sparc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc64-unknown-netbsd"),
         },
     ),
     (
         "sparc64-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("sparc64"),
             arch: Cow::Borrowed("sparc64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparc64-unknown-openbsd"),
         },
     ),
     (
         "sparcv9-sun-solaris",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("sparcv9"),
             arch: Cow::Borrowed("sparc64"),
             vendor: Cow::Borrowed("sun"),
             os: Cow::Borrowed("solaris"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("sparcv9-sun-solaris"),
         },
     ),
     (
         "thumbv4t-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv4t"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv4t-none-eabi"),
         },
     ),
     (
         "thumbv5te-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv5te"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv5te-none-eabi"),
         },
     ),
     (
         "thumbv6m-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv6m"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv6m-none-eabi"),
         },
     ),
     (
         "thumbv6m-nuttx-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv6m"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv6m-none-eabi"),
         },
     ),
     (
         "thumbv7a-pc-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7a"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7a-pc-windows-msvc"),
         },
     ),
     (
         "thumbv7a-uwp-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7a"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("uwp"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7a-pc-windows-msvc"),
         },
     ),
     (
         "thumbv7em-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7em"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabi"),
         },
     ),
     (
         "thumbv7em-none-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7em"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabihf"),
         },
     ),
     (
         "thumbv7em-nuttx-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7em"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabi"),
         },
     ),
     (
         "thumbv7em-nuttx-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7em"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7em-none-eabihf"),
         },
     ),
     (
         "thumbv7m-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7m"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7m-none-eabi"),
         },
     ),
     (
         "thumbv7m-nuttx-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7m"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv7m-none-eabi"),
         },
     ),
     (
         "thumbv7neon-linux-androideabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7neon"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-none-linux-android"),
         },
     ),
     (
         "thumbv7neon-unknown-linux-gnueabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7neon"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
         "thumbv7neon-unknown-linux-musleabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv7neon"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("armv7-unknown-linux-gnueabihf"),
         },
     ),
     (
         "thumbv8m.base-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv8m.base"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.base-none-eabi"),
         },
     ),
     (
         "thumbv8m.base-nuttx-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv8m.base"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.base-none-eabi"),
         },
     ),
     (
         "thumbv8m.main-none-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv8m.main"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabi"),
         },
     ),
     (
         "thumbv8m.main-none-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv8m.main"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabihf"),
         },
     ),
     (
         "thumbv8m.main-nuttx-eabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv8m.main"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabi"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabi"),
         },
     ),
     (
         "thumbv8m.main-nuttx-eabihf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("thumbv8m.main"),
             arch: Cow::Borrowed("arm"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("nuttx"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("eabihf"),
+            unversioned_llvm_target: Cow::Borrowed("thumbv8m.main-none-eabihf"),
         },
     ),
     (
         "wasm32-unknown-emscripten",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("emscripten"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-emscripten"),
         },
     ),
     (
         "wasm32-unknown-unknown",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("unknown"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-unknown"),
         },
     ),
     (
         "wasm32-wasi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p1"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasi"),
         },
     ),
     (
         "wasm32-wasip1",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p1"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasi"),
         },
     ),
     (
         "wasm32-wasip1-threads",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p1"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasi"),
         },
     ),
     (
         "wasm32-wasip2",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("wasi"),
             env: Cow::Borrowed("p2"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-wasip2"),
         },
     ),
     (
         "wasm32v1-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm32v1"),
             arch: Cow::Borrowed("wasm32"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm32-unknown-unknown"),
         },
     ),
     (
         "wasm64-unknown-unknown",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("wasm64"),
             arch: Cow::Borrowed("wasm64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("unknown"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("wasm64-unknown-unknown"),
         },
     ),
     (
         "x86_64-apple-darwin",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-macosx"),
         },
     ),
     (
         "x86_64-apple-ios",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-ios-simulator"),
         },
     ),
     (
         "x86_64-apple-ios-macabi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("ios"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("macabi"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-ios-macabi"),
         },
     ),
     (
         "x86_64-apple-tvos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("tvos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-tvos-simulator"),
         },
     ),
     (
         "x86_64-apple-watchos-sim",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("watchos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed("sim"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-apple-watchos-simulator"),
         },
     ),
     (
         "x86_64-fortanix-unknown-sgx",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("fortanix"),
             os: Cow::Borrowed("unknown"),
             env: Cow::Borrowed("sgx"),
             abi: Cow::Borrowed("fortanix"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-elf"),
         },
     ),
     (
         "x86_64-fuchsia",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-fuchsia"),
         },
     ),
     (
         "x86_64-linux-android",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("android"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-linux-android"),
         },
     ),
     (
         "x86_64-pc-nto-qnx710",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("nto"),
             env: Cow::Borrowed("nto71"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-unknown"),
         },
     ),
     (
         "x86_64-pc-solaris",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("solaris"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-solaris"),
         },
     ),
     (
         "x86_64-pc-windows-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-gnu"),
         },
     ),
     (
         "x86_64-pc-windows-gnullvm",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("llvm"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-gnu"),
         },
     ),
     (
         "x86_64-pc-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("pc"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-msvc"),
         },
     ),
     (
         "x86_64-sun-solaris",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("sun"),
             os: Cow::Borrowed("solaris"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-solaris"),
         },
     ),
     (
         "x86_64-unikraft-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unikraft"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-musl"),
         },
     ),
     (
         "x86_64-unknown-dragonfly",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("dragonfly"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-dragonfly"),
         },
     ),
     (
         "x86_64-unknown-freebsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("freebsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-freebsd"),
         },
     ),
     (
         "x86_64-unknown-fuchsia",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("fuchsia"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-fuchsia"),
         },
     ),
     (
         "x86_64-unknown-haiku",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("haiku"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-haiku"),
         },
     ),
     (
         "x86_64-unknown-hermit",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("hermit"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-hermit"),
         },
     ),
     (
         "x86_64-unknown-hurd-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("hurd"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-hurd-gnu"),
         },
     ),
     (
         "x86_64-unknown-illumos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("illumos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-solaris"),
         },
     ),
     (
         "x86_64-unknown-l4re-uclibc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("l4re"),
             env: Cow::Borrowed("uclibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-l4re-uclibc"),
         },
     ),
     (
         "x86_64-unknown-linux-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-gnu"),
         },
     ),
     (
         "x86_64-unknown-linux-gnux32",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("x32"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-gnux32"),
         },
     ),
     (
         "x86_64-unknown-linux-musl",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("musl"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-musl"),
         },
     ),
     (
         "x86_64-unknown-linux-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-none"),
         },
     ),
     (
         "x86_64-unknown-linux-ohos",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("linux"),
             env: Cow::Borrowed("ohos"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-ohos"),
         },
     ),
     (
         "x86_64-unknown-netbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("netbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-netbsd"),
         },
     ),
     (
         "x86_64-unknown-none",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-none-elf"),
         },
     ),
     (
         "x86_64-unknown-none-linuxkernel",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-none-elf"),
         },
     ),
     (
         "x86_64-unknown-openbsd",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("openbsd"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-openbsd"),
         },
     ),
     (
         "x86_64-unknown-redox",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("redox"),
             env: Cow::Borrowed("relibc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-redox"),
         },
     ),
     (
         "x86_64-unknown-trusty",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("trusty"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-unknown-musl"),
         },
     ),
     (
         "x86_64-unknown-uefi",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("unknown"),
             os: Cow::Borrowed("uefi"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-windows"),
         },
     ),
     (
         "x86_64-uwp-windows-gnu",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("uwp"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-gnu"),
         },
     ),
     (
         "x86_64-uwp-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("uwp"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed("uwp"),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-pc-windows-msvc"),
         },
     ),
     (
         "x86_64-win7-windows-msvc",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("win7"),
             os: Cow::Borrowed("windows"),
             env: Cow::Borrowed("msvc"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-win7-windows-msvc"),
         },
     ),
     (
         "x86_64-wrs-vxworks",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("wrs"),
             os: Cow::Borrowed("vxworks"),
             env: Cow::Borrowed("gnu"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64-unknown-linux-gnu"),
         },
     ),
     (
         "x86_64h-apple-darwin",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("x86_64h"),
             arch: Cow::Borrowed("x86_64"),
             vendor: Cow::Borrowed("apple"),
             os: Cow::Borrowed("macos"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("x86_64h-apple-macosx"),
         },
     ),
     (
         "xtensa-esp32-espidf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("xtensa"),
             arch: Cow::Borrowed("xtensa"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
         "xtensa-esp32-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("xtensa"),
             arch: Cow::Borrowed("xtensa"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
         "xtensa-esp32s2-espidf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("xtensa"),
             arch: Cow::Borrowed("xtensa"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
         "xtensa-esp32s2-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("xtensa"),
             arch: Cow::Borrowed("xtensa"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
         "xtensa-esp32s3-espidf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("xtensa"),
             arch: Cow::Borrowed("xtensa"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("espidf"),
             env: Cow::Borrowed("newlib"),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
     (
         "xtensa-esp32s3-none-elf",
-        Target {
+        TargetInfo {
             full_arch: Cow::Borrowed("xtensa"),
             arch: Cow::Borrowed("xtensa"),
             vendor: Cow::Borrowed("espressif"),
             os: Cow::Borrowed("none"),
             env: Cow::Borrowed(""),
             abi: Cow::Borrowed(""),
+            unversioned_llvm_target: Cow::Borrowed("xtensa-none-elf"),
         },
     ),
 ];

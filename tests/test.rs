@@ -619,8 +619,7 @@ fn clang_apple_mac_catalyst() {
         .compile("foo");
     let execution = test.cmd(0);
 
-    // TODO: Add version to target here
-    execution.must_have("--target=arm64-apple-ios-macabi");
+    execution.must_have("--target=arm64-apple-ios15.0-macabi");
     execution.must_have_in_order("-isysroot", sdkroot);
     execution.must_have_in_order(
         "-isystem",
