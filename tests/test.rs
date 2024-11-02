@@ -274,8 +274,8 @@ fn gnu_aarch64_none_no_pic() {
     for target in &["aarch64-unknown-none-softfloat", "aarch64-unknown-none"] {
         let test = Test::gnu();
         test.gcc()
-            .target(&target)
-            .host(&target)
+            .target(target)
+            .host(target)
             .file("foo.c")
             .compile("foo");
 
@@ -630,8 +630,8 @@ fn clang_apple_mac_catalyst() {
         "-iframework",
         &format!("{sdkroot}/System/iOSSupport/System/Library/Frameworks"),
     );
-    execution.must_have(&format!("-L{sdkroot}/System/iOSSupport/usr/lib"));
-    execution.must_have(&format!(
+    execution.must_have(format!("-L{sdkroot}/System/iOSSupport/usr/lib"));
+    execution.must_have(format!(
         "-F{sdkroot}/System/iOSSupport/System/Library/Frameworks"
     ));
 }
