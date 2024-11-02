@@ -78,6 +78,7 @@ impl<T> OnceLock<T> {
     unsafe fn get_unchecked(&self) -> &T {
         debug_assert!(self.is_initialized());
         #[allow(clippy::needless_borrow)]
+        #[allow(unused_unsafe)]
         unsafe {
             (&*self.value.get()).assume_init_ref()
         }
