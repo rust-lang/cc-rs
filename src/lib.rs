@@ -319,8 +319,6 @@ pub struct Build {
 enum ErrorKind {
     /// Error occurred while performing I/O.
     IOError,
-    /// Invalid architecture supplied.
-    ArchitectureInvalid,
     /// Environment variable not found, with the var in question as extra info.
     EnvVarNotFound,
     /// Error occurred while using external tools (ie: invocation of compiler).
@@ -2130,7 +2128,7 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
-                if target.os == "macos" {
+                if target.vendor == "apple" {
                     let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
                     cmd.args.push("-arch".into());
                     cmd.args.push(arch.into());
@@ -2529,37 +2527,7 @@ impl Build {
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        let arch = match &*target.full_arch {
-            "arm64" | "aarch64" | "arm64e" if target.os == "macos" => "-m64",
-            "x86_64" | "x86_64h" if target.os == "macos" => "-m64",
-            "arm" | "armv7" | "thumbv7" => "armv7",
-            "arm64_32" => "arm64_32",
-            "arm64" | "aarch64" => "arm64",
-            "arm64e" => "arm64e",
-            "armv7k" => "armv7k",
-            "armv7s" | "thumbv7s" => "armv7s",
-            "i386" | "i686" => "-m32",
-            "x86_64" | "x86_64h" => "-m64",
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::ArchitectureInvalid,
-                    format!("unknown architecture {} for Apple target", target.full_arch),
-                ));
-            }
-        };
-
         let min_version = self.apple_deployment_target(&target);
-
-        if target.os != "macos" && target.abi != "macabi" {
-            if arch.starts_with('-') {
-                // -m32 or -m64
-                cmd.args.push(arch.into());
-            } else {
-                cmd.args.push("-arch".into());
-                cmd.args.push(arch.into());
-            }
-        }
-
         let version_flag = match (&*target.os, &*target.abi) {
             ("macos", "") => Some("-mmacosx-version-min"),
             ("ios", "") => Some("-miphoneos-version-min"),
