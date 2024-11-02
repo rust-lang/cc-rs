@@ -325,8 +325,6 @@ pub struct Build {
 enum ErrorKind {
     /// Error occurred while performing I/O.
     IOError,
-    /// Invalid architecture supplied.
-    ArchitectureInvalid,
     /// Environment variable not found, with the var in question as extra info.
     EnvVarNotFound,
     /// Error occurred while using external tools (ie: invocation of compiler).
@@ -2134,7 +2132,7 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
-                if target.os == "macos" {
+                if target.vendor == "apple" {
                     let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
                     cmd.args.push("-arch".into());
                     cmd.args.push(arch.into());
@@ -2532,113 +2530,38 @@ impl Build {
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
-        let arch_str = target.full_arch;
 
-        let arch = if target.os == "macos" {
-            match arch_str {
-                "i686" => AppleArchSpec::Device("-m32"),
-                "x86_64" | "x86_64h" | "aarch64" | "arm64e" => AppleArchSpec::Device("-m64"),
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::ArchitectureInvalid,
-                        "Unknown architecture for macOS target.",
-                    ));
-                }
-            }
-        } else if target.abi == "macabi" {
-            match arch_str {
-                "arm64e" => AppleArchSpec::Catalyst("arm64e"),
-                "arm64" | "aarch64" => AppleArchSpec::Catalyst("arm64"),
-                "x86_64" | "x86_64h" => AppleArchSpec::Catalyst("-m64"),
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::ArchitectureInvalid,
-                        "Unknown architecture for iOS target.",
-                    ));
-                }
-            }
-        } else if target.abi == "sim" {
-            match arch_str {
-                "arm64" | "aarch64" => AppleArchSpec::Simulator("arm64"),
-                "i386" | "i686" => AppleArchSpec::Simulator("-m32"),
-                "x86_64" | "x86_64h" => AppleArchSpec::Simulator("-m64"),
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::ArchitectureInvalid,
-                        "Unknown architecture for simulator target.",
-                    ));
-                }
-            }
-        } else {
-            match arch_str {
-                "arm" | "armv7" | "thumbv7" => AppleArchSpec::Device("armv7"),
-                "armv7k" => AppleArchSpec::Device("armv7k"),
-                "armv7s" | "thumbv7s" => AppleArchSpec::Device("armv7s"),
-                "arm64e" => AppleArchSpec::Device("arm64e"),
-                "arm64" | "aarch64" => AppleArchSpec::Device("arm64"),
-                "arm64_32" => AppleArchSpec::Device("arm64_32"),
-                _ => {
-                    return Err(Error::new(
-                        ErrorKind::ArchitectureInvalid,
-                        format!("Unknown architecture for {:?} target.", target.os),
-                    ));
-                }
-            }
-        };
-
-        let sdk_details = apple_os_sdk_parts(target.os, &arch);
-        let min_version = self.apple_deployment_target(&target);
-
-        match arch {
-            AppleArchSpec::Device(_) if target.os == "macos" => {
-                cmd.args
-                    .push(format!("-mmacosx-version-min={}", min_version).into());
-            }
-            AppleArchSpec::Device(arch) => {
-                cmd.args.push("-arch".into());
-                cmd.args.push(arch.into());
-                // `-mxros-version-min` does not exist
-                // https://github.com/llvm/llvm-project/issues/88271
-                if target.os != "visionos" {
-                    cmd.args.push(
-                        format!("-m{}os-version-min={}", sdk_details.sdk_prefix, min_version)
-                            .into(),
-                    );
-                }
-            }
-            AppleArchSpec::Simulator(arch) => {
-                if arch.starts_with('-') {
-                    // -m32 or -m64
-                    cmd.args.push(arch.into());
-                } else {
-                    cmd.args.push("-arch".into());
-                    cmd.args.push(arch.into());
-                }
-                if target.os != "visionos" {
-                    cmd.args.push(
-                        format!(
-                            "-m{}simulator-version-min={}",
-                            sdk_details.sim_prefix, min_version
-                        )
-                        .into(),
-                    );
-                }
-            }
-            AppleArchSpec::Catalyst(_) => {}
-        };
+        // If the compiler is Clang, then we've already specifed the target
+        // information (including the deployment target) with the `--target`
+        // option, so we don't need to do anything further here.
+        //
+        // If the compiler is GCC, then we need to specify
+        // `-mmacosx-version-min` to set the deployment target, as well
+        // as to say that the target OS is macOS.
+        //
+        // NOTE: GCC does not support `-miphoneos-version-min=` etc. (because
+        // it does not support iOS in general), but we specify them anyhow in
+        // case we actually have a Clang-like compiler disguised as a GNU-like
+        // compiler, or in case GCC adds support for these in the future.
+        if !cmd.is_like_clang() {
+            let min_version = self.apple_deployment_target(&target);
+            cmd.args
+                .push(target.apple_version_flag(&min_version).into());
+        }
 
         // AppleClang sometimes requires sysroot even on macOS
         if cmd.is_xctoolchain_clang() || target.os != "macos" {
             self.cargo_output.print_metadata(&format_args!(
                 "Detecting {:?} SDK path for {}",
-                target.os, sdk_details.sdk
+                target.os,
+                target.apple_sdk_name(),
             ));
-            let sdk_path = self.apple_sdk_root(&sdk_details.sdk)?;
+            let sdk_path = self.apple_sdk_root(&target)?;
 
             cmd.args.push("-isysroot".into());
             cmd.args.push(OsStr::new(&sdk_path).to_owned());
 
-            if let AppleArchSpec::Catalyst(_) = arch {
+            if target.abi == "macabi" {
                 // Mac Catalyst uses the macOS SDK, but to compile against and
                 // link to iOS-specific frameworks, we should have the support
                 // library stubs in the include and library search path.
@@ -3719,7 +3642,9 @@ impl Build {
         Ok(Arc::from(OsStr::new(sdk_path.trim())))
     }
 
-    fn apple_sdk_root(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
+    fn apple_sdk_root(&self, target: &TargetInfo) -> Result<Arc<OsStr>, Error> {
+        let sdk = target.apple_sdk_name();
+
         if let Some(ret) = self
             .build_cache
             .apple_sdk_root_cache
@@ -3972,43 +3897,6 @@ impl Default for Build {
 fn fail(s: &str) -> ! {
     eprintln!("\n\nerror occurred: {}\n\n", s);
     std::process::exit(1);
-}
-
-struct AppleSdkTargetParts {
-    sdk_prefix: &'static str,
-    sim_prefix: &'static str,
-    sdk: Cow<'static, str>,
-}
-
-fn apple_os_sdk_parts(os: &str, arch: &AppleArchSpec) -> AppleSdkTargetParts {
-    let (sdk_prefix, sim_prefix) = match os {
-        "macos" => ("macosx", ""),
-        "ios" => ("iphone", "ios-"),
-        "watchos" => ("watch", "watch"),
-        "tvos" => ("appletv", "appletv"),
-        "visionos" => ("xr", "xr"),
-        os => unreachable!("unknown Apple OS {}", os),
-    };
-    let sdk = match arch {
-        AppleArchSpec::Device(_) if os == "macos" => Cow::Borrowed("macosx"),
-        AppleArchSpec::Device(_) => format!("{}os", sdk_prefix).into(),
-        AppleArchSpec::Simulator(_) => format!("{}simulator", sdk_prefix).into(),
-        AppleArchSpec::Catalyst(_) => Cow::Borrowed("macosx"),
-    };
-
-    AppleSdkTargetParts {
-        sdk_prefix,
-        sim_prefix,
-        sdk,
-    }
-}
-
-#[allow(dead_code)]
-enum AppleArchSpec {
-    Device(&'static str),
-    Simulator(&'static str),
-    #[allow(dead_code)]
-    Catalyst(&'static str),
 }
 
 // Use by default minimum available API level

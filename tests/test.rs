@@ -274,8 +274,8 @@ fn gnu_aarch64_none_no_pic() {
     for target in &["aarch64-unknown-none-softfloat", "aarch64-unknown-none"] {
         let test = Test::gnu();
         test.gcc()
-            .target(&target)
-            .host(&target)
+            .target(target)
+            .host(target)
             .file("foo.c")
             .compile("foo");
 
@@ -511,7 +511,9 @@ fn gnu_apple_darwin() {
     for (arch, version) in &[("x86_64", "10.7"), ("aarch64", "11.0")] {
         let target = format!("{}-apple-darwin", arch);
         let test = Test::gnu();
-        test.gcc()
+        test.shim("fake-gcc")
+            .gcc()
+            .compiler("fake-gcc")
             .target(&target)
             .host(&target)
             // Avoid test maintenance when minimum supported OSes change.
@@ -520,8 +522,7 @@ fn gnu_apple_darwin() {
             .compile("foo");
 
         let cmd = test.cmd(0);
-        test.cmd(0)
-            .must_have(format!("-mmacosx-version-min={}", version));
+        cmd.must_have(format!("-mmacosx-version-min={version}"));
         cmd.must_not_have("-isysroot");
     }
 }
@@ -553,7 +554,7 @@ fn macos_cpp_minimums() {
         let deployment_arg = exec
             .args
             .iter()
-            .find_map(|arg| arg.strip_prefix("-mmacosx-version-min="))
+            .find_map(|arg| arg.strip_prefix("--target=x86_64-apple-macosx"))
             .expect("no deployment target argument was set");
 
         let mut deployment_parts = deployment_arg.split('.').map(|v| v.parse::<u32>().unwrap());
@@ -581,7 +582,7 @@ fn macos_cpp_minimums() {
         .compile("foo");
 
     // No C++ leaves it untouched
-    test.cmd(0).must_have("-mmacosx-version-min=10.7");
+    test.cmd(0).must_have("--target=x86_64-apple-macosx10.7");
 }
 
 #[cfg(target_os = "macos")]
@@ -596,7 +597,7 @@ fn clang_apple_tvos() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_have("-mappletvos-version-min=9.0");
+    test.cmd(0).must_have("--target=arm64-apple-tvos9.0");
 }
 
 #[cfg(target_os = "macos")]
@@ -629,8 +630,8 @@ fn clang_apple_mac_catalyst() {
         "-iframework",
         &format!("{sdkroot}/System/iOSSupport/System/Library/Frameworks"),
     );
-    execution.must_have(&format!("-L{sdkroot}/System/iOSSupport/usr/lib"));
-    execution.must_have(&format!(
+    execution.must_have(format!("-L{sdkroot}/System/iOSSupport/usr/lib"));
+    execution.must_have(format!(
         "-F{sdkroot}/System/iOSSupport/System/Library/Frameworks"
     ));
 }
@@ -648,7 +649,8 @@ fn clang_apple_tvsimulator() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
+    test.cmd(0)
+        .must_have("--target=x86_64-apple-tvos9.0-simulator");
 }
 
 #[cfg(target_os = "macos")]
