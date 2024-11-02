@@ -12,9 +12,11 @@ const PRELUDE: &str = r#"//! This file is generated code. Please edit the genera
 
 fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std::io::Result<()> {
     writeln!(f, "use super::TargetInfo;")?;
-    writeln!(f, "use std::borrow::Cow;")?;
     writeln!(f)?;
-    writeln!(f, "pub(crate) const LIST: &[(&str, TargetInfo)] = &[")?;
+    writeln!(
+        f,
+        "pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &["
+    )?;
 
     for (triple, spec) in &target_specs.0 {
         let full_arch = triple.split_once('-').unwrap().0;
@@ -42,15 +44,15 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         writeln!(f, "    (")?;
         writeln!(f, "        {triple:?},")?;
         writeln!(f, "        TargetInfo {{")?;
-        writeln!(f, "            full_arch: Cow::Borrowed({full_arch:?}),")?;
-        writeln!(f, "            arch: Cow::Borrowed({arch:?}),")?;
-        writeln!(f, "            vendor: Cow::Borrowed({vendor:?}),")?;
-        writeln!(f, "            os: Cow::Borrowed({os:?}),")?;
-        writeln!(f, "            env: Cow::Borrowed({env:?}),")?;
-        writeln!(f, "            abi: Cow::Borrowed({abi:?}),")?;
+        writeln!(f, "            full_arch: {full_arch:?},")?;
+        writeln!(f, "            arch: {arch:?},")?;
+        writeln!(f, "            vendor: {vendor:?},")?;
+        writeln!(f, "            os: {os:?},")?;
+        writeln!(f, "            env: {env:?},")?;
+        writeln!(f, "            abi: {abi:?},")?;
         writeln!(
             f,
-            "            unversioned_llvm_target: Cow::Borrowed({unversioned_llvm_target:?}),"
+            "            unversioned_llvm_target: {unversioned_llvm_target:?},"
         )?;
         writeln!(f, "        }},")?;
         writeln!(f, "    ),")?;

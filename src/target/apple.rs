@@ -1,8 +1,8 @@
 use super::TargetInfo;
 
-impl TargetInfo {
+impl TargetInfo<'_> {
     pub(crate) fn apple_sdk_name(&self) -> &'static str {
-        match (&*self.os, &*self.abi) {
+        match (self.os, self.abi) {
             ("macos", "") => "macosx",
             ("ios", "") => "iphoneos",
             ("ios", "sim") => "iphonesimulator",
