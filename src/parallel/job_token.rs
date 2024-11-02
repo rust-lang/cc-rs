@@ -1,8 +1,6 @@
 use std::marker::PhantomData;
 
-use crate::Error;
-
-use super::once_lock::OnceLock;
+use crate::{utilities::OnceLock, Error};
 
 pub(crate) struct JobToken(PhantomData<()>);
 
