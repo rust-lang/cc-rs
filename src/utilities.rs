@@ -55,6 +55,12 @@ pub(crate) struct OnceLock<T> {
     _marker: PhantomData<T>,
 }
 
+impl<T> Default for OnceLock<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<T> OnceLock<T> {
     pub(crate) const fn new() -> Self {
         Self {
