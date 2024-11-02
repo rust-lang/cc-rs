@@ -2,9 +2,9 @@ use std::borrow::Cow;
 
 use super::TargetInfo;
 
-impl TargetInfo {
+impl<'a> TargetInfo<'a> {
     /// The versioned LLVM/Clang target triple.
-    pub(crate) fn versioned_llvm_target(&self, version: Option<&str>) -> Cow<'_, str> {
+    pub(crate) fn versioned_llvm_target(&self, version: Option<&str>) -> Cow<'a, str> {
         if let Some(version) = version {
             // Only support versioned Apple targets for now.
             assert_eq!(self.vendor, "apple");
@@ -22,7 +22,7 @@ impl TargetInfo {
                 format!("{arch}-{vendor}-{os}{version}")
             })
         } else {
-            Cow::Borrowed(&self.unversioned_llvm_target)
+            Cow::Borrowed(self.unversioned_llvm_target)
         }
     }
 }

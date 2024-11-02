@@ -122,7 +122,7 @@ pub(crate) fn find_tool_inner(
     }
 
     // We only need the arch.
-    let target = TargetArch(&target.full_arch);
+    let target = TargetArch(target.full_arch);
 
     // Looks like msbuild isn't located in the same location as other tools like
     // cl.exe and lib.exe.
