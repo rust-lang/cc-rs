@@ -259,6 +259,16 @@ struct CompilerFlag {
 
 type Env = Option<Arc<OsStr>>;
 
+#[derive(Debug, Default)]
+struct BuildCache {
+    env_cache: RwLock<HashMap<Box<str>, Env>>,
+    apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
+    apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
+    cached_compiler_family: RwLock<HashMap<Box<Path>, ToolFamily>>,
+    known_flag_support_status_cache: RwLock<HashMap<CompilerFlag, bool>>,
+    target_info_parser: target::TargetInfoParser,
+}
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
@@ -271,7 +281,6 @@ pub struct Build {
     objects: Vec<Arc<Path>>,
     flags: Vec<Arc<OsStr>>,
     flags_supported: Vec<Arc<OsStr>>,
-    known_flag_support_status_cache: Arc<RwLock<HashMap<CompilerFlag, bool>>>,
     ar_flags: Vec<Arc<OsStr>>,
     asm_flags: Vec<Arc<OsStr>>,
     no_default_flags: bool,
@@ -306,12 +315,9 @@ pub struct Build {
     warnings_into_errors: bool,
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
-    env_cache: Arc<RwLock<HashMap<Box<str>, Env>>>,
-    apple_sdk_root_cache: Arc<RwLock<HashMap<Box<str>, Arc<OsStr>>>>,
-    apple_versions_cache: Arc<RwLock<HashMap<Box<str>, Arc<str>>>>,
     emit_rerun_if_env_changed: bool,
-    cached_compiler_family: Arc<RwLock<HashMap<Box<Path>, ToolFamily>>>,
     shell_escaped_flags: Option<bool>,
+    build_cache: Arc<BuildCache>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -399,7 +405,6 @@ impl Build {
             objects: Vec::new(),
             flags: Vec::new(),
             flags_supported: Vec::new(),
-            known_flag_support_status_cache: Arc::new(RwLock::new(HashMap::new())),
             ar_flags: Vec::new(),
             asm_flags: Vec::new(),
             no_default_flags: false,
@@ -431,12 +436,9 @@ impl Build {
             warnings: None,
             extra_warnings: None,
             warnings_into_errors: false,
-            env_cache: Arc::new(RwLock::new(HashMap::new())),
-            apple_sdk_root_cache: Arc::new(RwLock::new(HashMap::new())),
-            apple_versions_cache: Arc::new(RwLock::new(HashMap::new())),
             emit_rerun_if_env_changed: true,
-            cached_compiler_family: Arc::default(),
             shell_escaped_flags: None,
+            build_cache: Arc::default(),
         }
     }
 
@@ -634,7 +636,7 @@ impl Build {
         &self,
         flag: &OsStr,
         compiler_path: &Path,
-        target: &TargetInfo,
+        target: &TargetInfo<'_>,
     ) -> Result<bool, Error> {
         let compiler_flag = CompilerFlag {
             compiler: compiler_path.into(),
@@ -642,6 +644,7 @@ impl Build {
         };
 
         if let Some(is_supported) = self
+            .build_cache
             .known_flag_support_status_cache
             .read()
             .unwrap()
@@ -686,7 +689,7 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        let is_arm = matches!(&*target.arch, "aarch64" | "arm");
+        let is_arm = matches!(target.arch, "aarch64" | "arm");
         let clang = compiler.is_like_clang();
         let gnu = compiler.family == ToolFamily::Gnu;
         command_add_output_file(
@@ -711,7 +714,8 @@ impl Build {
         let output = cmd.output()?;
         let is_supported = output.status.success() && output.stderr.is_empty();
 
-        self.known_flag_support_status_cache
+        self.build_cache
+            .known_flag_support_status_cache
             .write()
             .unwrap()
             .insert(compiler_flag, is_supported);
@@ -1433,7 +1437,7 @@ impl Build {
                     libtst = true;
                 } else if cfg!(target_env = "msvc") {
                     libdir.push("lib");
-                    match &*target.arch {
+                    match target.arch {
                         "x86_64" => {
                             libdir.push("x64");
                             libtst = true;
@@ -1725,7 +1729,7 @@ impl Build {
                     .map(Cow::Owned)?,
             )
         };
-        let is_arm = matches!(&*target.arch, "aarch64" | "arm");
+        let is_arm = matches!(target.arch, "aarch64" | "arm");
         command_add_output_file(
             &mut cmd,
             &obj.dst,
@@ -1932,7 +1936,7 @@ impl Build {
     fn add_default_flags(
         &self,
         cmd: &mut Tool,
-        target: &TargetInfo,
+        target: &TargetInfo<'_>,
         opt_level: &str,
     ) -> Result<(), Error> {
         let raw_target = self.get_raw_target()?;
@@ -2290,7 +2294,7 @@ impl Build {
                     // get the 32i/32imac/32imc/64gc/64imac/... part
                     let arch = &target.full_arch[5..];
                     if arch.starts_with("64") {
-                        if matches!(&*target.os, "linux" | "freebsd" | "netbsd") {
+                        if matches!(target.os, "linux" | "freebsd" | "netbsd") {
                             cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
                         } else {
@@ -2528,7 +2532,7 @@ impl Build {
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
-        let arch_str = &*target.full_arch;
+        let arch_str = target.full_arch;
 
         let arch = if target.os == "macos" {
             match arch_str {
@@ -2582,7 +2586,7 @@ impl Build {
             }
         };
 
-        let sdk_details = apple_os_sdk_parts(&target.os, &arch);
+        let sdk_details = apple_os_sdk_parts(target.os, &arch);
         let min_version = self.apple_deployment_target(&target);
 
         match arch {
@@ -2684,7 +2688,7 @@ impl Build {
         if let Some(c) = &self.compiler {
             return Ok(Tool::new(
                 (**c).to_owned(),
-                &self.cached_compiler_family,
+                &self.build_cache.cached_compiler_family,
                 &self.cargo_output,
                 out_dir,
             ));
@@ -2725,7 +2729,7 @@ impl Build {
                 let mut t = Tool::with_clang_driver(
                     tool,
                     driver_mode,
-                    &self.cached_compiler_family,
+                    &self.build_cache.cached_compiler_family,
                     &self.cargo_output,
                     out_dir,
                 );
@@ -2752,7 +2756,7 @@ impl Build {
                     } else {
                         Some(Tool::new(
                             PathBuf::from(tool),
-                            &self.cached_compiler_family,
+                            &self.build_cache.cached_compiler_family,
                             &self.cargo_output,
                             out_dir,
                         ))
@@ -2817,7 +2821,7 @@ impl Build {
 
                 let mut t = Tool::new(
                     PathBuf::from(compiler),
-                    &self.cached_compiler_family,
+                    &self.build_cache.cached_compiler_family,
                     &self.cargo_output,
                     out_dir,
                 );
@@ -2841,7 +2845,7 @@ impl Build {
                 nvcc,
                 None,
                 self.cuda,
-                &self.cached_compiler_family,
+                &self.build_cache.cached_compiler_family,
                 &self.cargo_output,
                 out_dir,
             );
@@ -3466,10 +3470,13 @@ impl Build {
             .or_else(|| prefixes.first().copied())
     }
 
-    fn get_target(&self) -> Result<TargetInfo, Error> {
+    fn get_target(&self) -> Result<TargetInfo<'_>, Error> {
         match &self.target {
             Some(t) => t.parse(),
-            None => TargetInfo::from_cargo_environment_variables(),
+            None => self
+                .build_cache
+                .target_info_parser
+                .parse_from_cargo_environment_variables(),
         }
     }
 
@@ -3509,7 +3516,7 @@ impl Build {
         // Tentatively matches the DWARF version defaults as of rustc 1.62.
         let target = self.get_target().ok()?;
         if matches!(
-            &*target.os,
+            target.os,
             "android" | "dragonfly" | "freebsd" | "netbsd" | "openbsd"
         ) || target.vendor == "apple"
             || (target.os == "windows" && target.env == "gnu")
@@ -3559,7 +3566,7 @@ impl Build {
                 _ => false,
             }
         }
-        if let Some(val) = self.env_cache.read().unwrap().get(v).cloned() {
+        if let Some(val) = self.build_cache.env_cache.read().unwrap().get(v).cloned() {
             return val;
         }
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
@@ -3574,7 +3581,11 @@ impl Build {
             v,
             OptionOsStrDisplay(r.as_deref())
         ));
-        self.env_cache.write().unwrap().insert(v.into(), r.clone());
+        self.build_cache
+            .env_cache
+            .write()
+            .unwrap()
+            .insert(v.into(), r.clone());
         r
     }
 
@@ -3710,6 +3721,7 @@ impl Build {
 
     fn apple_sdk_root(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
         if let Some(ret) = self
+            .build_cache
             .apple_sdk_root_cache
             .read()
             .expect("apple_sdk_root_cache lock failed")
@@ -3719,16 +3731,18 @@ impl Build {
             return Ok(ret);
         }
         let sdk_path = self.apple_sdk_root_inner(sdk)?;
-        self.apple_sdk_root_cache
+        self.build_cache
+            .apple_sdk_root_cache
             .write()
             .expect("apple_sdk_root_cache lock failed")
             .insert(sdk.into(), sdk_path.clone());
         Ok(sdk_path)
     }
 
-    fn apple_deployment_target(&self, target: &TargetInfo) -> Arc<str> {
+    fn apple_deployment_target(&self, target: &TargetInfo<'_>) -> Arc<str> {
         let sdk = target.apple_sdk_name();
         if let Some(ret) = self
+            .build_cache
             .apple_versions_cache
             .read()
             .expect("apple_versions_cache lock failed")
@@ -3778,7 +3792,7 @@ impl Build {
                 .split('.')
                 .map(|v| v.parse::<u32>().expect("integer version"));
 
-            match &*target.os {
+            match target.os {
                 "macos" => {
                     let major = deployment_target.next().unwrap_or(0);
                     let minor = deployment_target.next().unwrap_or(0);
@@ -3823,7 +3837,7 @@ impl Build {
         //
         // The ordering of env -> XCode SDK -> old rustc defaults is intentional for performance when using
         // an explicit target.
-        let version: Arc<str> = match &*target.os {
+        let version: Arc<str> = match target.os {
             "macos" => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
                 .and_then(maybe_cpp_version_baseline)
                 .or_else(default_deployment_from_sdk)
@@ -3856,7 +3870,8 @@ impl Build {
             os => unreachable!("unknown Apple OS: {}", os),
         };
 
-        self.apple_versions_cache
+        self.build_cache
+            .apple_versions_cache
             .write()
             .expect("apple_versions_cache lock failed")
             .insert(sdk.into(), version.clone());
@@ -3930,12 +3945,12 @@ impl Build {
         None
     }
 
-    fn windows_registry_find(&self, target: &TargetInfo, tool: &str) -> Option<Command> {
+    fn windows_registry_find(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Command> {
         self.windows_registry_find_tool(target, tool)
             .map(|c| c.to_command())
     }
 
-    fn windows_registry_find_tool(&self, target: &TargetInfo, tool: &str) -> Option<Tool> {
+    fn windows_registry_find_tool(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Tool> {
         struct BuildEnvGetter<'s>(&'s Build);
 
         impl windows_registry::EnvGetter for BuildEnvGetter<'_> {
@@ -4074,8 +4089,8 @@ fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> Stri
 }
 
 // Rust and clang/cc don't agree on how to name the target.
-fn map_darwin_target_from_rust_to_compiler_architecture(target: &TargetInfo) -> &str {
-    match &*target.full_arch {
+fn map_darwin_target_from_rust_to_compiler_architecture<'a>(target: &TargetInfo<'a>) -> &'a str {
+    match target.full_arch {
         "aarch64" => "arm64",
         "arm64_32" => "arm64_32",
         "arm64e" => "arm64e",
