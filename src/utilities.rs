@@ -68,7 +68,10 @@ impl<T> OnceLock<T> {
         self.once.call_once(|| {
             unsafe { &mut *self.value.get() }.write(f());
         });
-        unsafe { (&*self.value.get()).assume_init_ref() }
+        #[allow(clippy::needless_borrow)]
+        unsafe {
+            (&*self.value.get()).assume_init_ref()
+        }
     }
 }
 
