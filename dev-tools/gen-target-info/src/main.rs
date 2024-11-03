@@ -26,17 +26,47 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
 
-        // Remove deployment target information from LLVM target triples (we
-        // will add this in another part of CC).
-        //
-        // FIXME(madsmtm): Should become unnecessary after
-        // https://github.com/rust-lang/rust/pull/131037
         let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
+            // Remove deployment target information from LLVM target triples (we
+            // will add this in another part of CC).
+            //
+            // FIXME(madsmtm): Should become unnecessary after
+            // https://github.com/rust-lang/rust/pull/131037
             let mut components = spec.llvm_target.split("-").collect::<Vec<_>>();
 
             components[2] = components[2].trim_end_matches(|c: char| c.is_numeric() || c == '.');
 
             components.join("-")
+        } else if os == "uefi" {
+            // Override the UEFI LLVM targets.
+            //
+            // The rustc mappings (as of 1.82) for the UEFI targets are:
+            // * i686-unknown-uefi -> i686-unknown-windows-gnu
+            // * x86_64-unknown-uefi -> x86_64-unknown-windows
+            // * aarch64-unknown-uefi -> aarch64-unknown-windows
+            //
+            // However, in cc-rs all the UEFI targets use
+            // -windows-gnu. This has been the case since 2021 [1].
+            // * i686-unknown-uefi -> i686-unknown-windows-gnu
+            // * x86_64-unknown-uefi -> x86_64-unknown-windows-gnu
+            // * aarch64-unknown-uefi -> aarch64-unknown-windows-gnu
+            //
+            // For now, override the UEFI mapping to keep the behavior
+            // of cc-rs unchanged.
+            //
+            // TODO: as discussed in [2], it may be possible to switch
+            // to new UEFI targets added to clang, and regardless it
+            // would be good to have consistency between rustc and
+            // cc-rs.
+            //
+            // [1]: https://github.com/rust-lang/cc-rs/pull/623
+            // [2]: https://github.com/rust-lang/cc-rs/pull/1264
+            let arch = if spec.arch == "x86" {
+                "i686"
+            } else {
+                &spec.arch
+            };
+            format!("{}-unknown-windows-gnu", arch)
         } else {
             spec.llvm_target.clone()
         };
