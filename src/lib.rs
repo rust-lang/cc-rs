@@ -793,6 +793,10 @@ impl Build {
     /// When enabled on systems that support dynamic linking, this prevents
     /// linking with the shared libraries.
     ///
+    /// If not specified, this falls back to:
+    /// - `-Ctarget-features=+crt-static` when compiling in a build script.
+    /// - A target-specific default.
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -1301,6 +1305,9 @@ impl Build {
     /// Configures whether the /MT flag or the /MD flag will be passed to msvc build tools.
     ///
     /// This option defaults to `false`, and affect only msvc targets.
+    ///
+    /// If not specified, this falls back to `-Ctarget-features=+crt-static`
+    /// when compiling in a build script.
     pub fn static_crt(&mut self, static_crt: bool) -> &mut Build {
         self.static_crt = Some(static_crt);
         self
@@ -1944,18 +1951,10 @@ impl Build {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-nologo".into());
 
-                let crt_flag = match self.static_crt {
-                    Some(true) => "-MT",
-                    Some(false) => "-MD",
-                    None => {
-                        let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
-                        let features = features.as_deref().unwrap_or_default();
-                        if features.to_string_lossy().contains("crt-static") {
-                            "-MT"
-                        } else {
-                            "-MD"
-                        }
-                    }
+                let crt_flag = if self.static_crt.unwrap_or_else(|| target.crt_static()) {
+                    "-MT"
+                } else {
+                    "-MD"
                 };
                 cmd.push_cc_arg(crt_flag.into());
 
@@ -2142,12 +2141,8 @@ impl Build {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
 
-                if self.static_flag.is_none() {
-                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
-                    let features = features.as_deref().unwrap_or_default();
-                    if features.to_string_lossy().contains("crt-static") {
-                        cmd.args.push("-static".into());
-                    }
+                if self.static_flag.is_none() && target.crt_static() {
+                    cmd.args.push("-static".into());
                 }
 
                 // armv7 targets get to use armv7 instructions

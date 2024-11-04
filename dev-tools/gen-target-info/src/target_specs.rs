@@ -37,8 +37,7 @@ pub struct RustcTargetSpecs(
 );
 
 /// Potentially useful values from:
-/// https://doc.rust-lang.org/reference/conditional-compilation.html
-///
+/// <https://doc.rust-lang.org/reference/conditional-compilation.html>
 /// That are not directly / easily exposed in `TargetSpec`.
 #[derive(Debug, Default)]
 pub struct Cfgs {

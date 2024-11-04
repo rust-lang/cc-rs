@@ -25,6 +25,7 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let os = spec.os.as_deref().unwrap_or("none");
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
+        let features = spec.cfgs.target_features.join(",");
 
         let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
             // Remove deployment target information from LLVM target triples (we
@@ -84,6 +85,15 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
             f,
             "            unversioned_llvm_target: {unversioned_llvm_target:?},"
         )?;
+        // NOTE: Features are generated from nightly versions, which will
+        // result in unstable values being output here as well. That is
+        // probably desirable since:
+        // 1. They're only used when `cc` is used outside a build script, and
+        //    then we can't do feature detection, so we have to pick either
+        //    the stable or the nightly representation.
+        // 2. The nightly representation is much more feature-ful, and `cc`'s
+        //    conversion is going to be best-effort anyhow.
+        writeln!(f, "            features: {features:?},")?;
         writeln!(f, "        }},")?;
         writeln!(f, "    ),")?;
     }

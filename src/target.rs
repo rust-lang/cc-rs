@@ -43,6 +43,16 @@ pub(crate) struct TargetInfo<'a> {
     ///
     /// This is the same as the value of `cfg!(target_abi)`.
     pub abi: &'a str,
+    /// The set of target features, separated by commas.
+    /// See <https://doc.rust-lang.org/reference/attributes/codegen.html#the-target_feature-attribute>
+    ///
+    /// This is the same as the value of `CARGO_CFG_TARGET_FEATURE`, and
+    /// can be overwritten by the user with `-Ctarget-feature=...`.
+    ///
+    /// This means it also includes the special feature `crt-static`.
+    /// NOTE: The default value is not available to build scripts, see:
+    /// <https://github.com/rust-lang/cargo/issues/14778>
+    features: &'a str,
     /// The unversioned LLVM/Clang target triple.
     unversioned_llvm_target: &'a str,
 }
@@ -63,6 +73,13 @@ impl FromStr for TargetInfo<'_> {
                 format!("unknown target `{target_triple}`"),
             ))
         }
+    }
+}
+
+impl TargetInfo<'_> {
+    /// See <https://doc.rust-lang.org/reference/linkage.html#static-and-dynamic-c-runtimes>
+    pub(crate) fn crt_static(&self) -> bool {
+        self.features.contains("crt-static")
     }
 }
 
