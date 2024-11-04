@@ -159,7 +159,9 @@ impl TargetInfo<'_> {
             "nvptx64" => {}
             // https://gcc.gnu.org/onlinedocs/gcc/RS_002f6000-and-PowerPC-Options.html
             "powerpc" | "powerpc64" => {
-                if self.arch == "powerpc64" {
+                if self.arch == "powerpc" {
+                    flags.push("-m32".into());
+                } else {
                     flags.push("-m64".into());
                 }
             }
@@ -190,7 +192,13 @@ impl TargetInfo<'_> {
             // https://gcc.gnu.org/onlinedocs/gcc/S_002f390-and-zSeries-Options.html
             "s390x" => {}
             // https://gcc.gnu.org/onlinedocs/gcc/SPARC-Options.html
-            "sparc" | "sparc64" => {}
+            "sparc" | "sparc64" => {
+                if self.arch == "sparc" {
+                    flags.push("-m32".into());
+                } else {
+                    flags.push("-m64".into());
+                }
+            }
             // Currently unsupported by GCC
             "wasm32" | "wasm64" => {}
             // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
