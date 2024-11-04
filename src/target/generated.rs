@@ -409,7 +409,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "uefi",
             env: "",
             abi: "",
-            unversioned_llvm_target: "aarch64-unknown-windows",
+            unversioned_llvm_target: "aarch64-unknown-windows-gnu",
         },
     ),
     (
@@ -3205,7 +3205,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "uefi",
             env: "",
             abi: "",
-            unversioned_llvm_target: "x86_64-unknown-windows",
+            unversioned_llvm_target: "x86_64-unknown-windows-gnu",
         },
     ),
     (
