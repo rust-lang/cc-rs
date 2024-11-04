@@ -284,6 +284,23 @@ fn gnu_aarch64_none_no_pic() {
 }
 
 #[test]
+fn gnu_uefi_no_pic() {
+    reset_env();
+
+    for arch in &["aarch64", "i686", "x86_64"] {
+        let target = format!("{}-unknown-uefi", arch);
+        let test = Test::gnu();
+        test.gcc()
+            .target(&target)
+            .host(&target)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0).must_not_have("-fPIC");
+    }
+}
+
+#[test]
 fn gnu_set_stdlib() {
     reset_env();
 
