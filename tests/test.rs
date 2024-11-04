@@ -196,7 +196,9 @@ fn gnu_x86_64() {
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("x86_64-{}", vendor);
         let test = Test::gnu();
-        test.gcc()
+        test.shim("fake-gcc")
+            .gcc()
+            .compiler("fake-gcc")
             .target(&target)
             .host(&target)
             .file("foo.c")
@@ -229,7 +231,9 @@ fn gnu_i686() {
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("i686-{}", vendor);
         let test = Test::gnu();
-        test.gcc()
+        test.shim("fake-gcc")
+            .gcc()
+            .compiler("fake-gcc")
             .target(&target)
             .host(&target)
             .file("foo.c")

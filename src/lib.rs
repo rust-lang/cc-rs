@@ -2041,7 +2041,7 @@ impl Build {
             family.add_force_frame_pointer(cmd);
         }
 
-        if !cmd.is_like_msvc() {
+        if cmd.family == ToolFamily::Gnu {
             if target.arch == "x86" {
                 cmd.args.push("-m32".into());
             } else if target.abi == "x32" {
