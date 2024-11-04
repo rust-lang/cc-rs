@@ -1,6 +1,30 @@
-use std::process;
+use std::{io::BufRead, process};
 
-use crate::{RustcTargetSpecs, TargetSpec};
+use crate::{Cfgs, RustcTargetSpecs, TargetSpec};
+
+fn get_cfgs(version: &str, target: &str) -> Cfgs {
+    let mut cmd = process::Command::new("rustc");
+    cmd.args([
+        version,
+        "-Zunstable-options",
+        "--print",
+        "cfg",
+        "--target",
+        target,
+    ]);
+    cmd.env("RUSTC_BOOTSTRAP", "1");
+    cmd.stdout(process::Stdio::piped());
+    cmd.stderr(process::Stdio::inherit());
+
+    let process::Output { status, stdout, .. } = cmd.output().unwrap();
+
+    if !status.success() {
+        panic!("{:?} failed with non-zero exit status: {}", cmd, status)
+    }
+
+    let cfgs: Vec<String> = stdout.lines().map(|line| line.unwrap()).collect();
+    Cfgs::parse(&cfgs)
+}
 
 pub fn get_targets_msrv() -> Vec<u8> {
     let mut cmd = process::Command::new("rustc");
@@ -37,7 +61,9 @@ pub fn get_target_spec_from_msrv(target: &str) -> TargetSpec {
         panic!("{:?} failed with non-zero exit status: {}", cmd, status)
     }
 
-    serde_json::from_slice(&stdout).unwrap()
+    let mut spec: TargetSpec = serde_json::from_slice(&stdout).unwrap();
+    spec.cfgs = get_cfgs("+1.63", target);
+    spec
 }
 
 pub fn get_target_specs_from_json() -> RustcTargetSpecs {
@@ -57,5 +83,9 @@ pub fn get_target_specs_from_json() -> RustcTargetSpecs {
         panic!("{:?} failed with non-zero exit status: {}", cmd, status)
     }
 
-    serde_json::from_slice(&stdout).unwrap()
+    let mut specs: RustcTargetSpecs = serde_json::from_slice(&stdout).unwrap();
+    for (target, spec) in &mut specs.0 {
+        spec.cfgs = get_cfgs("+nightly", target);
+    }
+    specs
 }

@@ -14,6 +14,7 @@ struct TargetInfoParserInner {
     os: Box<str>,
     env: Box<str>,
     abi: Box<str>,
+    features: Box<str>,
     unversioned_llvm_target: Box<str>,
 }
 
@@ -78,6 +79,24 @@ impl TargetInfoParserInner {
         // `""`, which is _probably_ correct for unknown target triples.
         let abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi))
             .unwrap_or_else(|_| String::default().into_boxed_str());
+        // Even more strongly prefer Cargo's view of the world for features,
+        // since these are overriable with `-Ctarget-feature=...`, and as such
+        // cannot be gotten reliably from just the target triple.
+        let features = cargo_env("CARGO_CFG_TARGET_FEATURE", {
+            // `CARGO_CFG_TARGET_FEATURE` is multi-valued, and may not be
+            // present; if it isn't, the features is `""`.
+            //
+            // However, if the user relied on setting `TARGET` outside build
+            // scripts, we fall back to the value from `rustc`.
+            #[allow(clippy::disallowed_methods)] // Cargo env var
+            if env::var_os("CARGO_CFG_TARGET_ARCH").is_some() {
+                // We're likely in a build script.
+                Some("")
+            } else {
+                // Probably not in a build script, fall back to `rustc` value.
+                ft.map(|t| t.features)
+            }
+        })?;
 
         // Prefer `rustc`'s LLVM target triple information.
         let unversioned_llvm_target = match fallback_target {
@@ -92,6 +111,7 @@ impl TargetInfoParserInner {
             os,
             env,
             abi,
+            features,
             unversioned_llvm_target: unversioned_llvm_target.into_boxed_str(),
         })
     }
@@ -114,6 +134,7 @@ impl TargetInfoParser {
                 os,
                 env,
                 abi,
+                features,
                 unversioned_llvm_target,
             }) => Ok(TargetInfo {
                 full_arch,
@@ -122,6 +143,7 @@ impl TargetInfoParser {
                 os,
                 env,
                 abi,
+                features,
                 unversioned_llvm_target,
             }),
             Err(e) => Err(e.clone()),
