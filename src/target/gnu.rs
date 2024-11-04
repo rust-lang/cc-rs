@@ -21,6 +21,34 @@ impl TargetInfo<'_> {
             "aarch64" => {}
             // https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html
             "arm" => {
+                // The documentation says that the default depends on the
+                // specific target configuration, but note that:
+                // > Note that the hard-float and soft-float ABIs are not
+                // > link-compatible; you must compile your entire program
+                // > the same ABI [...]
+                //
+                // In Rust, turning a hard float ABI into a soft float ABI,
+                // namely with the `-Csoft-float`, is considered unsound and
+                // deprecated:
+                // <https://github.com/rust-lang/rust/issues/129893>
+                //
+                // So if we know for sure whether we want soft or hard floats,
+                // let's specify it!
+                if self.os == "android" && self.full_arch.contains("v7") {
+                    // FIXME: Is this correct? Both targets that this affects
+                    // (`thumbv7neon-linux-androideabi` and `armv7-linux-androideabi`)
+                    // have `target_abi = "eabi"`, so perhaps they are soft
+                    // float targets too?
+                    flags.push("-mfloat-abi=softfp".into());
+                } else if self.abi == "eabihf" {
+                    flags.push("-mfloat-abi=hard".into());
+                } else if self.abi == "eabi" {
+                    flags.push("-mfloat-abi=soft".into());
+                } else {
+                    // Some Windows and Apple targets, let GCC control the
+                    // default for now.
+                }
+
                 // armv7 selfs get to use armv7 instructions
                 if (self.full_arch.starts_with("armv7") || self.full_arch.starts_with("thumbv7"))
                     && (self.os == "linux" || self.vendor == "kmc")
@@ -43,7 +71,6 @@ impl TargetInfo<'_> {
                         // NEON guarantees even more; see below.
                         flags.push("-mfpu=vfpv3-d16".into());
                     }
-                    flags.push("-mfloat-abi=softfp".into());
                 }
 
                 if self.full_arch.contains("neon") {
@@ -53,13 +80,11 @@ impl TargetInfo<'_> {
                 if self.full_arch == "armv4t" && self.os == "linux" {
                     flags.push("-march=armv4t".into());
                     flags.push("-marm".into());
-                    flags.push("-mfloat-abi=soft".into());
                 }
 
                 if self.full_arch == "armv5te" && self.os == "linux" {
                     flags.push("-march=armv5te".into());
                     flags.push("-marm".into());
-                    flags.push("-mfloat-abi=soft".into());
                 }
 
                 // For us arm == armv6 by default
@@ -68,8 +93,6 @@ impl TargetInfo<'_> {
                     flags.push("-marm".into());
                     if self.abi == "eabihf" {
                         flags.push("-mfpu=vfp".into());
-                    } else {
-                        flags.push("-mfloat-abi=soft".into());
                     }
                 }
 
@@ -78,13 +101,9 @@ impl TargetInfo<'_> {
                     flags.push("-march=armv7-a".into());
                     flags.push("-mcpu=cortex-a9".into());
                     flags.push("-mfpu=vfpv3".into());
-                    flags.push("-mfloat-abi=softfp".into());
                     flags.push("-marm".into());
                 }
 
-                if self.os == "none" && self.abi == "eabihf" {
-                    flags.push("-mfloat-abi=hard".into())
-                }
                 if self.full_arch.starts_with("thumb") {
                     flags.push("-mthumb".into());
                 }
