@@ -2203,15 +2203,6 @@ impl Build {
                     }
                 }
 
-                // We can guarantee some settings for FRC
-                if target.arch == "arm" && target.vendor == "frc" {
-                    cmd.args.push("-march=armv7-a".into());
-                    cmd.args.push("-mcpu=cortex-a9".into());
-                    cmd.args.push("-mfpu=vfpv3".into());
-                    cmd.args.push("-mfloat-abi=softfp".into());
-                    cmd.args.push("-marm".into());
-                }
-
                 // Turn codegen down on i586 to avoid some instructions.
                 if target.full_arch == "i586" && target.os == "linux" {
                     cmd.args.push("-march=pentium".into());
@@ -3249,7 +3240,6 @@ impl Build {
                     "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
-                    "arm-frc-linux-gnueabi" => Some("arm-frc-linux-gnueabi"),
                     "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
                     "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
                     "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
