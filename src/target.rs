@@ -8,6 +8,7 @@ use crate::{Error, ErrorKind};
 
 mod apple;
 mod generated;
+mod gnu;
 mod llvm;
 mod parser;
 
