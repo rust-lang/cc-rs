@@ -311,6 +311,14 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
         // Hash the dirname. This should prevent conflicts if we have multiple
         // object files with the same filename in different subfolders.
         let mut hasher = hash_map::DefaultHasher::new();
+
+        // Make the dirname relative to avoid full system paths influencing the sha and
+        // making the output system-dependent
+        let prefix = dst.parent().expect("Could not get parent of '{dst}'");
+        let prefix: &str = &prefix.to_string_lossy();
+        let err = format!("Could not strip prefix '{prefix}' from '{dirname}' to make '{dirname}' relative");
+        let dirname = dirname.strip_prefix(prefix).expect(&err);
+
         hasher.write(dirname.to_string().as_bytes());
         let obj = dst
             .join(format!("{:016x}-{}", hasher.finish(), basename))
