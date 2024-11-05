@@ -253,6 +253,7 @@ jobs:
         shell: bash
         run: |
           PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
+          PATH="/usr/local/cuda/bin:$PATH" CXX=clang++ cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
 
   msrv:
     name: MSRV
