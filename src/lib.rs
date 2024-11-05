@@ -2093,7 +2093,7 @@ impl Build {
 
                     // Pass `--target` with the LLVM target to properly
                     // configure Clang even when cross-compiling.
-                    cmd.args.push(format!("--target={llvm_target}").into());
+                    cmd.push_cc_arg(format!("--target={llvm_target}").into());
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
