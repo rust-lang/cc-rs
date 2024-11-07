@@ -288,6 +288,7 @@ fn wait_on_child(
 /// and store them in the output Object.
 pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<Object>, Error> {
     let mut objects = Vec::with_capacity(files.len());
+    let target_substring = ["rustc"];
     for file in files {
         let basename = file
             .file_name()
@@ -308,10 +309,29 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
             })?
             .to_string_lossy();
 
+        // Function to find the position of the first occurrence of the target substring
+        fn find_target_position(s: &str, targets: &[&str]) -> Option<usize> {
+            let mut pos = None;
+            for target in targets {
+                if let Some(index) = s.find(target) {
+                    //If a target is found and pos is None, set it
+                    if pos.is_none() || index < pos.unwrap() {
+                        pos = Some(index);
+                    }
+                }
+            }
+            pos
+        }
+        let filtered_dirname = if let Some(pos) = find_target_position(&dirname, &target_substring)
+        {
+            dirname[pos..].to_string() //Keep everything from the target substring onwards
+        } else {
+            dirname.to_string() //If target substring is not found, keep the original dirname        
+        };
         // Hash the dirname. This should prevent conflicts if we have multiple
         // object files with the same filename in different subfolders.
         let mut hasher = hash_map::DefaultHasher::new();
-        hasher.write(dirname.to_string().as_bytes());
+        hasher.write(filtered_dirname.as_bytes());
         let obj = dst
             .join(format!("{:016x}-{}", hasher.finish(), basename))
             .with_extension("o");
