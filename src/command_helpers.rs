@@ -312,14 +312,14 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
         // object files with the same filename in different subfolders.
         let mut hasher = hash_map::DefaultHasher::new();
 
-        // Make the dirname relative to avoid full system paths influencing the sha and
-        // making the output system-dependent
-        let prefix = dst.parent().expect("Could not get parent of '{dst}'");
-        let prefix: &str = &prefix.to_string_lossy();
-        let err = format!("Could not strip prefix '{prefix}' from '{dirname}' to make '{dirname}' relative");
-        let dirname = dirname.strip_prefix(prefix).expect(&err);
+        // Make the dirname relative (if possible) to avoid full system paths influencing the sha
+        // and making the output system-dependent
+        let mut dirname = dirname.to_string();
+        if let Ok(root) = std::env::var("CARGO_MANIFEST_DIR") {
+            dirname = dirname.strip_prefix(&root).unwrap_or(&dirname).to_string();
+        }
 
-        hasher.write(dirname.to_string().as_bytes());
+        hasher.write(dirname.as_bytes());
         let obj = dst
             .join(format!("{:016x}-{}", hasher.finish(), basename))
             .with_extension("o");
