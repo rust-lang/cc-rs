@@ -1,6 +1,7 @@
 //! Miscellaneous helpers for running commands
 
 use std::{
+    borrow::Cow,
     collections::hash_map,
     ffi::OsString,
     fmt::Display,
@@ -320,7 +321,7 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
         #[allow(clippy::disallowed_methods)]
         let dirname = if let Some(root) = std::env::var_os("CARGO_MANIFEST_DIR") {
             let root = root.to_string_lossy();
-            crate::Cow::Borrowed(dirname.strip_prefix(&*root).unwrap_or(&dirname))
+            Cow::Borrowed(dirname.strip_prefix(&*root).unwrap_or(&dirname))
         } else {
             dirname
         };
