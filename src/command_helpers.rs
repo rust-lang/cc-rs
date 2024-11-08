@@ -1,6 +1,7 @@
 //! Miscellaneous helpers for running commands
 
 use std::{
+    borrow::Cow,
     collections::hash_map,
     ffi::OsString,
     fmt::Display,
@@ -311,7 +312,21 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
         // Hash the dirname. This should prevent conflicts if we have multiple
         // object files with the same filename in different subfolders.
         let mut hasher = hash_map::DefaultHasher::new();
-        hasher.write(dirname.to_string().as_bytes());
+
+        // Make the dirname relative (if possible) to avoid full system paths influencing the sha
+        // and making the output system-dependent
+        //
+        // NOTE: Here we allow using std::env::var (instead of Build::getenv) because
+        // CARGO_* variables always trigger a rebuild when changed
+        #[allow(clippy::disallowed_methods)]
+        let dirname = if let Some(root) = std::env::var_os("CARGO_MANIFEST_DIR") {
+            let root = root.to_string_lossy();
+            Cow::Borrowed(dirname.strip_prefix(&*root).unwrap_or(&dirname))
+        } else {
+            dirname
+        };
+
+        hasher.write(dirname.as_bytes());
         let obj = dst
             .join(format!("{:016x}-{}", hasher.finish(), basename))
             .with_extension("o");
