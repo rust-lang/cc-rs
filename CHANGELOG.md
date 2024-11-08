@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.37](https://github.com/rust-lang/cc-rs/compare/cc-v1.1.36...cc-v1.1.37) - 2024-11-08
+
+### Other
+
+- Use relative directory for obj files hash ([#1270](https://github.com/rust-lang/cc-rs/pull/1270))
+- Regenerate target info ([#1280](https://github.com/rust-lang/cc-rs/pull/1280))
+
 ## [1.1.36](https://github.com/rust-lang/cc-rs/compare/cc-v1.1.35...cc-v1.1.36) - 2024-11-05
 
 ### Other
