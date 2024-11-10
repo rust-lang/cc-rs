@@ -3258,6 +3258,7 @@ impl Build {
                     "hexagon-unknown-linux-musl" => Some("hexagon-linux-musl"),
                     "i586-unknown-linux-musl" => Some("musl"),
                     "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
+                    "i686-pc-windows-gnullvm" => Some("i686-w64-mingw32"),
                     "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
                     "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
                         "i686-linux-gnu",
