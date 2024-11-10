@@ -3103,7 +3103,7 @@ impl Build {
                         name = format!("em{}", tool).into();
                         Some(self.cmd(&name))
                     }
-                } else if target.arch == "wasm32" {
+                } else if target.arch == "wasm32" || target.arch == "wasm64" {
                     // Formally speaking one should be able to use this approach,
                     // parsing -print-search-dirs output, to cover all clang targets,
                     // including Android SDKs and other cross-compilation scenarios...
