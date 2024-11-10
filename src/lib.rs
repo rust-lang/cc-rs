@@ -1994,11 +1994,15 @@ impl Build {
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
+                //
+                // `rustc` also defaults to disable PIC on WASM:
+                // <https://github.com/rust-lang/rust/blob/1.82.0/compiler/rustc_target/src/spec/base/wasm.rs#L101-L108>
                 if self.pic.unwrap_or(
                     target.os != "windows"
                         && target.os != "none"
                         && target.os != "uefi"
-                        && target.os != "wasi",
+                        && target.arch != "wasm32"
+                        && target.arch != "wasm64",
                 ) {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
