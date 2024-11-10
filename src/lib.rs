@@ -2715,12 +2715,10 @@ impl Build {
                         "{}-{}-{}-{}",
                         target.full_arch, target.vendor, target.os, traditional
                     )
-                } else if target.os == "wasi" {
-                    if self.cpp {
-                        "clang++".to_string()
-                    } else {
-                        "clang".to_string()
-                    }
+                } else if target.arch == "wasm32" || target.arch == "wasm64" {
+                    // Compiling WASM is not currently supported by GCC, so
+                    // let's default to Clang.
+                    clang.to_string()
                 } else if target.os == "vxworks" {
                     if self.cpp {
                         "wr-c++".to_string()
