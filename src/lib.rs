@@ -1994,11 +1994,15 @@ impl Build {
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
+                //
+                // `rustc` also defaults to disable PIC on WASM:
+                // <https://github.com/rust-lang/rust/blob/1.82.0/compiler/rustc_target/src/spec/base/wasm.rs#L101-L108>
                 if self.pic.unwrap_or(
                     target.os != "windows"
                         && target.os != "none"
                         && target.os != "uefi"
-                        && target.os != "wasi",
+                        && target.arch != "wasm32"
+                        && target.arch != "wasm64",
                 ) {
                     cmd.push_cc_arg("-fPIC".into());
                     // PLT only applies if code is compiled with PIC support,
@@ -2009,10 +2013,17 @@ impl Build {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
                 }
-                if target.os == "wasi" {
+                if target.arch == "wasm32" || target.arch == "wasm64" {
                     // WASI does not support exceptions yet.
                     // https://github.com/WebAssembly/exception-handling
+                    //
+                    // `rustc` also defaults to (currently) disable exceptions
+                    // on all WASM targets:
+                    // <https://github.com/rust-lang/rust/blob/1.82.0/compiler/rustc_target/src/spec/base/wasm.rs#L72-L77>
                     cmd.push_cc_arg("-fno-exceptions".into());
+                }
+
+                if target.os == "wasi" {
                     // Link clang sysroot
                     if let Ok(wasi_sysroot) = self.wasi_sysroot() {
                         cmd.push_cc_arg(
@@ -2704,12 +2715,10 @@ impl Build {
                         "{}-{}-{}-{}",
                         target.full_arch, target.vendor, target.os, traditional
                     )
-                } else if target.os == "wasi" {
-                    if self.cpp {
-                        "clang++".to_string()
-                    } else {
-                        "clang".to_string()
-                    }
+                } else if target.arch == "wasm32" || target.arch == "wasm64" {
+                    // Compiling WASM is not currently supported by GCC, so
+                    // let's default to Clang.
+                    clang.to_string()
                 } else if target.os == "vxworks" {
                     if self.cpp {
                         "wr-c++".to_string()
@@ -3094,7 +3103,7 @@ impl Build {
                         name = format!("em{}", tool).into();
                         Some(self.cmd(&name))
                     }
-                } else if target.arch == "wasm32" {
+                } else if target.arch == "wasm32" || target.arch == "wasm64" {
                     // Formally speaking one should be able to use this approach,
                     // parsing -print-search-dirs output, to cover all clang targets,
                     // including Android SDKs and other cross-compilation scenarios...
