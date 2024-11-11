@@ -23,8 +23,8 @@ use std::{
     sync::Arc,
 };
 
+use crate::Tool;
 use crate::ToolFamily;
-use crate::{target::TargetInfo, Tool};
 
 const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
 
@@ -90,39 +90,53 @@ impl EnvGetter for StdEnvGetter {
 /// Attempts to find a tool within an MSVC installation using the Windows
 /// registry as a point to search from.
 ///
-/// The `target` argument is the target that the tool should work for (e.g.
-/// compile or link for) and the `tool` argument is the tool to find (e.g.
-/// `cl.exe` or `link.exe`).
+/// The `arch_or_target` argument is the architecture or the Rust target
+/// triple that the tool should work for (e.g. compile or link for). The
+/// supported architecture names are:
+/// - `"i586"`
+/// - `"i686"`
+/// - `"x86_64"`
+/// - `"arm"`
+/// - `"thumbv7a"`
+/// - `"aarch64"`
+/// - `"arm64ec"`
+///
+/// The `tool` argument is the tool to find (e.g. `cl.exe` or `link.exe`).
 ///
 /// This function will return `None` if the tool could not be found, or it will
 /// return `Some(cmd)` which represents a command that's ready to execute the
 /// tool with the appropriate environment variables set.
 ///
-/// Note that this function always returns `None` for non-MSVC targets.
-pub fn find(target: &str, tool: &str) -> Option<Command> {
-    find_tool(target, tool).map(|c| c.to_command())
+/// Note that this function always returns `None` for non-MSVC targets (if a
+/// full target name was specified).
+pub fn find(arch_or_target: &str, tool: &str) -> Option<Command> {
+    find_tool(arch_or_target, tool).map(|c| c.to_command())
 }
 
 /// Similar to the `find` function above, this function will attempt the same
 /// operation (finding a MSVC tool in a local install) but instead returns a
 /// `Tool` which may be introspected.
-pub fn find_tool(target: &str, tool: &str) -> Option<Tool> {
-    find_tool_inner(&target.parse().ok()?, tool, &StdEnvGetter)
+pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<Tool> {
+    let full_arch = if let Some((full_arch, rest)) = arch_or_target.split_once("-") {
+        // The logic is all tailored for MSVC, if the target is not that then
+        // bail out early.
+        if !rest.contains("msvc") {
+            return None;
+        }
+        full_arch
+    } else {
+        arch_or_target
+    };
+    find_tool_inner(full_arch, tool, &StdEnvGetter)
 }
 
 pub(crate) fn find_tool_inner(
-    target: &TargetInfo,
+    full_arch: &str,
     tool: &str,
     env_getter: &dyn EnvGetter,
 ) -> Option<Tool> {
-    // This logic is all tailored for MSVC, if we're not that then bail out
-    // early.
-    if target.env != "msvc" {
-        return None;
-    }
-
     // We only need the arch.
-    let target = TargetArch(target.full_arch);
+    let target = TargetArch(full_arch);
 
     // Looks like msbuild isn't located in the same location as other tools like
     // cl.exe and lib.exe.

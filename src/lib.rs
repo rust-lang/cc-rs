@@ -3874,7 +3874,11 @@ impl Build {
             }
         }
 
-        windows_registry::find_tool_inner(target, tool, &BuildEnvGetter(self))
+        if target.env != "msvc" {
+            return None;
+        }
+
+        windows_registry::find_tool_inner(target.full_arch, tool, &BuildEnvGetter(self))
     }
 }
 
