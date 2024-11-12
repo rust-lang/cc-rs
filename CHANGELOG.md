@@ -6,6 +6,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.1.37...cc-v1.2.0) - 2024-11-11
+
+### Added
+
+- add i686-pc-windows-gnullvm prefix detection ([#1283](https://github.com/rust-lang/cc-rs/pull/1283))
+
+### Other
+
+- Allow only specifying the architecture ([#1285](https://github.com/rust-lang/cc-rs/pull/1285))
+- Fix WASM vs. WASI options ([#1284](https://github.com/rust-lang/cc-rs/pull/1284))
+
 ## [1.1.37](https://github.com/rust-lang/cc-rs/compare/cc-v1.1.36...cc-v1.1.37) - 2024-11-08
 
 ### Other
