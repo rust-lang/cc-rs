@@ -1,18 +1,20 @@
-name: Publish release
+name: Create release PR
 
 permissions:
   pull-requests: write
   contents: write
 
 on:
-  push:
-    branches:
-      - main
+  schedule:
+    - cron: "0 3 * * 5"
 
 jobs:
-  release-plz-release:
-    name: Release-plz release
+  release-plz-pr:
+    name: Release-plz PR
     runs-on: ubuntu-latest
+    concurrency:
+      group: release-plz-${{ github.ref }}
+      cancel-in-progress: false
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -23,7 +25,7 @@ jobs:
       - name: Run release-plz
         uses: MarcoIeni/release-plz-action@v0.5
         with:
-          command: release
+          command: release-pr
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
