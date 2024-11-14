@@ -5,7 +5,7 @@ use std::{
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::RwLock,
 };
 
@@ -158,14 +158,16 @@ impl Tool {
             cargo_output.print_debug(&stdout);
 
             // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
-            let accepts_cl_style_flags = run(Command::new(path).arg("-?"), path, &{
-                // the errors are not errors!
-                let mut cargo_output = cargo_output.clone();
-                cargo_output.warnings = cargo_output.debug;
-                cargo_output.output = OutputKind::Discard;
-                cargo_output
-            })
-            .is_ok();
+            // stdin is set to null to ensure that the help output is never paginated.
+            let accepts_cl_style_flags =
+                run(Command::new(path).arg("-?").stdin(Stdio::null()), path, &{
+                    // the errors are not errors!
+                    let mut cargo_output = cargo_output.clone();
+                    cargo_output.warnings = cargo_output.debug;
+                    cargo_output.output = OutputKind::Discard;
+                    cargo_output
+                })
+                .is_ok();
 
             let clang = stdout.contains(r#""clang""#);
             let gcc = stdout.contains(r#""gcc""#);
