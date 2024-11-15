@@ -89,6 +89,13 @@
 //!   For example, with `CFLAGS='a "b c"'`, the compiler will be invoked with 2 arguments -
 //!   `a` and `b c` - rather than 3: `a`, `"b` and `c"`.
 //! * `CXX...` - see [C++ Support](#c-support).
+//! * `CC_FORCE_DISABLE` - If set, `cc` will never run any [`Command`]s, and methods that
+//!   would return an [`Error`]. This is intended for use by third-party build systems
+//!   which want to be absolutely sure that they are in control of building all
+//!   dependencies. Note that operations that return [`Tool`]s such as
+//!   [`Build::get_compiler`] may produce less accurate results as in some cases `cc` runs
+//!   commands in order to locate compilers. Additionally, this does nothing to prevent
+//!   users from running [`Tool::to_command`] and executing the [`Command`] themselves.//!
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
 //! to be inspected, for example via the `Build::try_flags_from_environment`
@@ -226,7 +233,10 @@ use std::path::{Component, Path, PathBuf};
 #[cfg(feature = "parallel")]
 use std::process::Child;
 use std::process::Command;
-use std::sync::{Arc, RwLock};
+use std::sync::{
+    atomic::{AtomicU8, Ordering::Relaxed},
+    Arc, RwLock,
+};
 
 use shlex::Shlex;
 
@@ -340,6 +350,8 @@ enum ErrorKind {
     #[cfg(feature = "parallel")]
     /// jobserver helpthread failure
     JobserverHelpThreadError,
+    /// `cc` has been disabled by an environment variable.
+    Disabled,
 }
 
 /// Represents an internal error that occurred, with an explanation.
@@ -1542,6 +1554,8 @@ impl Build {
 
         use parallel::async_executor::{block_on, YieldOnce};
 
+        check_disabled()?;
+
         if objs.len() <= 1 {
             for obj in objs {
                 let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
@@ -1688,6 +1702,8 @@ impl Build {
 
     #[cfg(not(feature = "parallel"))]
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+        check_disabled()?;
+
         for obj in objs {
             let (mut cmd, name) = self.create_compile_object_cmd(obj)?;
             run(&mut cmd, &name, &self.cargo_output)?;
@@ -4021,6 +4037,51 @@ impl AsmFileExt {
         }
         None
     }
+}
+
+/// Returns true if `cc` has been disabled by `CC_FORCE_DISABLE`.
+fn is_disabled() -> bool {
+    static CACHE: AtomicU8 = AtomicU8::new(0);
+
+    let val = CACHE.load(Relaxed);
+    // We manually cache the environment var, since we need it in some places
+    // where we don't have access to a `Build` instance.
+    #[allow(clippy::disallowed_methods)]
+    fn compute_is_disabled() -> bool {
+        match std::env::var_os("CC_FORCE_DISABLE") {
+            // Not set? Not disabled.
+            None => false,
+            // Respect `CC_FORCE_DISABLE=0` and some simple synonyms.
+            Some(v) if &*v != "0" && &*v != "false" && &*v != "no" => false,
+            // Otherwise, we're disabled. This intentionally includes `CC_FORCE_DISABLE=""`
+            Some(_) => true,
+        }
+    }
+    match val {
+        2 => true,
+        1 => false,
+        0 => {
+            let truth = compute_is_disabled();
+            let encoded_truth = if truth { 2u8 } else { 1 };
+            // Might race against another thread, but we'd both be setting the
+            // same value so it should be fine.
+            CACHE.store(encoded_truth, Relaxed);
+            truth
+        }
+        _ => unreachable!(),
+    }
+}
+
+/// Automates the `if is_disabled() { return error }` check and ensures
+/// we produce a consistent error message for it.
+fn check_disabled() -> Result<(), Error> {
+    if is_disabled() {
+        return Err(Error::new(
+            ErrorKind::Disabled,
+            "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable."
+        ));
+    }
+    Ok(())
 }
 
 #[cfg(test)]
