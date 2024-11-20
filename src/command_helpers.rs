@@ -327,6 +327,9 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
         };
 
         hasher.write(dirname.as_bytes());
+        if let Some(extension) = file.extension() {
+            hasher.write(extension.to_string_lossy().as_bytes());
+        }
         let obj = dst
             .join(format!("{:016x}-{}", hasher.finish(), basename))
             .with_extension("o");
