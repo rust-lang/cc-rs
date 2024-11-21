@@ -2187,6 +2187,7 @@ impl Build {
                     if target.abi == "eabihf" {
                         // lowest common denominator FPU
                         cmd.args.push("-mfpu=vfpv3-d16".into());
+                        cmd.args.push("-mfloat-abi=hard".into());
                     }
                 }
 
