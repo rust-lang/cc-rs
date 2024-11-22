@@ -11,6 +11,7 @@ on:
 
 jobs:
   release-plz-release:
+    if: github.repository_owner == 'rust-lang'
     name: Release-plz release
     runs-on: ubuntu-latest
     steps:

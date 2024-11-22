@@ -7,6 +7,7 @@ on:
 
 jobs:
   regenerate:
+    if: github.repository_owner == 'rust-lang'
     name: Regenerate target info & Open Pull Request if necessary
     runs-on: ubuntu-latest
     steps:
