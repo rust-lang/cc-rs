@@ -3241,7 +3241,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "windows",
             env: "msvc",
             abi: "",
-            unversioned_llvm_target: "x86_64-win7-windows-msvc",
+            unversioned_llvm_target: "x86_64-pc-windows-msvc",
         },
     ),
     (
