@@ -1088,10 +1088,16 @@ impl Build {
         self
     }
 
-    /// Configures the target this configuration will be compiling for.
+    /// Configures the `rustc` target this configuration will be compiling
+    /// for.
     ///
-    /// This option is automatically scraped from the `TARGET` environment
-    /// variable by build scripts, so it's not required to call this function.
+    /// This will fail if using a target not in a pre-compiled list taken from
+    /// `rustc +nightly --print target-list`. The list will be updated
+    /// periodically.
+    ///
+    /// You should avoid setting this in build scripts, as that allows `cc`
+    /// to instead retrieve the desired target information from the
+    /// environment variables that Cargo sets.
     ///
     /// # Example
     ///
