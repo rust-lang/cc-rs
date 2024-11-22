@@ -1088,10 +1088,16 @@ impl Build {
         self
     }
 
-    /// Configures the target this configuration will be compiling for.
+    /// Configures the `rustc` target this configuration will be compiling
+    /// for.
     ///
-    /// This option is automatically scraped from the `TARGET` environment
-    /// variable by build scripts, so it's not required to call this function.
+    /// This will fail if using a target not in a pre-compiled list taken from
+    /// `rustc +nightly --print target-list`. The list will be updated
+    /// periodically.
+    ///
+    /// You should avoid setting this in build scripts, target information
+    /// will instead be retrieved from the environment variables `TARGET` and
+    /// `CARGO_CFG_TARGET_*` that Cargo sets.
     ///
     /// # Example
     ///
@@ -3411,8 +3417,11 @@ impl Build {
 
     fn get_target(&self) -> Result<TargetInfo<'_>, Error> {
         match &self.target {
-            Some(t) => t.parse(),
-            None => self
+            Some(t) if Some(&**t) != self.getenv_unwrap_str("TARGET").ok().as_deref() => t.parse(),
+            // Fetch target information from environment if not set, or if the
+            // target was the same as the TARGET environment variable, in
+            // case the user did `build.target(&env::var("TARGET").unwrap())`.
+            _ => self
                 .build_cache
                 .target_info_parser
                 .parse_from_cargo_environment_variables(),
