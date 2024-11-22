@@ -1095,9 +1095,9 @@ impl Build {
     /// `rustc +nightly --print target-list`. The list will be updated
     /// periodically.
     ///
-    /// You should avoid setting this in build scripts, as that allows `cc`
-    /// to instead retrieve the desired target information from the
-    /// environment variables that Cargo sets.
+    /// You should avoid setting this in build scripts, target information
+    /// will instead be retrieved from the environment variables `TARGET` and
+    /// `CARGO_CFG_TARGET_*` that Cargo sets.
     ///
     /// # Example
     ///
@@ -3417,8 +3417,11 @@ impl Build {
 
     fn get_target(&self) -> Result<TargetInfo<'_>, Error> {
         match &self.target {
-            Some(t) => t.parse(),
-            None => self
+            Some(t) if Some(&**t) != self.getenv_unwrap_str("TARGET").ok().as_deref() => t.parse(),
+            // Fetch target information from environment if not set, or if the
+            // target was the same as the TARGET environment variable, in
+            // case the user did `build.target(&env::var("TARGET").unwrap())`.
+            _ => self
                 .build_cache
                 .target_info_parser
                 .parse_from_cargo_environment_variables(),
