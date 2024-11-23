@@ -7,6 +7,7 @@ on:
 
 jobs:
   regenerate:
+    if: github.repository_owner == 'rust-lang'
     name: Regenerate windows sys bindings & Open Pull Request if necessary
     runs-on: ubuntu-latest
     steps:
@@ -20,7 +21,7 @@ jobs:
 
       - name: Create lockfile
         run: cargo update
-  
+
       - uses: Swatinem/rust-cache@v2
         with:
           cache-all-crates: 'true'
