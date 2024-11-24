@@ -1785,8 +1785,6 @@ impl Build {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
 
-        disable_localization(&mut cmd);
-
         Ok((cmd, name))
     }
 
@@ -1951,6 +1949,8 @@ impl Build {
             let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
             cmd.push_cc_arg(warnings_to_errors_flag);
         }
+
+       disable_localization(&mut cmd);
 
         Ok(cmd)
     }
