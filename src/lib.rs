@@ -1784,9 +1784,8 @@ impl Build {
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
-        if msvc {
-            disable_localization(&mut cmd);
-        }
+
+        disable_localization(&mut cmd);
 
         Ok((cmd, name))
     }
