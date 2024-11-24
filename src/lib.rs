@@ -4097,7 +4097,7 @@ fn check_disabled() -> Result<(), Error> {
     Ok(())
 }
 
-/// Copied from https://github.com/rust-lang/rust/blob/5db81020006d2920fc9c62ffc0f4322f90bffa04/compiler/rustc_codegen_ssa/src/back/linker.rs#L27-L38
+/// Copied from <https://github.com/rust-lang/rust/blob/5db81020006d2920fc9c62ffc0f4322f90bffa04/compiler/rustc_codegen_ssa/src/back/linker.rs#L27-L38>
 ///
 /// Disables non-English messages from localized linkers.
 /// Such messages may cause issues with text encoding on Windows
