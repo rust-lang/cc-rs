@@ -1956,7 +1956,7 @@ impl Build {
         // Such messages may cause issues with text encoding on Windows
         // and prevent inspection of msvc output in case of errors, which we occasionally do.
         // This should be acceptable because other messages from rustc are in English anyway,
-        // and may also be desirable to improve searchability of the linker diagnostics.
+        // and may also be desirable to improve searchability of the compiler diagnostics.
         if matches!(cmd.family, ToolFamily::Msvc { clang_cl: false }) {
             cmd.env.push(("VSLANG".into(), "1033".into()));
         } else {
