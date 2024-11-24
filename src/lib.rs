@@ -1950,7 +1950,22 @@ impl Build {
             cmd.push_cc_arg(warnings_to_errors_flag);
         }
 
-       disable_localization(&mut cmd);
+        // Copied from <https://github.com/rust-lang/rust/blob/5db81020006d2920fc9c62ffc0f4322f90bffa04/compiler/rustc_codegen_ssa/src/back/linker.rs#L27-L38>
+        //
+        // Disables non-English messages from localized linkers.
+        // Such messages may cause issues with text encoding on Windows
+        // and prevent inspection of msvc output in case of errors, which we occasionally do.
+        // This should be acceptable because other messages from rustc are in English anyway,
+        // and may also be desirable to improve searchability of the linker diagnostics.
+       
+        // No harm in setting both env vars simultaneously.
+        // Unix-style linkers.
+        if matches!(cmd.family, ToolFamily::Msvc { clang_cl: false }) {
+            cmd.env.push(("LC_ALL".into(), "C".into()));
+        } else {
+            // MSVC's `link.exe`.
+            cmd.env.push(("VSLANG".into(), "1033".into()));
+        }
 
         Ok(cmd)
     }
@@ -4094,21 +4109,6 @@ fn check_disabled() -> Result<(), Error> {
         ));
     }
     Ok(())
-}
-
-/// Copied from <https://github.com/rust-lang/rust/blob/5db81020006d2920fc9c62ffc0f4322f90bffa04/compiler/rustc_codegen_ssa/src/back/linker.rs#L27-L38>
-///
-/// Disables non-English messages from localized linkers.
-/// Such messages may cause issues with text encoding on Windows
-/// and prevent inspection of msvc output in case of errors, which we occasionally do.
-/// This should be acceptable because other messages from rustc are in English anyway,
-/// and may also be desirable to improve searchability of the linker diagnostics.
-fn disable_localization(cmd: &mut Command) {
-    // No harm in setting both env vars simultaneously.
-    // Unix-style linkers.
-    cmd.env("LC_ALL", "C");
-    // MSVC's `link.exe`.
-    cmd.env("VSLANG", "1033");
 }
 
 #[cfg(test)]
