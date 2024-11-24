@@ -1958,7 +1958,7 @@ impl Build {
         // This should be acceptable because other messages from rustc are in English anyway,
         // and may also be desirable to improve searchability of the linker diagnostics.
         if matches!(cmd.family, ToolFamily::Msvc { clang_cl: false }) {
-            cmd.env.push(("VSLANG".into(), "1033".into())); 
+            cmd.env.push(("VSLANG".into(), "1033".into()));
         } else {
             cmd.env.push(("LC_ALL".into(), "C".into()));
         }
