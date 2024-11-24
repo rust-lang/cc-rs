@@ -1957,14 +1957,10 @@ impl Build {
         // and prevent inspection of msvc output in case of errors, which we occasionally do.
         // This should be acceptable because other messages from rustc are in English anyway,
         // and may also be desirable to improve searchability of the linker diagnostics.
-       
-        // No harm in setting both env vars simultaneously.
-        // Unix-style linkers.
         if matches!(cmd.family, ToolFamily::Msvc { clang_cl: false }) {
-            cmd.env.push(("LC_ALL".into(), "C".into()));
+            cmd.env.push(("VSLANG".into(), "1033".into())); 
         } else {
-            // MSVC's `link.exe`.
-            cmd.env.push(("VSLANG".into(), "1033".into()));
+            cmd.env.push(("LC_ALL".into(), "C".into()));
         }
 
         Ok(cmd)
