@@ -1950,6 +1950,19 @@ impl Build {
             cmd.push_cc_arg(warnings_to_errors_flag);
         }
 
+        // Copied from <https://github.com/rust-lang/rust/blob/5db81020006d2920fc9c62ffc0f4322f90bffa04/compiler/rustc_codegen_ssa/src/back/linker.rs#L27-L38>
+        //
+        // Disables non-English messages from localized linkers.
+        // Such messages may cause issues with text encoding on Windows
+        // and prevent inspection of msvc output in case of errors, which we occasionally do.
+        // This should be acceptable because other messages from rustc are in English anyway,
+        // and may also be desirable to improve searchability of the compiler diagnostics.
+        if matches!(cmd.family, ToolFamily::Msvc { clang_cl: false }) {
+            cmd.env.push(("VSLANG".into(), "1033".into()));
+        } else {
+            cmd.env.push(("LC_ALL".into(), "C".into()));
+        }
+
         Ok(cmd)
     }
 
