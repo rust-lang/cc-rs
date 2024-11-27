@@ -2813,6 +2813,9 @@ impl Build {
                     .args
                     .push(format!("-ccbin={}", tool.path.display()).into());
             }
+            if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
+                nvcc_tool.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
+            }
             nvcc_tool.family = tool.family;
             nvcc_tool
         } else {
