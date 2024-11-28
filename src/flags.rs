@@ -5,16 +5,16 @@ use std::ffi::OsString;
 use std::path::Path;
 
 #[derive(Debug, PartialEq, Default)]
-pub(crate) struct RustcCodegenFlags {
-    branch_protection: Option<String>,
-    code_model: Option<String>,
+pub(crate) struct RustcCodegenFlags<'a> {
+    branch_protection: Option<&'a str>,
+    code_model: Option<&'a str>,
     no_vectorize_loops: bool,
     no_vectorize_slp: bool,
-    profile_generate: Option<String>,
-    profile_use: Option<String>,
-    control_flow_guard: Option<String>,
-    lto: Option<String>,
-    relocation_model: Option<String>,
+    profile_generate: Option<&'a str>,
+    profile_use: Option<&'a str>,
+    control_flow_guard: Option<&'a str>,
+    lto: Option<&'a str>,
+    relocation_model: Option<&'a str>,
     embed_bitcode: Option<bool>,
     force_frame_pointers: Option<bool>,
     link_dead_code: Option<bool>,
@@ -89,12 +89,12 @@ impl RustcCodegenFlags {
         }
 
         let (flag, value) = if let Some((flag, value)) = flag.split_once('=') {
-            (flag, Some(value.to_owned()))
+            (flag, Some(value))
         } else {
             (flag, None)
         };
 
-        fn flag_ok_or(flag: Option<String>, msg: &'static str) -> Result<String, Error> {
+        fn flag_ok_or(flag: Option<&str>, msg: &'static str) -> Result<&str, Error> {
             flag.ok_or(Error::new(ErrorKind::InvalidFlag, msg))
         }
 
