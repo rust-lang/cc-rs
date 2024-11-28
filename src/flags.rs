@@ -22,9 +22,9 @@ pub(crate) struct RustcCodegenFlags<'a> {
     soft_float: Option<bool>,
 }
 
-impl RustcCodegenFlags {
+impl RustcCodegenFlags<'_> {
     // Parse flags obtained from CARGO_ENCODED_RUSTFLAGS
-    pub(crate) fn parse(rustflags_env: &str) -> Result<RustcCodegenFlags, Error> {
+    pub(crate) fn parse(rustflags_env: &str) -> Result<RustcCodegenFlags<'_>, Error> {
         fn is_flag_prefix(flag: &str) -> bool {
             [
                 "-Z",
@@ -94,7 +94,7 @@ impl RustcCodegenFlags {
             (flag, None)
         };
 
-        fn flag_ok_or(flag: Option<&str>, msg: &'static str) -> Result<&str, Error> {
+        fn flag_ok_or<'flag>(flag: Option<&'flag str>, msg: &'static str) -> Result<&'flag str, Error> {
             flag.ok_or(Error::new(ErrorKind::InvalidFlag, msg))
         }
 
