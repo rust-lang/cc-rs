@@ -22,9 +22,9 @@ pub(crate) struct RustcCodegenFlags<'a> {
     soft_float: Option<bool>,
 }
 
-impl RustcCodegenFlags<'_> {
+impl<'this> RustcCodegenFlags<'this> {
     // Parse flags obtained from CARGO_ENCODED_RUSTFLAGS
-    pub(crate) fn parse(rustflags_env: &str) -> Result<RustcCodegenFlags<'_>, Error> {
+    pub(crate) fn parse(rustflags_env: &'this str) -> Result<Self, Error> {
         fn is_flag_prefix(flag: &str) -> bool {
             [
                 "-Z",
@@ -176,13 +176,13 @@ impl RustcCodegenFlags<'_> {
         match family {
             ToolFamily::Clang { .. } | ToolFamily::Gnu => {
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mbranch-protection
-                if let Some(value) = &self.branch_protection {
+                if let Some(value) = self.branch_protection {
                     push_if_supported(
                         format!("-mbranch-protection={}", value.replace(",", "+")).into(),
                     );
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mcmodel
-                if let Some(value) = &self.code_model {
+                if let Some(value) = self.code_model {
                     push_if_supported(format!("-mcmodel={value}").into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-vectorize
@@ -194,16 +194,16 @@ impl RustcCodegenFlags<'_> {
                     push_if_supported("-fno-slp-vectorize".into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fprofile-generate
-                if let Some(value) = &self.profile_generate {
+                if let Some(value) = self.profile_generate {
                     push_if_supported(format!("-fprofile-generate={value}").into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fprofile-use
-                if let Some(value) = &self.profile_use {
+                if let Some(value) = self.profile_use {
                     push_if_supported(format!("-fprofile-use={value}").into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
-                if let Some(value) = &self.control_flow_guard {
-                    let cc_val = match value.as_str() {
+                if let Some(value) = self.control_flow_guard {
+                    let cc_val = match value {
                         "y" | "yes" | "on" | "true" | "checks" => Some("cf"),
                         "nochecks" => Some("cf-nochecks"),
                         "n" | "no" | "off" | "false" => Some("none"),
@@ -214,8 +214,8 @@ impl RustcCodegenFlags<'_> {
                     }
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-                if let Some(value) = &self.lto {
-                    let cc_val = match value.as_str() {
+                if let Some(value) = self.lto {
+                    let cc_val = match value {
                         "y" | "yes" | "on" | "true" | "fat" => Some("full"),
                         "thin" => Some("thin"),
                         _ => None,
@@ -227,8 +227,8 @@ impl RustcCodegenFlags<'_> {
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIC
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIE
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mdynamic-no-pic
-                if let Some(value) = &self.relocation_model {
-                    let cc_flag = match value.as_str() {
+                if let Some(value) = self.relocation_model {
+                    let cc_flag = match value {
                         "pic" => Some("-fPIC"),
                         "pie" => Some("-fPIE"),
                         "dynamic-no-pic" => Some("-mdynamic-no-pic"),
@@ -239,14 +239,14 @@ impl RustcCodegenFlags<'_> {
                     }
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fembed-bitcode
-                if let Some(value) = &self.embed_bitcode {
-                    let cc_val = if *value { "all" } else { "off" };
+                if let Some(value) = self.embed_bitcode {
+                    let cc_val = if value { "all" } else { "off" };
                     push_if_supported(format!("-fembed-bitcode={cc_val}").into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-omit-frame-pointer
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fomit-frame-pointer
-                if let Some(value) = &self.force_frame_pointers {
-                    let cc_flag = if *value {
+                if let Some(value) = self.force_frame_pointers {
+                    let cc_flag = if value {
                         "-fno-omit-frame-pointer"
                     } else {
                         "-fomit-frame-pointer"
@@ -254,15 +254,13 @@ impl RustcCodegenFlags<'_> {
                     push_if_supported(cc_flag.into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-dead_strip
-                if let Some(value) = &self.link_dead_code {
-                    if !value {
-                        push_if_supported("-dead_strip".into());
-                    }
+                if let Some(false) = self.link_dead_code {
+                    push_if_supported("-dead_strip".into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-red-zone
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mred-zone
-                if let Some(value) = &self.no_redzone {
-                    let cc_flag = if *value {
+                if let Some(value) = self.no_redzone {
+                    let cc_flag = if value {
                         "-mno-red-zone"
                     } else {
                         "-mred-zone"
@@ -271,8 +269,8 @@ impl RustcCodegenFlags<'_> {
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-msoft-float
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-soft-float
-                if let Some(value) = &self.soft_float {
-                    let cc_flag = if *value {
+                if let Some(value) = self.soft_float {
+                    let cc_flag = if value {
                         "-msoft-float"
                     } else {
                         "-mno-soft-float"
@@ -282,8 +280,8 @@ impl RustcCodegenFlags<'_> {
             }
             ToolFamily::Msvc { .. } => {
                 // https://learn.microsoft.com/en-us/cpp/build/reference/guard-enable-control-flow-guard
-                if let Some(value) = &self.control_flow_guard {
-                    let cc_val = match value.as_str() {
+                if let Some(value) = self.control_flow_guard {
+                    let cc_val = match value {
                         "y" | "yes" | "on" | "true" | "checks" => Some("cf"),
                         "n" | "no" | "off" | "false" => Some("cf-"),
                         _ => None,
@@ -293,8 +291,8 @@ impl RustcCodegenFlags<'_> {
                     }
                 }
                 // https://learn.microsoft.com/en-us/cpp/build/reference/oy-frame-pointer-omission
-                if let Some(value) = &self.force_frame_pointers {
-                    let cc_flag = if *value { "/Oy-" } else { "/Oy" };
+                if let Some(value) = self.force_frame_pointers {
+                    let cc_flag = if value { "/Oy-" } else { "/Oy" };
                     push_if_supported(cc_flag.into());
                 }
             }
