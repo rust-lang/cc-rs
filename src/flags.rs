@@ -45,19 +45,19 @@ impl<'this> RustcCodegenFlags<'this> {
             .contains(&flag)
         }
 
-        fn handle_flag_prefix<'a>(prev: &'a str, curr: &'a str) -> Cow<'a, str> {
+        fn handle_flag_prefix<'a>(prev: &'a str, curr: &'a str) -> (&'a str, &'a str) {
             match prev {
-                "--codegen" | "-C" => Cow::from(format!("-C{}", curr)),
+                "--codegen" | "-C" => ("-C", curr),
                 // Handle flags passed like --codegen=code-model=small
-                _ if curr.starts_with("--codegen=") => Cow::from(format!("-C{}", &curr[10..])),
-                "-Z" => Cow::from(format!("-Z{}", curr)),
-                "-L" | "-l" | "-o" => Cow::from(format!("{}{}", prev, curr)),
+                _ if curr.starts_with("--codegen=") => ("-C", &curr[10..]),
+                "-Z" => ("-Z", curr),
+                "-L" | "-l" | "-o" => (prev, curr),
                 // Handle lint flags
-                "-W" | "--warn" => Cow::from(format!("-W{}", curr)),
-                "-A" | "--allow" => Cow::from(format!("-A{}", curr)),
-                "-D" | "--deny" => Cow::from(format!("-D{}", curr)),
-                "-F" | "--forbid" => Cow::from(format!("-F{}", curr)),
-                _ => Cow::from(curr),
+                "-W" | "--warn" => ("-W", curr),
+                "-A" | "--allow" => ("-A", curr),
+                "-D" | "--deny" => ("-D", curr),
+                "-F" | "--forbid" => ("-F", curr),
+                _ => ("", curr),
             }
         }
 
@@ -71,14 +71,14 @@ impl<'this> RustcCodegenFlags<'this> {
                 continue;
             }
 
-            let rustc_flag = handle_flag_prefix(prev, curr);
-            codegen_flags.set_rustc_flag(&rustc_flag)?;
+            let (prefix, rustc_flag) = handle_flag_prefix(prev, curr);
+            codegen_flags.set_rustc_flag(prefix, rustc_flag)?;
         }
 
         Ok(codegen_flags)
     }
 
-    fn set_rustc_flag(&mut self, flag: &'this str) -> Result<(), Error> {
+    fn set_rustc_flag(&mut self, prefix: &str, flag: &'this str) -> Result<(), Error> {
         // Convert a textual representation of a bool-like rustc flag argument into an actual bool
         fn arg_to_bool(arg: impl AsRef<str>) -> Option<bool> {
             match arg.as_ref() {
@@ -93,12 +93,17 @@ impl<'this> RustcCodegenFlags<'this> {
         } else {
             (flag, None)
         };
+        let flag = if prefix.is_empty() {
+            Cow::Borrowed(flag)
+        } else {
+            Cow::Owned(format!("{prefix}{flag}"))
+        };
 
         fn flag_ok_or<'flag>(flag: Option<&'flag str>, msg: &'static str) -> Result<&'flag str, Error> {
             flag.ok_or(Error::new(ErrorKind::InvalidFlag, msg))
         }
 
-        match flag {
+        match flag.as_ref() {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#code-model
             "-Ccode-model" => {
                 self.code_model = Some(flag_ok_or(value, "-Ccode-model must have a value")?);
