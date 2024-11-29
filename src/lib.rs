@@ -2114,6 +2114,12 @@ impl Build {
                 cmd.args.push("-m32".into());
             } else if target.abi == "x32" {
                 cmd.args.push("-mx32".into());
+            } else if target.os == "aix" {
+                if cmd.family == ToolFamily::Gnu {
+                    cmd.args.push("-maix64".into());
+                } else {
+                    cmd.args.push("-m64".into());
+                }
             } else if target.arch == "x86_64" || target.arch == "powerpc64" {
                 cmd.args.push("-m64".into());
             }
