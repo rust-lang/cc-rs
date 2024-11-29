@@ -78,7 +78,7 @@ impl<'this> RustcCodegenFlags<'this> {
         Ok(codegen_flags)
     }
 
-    fn set_rustc_flag(&mut self, flag: &str) -> Result<(), Error> {
+    fn set_rustc_flag(&mut self, flag: &'this str) -> Result<(), Error> {
         // Convert a textual representation of a bool-like rustc flag argument into an actual bool
         fn arg_to_bool(arg: impl AsRef<str>) -> Option<bool> {
             match arg.as_ref() {
@@ -117,9 +117,9 @@ impl<'this> RustcCodegenFlags<'this> {
                 self.profile_use = Some(flag_ok_or(value, "-Cprofile-use must have a value")?);
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#control-flow-guard
-            "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true".into())),
+            "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
-            "-Clto" => self.lto = value.or(Some("true".into())),
+            "-Clto" => self.lto = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
                 self.relocation_model =
