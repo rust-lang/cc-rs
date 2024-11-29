@@ -99,7 +99,10 @@ impl<'this> RustcCodegenFlags<'this> {
             Cow::Owned(format!("{prefix}{flag}"))
         };
 
-        fn flag_ok_or<'flag>(flag: Option<&'flag str>, msg: &'static str) -> Result<&'flag str, Error> {
+        fn flag_ok_or<'flag>(
+            flag: Option<&'flag str>,
+            msg: &'static str,
+        ) -> Result<&'flag str, Error> {
             flag.ok_or(Error::new(ErrorKind::InvalidFlag, msg))
         }
 
@@ -265,11 +268,7 @@ impl<'this> RustcCodegenFlags<'this> {
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-red-zone
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mred-zone
                 if let Some(value) = self.no_redzone {
-                    let cc_flag = if value {
-                        "-mno-red-zone"
-                    } else {
-                        "-mred-zone"
-                    };
+                    let cc_flag = if value { "-mno-red-zone" } else { "-mred-zone" };
                     push_if_supported(cc_flag.into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-msoft-float
