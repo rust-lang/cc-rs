@@ -1,4 +1,4 @@
-use crate::target::TargetInfo;
+src use crate::target::TargetInfo;
 use crate::{Build, Error, ErrorKind, ToolFamily};
 use std::borrow::Cow;
 use std::ffi::OsString;
