@@ -3979,7 +3979,7 @@ impl Default for Build {
 }
 
 fn fail(s: &str) -> ! {
-    eprintln!("\n\nerror occurred: {}\n\n", s);
+    eprintln!("\n\nerror occurred in cc-rs: {}\n\n", s);
     std::process::exit(1);
 }
 
