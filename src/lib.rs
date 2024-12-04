@@ -351,6 +351,8 @@ enum ErrorKind {
     ToolFamilyMacroNotFound,
     /// Invalid target.
     InvalidTarget,
+    /// Unknown target.
+    UnknownTarget,
     /// Invalid rustc flag.
     InvalidFlag,
     #[cfg(feature = "parallel")]
