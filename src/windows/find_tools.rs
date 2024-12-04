@@ -353,20 +353,69 @@ mod impl_ {
         }
     }
 
+    /// Checks to see if the target's arch matches the VS environment. Returns `None` if the
+    /// environment is unknown.
+    fn is_vscmd_target(target: TargetArch<'_>, env_getter: &dyn EnvGetter) -> Option<bool> {
+        is_vscmd_target_env(target, env_getter).or_else(|| is_vscmd_target_cl(target, env_getter))
+    }
+
     /// Checks to see if the `VSCMD_ARG_TGT_ARCH` environment variable matches the
     /// given target's arch. Returns `None` if the variable does not exist.
-    fn is_vscmd_target(target: TargetArch<'_>, env_getter: &dyn EnvGetter) -> Option<bool> {
+    fn is_vscmd_target_env(target: TargetArch<'_>, env_getter: &dyn EnvGetter) -> Option<bool> {
         let vscmd_arch = env_getter.get_env("VSCMD_ARG_TGT_ARCH")?;
-        // Convert the Rust target arch to its VS arch equivalent.
-        let arch = match target.into() {
-            "x86_64" => "x64",
-            "aarch64" | "arm64ec" => "arm64",
-            "i686" | "i586" => "x86",
-            "thumbv7a" => "arm",
+        if let Some(arch) = vsarch_from_target(target) {
+            Some(arch == vscmd_arch.as_ref())
+        } else {
+            Some(false)
+        }
+    }
+
+    /// Checks if the cl.exe target matches the given target's arch. Returns `None` if anything
+    /// fails.
+    fn is_vscmd_target_cl(target: TargetArch<'_>, env_getter: &dyn EnvGetter) -> Option<bool> {
+        let cmd_target = vscmd_target_cl(env_getter)?;
+        Some(vsarch_from_target(target) == Some(cmd_target))
+    }
+
+    /// Convert the Rust target arch to its VS arch equivalent.
+    fn vsarch_from_target(target: TargetArch<'_>) -> Option<&'static str> {
+        match target.into() {
+            "x86_64" => Some("x64"),
+            "aarch64" | "arm64ec" => Some("arm64"),
+            "i686" | "i586" => Some("x86"),
+            "thumbv7a" => Some("arm"),
             // An unrecognized arch.
-            _ => return Some(false),
-        };
-        Some(vscmd_arch.as_ref() == arch)
+            _ => None,
+        }
+    }
+
+    /// Detect the target architecture of `cl.exe`` in the current path, and return `None` if this
+    /// fails for any reason.
+    fn vscmd_target_cl(env_getter: &dyn EnvGetter) -> Option<&'static str> {
+        let cl_exe = env_getter.get_env("PATH").and_then(|path| {
+            env::split_paths(&path)
+                .map(|p| p.join("cl.exe"))
+                .find(|p| p.exists())
+        })?;
+        let mut cl = Command::new(cl_exe);
+        cl.stderr(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::null());
+
+        let out = cl.output().ok()?;
+        let cl_arch = out
+            .stderr
+            .split(|&b| b == b'\n' || b == b'\r')
+            .next()?
+            .rsplit(|&b| b == b' ')
+            .next()?;
+
+        match cl_arch {
+            b"x64" => Some("x64"),
+            b"x86" => Some("x86"),
+            b"ARM64" => Some("arm64"),
+            b"ARM" => Some("arm"),
+            _ => None,
+        }
     }
 
     /// Attempt to find the tool using environment variables set by vcvars.
