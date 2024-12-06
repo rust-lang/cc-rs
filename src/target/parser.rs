@@ -15,6 +15,7 @@ struct TargetInfoParserInner {
     env: Box<str>,
     abi: Box<str>,
     unversioned_llvm_target: Box<str>,
+    relocation_model_static: bool,
 }
 
 impl TargetInfoParserInner {
@@ -80,9 +81,15 @@ impl TargetInfoParserInner {
             .unwrap_or_else(|_| String::default().into_boxed_str());
 
         // Prefer `rustc`'s LLVM target triple information.
-        let unversioned_llvm_target = match fallback_target {
+        let unversioned_llvm_target = match &fallback_target {
             Some(ft) => ft.unversioned_llvm_target.to_string(),
             None => llvm::guess_llvm_target_triple(full_arch, &vendor, &os, &env, &abi),
+        };
+
+        // Prefer `rustc`'s information about the relocation model.
+        let relocation_model_static = match &fallback_target {
+            Some(ft) => ft.relocation_model_static,
+            None => guess_relocation_model_static(full_arch, &arch, &vendor, &os, &env),
         };
 
         Ok(Self {
@@ -93,6 +100,7 @@ impl TargetInfoParserInner {
             env,
             abi,
             unversioned_llvm_target: unversioned_llvm_target.into_boxed_str(),
+            relocation_model_static,
         })
     }
 }
@@ -115,6 +123,7 @@ impl TargetInfoParser {
                 env,
                 abi,
                 unversioned_llvm_target,
+                relocation_model_static,
             }) => Ok(TargetInfo {
                 full_arch,
                 arch,
@@ -123,8 +132,93 @@ impl TargetInfoParser {
                 env,
                 abi,
                 unversioned_llvm_target,
+                relocation_model_static: *relocation_model_static,
             }),
             Err(e) => Err(e.clone()),
         }
+    }
+}
+
+fn guess_relocation_model_static(
+    full_arch: &str,
+    arch: &str,
+    vendor: &str,
+    os: &str,
+    env: &str,
+) -> bool {
+    // We disable generation of PIC on bare-metal and RTOS targets for now, as
+    // rust-lld doesn't support it yet (?), and `rustc` defaults to that too.
+
+    if matches!(arch, "bpf" | "hexagon") {
+        return false;
+    }
+
+    if vendor == "unikraft" {
+        return true;
+    }
+
+    if vendor == "fortanix" {
+        return false;
+    }
+
+    if full_arch == "x86_64" && vendor == "unknown" && os == "none" && env == "" {
+        return false; // FIXME
+    }
+
+    if matches!(
+        os,
+        "none"
+            | "vita"
+            | "psp"
+            | "psx"
+            | "solid_asp3"
+            | "rtems"
+            | "nuttx"
+            | "xous"
+            | "l4re"
+            | "zkvm"
+    ) {
+        return true;
+    }
+
+    if matches!(env, "newlib") {
+        return true;
+    }
+
+    // `rustc` defaults to disable PIC on WebAssembly, though PIC is needed by
+    // emscripten, so we won't disable it there.
+    if full_arch == "asmjs" || matches!(os, "unknown" | "wasi") {
+        if env == "p2" {
+            return false;
+        }
+        return true;
+    }
+
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::target::generated;
+
+    #[test]
+    fn test_guess() {
+        let mut error = false;
+        for (name, target) in generated::LIST {
+            let guess = guess_relocation_model_static(
+                &target.full_arch,
+                target.arch,
+                &target.vendor,
+                target.os,
+                &target.env,
+            );
+            if target.relocation_model_static != guess {
+                println!("guessed wrong relocation model for target {name}.\ninfo = {target:#?}");
+                error = true;
+            }
+        }
+
+        assert!(!error);
     }
 }
