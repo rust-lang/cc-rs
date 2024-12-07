@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.3](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.2...cc-v1.2.3) - 2024-12-06
+
+### Other
+
+- Improve detection of environment when compiling from msbuild or msvc ([#1310](https://github.com/rust-lang/cc-rs/pull/1310))
+- Better error message when failing on unknown targets ([#1313](https://github.com/rust-lang/cc-rs/pull/1313))
+- Optimize RustcCodegenFlags ([#1305](https://github.com/rust-lang/cc-rs/pull/1305))
+
 ## [1.2.2](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.1...cc-v1.2.2) - 2024-11-29
 
 ### Other
