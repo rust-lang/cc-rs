@@ -1281,8 +1281,9 @@ impl Build {
 
     /// Configures whether the compiler will emit position independent code.
     ///
-    /// This option defaults to `false` for `windows-gnu` and bare metal targets and
-    /// to `true` for all other targets.
+    /// This option defaults to what `rustc` does (roughly `false` for
+    /// Windows, bare metal, WebAssembly and Real-Time operating system
+    /// targets and `true` for all others).
     pub fn pic(&mut self, pic: bool) -> &mut Build {
         self.pic = Some(pic);
         self
@@ -2051,26 +2052,7 @@ impl Build {
                     cmd.push_cc_arg("-ffunction-sections".into());
                     cmd.push_cc_arg("-fdata-sections".into());
                 }
-                // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
-                //
-                // `rustc` also defaults to disable PIC on WASM:
-                // <https://github.com/rust-lang/rust/blob/1.82.0/compiler/rustc_target/src/spec/base/wasm.rs#L101-L108>
-                if self.pic.unwrap_or(
-                    target.os != "windows"
-                        && target.os != "none"
-                        && target.os != "uefi"
-                        && target.arch != "wasm32"
-                        && target.arch != "wasm64",
-                ) {
-                    cmd.push_cc_arg("-fPIC".into());
-                    // PLT only applies if code is compiled with PIC support,
-                    // and only for ELF targets.
-                    if (target.os == "linux" || target.os == "android")
-                        && !self.use_plt.unwrap_or(true)
-                    {
-                        cmd.push_cc_arg("-fno-plt".into());
-                    }
-                }
+
                 if target.arch == "wasm32" || target.arch == "wasm64" {
                     // WASI does not support exceptions yet.
                     // https://github.com/WebAssembly/exception-handling
@@ -2095,6 +2077,24 @@ impl Build {
                     }
                 }
             }
+        }
+
+        // -fPIC is not supported on Windows MSVC.
+        if !matches!(target.os, "windows" | "uefi") {
+            if self.pic.unwrap_or(!target.relocation_model_static) {
+                cmd.push_cc_arg("-fPIC".into());
+            } else {
+                cmd.push_cc_arg("-fno-PIC".into());
+            }
+        }
+
+        // PLT only applies if code is compiled with PIC support,
+        // and only for ELF targets.
+        if self.pic.unwrap_or(!target.relocation_model_static)
+            && (target.os == "linux" || target.os == "android")
+            && !self.use_plt.unwrap_or(true)
+        {
+            cmd.push_cc_arg("-fno-plt".into());
         }
 
         if self.get_debug() {
