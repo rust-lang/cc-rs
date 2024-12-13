@@ -6,6 +6,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.4](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.3...cc-v1.2.4) - 2024-12-13
+
+### Other
+
+- Add support for C/C++ compiler for Neutrino QNX: `qcc` ([#1319](https://github.com/rust-lang/cc-rs/pull/1319))
+- use -maix64 instead of -m64 ([#1307](https://github.com/rust-lang/cc-rs/pull/1307))
+
 ## [1.2.3](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.2...cc-v1.2.3) - 2024-12-06
 
 ### Other
