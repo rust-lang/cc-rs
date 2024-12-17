@@ -725,9 +725,6 @@ impl Build {
             },
         );
 
-        // Checking for compiler flags does not require linking
-        cmd.arg("-c");
-
         cmd.arg(&src);
 
         let output = cmd.output()?;
