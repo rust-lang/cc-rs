@@ -24,6 +24,7 @@ pub struct TargetSpec {
     pub env: Option<String>,
     pub abi: Option<String>,
     pub pre_link_args: Option<PreLinkArgs>,
+    pub relocation_model: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
