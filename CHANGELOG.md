@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.5](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.4...cc-v1.2.5) - 2024-12-19
+
+### Other
+
+- Check linking when testing if compiler flags are supported ([#1322](https://github.com/rust-lang/cc-rs/pull/1322))
+
 ## [1.2.4](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.3...cc-v1.2.4) - 2024-12-13
 
 ### Other
