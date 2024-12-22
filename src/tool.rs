@@ -105,6 +105,46 @@ impl Tool {
             .unwrap_or_default()
         }
 
+        fn guess_family_from_stdout(
+            stdout: &str,
+            path: &Path,
+            cargo_output: &CargoOutput,
+        ) -> Result<ToolFamily, Error> {
+            cargo_output.print_debug(&stdout);
+
+            // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
+            // stdin is set to null to ensure that the help output is never paginated.
+            let accepts_cl_style_flags =
+                run(Command::new(path).arg("-?").stdin(Stdio::null()), path, &{
+                    // the errors are not errors!
+                    let mut cargo_output = cargo_output.clone();
+                    cargo_output.warnings = cargo_output.debug;
+                    cargo_output.output = OutputKind::Discard;
+                    cargo_output
+                })
+                .is_ok();
+
+            let clang = stdout.contains(r#""clang""#);
+            let gcc = stdout.contains(r#""gcc""#);
+            let emscripten = stdout.contains(r#""emscripten""#);
+            let vxworks = stdout.contains(r#""VxWorks""#);
+
+            match (clang, accepts_cl_style_flags, gcc, emscripten, vxworks) {
+                (clang_cl, true, _, false, false) => Ok(ToolFamily::Msvc { clang_cl }),
+                (true, _, _, _, false) | (_, _, _, true, false) => Ok(ToolFamily::Clang {
+                    zig_cc: is_zig_cc(path, cargo_output),
+                }),
+                (false, false, true, _, false) | (_, _, _, _, true) => Ok(ToolFamily::Gnu),
+                (false, false, false, false, false) => {
+                    cargo_output.print_warning(&"Compiler family detection failed since it does not define `__clang__`, `__GNUC__`, `__EMSCRIPTEN__` or `__VXWORKS__`, also does not accept cl style flag `-?`, fallback to treating it as GNU");
+                    Err(Error::new(
+                        ErrorKind::ToolFamilyMacroNotFound,
+                        "Expects macro `__clang__`, `__GNUC__` or `__EMSCRIPTEN__`, `__VXWORKS__` or accepts cl style flag `-?`, but found none",
+                    ))
+                }
+            }
+        }
+
         fn detect_family_inner(
             path: &Path,
             cargo_output: &CargoOutput,
@@ -140,53 +180,30 @@ impl Tool {
             tmp_file.sync_data()?;
             drop(tmp_file);
 
+            // When expanding the file, the compiler prints a lot of information to stderr
+            // that it is not an error, but related to expanding itself.
+            //
+            // cc would have to disable warning here to prevent generation of too many warnings.
+            let mut compiler_detect_output = cargo_output.clone();
+            compiler_detect_output.warnings = compiler_detect_output.debug;
+
             let stdout = run_output(
                 Command::new(path).arg("-E").arg(tmp.path()),
                 path,
-                // When expanding the file, the compiler prints a lot of information to stderr
-                // that it is not an error, but related to expanding itself.
-                //
-                // cc would have to disable warning here to prevent generation of too many warnings.
-                &{
-                    let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = cargo_output.debug;
-                    cargo_output
-                },
+                &compiler_detect_output,
             )?;
             let stdout = String::from_utf8_lossy(&stdout);
 
-            cargo_output.print_debug(&stdout);
-
-            // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
-            // stdin is set to null to ensure that the help output is never paginated.
-            let accepts_cl_style_flags =
-                run(Command::new(path).arg("-?").stdin(Stdio::null()), path, &{
-                    // the errors are not errors!
-                    let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = cargo_output.debug;
-                    cargo_output.output = OutputKind::Discard;
-                    cargo_output
-                })
-                .is_ok();
-
-            let clang = stdout.contains(r#""clang""#);
-            let gcc = stdout.contains(r#""gcc""#);
-            let emscripten = stdout.contains(r#""emscripten""#);
-            let vxworks = stdout.contains(r#""VxWorks""#);
-
-            match (clang, accepts_cl_style_flags, gcc, emscripten, vxworks) {
-                (clang_cl, true, _, false, false) => Ok(ToolFamily::Msvc { clang_cl }),
-                (true, _, _, _, false) | (_, _, _, true, false) => Ok(ToolFamily::Clang {
-                    zig_cc: is_zig_cc(path, cargo_output),
-                }),
-                (false, false, true, _, false) | (_, _, _, _, true) => Ok(ToolFamily::Gnu),
-                (false, false, false, false, false) => {
-                    cargo_output.print_warning(&"Compiler family detection failed since it does not define `__clang__`, `__GNUC__`, `__EMSCRIPTEN__` or `__VXWORKS__`, also does not accept cl style flag `-?`, fallback to treating it as GNU");
-                    Err(Error::new(
-                        ErrorKind::ToolFamilyMacroNotFound,
-                        "Expects macro `__clang__`, `__GNUC__` or `__EMSCRIPTEN__`, `__VXWORKS__` or accepts cl style flag `-?`, but found none",
-                    ))
-                }
+            if stdout.contains("-Wslash-u-filename") {
+                let stdout = run_output(
+                    Command::new(path).arg("-E").arg("--").arg(tmp.path()),
+                    path,
+                    &compiler_detect_output,
+                )?;
+                let stdout = String::from_utf8_lossy(&stdout);
+                guess_family_from_stdout(&stdout, path, cargo_output)
+            } else {
+                guess_family_from_stdout(&stdout, path, cargo_output)
             }
         }
         let detect_family = |path: &Path| -> Result<ToolFamily, Error> {
