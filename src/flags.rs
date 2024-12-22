@@ -296,8 +296,11 @@ impl<'this> RustcCodegenFlags<'this> {
                 }
                 // https://learn.microsoft.com/en-us/cpp/build/reference/oy-frame-pointer-omission
                 if let Some(value) = self.force_frame_pointers {
-                    let cc_flag = if value { "/Oy-" } else { "/Oy" };
-                    push_if_supported(cc_flag.into());
+                    // Flag is unsupported on 64-bit arches
+                    if !target.arch.contains("64") {
+                        let cc_flag = if value { "/Oy-" } else { "/Oy" };
+                        push_if_supported(cc_flag.into());
+                    }
                 }
             }
         }
