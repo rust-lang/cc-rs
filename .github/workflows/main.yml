@@ -30,6 +30,7 @@ jobs:
             mingw32,
             mingw64,
             windows-2019,
+            mips,
           ]
         include:
           - build: stable
@@ -102,6 +103,13 @@ jobs:
             target: x86_64-pc-windows-msvc
             CC: clang-cl
             CXX: clang-cl
+          - build: mips
+            os: zkvm
+            unversioned_llvm_target: mips
+            target: mips-zkm-zkvm-elf
+            vendor: zkm
+            arch: mips
+            full_arch: mips
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust (rustup)
