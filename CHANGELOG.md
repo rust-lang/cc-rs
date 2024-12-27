@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.6](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.5...cc-v1.2.6) - 2024-12-27
+
+### Other
+
+- Don't inherit the `/Oy` flag for 64-bit targets ([#1330](https://github.com/rust-lang/cc-rs/pull/1330))
+
 ## [1.2.5](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.4...cc-v1.2.5) - 2024-12-19
 
 ### Other
