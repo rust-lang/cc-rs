@@ -133,6 +133,7 @@ jobs:
       - name: setup dev environment
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-clang')
+      - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
@@ -170,6 +171,7 @@ jobs:
           rustup component add rust-src --toolchain ${{ matrix.rust }}
           rustup default ${{ matrix.rust }}
         shell: bash
+      - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
@@ -187,6 +189,7 @@ jobs:
         run: |
           rustup target add ${{ matrix.target }}
         shell: bash
+      - run: cargo update 
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
@@ -227,6 +230,7 @@ jobs:
           echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
           echo "CC=$CC" >> "$GITHUB_ENV"
 
+      - run: cargo update
       - uses: Swatinem/rust-cache@v2
         with:
           env-vars: "WASI_TOOLCHAIN_VERSION"
@@ -248,6 +252,7 @@ jobs:
           sudo dpkg -i cuda-keyring_1.0-1_all.deb
           sudo apt-get update
           sudo apt-get -y install cuda-minimal-build-11-8
+      - run: cargo update 
       - uses: Swatinem/rust-cache@v2
       - name: Test 'cudart' feature
         shell: bash
