@@ -496,7 +496,7 @@ mod impl_ {
                     return None;
                 }
                 let mut tool = Tool::with_family(path, MSVC_FAMILY);
-                if target == TargetArch::X86 {
+                if target == TargetArch::X64 {
                     tool.env.push(("Platform".into(), "X64".into()));
                 }
                 if matches!(target, TargetArch::Arm64 | TargetArch::Arm64ec) {
@@ -704,7 +704,7 @@ mod impl_ {
             }
             _ => return None,
         };
-        let target_dir = lib_subdir(target_arch)?;
+        let target_dir = target_arch.as_vs_arch();
         // The directory layout here is MSVC/bin/Host$host/$target/
         let path = instance_path.join(r"VC\Tools\MSVC").join(version);
         // We use the first available host architecture that can build for the target
@@ -788,7 +788,7 @@ mod impl_ {
 
     fn atl_paths(target: TargetArch, path: &Path) -> Option<(PathBuf, PathBuf)> {
         let atl_path = path.join("atlmfc");
-        let sub = lib_subdir(target)?;
+        let sub = target.as_vs_arch();
         if atl_path.exists() {
             Some((atl_path.join("lib").join(sub), atl_path.join("include")))
         } else {
@@ -810,7 +810,7 @@ mod impl_ {
     }
 
     fn add_sdks(tool: &mut MsvcTool, target: TargetArch, env_getter: &dyn EnvGetter) -> Option<()> {
-        let sub = lib_subdir(target)?;
+        let sub = target.as_vs_arch();
         let (ucrt, ucrt_version) = get_ucrt_dir()?;
 
         let host = match host_arch() {
@@ -1015,10 +1015,6 @@ mod impl_ {
             (TargetArch::Arm, X86_64) => vec![("amd64_arm", "amd64"), ("x86_arm", "")],
             _ => vec![],
         }
-    }
-
-    fn lib_subdir(target: TargetArch) -> Option<&'static str> {
-        Some(target.as_vs_arch())
     }
 
     // MSVC's x86 libraries are not in a subfolder
