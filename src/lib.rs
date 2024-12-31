@@ -727,6 +727,13 @@ impl Build {
 
         cmd.arg(&src);
 
+        // On MSVC skip the CRT by setting the entry point to `main`.
+        // This way we don't need to add the default library paths.
+        if compiler.is_like_msvc() {
+            // Flags from _LINK_ are appended to the linker arguments.
+            cmd.env("_LINK_", "-entry:main");
+        }
+
         let output = cmd.output()?;
         let is_supported = output.status.success() && output.stderr.is_empty();
 
