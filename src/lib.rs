@@ -645,7 +645,7 @@ impl Build {
     pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
         self.is_flag_supported_inner(
             flag.as_ref(),
-            self.get_base_compiler()?.path(),
+            &self.get_base_compiler()?,
             &self.get_target()?,
         )
     }
@@ -653,11 +653,11 @@ impl Build {
     fn is_flag_supported_inner(
         &self,
         flag: &OsStr,
-        compiler_path: &Path,
+        tool: &Tool,
         target: &TargetInfo<'_>,
     ) -> Result<bool, Error> {
         let compiler_flag = CompilerFlag {
-            compiler: compiler_path.into(),
+            compiler: tool.path().into(),
             flag: flag.into(),
         };
 
@@ -679,7 +679,7 @@ impl Build {
         let mut compiler = {
             let mut cfg = Build::new();
             cfg.flag(flag)
-                .compiler(compiler_path)
+                .compiler(tool.path())
                 .cargo_metadata(self.cargo_output.metadata)
                 .opt_level(0)
                 .debug(false)
@@ -1957,7 +1957,7 @@ impl Build {
 
         for flag in self.flags_supported.iter() {
             if self
-                .is_flag_supported_inner(flag, &cmd.path, &target)
+                .is_flag_supported_inner(flag, &cmd, &target)
                 .unwrap_or(false)
             {
                 cmd.push_cc_arg((**flag).into());
@@ -2438,13 +2438,9 @@ impl Build {
             None => return Ok(()),
         };
 
-        let Tool {
-            family, path, args, ..
-        } = cmd;
-
         let env = env_os.to_string_lossy();
         let codegen_flags = RustcCodegenFlags::parse(&env)?;
-        codegen_flags.cc_flags(self, path, *family, target, args);
+        codegen_flags.cc_flags(self, cmd, target);
         Ok(())
     }
 
