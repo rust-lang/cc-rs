@@ -40,6 +40,7 @@ enum TargetArch {
 impl TargetArch {
     /// Parse the `TargetArch` from a str. Returns `None` if the arch is unrecognized.
     fn new(arch: &str) -> Option<Self> {
+        // NOTE: Keep up to date with docs in [`find`].
         match arch {
             "x64" | "x86_64" => Some(Self::X64),
             "arm64" | "aarch64" => Some(Self::Arm64),
@@ -112,13 +113,11 @@ impl EnvGetter for StdEnvGetter {
 /// The `arch_or_target` argument is the architecture or the Rust target
 /// triple that the tool should work for (e.g. compile or link for). The
 /// supported architecture names are:
-/// - `"i586"`
-/// - `"i686"`
-/// - `"x86_64"`
-/// - `"arm"`
-/// - `"thumbv7a"`
-/// - `"aarch64"`
+/// - `"x64"` or `"x86_64"`
+/// - `"arm64"` or `"aarch64"`
 /// - `"arm64ec"`
+/// - `"x86"`, `"i586"` or `"i686"`
+/// - `"arm"` or `"thumbv7a"`
 ///
 /// The `tool` argument is the tool to find (e.g. `cl.exe` or `link.exe`).
 ///
