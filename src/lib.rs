@@ -2188,17 +2188,14 @@ impl Build {
                         }
                     }
 
-                    // Add version information to the target.
-                    let llvm_target = if target.vendor == "apple" {
-                        let deployment_target = self.apple_deployment_target(target);
-                        target.versioned_llvm_target(Some(&deployment_target))
-                    } else {
-                        target.versioned_llvm_target(None)
-                    };
-
-                    // Pass `--target` with the LLVM target to properly
-                    // configure Clang even when cross-compiling.
-                    cmd.push_cc_arg(format!("--target={llvm_target}").into());
+                    // Pass `--target` with the LLVM target to properly configure Clang even when
+                    // cross-compiling.
+                    //
+                    // We intentionally don't put the deployment version in here on Apple targets,
+                    // and instead pass that via `-mmacosx-version-min=` and similar flags, for
+                    // better compatibility with older versions of Clang that has poor support for
+                    // versioned target names (especially when it comes to configuration files).
+                    cmd.push_cc_arg(format!("--target={}", target.unversioned_llvm_target).into());
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -2214,8 +2211,9 @@ impl Build {
                         cmd.push_cc_arg("-m32".into());
                         cmd.push_cc_arg("-arch:IA32".into());
                     } else {
-                        let llvm_target = target.versioned_llvm_target(None);
-                        cmd.push_cc_arg(format!("--target={llvm_target}").into());
+                        cmd.push_cc_arg(
+                            format!("--target={}", target.unversioned_llvm_target).into(),
+                        );
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
@@ -2645,23 +2643,13 @@ impl Build {
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        // If the compiler is Clang, then we've already specifed the target
-        // information (including the deployment target) with the `--target`
-        // option, so we don't need to do anything further here.
+        // Pass the deployment target via `-mmacosx-version-min=`, `-mtargetos=` and similar.
         //
-        // If the compiler is GCC, then we need to specify
-        // `-mmacosx-version-min` to set the deployment target, as well
-        // as to say that the target OS is macOS.
-        //
-        // NOTE: GCC does not support `-miphoneos-version-min=` etc. (because
-        // it does not support iOS in general), but we specify them anyhow in
-        // case we actually have a Clang-like compiler disguised as a GNU-like
-        // compiler, or in case GCC adds support for these in the future.
-        if !cmd.is_like_clang() {
-            let min_version = self.apple_deployment_target(&target);
-            cmd.args
-                .push(target.apple_version_flag(&min_version).into());
-        }
+        // It is also necessary on GCC, as it forces a compilation error if the compiler is not
+        // configured for Darwin: https://gcc.gnu.org/onlinedocs/gcc/Darwin-Options.html
+        let min_version = self.apple_deployment_target(&target);
+        cmd.args
+            .push(target.apple_version_flag(&min_version).into());
 
         // AppleClang sometimes requires sysroot even on macOS
         if cmd.is_xctoolchain_clang() || target.os != "macos" {
