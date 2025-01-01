@@ -25,6 +25,14 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let os = spec.os.as_deref().unwrap_or("none");
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
+        let relocation_model_static = match spec.relocation_model.as_deref() {
+            Some("static") => true,
+            Some("pic") => false,
+            None => false,
+            Some(relocation_model) => {
+                unimplemented!("unknown relocation_model: {relocation_model}")
+            }
+        };
 
         let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
             // Remove deployment target information from LLVM target triples (we
@@ -83,6 +91,10 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         writeln!(
             f,
             "            unversioned_llvm_target: {unversioned_llvm_target:?},"
+        )?;
+        writeln!(
+            f,
+            "            relocation_model_static: {relocation_model_static},"
         )?;
         writeln!(f, "        }},")?;
         writeln!(f, "    ),")?;

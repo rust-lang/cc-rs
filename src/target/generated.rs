@@ -14,6 +14,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64-apple-macosx",
+            relocation_model_static: false,
         },
     ),
     (
@@ -26,6 +27,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64-apple-ios",
+            relocation_model_static: false,
         },
     ),
     (
@@ -38,6 +40,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "macabi",
             unversioned_llvm_target: "arm64-apple-ios-macabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -50,6 +53,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "arm64-apple-ios-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -62,6 +66,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64-apple-tvos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -74,6 +79,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "arm64-apple-tvos-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -86,6 +92,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64-apple-xros",
+            relocation_model_static: false,
         },
     ),
     (
@@ -98,6 +105,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "arm64-apple-xros-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -110,6 +118,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64-apple-watchos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -122,6 +131,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "arm64-apple-watchos-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -134,6 +144,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-fuchsia",
+            relocation_model_static: false,
         },
     ),
     (
@@ -146,6 +157,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-none",
+            relocation_model_static: true,
         },
     ),
     (
@@ -158,6 +170,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-linux-android",
+            relocation_model_static: false,
         },
     ),
     (
@@ -170,6 +183,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-none",
+            relocation_model_static: false,
         },
     ),
     (
@@ -182,6 +196,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "llvm",
             unversioned_llvm_target: "aarch64-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -194,6 +209,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "aarch64-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -206,6 +222,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-freebsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -218,6 +235,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-fuchsia",
+            relocation_model_static: false,
         },
     ),
     (
@@ -230,6 +248,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-hermit",
+            relocation_model_static: false,
         },
     ),
     (
@@ -242,6 +261,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-solaris2.11",
+            relocation_model_static: false,
         },
     ),
     (
@@ -254,6 +274,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -266,6 +287,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "ilp32",
             unversioned_llvm_target: "aarch64-unknown-linux-gnu_ilp32",
+            relocation_model_static: false,
         },
     ),
     (
@@ -278,6 +300,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -290,6 +313,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "ohos",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-linux-ohos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -302,6 +326,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -314,6 +339,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-none",
+            relocation_model_static: true,
         },
     ),
     (
@@ -326,6 +352,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "softfloat",
             unversioned_llvm_target: "aarch64-unknown-none",
+            relocation_model_static: true,
         },
     ),
     (
@@ -338,6 +365,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "nto70",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-unknown",
+            relocation_model_static: false,
         },
     ),
     (
@@ -350,6 +378,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "nto71",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-unknown",
+            relocation_model_static: false,
         },
     ),
     (
@@ -362,6 +391,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -374,6 +404,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "relibc",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-redox",
+            relocation_model_static: false,
         },
     ),
     (
@@ -386,6 +417,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-none",
+            relocation_model_static: false,
         },
     ),
     (
@@ -398,6 +430,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-unknown-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -410,6 +443,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -422,6 +456,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "uwp",
             unversioned_llvm_target: "aarch64-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -434,6 +469,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "aarch64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -446,6 +482,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "aarch64_be-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -458,6 +495,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "ilp32",
             unversioned_llvm_target: "aarch64_be-unknown-linux-gnu_ilp32",
+            relocation_model_static: false,
         },
     ),
     (
@@ -470,6 +508,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "aarch64_be-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -482,6 +521,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "arm-linux-androideabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -494,6 +534,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabi",
             unversioned_llvm_target: "arm-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -506,6 +547,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabihf",
             unversioned_llvm_target: "arm-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -518,6 +560,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "eabi",
             unversioned_llvm_target: "arm-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -530,6 +573,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "eabihf",
             unversioned_llvm_target: "arm-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -542,6 +586,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64_32-apple-watchos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -554,6 +599,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64e-apple-macosx",
+            relocation_model_static: false,
         },
     ),
     (
@@ -566,6 +612,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64e-apple-ios",
+            relocation_model_static: false,
         },
     ),
     (
@@ -578,6 +625,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "arm64e-apple-tvos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -590,6 +638,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "arm64ec-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -602,6 +651,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabi",
             unversioned_llvm_target: "armeb-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -614,6 +664,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armebv7r-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -626,6 +677,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armebv7r-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -638,6 +690,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv4t-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -650,6 +703,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabi",
             unversioned_llvm_target: "armv4t-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -662,6 +716,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv5te-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -674,6 +729,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabi",
             unversioned_llvm_target: "armv5te-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -686,6 +742,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "eabi",
             unversioned_llvm_target: "armv5te-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -698,6 +755,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "uclibc",
             abi: "eabi",
             unversioned_llvm_target: "armv5te-unknown-linux-uclibcgnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -710,6 +768,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv6-unknown-freebsd-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -722,6 +781,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv6-unknown-netbsdelf-eabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -734,6 +794,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "eabihf",
             unversioned_llvm_target: "armv6k-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -746,6 +807,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "armv7-apple-ios",
+            relocation_model_static: false,
         },
     ),
     (
@@ -758,6 +820,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv7-none-linux-android",
+            relocation_model_static: false,
         },
     ),
     (
@@ -770,6 +833,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -782,6 +846,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "eabihf",
             unversioned_llvm_target: "thumbv7a-vita-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -794,6 +859,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-freebsd-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -806,6 +872,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabi",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -818,6 +885,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -830,6 +898,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "eabi",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -842,6 +911,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -854,6 +924,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "ohos",
             abi: "eabi",
             unversioned_llvm_target: "armv7-unknown-linux-ohos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -866,6 +937,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "uclibc",
             abi: "eabi",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -878,6 +950,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "uclibc",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -890,6 +963,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-netbsdelf-eabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -902,6 +976,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv7-unknown-unknown-gnueabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -914,6 +989,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -926,6 +1002,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv7a-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -938,6 +1015,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv7a-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -950,6 +1028,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv7a-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -962,6 +1041,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv7a-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -974,6 +1054,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "armv7k-apple-watchos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -986,6 +1067,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv7r-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -998,6 +1080,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv7r-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1010,6 +1093,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "armv7s-apple-ios",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1022,6 +1106,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "armv8r-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1034,6 +1119,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "wasm32-unknown-emscripten",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1046,6 +1132,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "avr-unknown-unknown",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1058,6 +1145,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "bpfeb",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1070,6 +1158,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "bpfel",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1082,6 +1171,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "abiv2",
             unversioned_llvm_target: "csky-unknown-linux-gnuabiv2",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1094,6 +1184,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "abiv2hf",
             unversioned_llvm_target: "csky-unknown-linux-gnuabiv2",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1106,6 +1197,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "hexagon-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1118,6 +1210,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "hexagon-unknown-none-elf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1130,6 +1223,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "i386-apple-ios-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1142,6 +1236,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "nto70",
             abi: "",
             unversioned_llvm_target: "i586-pc-unknown",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1154,6 +1249,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "i586-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1166,6 +1262,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "i586-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1178,6 +1275,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "i586-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1190,6 +1288,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i586-unknown-netbsdelf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1202,6 +1301,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-apple-macosx",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1214,6 +1314,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-linux-android",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1226,6 +1327,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "i686-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1238,6 +1340,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "llvm",
             unversioned_llvm_target: "i686-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1250,6 +1353,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "i686-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1262,6 +1366,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-unknown-freebsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1274,6 +1379,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-unknown-haiku",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1286,6 +1392,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "i686-unknown-hurd-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1298,6 +1405,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "i686-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1310,6 +1418,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "i686-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1322,6 +1431,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-unknown-netbsdelf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1334,6 +1444,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1346,6 +1457,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "relibc",
             abi: "",
             unversioned_llvm_target: "i686-unknown-redox",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1358,6 +1470,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "i686-unknown-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1370,6 +1483,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "uwp",
             unversioned_llvm_target: "i686-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1382,6 +1496,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "uwp",
             unversioned_llvm_target: "i686-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1394,6 +1509,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "i686-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1406,6 +1522,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "i686-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1418,6 +1535,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "loongarch64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1430,6 +1548,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "loongarch64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1442,6 +1561,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "ohos",
             abi: "",
             unversioned_llvm_target: "loongarch64-unknown-linux-ohos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1454,6 +1574,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "loongarch64-unknown-none",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1466,6 +1587,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "softfloat",
             unversioned_llvm_target: "loongarch64-unknown-none",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1478,6 +1600,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "m68k-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1490,6 +1613,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "mips-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1502,6 +1626,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "mips-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1514,6 +1639,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "uclibc",
             abi: "",
             unversioned_llvm_target: "mips-unknown-linux-uclibc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1526,6 +1652,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "abi64",
             unversioned_llvm_target: "mips64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1538,6 +1665,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "abi64",
             unversioned_llvm_target: "mips64-unknown-linux-gnuabi64",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1550,6 +1678,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "abi64",
             unversioned_llvm_target: "mips64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1562,6 +1691,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "abi64",
             unversioned_llvm_target: "mips64el-unknown-linux-gnuabi64",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1574,6 +1704,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "abi64",
             unversioned_llvm_target: "mips64el-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1586,6 +1717,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "mipsel-sony-psp",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1598,6 +1730,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "mipsel-sony-psx",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1610,6 +1743,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "mipsel-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1622,6 +1756,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "mipsel-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1634,6 +1769,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "uclibc",
             abi: "",
             unversioned_llvm_target: "mipsel-unknown-linux-uclibc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1646,6 +1782,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "mipsel-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1658,6 +1795,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "mipsel-unknown-none",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1670,6 +1808,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "mipsisa32r6-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1682,6 +1821,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "mipsisa32r6el-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1694,6 +1834,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "abi64",
             unversioned_llvm_target: "mipsisa64r6-unknown-linux-gnuabi64",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1706,6 +1847,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "abi64",
             unversioned_llvm_target: "mipsisa64r6el-unknown-linux-gnuabi64",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1718,6 +1860,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "msp430-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1730,6 +1873,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "nvptx64-nvidia-cuda",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1742,6 +1886,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "powerpc-unknown-freebsd13.0",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1754,6 +1899,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "powerpc-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1766,6 +1912,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "spe",
             unversioned_llvm_target: "powerpc-unknown-linux-gnuspe",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1778,6 +1925,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "powerpc-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1790,6 +1938,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "spe",
             unversioned_llvm_target: "powerpc-unknown-linux-muslspe",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1802,6 +1951,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "powerpc-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1814,6 +1964,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "powerpc-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1826,6 +1977,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "powerpc-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1838,6 +1990,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "spe",
             unversioned_llvm_target: "powerpc-unknown-linux-gnuspe",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1850,6 +2003,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "vec-extabi",
             unversioned_llvm_target: "powerpc64-ibm-aix",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1862,6 +2016,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "powerpc64-unknown-freebsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1874,6 +2029,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "powerpc64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1886,6 +2042,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "powerpc64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1898,6 +2055,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "powerpc64-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1910,6 +2068,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "powerpc64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1922,6 +2081,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "powerpc64le-unknown-freebsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1934,6 +2094,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "powerpc64le-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1946,6 +2107,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "powerpc64le-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1958,6 +2120,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: false,
         },
     ),
     (
@@ -1970,6 +2133,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1982,6 +2146,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -1994,6 +2159,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2006,6 +2172,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "riscv32-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2018,6 +2185,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "riscv32-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2030,6 +2198,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2042,6 +2211,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2054,6 +2224,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2066,6 +2237,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2078,6 +2250,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2090,6 +2263,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2102,6 +2276,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2114,6 +2289,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2126,6 +2302,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2138,6 +2315,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2150,6 +2328,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2162,6 +2341,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2174,6 +2354,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2186,6 +2367,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv32",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2198,6 +2380,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64-linux-android",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2210,6 +2393,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "riscv64",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2222,6 +2406,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-freebsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2234,6 +2419,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-fuchsia",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2246,6 +2432,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-hermit",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2258,6 +2445,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2270,6 +2458,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2282,6 +2471,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2294,6 +2484,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2306,6 +2497,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2318,6 +2510,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2330,6 +2523,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2342,6 +2536,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "riscv64",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2354,6 +2549,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "s390x-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2366,6 +2562,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "s390x-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2378,6 +2575,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "sparc-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2390,6 +2588,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "sparc-unknown-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2402,6 +2601,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "sparc64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2414,6 +2614,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "sparc64-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2426,6 +2627,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "sparc64-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2438,6 +2640,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "sparcv9-sun-solaris",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2450,6 +2653,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv4t-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2462,6 +2666,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv5te-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2474,6 +2679,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv6m-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2486,6 +2692,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv6m-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2498,6 +2705,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "thumbv7a-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2510,6 +2718,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "uwp",
             unversioned_llvm_target: "thumbv7a-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2522,6 +2731,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv7em-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2534,6 +2744,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "thumbv7em-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2546,6 +2757,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv7em-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2558,6 +2770,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "thumbv7em-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2570,6 +2783,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv7m-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2582,6 +2796,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv7m-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2594,6 +2809,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "armv7-none-linux-android",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2606,6 +2822,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2618,6 +2835,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "eabihf",
             unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2630,6 +2848,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv8m.base-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2642,6 +2861,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv8m.base-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2654,6 +2874,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv8m.main-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2666,6 +2887,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "thumbv8m.main-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2678,6 +2900,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabi",
             unversioned_llvm_target: "thumbv8m.main-none-eabi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2690,6 +2913,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "eabihf",
             unversioned_llvm_target: "thumbv8m.main-none-eabihf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2702,6 +2926,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "wasm32-unknown-emscripten",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2714,6 +2939,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "wasm32-unknown-unknown",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2726,6 +2952,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "wasm32-wasi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2738,6 +2965,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "p1",
             abi: "",
             unversioned_llvm_target: "wasm32-wasip1",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2750,6 +2978,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "p1",
             abi: "",
             unversioned_llvm_target: "wasm32-wasi",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2762,6 +2991,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "p2",
             abi: "",
             unversioned_llvm_target: "wasm32-wasip2",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2774,6 +3004,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "wasm32-unknown-unknown",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2786,6 +3017,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "wasm64-unknown-unknown",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2798,6 +3030,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-apple-macosx",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2810,6 +3043,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "x86_64-apple-ios-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2822,6 +3056,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "macabi",
             unversioned_llvm_target: "x86_64-apple-ios-macabi",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2834,6 +3069,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "x86_64-apple-tvos-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2846,6 +3082,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "sim",
             unversioned_llvm_target: "x86_64-apple-watchos-simulator",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2858,6 +3095,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "sgx",
             abi: "fortanix",
             unversioned_llvm_target: "x86_64-elf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2870,6 +3108,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-fuchsia",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2882,6 +3121,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-linux-android",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2894,6 +3134,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "nto71",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-unknown",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2906,6 +3147,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-solaris",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2918,6 +3160,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2930,6 +3173,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "llvm",
             unversioned_llvm_target: "x86_64-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2942,6 +3186,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2954,6 +3199,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-solaris",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2966,6 +3212,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-linux-musl",
+            relocation_model_static: true,
         },
     ),
     (
@@ -2978,6 +3225,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-dragonfly",
+            relocation_model_static: false,
         },
     ),
     (
@@ -2990,6 +3238,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-freebsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3002,6 +3251,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-fuchsia",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3014,6 +3264,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-haiku",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3026,6 +3277,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-hermit",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3038,6 +3290,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-hurd-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3050,6 +3303,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-solaris",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3062,6 +3316,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "uclibc",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-l4re-uclibc",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3074,6 +3329,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3086,6 +3342,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "x32",
             unversioned_llvm_target: "x86_64-unknown-linux-gnux32",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3098,6 +3355,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "musl",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-linux-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3110,6 +3368,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-linux-none",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3122,6 +3381,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "ohos",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-linux-ohos",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3134,6 +3394,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-netbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3146,6 +3407,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-none-elf",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3158,6 +3420,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3170,6 +3433,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-openbsd",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3182,6 +3446,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "relibc",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-redox",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3194,6 +3459,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-unknown-musl",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3206,6 +3472,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3218,6 +3485,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "uwp",
             unversioned_llvm_target: "x86_64-pc-windows-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3230,6 +3498,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "uwp",
             unversioned_llvm_target: "x86_64-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3242,6 +3511,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "",
             unversioned_llvm_target: "x86_64-pc-windows-msvc",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3254,6 +3524,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "gnu",
             abi: "",
             unversioned_llvm_target: "x86_64-unknown-linux-gnu",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3266,6 +3537,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "x86_64h-apple-macosx",
+            relocation_model_static: false,
         },
     ),
     (
@@ -3278,6 +3550,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "",
             unversioned_llvm_target: "xtensa-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3290,6 +3563,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "xtensa-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3302,6 +3576,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "",
             unversioned_llvm_target: "xtensa-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3314,6 +3589,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "xtensa-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3326,6 +3602,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "newlib",
             abi: "",
             unversioned_llvm_target: "xtensa-none-elf",
+            relocation_model_static: true,
         },
     ),
     (
@@ -3338,6 +3615,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             unversioned_llvm_target: "xtensa-none-elf",
+            relocation_model_static: true,
         },
     ),
 ];

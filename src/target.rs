@@ -45,6 +45,8 @@ pub(crate) struct TargetInfo<'a> {
     pub abi: &'a str,
     /// The unversioned LLVM/Clang target triple.
     unversioned_llvm_target: &'a str,
+    /// Whether the default relocation model is static (i.e. not PIC).
+    pub relocation_model_static: bool,
 }
 
 impl FromStr for TargetInfo<'_> {
