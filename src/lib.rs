@@ -2195,7 +2195,7 @@ impl Build {
                     // and instead pass that via `-mmacosx-version-min=` and similar flags, for
                     // better compatibility with older versions of Clang that has poor support for
                     // versioned target names (especially when it comes to configuration files).
-                    cmd.push_cc_arg(format!("--target={}", target.unversioned_llvm_target).into());
+                    cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -2211,9 +2211,7 @@ impl Build {
                         cmd.push_cc_arg("-m32".into());
                         cmd.push_cc_arg("-arch:IA32".into());
                     } else {
-                        cmd.push_cc_arg(
-                            format!("--target={}", target.unversioned_llvm_target).into(),
-                        );
+                        cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
