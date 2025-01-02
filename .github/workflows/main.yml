@@ -316,3 +316,24 @@ jobs:
         uses: actions/checkout@v4
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
+
+  # Dummy job to have a stable name for the "all tests pass" requirement
+  tests-pass:
+    name: Tests pass
+    needs:
+      - test
+      - check-tvos
+      - check-wasm
+      - test-wasm32-wasip1-thread
+      - cuda
+      - msrv
+      - clippy
+      - rustfmt
+      - semver-checks
+    if: always() # always run even if dependencies fail
+    runs-on: ubuntu-latest
+    steps:
+      # fail if ANY dependency has failed or cancelled
+      - if: "contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')"
+        run: exit 1
+      - run: exit 0
