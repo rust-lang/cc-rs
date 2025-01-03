@@ -110,6 +110,18 @@ impl Tool {
             cargo_output: &CargoOutput,
             out_dir: Option<&Path>,
         ) -> Result<ToolFamily, Error> {
+            // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
+            // stdin is set to null to ensure that the help output is never paginated.
+            let accepts_cl_style_flags =
+                run(Command::new(path).arg("-?").stdin(Stdio::null()), path, &{
+                    // the errors are not errors!
+                    let mut cargo_output = cargo_output.clone();
+                    cargo_output.warnings = cargo_output.debug;
+                    cargo_output.output = OutputKind::Discard;
+                    cargo_output
+                })
+                .is_ok();
+
             let out_dir = out_dir
                 .map(Cow::Borrowed)
                 .unwrap_or_else(|| Cow::Owned(env::temp_dir()));
@@ -140,8 +152,18 @@ impl Tool {
             tmp_file.sync_data()?;
             drop(tmp_file);
 
+            let mut cmd = Command::new(path);
+            cmd.arg("-E");
+            // there is no reliable way to detect clang-cl at this point
+            if accepts_cl_style_flags && path.file_name() == Some(OsStr::new("clang-cl")) {
+                // #513: For `clang-cl`, separate flags/options from the input file.
+                // When cross-compiling macOS -> Windows, this avoids interpreting
+                // common `/Users/...` paths as the `/U` flag and triggering
+                // `-Wslash-u-filename` warning.
+                cmd.arg("--");
+            }
             let stdout = run_output(
-                Command::new(path).arg("-E").arg(tmp.path()),
+                cmd.arg(tmp.path()),
                 path,
                 // When expanding the file, the compiler prints a lot of information to stderr
                 // that it is not an error, but related to expanding itself.
@@ -154,20 +176,7 @@ impl Tool {
                 },
             )?;
             let stdout = String::from_utf8_lossy(&stdout);
-
             cargo_output.print_debug(&stdout);
-
-            // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
-            // stdin is set to null to ensure that the help output is never paginated.
-            let accepts_cl_style_flags =
-                run(Command::new(path).arg("-?").stdin(Stdio::null()), path, &{
-                    // the errors are not errors!
-                    let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = cargo_output.debug;
-                    cargo_output.output = OutputKind::Discard;
-                    cargo_output
-                })
-                .is_ok();
 
             let clang = stdout.contains(r#""clang""#);
             let gcc = stdout.contains(r#""gcc""#);
