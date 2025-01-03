@@ -517,7 +517,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "linux",
             env: "musl",
             abi: "eabi",
-            unversioned_llvm_target: "arm-unknown-linux-gnueabi",
+            unversioned_llvm_target: "arm-unknown-linux-musleabi",
         },
     ),
     (
@@ -529,7 +529,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "linux",
             env: "musl",
             abi: "eabihf",
-            unversioned_llvm_target: "arm-unknown-linux-gnueabihf",
+            unversioned_llvm_target: "arm-unknown-linux-musleabihf",
         },
     ),
     (
@@ -685,7 +685,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "linux",
             env: "musl",
             abi: "eabi",
-            unversioned_llvm_target: "armv5te-unknown-linux-gnueabi",
+            unversioned_llvm_target: "armv5te-unknown-linux-musleabi",
         },
     ),
     (
@@ -829,7 +829,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "linux",
             env: "musl",
             abi: "eabi",
-            unversioned_llvm_target: "armv7-unknown-linux-gnueabi",
+            unversioned_llvm_target: "armv7-unknown-linux-musleabi",
         },
     ),
     (
@@ -841,7 +841,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "linux",
             env: "musl",
             abi: "eabihf",
-            unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            unversioned_llvm_target: "armv7-unknown-linux-musleabihf",
         },
     ),
     (
@@ -2617,7 +2617,7 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             os: "linux",
             env: "musl",
             abi: "eabihf",
-            unversioned_llvm_target: "armv7-unknown-linux-gnueabihf",
+            unversioned_llvm_target: "armv7-unknown-linux-musleabihf",
         },
     ),
     (
