@@ -57,7 +57,7 @@ fn opt_linkage() {
     }
 }
 
-#[cfg(feature = "cuda")]
+#[cfg(feature = "test_cuda")]
 #[test]
 fn cuda_here() {
     extern "C" {
