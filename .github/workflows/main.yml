@@ -31,6 +31,7 @@ jobs:
             mingw64,
             windows-2019,
           ]
+        cargo_flags: ['', '--release', '--features parallel']
         include:
           - build: stable
             os: ubuntu-latest
@@ -135,9 +136,7 @@ jobs:
         if: startsWith(matrix.build, 'windows-clang')
       - run: cargo update
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-tvos:
