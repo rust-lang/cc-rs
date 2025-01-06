@@ -420,6 +420,14 @@ impl Tool {
     pub fn is_like_msvc(&self) -> bool {
         matches!(self.family, ToolFamily::Msvc { .. })
     }
+
+    /// Supports using `--` delimiter to separate arguments and path to source files.
+    pub(crate) fn supports_path_delimiter(&self) -> bool {
+        matches!(
+            self.family,
+            ToolFamily::Clang { .. } | ToolFamily::Msvc { clang_cl: true }
+        )
+    }
 }
 
 /// Represents the family of tools this tool belongs to.
