@@ -2,6 +2,7 @@ use rusqlite::{Connection, Result};
 
 #[derive(Debug)]
 struct Person {
+    #[allow(unused)]
     pub id: i32,
     pub name: String,
     pub data: Option<Vec<u8>>,
