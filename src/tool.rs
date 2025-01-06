@@ -426,7 +426,7 @@ impl Tool {
         matches!(
             self.family,
             ToolFamily::Clang { .. } | ToolFamily::Msvc { clang_cl: true }
-        )
+        ) && !self.cuda
     }
 }
 
