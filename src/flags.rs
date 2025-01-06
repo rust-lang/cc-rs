@@ -313,7 +313,7 @@ mod tests {
     #[test]
     fn codegen_type() {
         let expected = RustcCodegenFlags {
-            code_model: Some("tiny".into()),
+            code_model: Some("tiny"),
             ..RustcCodegenFlags::default()
         };
         check("-Ccode-model=tiny", &expected);
@@ -327,7 +327,7 @@ mod tests {
         check(
             "-ccode-model=tiny\u{1f}-Ccode-model=small",
             &RustcCodegenFlags {
-                code_model: Some("small".into()),
+                code_model: Some("small"),
                 ..RustcCodegenFlags::default()
             },
         );
@@ -342,7 +342,7 @@ mod tests {
     #[test]
     fn three_valid_prefixes() {
         let expected = RustcCodegenFlags {
-            lto: Some("true".into()),
+            lto: Some("true"),
             ..RustcCodegenFlags::default()
         };
         check("-L\u{1f}-L\u{1f}-Clto", &expected);
@@ -460,20 +460,20 @@ mod tests {
         check(
             &flags.join("\u{1f}"),
             &RustcCodegenFlags {
-                code_model: Some("tiny".into()),
-                control_flow_guard: Some("yes".into()),
+                code_model: Some("tiny"),
+                control_flow_guard: Some("yes"),
                 embed_bitcode: Some(false),
                 force_frame_pointers: Some(true),
                 link_dead_code: Some(true),
-                lto: Some("false".into()),
+                lto: Some("false"),
                 no_redzone: Some(true),
                 no_vectorize_loops: true,
                 no_vectorize_slp: true,
-                profile_generate: Some("fooprofile".into()),
-                profile_use: Some("fooprofile".into()),
-                relocation_model: Some("pic".into()),
+                profile_generate: Some("fooprofile"),
+                profile_use: Some("fooprofile"),
+                relocation_model: Some("pic"),
                 soft_float: Some(true),
-                branch_protection: Some("bti,pac-ret,leaf".into()),
+                branch_protection: Some("bti,pac-ret,leaf"),
             },
         );
     }
