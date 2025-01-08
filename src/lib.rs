@@ -725,6 +725,10 @@ impl Build {
             },
         );
 
+        if compiler.supports_path_delimiter() {
+            cmd.arg("--");
+        }
+
         cmd.arg(&src);
 
         // On MSVC skip the CRT by setting the entry point to `main`.
@@ -1795,7 +1799,8 @@ impl Build {
         if is_asm {
             cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
         }
-        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_assembler_msvc {
+
+        if compiler.supports_path_delimiter() && !is_assembler_msvc {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
@@ -1803,6 +1808,7 @@ impl Build {
             cmd.arg("--");
         }
         cmd.arg(&obj.src);
+
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
         }
