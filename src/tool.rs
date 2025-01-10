@@ -421,6 +421,11 @@ impl Tool {
         matches!(self.family, ToolFamily::Msvc { .. })
     }
 
+    /// Whether the tool is `clang-cl`-based MSVC-like.
+    pub fn is_like_clang_cl(&self) -> bool {
+        matches!(self.family, ToolFamily::Msvc { clang_cl: true })
+    }
+
     /// Supports using `--` delimiter to separate arguments and path to source files.
     pub(crate) fn supports_path_delimiter(&self) -> bool {
         matches!(
