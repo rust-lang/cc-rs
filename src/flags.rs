@@ -157,7 +157,7 @@ impl<'this> RustcCodegenFlags<'this> {
     }
 
     // Rust and clang/cc don't agree on what equivalent flags should look like.
-    pub(crate) fn cc_flags(&self, build: &Build, tool: &mut Tool, target: &TargetInfo) {
+    pub(crate) fn cc_flags(&self, build: &Build, tool: &mut Tool, target: &TargetInfo<'_>) {
         let family = tool.family;
         // Push `flag` to `flags` if it is supported by the currently used CC
         let mut push_if_supported = |flag: OsString| {

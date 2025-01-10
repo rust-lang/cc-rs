@@ -2437,7 +2437,11 @@ impl Build {
         Ok(())
     }
 
-    fn add_inherited_rustflags(&self, cmd: &mut Tool, target: &TargetInfo) -> Result<(), Error> {
+    fn add_inherited_rustflags(
+        &self,
+        cmd: &mut Tool,
+        target: &TargetInfo<'_>,
+    ) -> Result<(), Error> {
         let env_os = match self.getenv("CARGO_ENCODED_RUSTFLAGS") {
             Some(env) => env,
             // No encoded RUSTFLAGS -> nothing to do
@@ -3760,7 +3764,7 @@ impl Build {
         Ok(Arc::from(OsStr::new(sdk_path.trim())))
     }
 
-    fn apple_sdk_root(&self, target: &TargetInfo) -> Result<Arc<OsStr>, Error> {
+    fn apple_sdk_root(&self, target: &TargetInfo<'_>) -> Result<Arc<OsStr>, Error> {
         let sdk = target.apple_sdk_name();
 
         if let Some(ret) = self
