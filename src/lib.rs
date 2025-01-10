@@ -3037,10 +3037,7 @@ impl Build {
         }
 
         let mut parts = tool.split_whitespace();
-        let maybe_wrapper = match parts.next() {
-            Some(s) => s,
-            None => return None,
-        };
+        let maybe_wrapper = parts.next()?;
 
         let file_stem = Path::new(maybe_wrapper).file_stem()?.to_str()?;
         if known_wrappers.contains(&file_stem) {
