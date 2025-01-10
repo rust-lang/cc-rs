@@ -253,8 +253,7 @@ mod command_helpers;
 use command_helpers::*;
 
 mod tool;
-pub use tool::Tool;
-use tool::ToolFamily;
+pub use tool::{Tool, ToolFamily};
 
 mod tempfile;
 
@@ -701,7 +700,8 @@ impl Build {
         if compiler.family.verbose_stderr() {
             compiler.remove_arg("-v".into());
         }
-        if compiler.is_like_clang() {
+        let clang = matches!(compiler.family(), ToolFamily::Clang { .. });
+        if clang {
             // Avoid reporting that the arg is unsupported just because the
             // compiler complains that it wasn't used.
             compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
@@ -709,17 +709,16 @@ impl Build {
 
         let mut cmd = compiler.to_command();
         let is_arm = matches!(target.arch, "aarch64" | "arm");
-        let clang = compiler.is_like_clang();
-        let gnu = compiler.family == ToolFamily::Gnu;
+        let msvc = matches!(compiler.family(), ToolFamily::Msvc { .. });
         command_add_output_file(
             &mut cmd,
             &obj,
             CmdAddOutputFileArgs {
                 cuda: self.cuda,
                 is_assembler_msvc: false,
-                msvc: compiler.is_like_msvc(),
+                msvc,
                 clang,
-                gnu,
+                gnu: matches!(compiler.family(), ToolFamily::Gnu),
                 is_asm: false,
                 is_arm,
             },
@@ -733,7 +732,7 @@ impl Build {
 
         // On MSVC skip the CRT by setting the entry point to `main`.
         // This way we don't need to add the default library paths.
-        if compiler.is_like_msvc() {
+        if msvc {
             // Flags from _LINK_ are appended to the linker arguments.
             cmd.env("_LINK_", "-entry:main");
         }
@@ -1753,8 +1752,6 @@ impl Build {
         let target = self.get_target()?;
         let msvc = target.env == "msvc";
         let compiler = self.try_get_compiler()?;
-        let clang = compiler.is_like_clang();
-        let gnu = compiler.family == ToolFamily::Gnu;
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let (mut cmd, name) = if is_assembler_msvc {
@@ -1782,9 +1779,9 @@ impl Build {
             CmdAddOutputFileArgs {
                 cuda: self.cuda,
                 is_assembler_msvc,
-                msvc: compiler.is_like_msvc(),
-                clang,
-                gnu,
+                msvc: matches!(compiler.family(), ToolFamily::Msvc { .. }),
+                clang: matches!(compiler.family(), ToolFamily::Clang { .. }),
+                gnu: matches!(compiler.family(), ToolFamily::Gnu),
                 is_asm,
                 is_arm,
             },
@@ -2036,15 +2033,16 @@ impl Build {
                 }
             }
             ToolFamily::Gnu | ToolFamily::Clang { .. } => {
+                let clang = matches!(cmd.family, ToolFamily::Clang { .. });
                 // arm-linux-androideabi-gcc 4.8 shipped with Android NDK does
                 // not support '-Oz'
-                if opt_level == "z" && !cmd.is_like_clang() {
+                if opt_level == "z" && !clang {
                     cmd.push_opt_unless_duplicate("-Os".into());
                 } else {
                     cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
                 }
 
-                if cmd.is_like_clang() && target.os == "android" {
+                if clang && target.os == "android" {
                     // For compatibility with code that doesn't use pre-defined `__ANDROID__` macro.
                     // If compiler used via ndk-build or cmake (officially supported build methods)
                     // this macros is defined.
@@ -2141,7 +2139,9 @@ impl Build {
             family.add_force_frame_pointer(cmd);
         }
 
-        if !cmd.is_like_msvc() {
+        let msvc = matches!(cmd.family, ToolFamily::Msvc { .. });
+
+        if !msvc {
             if target.arch == "x86" {
                 cmd.args.push("-m32".into());
             } else if target.abi == "x32" {
@@ -2653,7 +2653,8 @@ impl Build {
         // it does not support iOS in general), but we specify them anyhow in
         // case we actually have a Clang-like compiler disguised as a GNU-like
         // compiler, or in case GCC adds support for these in the future.
-        if !cmd.is_like_clang() {
+        let clang = matches!(cmd.family, ToolFamily::Clang { .. });
+        if !clang {
             let min_version = self.apple_deployment_target(&target);
             cmd.args
                 .push(target.apple_version_flag(&min_version).into());
@@ -3225,7 +3226,8 @@ impl Build {
                     // And even extend it to gcc targets by searching for "ar" instead
                     // of "llvm-ar"...
                     let compiler = self.get_base_compiler().ok()?;
-                    if compiler.is_like_clang() {
+                    let clang = matches!(compiler.family, ToolFamily::Clang { .. });
+                    if clang {
                         name = format!("llvm-{}", tool).into();
                         self.search_programs(
                             &mut self.cmd(&compiler.path),

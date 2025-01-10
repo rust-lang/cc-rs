@@ -23,7 +23,10 @@ fn main() {
     run_forked_capture_output(&out, "metadata-off");
 
     run_forked_capture_output(&out, "warnings-off");
-    if cc::Build::new().get_compiler().is_like_msvc() {
+    if matches!(
+        cc::Build::new().get_compiler().family(),
+        cc::ToolFamily::Msvc { .. }
+    ) {
         // MSVC doesn't output warnings to stderr, so we can't capture them.
         // the test will use this env var to know whether to run the test.
         println!("cargo:rustc-env=TEST_WARNINGS_ON=0");
@@ -86,12 +89,12 @@ fn main() {
     }
 
     if target.contains("msvc") {
-        let cc_frontend = if compiler.is_like_msvc() {
-            "MSVC"
-        } else if compiler.is_like_clang() {
-            "CLANG"
-        } else {
-            unimplemented!("Unknown compiler that targets msvc but isn't clang-like or msvc-like")
+        let cc_frontend = match compiler.family() {
+            cc::ToolFamily::Clang { .. } => "CLANG",
+            cc::ToolFamily::Msvc { .. } => "MSVC",
+            f => unimplemented!(
+                "Unknown compiler `{f:?}` that targets msvc but isn't clang-like or msvc-like"
+            ),
         };
 
         // Test that the `windows_registry` module will set PATH by looking for

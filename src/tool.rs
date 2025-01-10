@@ -281,11 +281,11 @@ impl Tool {
         let mut chars = flag.chars();
 
         // Only duplicate check compiler flags
-        if self.is_like_msvc() {
-            if chars.next() != Some('/') {
-                return false;
-            }
-        } else if (self.is_like_gnu() || self.is_like_clang()) && chars.next() != Some('-') {
+        let flag_start = match self.family {
+            ToolFamily::Msvc { .. } => '/',
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => '-',
+        };
+        if chars.next() != Some(flag_start) {
             return false;
         }
 
@@ -395,6 +395,11 @@ impl Tool {
         flags
     }
 
+    /// The family of this tool, representing convention of arguments etc.
+    pub fn family(&self) -> ToolFamily {
+        self.family
+    }
+
     /// Whether the tool is GNU Compiler Collection-like.
     pub fn is_like_gnu(&self) -> bool {
         self.family == ToolFamily::Gnu
@@ -421,11 +426,6 @@ impl Tool {
         matches!(self.family, ToolFamily::Msvc { .. })
     }
 
-    /// Whether the tool is `clang-cl`-based MSVC-like.
-    pub fn is_like_clang_cl(&self) -> bool {
-        matches!(self.family, ToolFamily::Msvc { clang_cl: true })
-    }
-
     /// Supports using `--` delimiter to separate arguments and path to source files.
     pub(crate) fn supports_path_delimiter(&self) -> bool {
         matches!(
@@ -441,14 +441,24 @@ impl Tool {
 ///
 /// Detection of a family is done on best-effort basis and may not accurately reflect the tool.
 #[derive(Copy, Clone, Debug, PartialEq)]
+#[non_exhaustive]
 pub enum ToolFamily {
     /// Tool is GNU Compiler Collection-like.
+    #[non_exhaustive]
     Gnu,
     /// Tool is Clang-like. It differs from the GCC in a sense that it accepts superset of flags
     /// and its cross-compilation approach is different.
-    Clang { zig_cc: bool },
-    /// Tool is the MSVC cl.exe.
-    Msvc { clang_cl: bool },
+    #[non_exhaustive]
+    Clang {
+        /// Tool provided by zig
+        zig_cc: bool,
+    },
+    /// Tool is the MSVC `cl.exe`.
+    #[non_exhaustive]
+    Msvc {
+        /// Whether this is `clang-cl` provided by LLVM
+        clang_cl: bool,
+    },
 }
 
 impl ToolFamily {
