@@ -106,10 +106,11 @@ impl Tool {
         }
 
         fn guess_family_from_stdout(
-            stdout: &str,
+            stdout: &[u8],
             path: &Path,
             cargo_output: &CargoOutput,
         ) -> Result<ToolFamily, Error> {
+            let stdout = String::from_utf8_lossy(&stdout);
             cargo_output.print_debug(&stdout);
 
             // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
@@ -192,18 +193,17 @@ impl Tool {
                 path,
                 &compiler_detect_output,
             )?;
-            let stdout = String::from_utf8_lossy(&stdout);
 
-            if stdout.contains("-Wslash-u-filename") {
-                let stdout = run_output(
-                    Command::new(path).arg("-E").arg("--").arg(tmp.path()),
-                    path,
-                    &compiler_detect_output,
-                )?;
-                let stdout = String::from_utf8_lossy(&stdout);
-                guess_family_from_stdout(&stdout, path, cargo_output)
-            } else {
-                guess_family_from_stdout(&stdout, path, cargo_output)
+            match guess_family_from_stdout(&stdout, path, cargo_output) {
+                Err(_) if String::from_utf8(&stdout).contains("-Wslash-u-filename") => {
+                    let stdout = run_output(
+                        Command::new(path).arg("-E").arg("--").arg(tmp.path()),
+                        path,
+                        &compiler_detect_output,
+                    )?;
+                    guess_family_from_stdout(&stdout, path, cargo_output)
+                }
+                res => res,
             }
         }
         let detect_family = |path: &Path| -> Result<ToolFamily, Error> {
