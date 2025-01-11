@@ -195,7 +195,7 @@ impl Tool {
             )?;
 
             match guess_family_from_stdout(&stdout, path, cargo_output) {
-                Err(_) if String::from_utf8(&stdout).contains("-Wslash-u-filename") => {
+                Err(_) if String::from_utf8_lossy(&stdout).contains("-Wslash-u-filename") => {
                     let stdout = run_output(
                         Command::new(path).arg("-E").arg("--").arg(tmp.path()),
                         path,
