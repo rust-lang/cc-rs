@@ -110,7 +110,7 @@ impl Tool {
             path: &Path,
             cargo_output: &CargoOutput,
         ) -> Result<ToolFamily, Error> {
-            let stdout = String::from_utf8_lossy(&stdout);
+            let stdout = String::from_utf8_lossy(stdout);
             cargo_output.print_debug(&stdout);
 
             // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
