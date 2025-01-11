@@ -1800,7 +1800,10 @@ impl Build {
             cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
         }
 
-        if compiler.supports_path_delimiter() && !is_assembler_msvc {
+        if compiler.supports_path_delimiter()
+            && !is_assembler_msvc
+            && matches!(compiler.family, ToolFamily::Clang { zig_cc: false })
+        {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
