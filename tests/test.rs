@@ -405,8 +405,6 @@ fn gnu_static() {
 }
 
 #[test]
-// on macOS, cc/gcc is link to apple clang
-#[cfg_attr(target_os = "macos", ignore)]
 fn gnu_no_dash_dash() {
     let test = Test::gnu();
     test.gcc().file("foo.c").compile("foo");
