@@ -428,10 +428,8 @@ impl Tool {
 
     /// Supports using `--` delimiter to separate arguments and path to source files.
     pub(crate) fn supports_path_delimiter(&self) -> bool {
-        matches!(
-            self.family,
-            ToolFamily::Clang { .. } | ToolFamily::Msvc { clang_cl: true }
-        ) && !self.cuda
+        // homebrew clang and zig-cc does not support this while stock version does
+        matches!(self.family, ToolFamily::Msvc { clang_cl: true }) && !self.cuda
     }
 }
 
