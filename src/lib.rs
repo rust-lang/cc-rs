@@ -1802,7 +1802,7 @@ impl Build {
 
         if compiler.supports_path_delimiter()
             && !is_assembler_msvc
-            && matches!(compiler.family, ToolFamily::Clang { zig_cc: false })
+            && matches!(compiler.family, ToolFamily::Clang { zig_cc: false } | ToolFamilt::Msvc { clang_cl: true })
         {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
