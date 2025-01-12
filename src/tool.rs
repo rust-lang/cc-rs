@@ -430,7 +430,7 @@ impl Tool {
     pub(crate) fn supports_path_delimiter(&self) -> bool {
         matches!(
             self.family,
-            ToolFamily::Clang { .. } | ToolFamily::Msvc { clang_cl: true }
+            ToolFamily::Msvc { clang_cl: true }
         ) && !self.cuda
     }
 }
