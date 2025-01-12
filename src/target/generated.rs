@@ -1541,6 +1541,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "mips-zkm-zkvm-elf",
+        TargetInfo {
+            full_arch: "mips",
+            arch: "mips",
+            vendor: "zkm",
+            os: "zkvm",
+            env: "",
+            abi: "",
+            unversioned_llvm_target: "mips",
+        },
+    ),
+    (
         "mips64-openwrt-linux-musl",
         TargetInfo {
             full_arch: "mips64",
