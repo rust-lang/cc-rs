@@ -103,6 +103,12 @@ impl Tool {
             )
             .map(|o| String::from_utf8_lossy(&o).contains("ziglang"))
             .unwrap_or_default()
+                || {
+                    match path.file_name().map(OsStr::to_string_lossy) {
+                        Some(fname) => fname.contains("zig"),
+                        _ => false,
+                    }
+                }
         }
 
         fn guess_family_from_stdout(
