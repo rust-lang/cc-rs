@@ -240,7 +240,7 @@ jobs:
 
   cuda:
     name: Test CUDA support
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install cuda-minimal-build-11-8
