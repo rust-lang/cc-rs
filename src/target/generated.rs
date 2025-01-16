@@ -1385,6 +1385,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "i686-win7-windows-gnu",
+        TargetInfo {
+            full_arch: "i686",
+            arch: "x86",
+            vendor: "win7",
+            os: "windows",
+            env: "gnu",
+            abi: "",
+            unversioned_llvm_target: "i686-pc-windows-gnu",
+        },
+    ),
+    (
         "i686-win7-windows-msvc",
         TargetInfo {
             full_arch: "i686",
@@ -3266,6 +3278,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "msvc",
             abi: "uwp",
             unversioned_llvm_target: "x86_64-pc-windows-msvc",
+        },
+    ),
+    (
+        "x86_64-win7-windows-gnu",
+        TargetInfo {
+            full_arch: "x86_64",
+            arch: "x86_64",
+            vendor: "win7",
+            os: "windows",
+            env: "gnu",
+            abi: "",
+            unversioned_llvm_target: "x86_64-pc-windows-gnu",
         },
     ),
     (
