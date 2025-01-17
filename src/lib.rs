@@ -4157,10 +4157,9 @@ fn is_disabled() -> bool {
         match std::env::var_os("CC_FORCE_DISABLE") {
             // Not set? Not disabled.
             None => false,
-            // Respect `CC_FORCE_DISABLE=0` and some simple synonyms.
-            Some(v) if &*v != "0" && &*v != "false" && &*v != "no" => false,
-            // Otherwise, we're disabled. This intentionally includes `CC_FORCE_DISABLE=""`
-            Some(_) => true,
+            // Respect `CC_FORCE_DISABLE=0` and some simple synonyms, otherwise
+            // we're disabled. This intentionally includes `CC_FORCE_DISABLE=""`
+            Some(v) => &*v != "0" && &*v != "false" && &*v != "no",
         }
     }
     match val {
