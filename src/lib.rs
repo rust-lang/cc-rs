@@ -2755,10 +2755,7 @@ impl Build {
             .map(|(tool, wrapper, args)| {
                 // find the driver mode, if any
                 const DRIVER_MODE: &str = "--driver-mode=";
-                let driver_mode = args
-                    .iter()
-                    .find(|a| a.starts_with(DRIVER_MODE))
-                    .map(|a| &a[DRIVER_MODE.len()..]);
+                let driver_mode = args.iter().find_map(|a| a.strip_suffix(DRIVER_MODE));
                 // Chop off leading/trailing whitespace to work around
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
