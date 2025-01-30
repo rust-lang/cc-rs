@@ -2753,16 +2753,13 @@ impl Build {
         let tool_opt: Option<Tool> = self
             .env_tool(env)
             .map(|(tool, wrapper, args)| {
-                // find the driver mode, if any
-                const DRIVER_MODE: &str = "--driver-mode=";
-                let driver_mode = args.iter().find_map(|a| a.strip_suffix(DRIVER_MODE));
                 // Chop off leading/trailing whitespace to work around
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::with_clang_driver(
+                let mut t = Tool::with_args(
                     tool,
-                    driver_mode,
+                    args.clone(),
                     &self.build_cache.cached_compiler_family,
                     &self.cargo_output,
                     out_dir,
@@ -2882,7 +2879,7 @@ impl Build {
             };
             let mut nvcc_tool = Tool::with_features(
                 nvcc,
-                None,
+                vec![],
                 self.cuda,
                 &self.build_cache.cached_compiler_family,
                 &self.cargo_output,

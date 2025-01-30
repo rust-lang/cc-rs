@@ -46,7 +46,7 @@ impl Tool {
     ) -> Self {
         Self::with_features(
             path,
-            None,
+            vec![],
             false,
             cached_compiler_family,
             cargo_output,
@@ -54,16 +54,16 @@ impl Tool {
         )
     }
 
-    pub(crate) fn with_clang_driver(
+    pub(crate) fn with_args(
         path: PathBuf,
-        clang_driver: Option<&str>,
+        args: Vec<String>,
         cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
         Self::with_features(
             path,
-            clang_driver,
+            args,
             false,
             cached_compiler_family,
             cargo_output,
@@ -88,7 +88,7 @@ impl Tool {
 
     pub(crate) fn with_features(
         path: PathBuf,
-        clang_driver: Option<&str>,
+        args: Vec<String>,
         cuda: bool,
         cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
         cargo_output: &CargoOutput,
@@ -235,12 +235,18 @@ impl Tool {
                 Some(fname) if fname.ends_with("cl") || fname == "cl.exe" => {
                     ToolFamily::Msvc { clang_cl: false }
                 }
-                Some(fname) if fname.contains("clang") => match clang_driver {
-                    Some("cl") => ToolFamily::Msvc { clang_cl: true },
-                    _ => ToolFamily::Clang {
-                        zig_cc: is_zig_cc(&path, cargo_output),
-                    },
-                },
+                Some(fname) if fname.contains("clang") => {
+                    let is_clang_cl = args
+                        .iter()
+                        .find_map(|a| a.strip_prefix("--driver-mode=") == Some("cl"))
+                    if is_clang_cl {
+                        ToolFamily::Msvc { clang_cl: true }
+                    } else {
+                        ToolFamily::Clang {
+                            zig_cc: is_zig_cc(&path, cargo_output),
+                        }
+                    }
+                }
                 Some(fname) if fname.contains("zig") => ToolFamily::Clang { zig_cc: true },
                 _ => ToolFamily::Gnu,
             }
