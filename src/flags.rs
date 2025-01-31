@@ -16,7 +16,6 @@ pub(crate) struct RustcCodegenFlags<'a> {
     relocation_model: Option<&'a str>,
     embed_bitcode: Option<bool>,
     force_frame_pointers: Option<bool>,
-    link_dead_code: Option<bool>,
     no_redzone: Option<bool>,
     soft_float: Option<bool>,
 }
@@ -138,8 +137,6 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Cforce-frame-pointers" => {
                 self.force_frame_pointers = value.map_or(Some(true), arg_to_bool)
             }
-            // https://doc.rust-lang.org/rustc/codegen-options/index.html#link-dead-code
-            "-Clink-dead-code" => self.link_dead_code = value.map_or(Some(true), arg_to_bool),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#no-redzone
             "-Cno-redzone" => self.no_redzone = value.map_or(Some(true), arg_to_bool),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#soft-float
@@ -220,10 +217,6 @@ impl<'this> RustcCodegenFlags<'this> {
                     "-fomit-frame-pointer"
                 };
                 push_if_supported(cc_flag.into());
-            }
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-dead_strip
-            if let Some(false) = self.link_dead_code {
-                push_if_supported("-dead_strip".into());
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-red-zone
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mred-zone
@@ -478,7 +471,6 @@ mod tests {
                 control_flow_guard: Some("yes"),
                 embed_bitcode: Some(false),
                 force_frame_pointers: Some(true),
-                link_dead_code: Some(true),
                 lto: Some("false"),
                 no_redzone: Some(true),
                 no_vectorize_loops: true,
