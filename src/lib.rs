@@ -254,7 +254,7 @@ use command_helpers::*;
 
 mod tool;
 pub use tool::Tool;
-use tool::ToolFamily;
+use tool::{CompilerFamilyLookupCache, ToolFamily};
 
 mod tempfile;
 
@@ -277,7 +277,7 @@ struct BuildCache {
     env_cache: RwLock<HashMap<Box<str>, Env>>,
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
-    cached_compiler_family: RwLock<HashMap<Box<Path>, ToolFamily>>,
+    cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     known_flag_support_status_cache: RwLock<HashMap<CompilerFlag, bool>>,
     target_info_parser: target::TargetInfoParser,
 }
@@ -2739,19 +2739,13 @@ impl Build {
         let tool_opt: Option<Tool> = self
             .env_tool(env)
             .map(|(tool, wrapper, args)| {
-                // find the driver mode, if any
-                const DRIVER_MODE: &str = "--driver-mode=";
-                let driver_mode = args
-                    .iter()
-                    .find(|a| a.starts_with(DRIVER_MODE))
-                    .map(|a| &a[DRIVER_MODE.len()..]);
                 // Chop off leading/trailing whitespace to work around
                 // semi-buggy build scripts which are shared in
                 // makefiles/configure scripts (where spaces are far more
                 // lenient)
-                let mut t = Tool::with_clang_driver(
+                let mut t = Tool::with_args(
                     tool,
-                    driver_mode,
+                    args.clone(),
                     &self.build_cache.cached_compiler_family,
                     &self.cargo_output,
                     out_dir,
@@ -2871,7 +2865,7 @@ impl Build {
             };
             let mut nvcc_tool = Tool::with_features(
                 nvcc,
-                None,
+                vec![],
                 self.cuda,
                 &self.build_cache.cached_compiler_family,
                 &self.cargo_output,
