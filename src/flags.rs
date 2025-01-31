@@ -177,30 +177,40 @@ impl<'this> RustcCodegenFlags<'this> {
         // Flags shared between clang and gnu
         if clang_or_gnu {
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mbranch-protection
+            // https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html#index-mbranch-protection (Aarch64)
+            // https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html#index-mbranch-protection-1 (ARM)
+            // FIXME(madsmtm): Parse the value, and make sure we pass it in the correct format.
             if let Some(value) = self.branch_protection {
                 push_if_supported(
                     format!("-mbranch-protection={}", value.replace(",", "+")).into(),
                 );
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mcmodel
+            // https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html (several archs, search for `-mcmodel=`).
+            // FIXME(madsmtm): Parse the model, to make sure we pass the correct value (depending on arch).
             if let Some(value) = self.code_model {
                 push_if_supported(format!("-mcmodel={value}").into());
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-vectorize
+            // https://gcc.gnu.org/onlinedocs/gnat_ugn/Vectorization-of-loops.html
             if self.no_vectorize_loops {
                 push_if_supported("-fno-vectorize".into());
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-slp-vectorize
+            // https://gcc.gnu.org/onlinedocs/gnat_ugn/Vectorization-of-loops.html
             if self.no_vectorize_slp {
                 push_if_supported("-fno-slp-vectorize".into());
             }
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIC
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIE
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mdynamic-no-pic
             if let Some(value) = self.relocation_model {
                 let cc_flag = match value {
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIC
+                    // https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html#index-fPIC
                     "pic" => Some("-fPIC"),
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIE
+                    // https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html#index-fPIE
                     "pie" => Some("-fPIE"),
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mdynamic-no-pic
+                    // https://gcc.gnu.org/onlinedocs/gcc/RS_002f6000-and-PowerPC-Options.html#index-mdynamic-no-pic
                     "dynamic-no-pic" => Some("-mdynamic-no-pic"),
                     _ => None,
                 };
@@ -210,6 +220,7 @@ impl<'this> RustcCodegenFlags<'this> {
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-omit-frame-pointer
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fomit-frame-pointer
+            // https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-fomit-frame-pointer
             if let Some(value) = self.force_frame_pointers {
                 let cc_flag = if value {
                     "-fno-omit-frame-pointer"
@@ -219,7 +230,9 @@ impl<'this> RustcCodegenFlags<'this> {
                 push_if_supported(cc_flag.into());
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-red-zone
+            // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html#index-mno-red-zone
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mred-zone
+            // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html#index-mred-zone
             if let Some(value) = self.no_redzone {
                 let cc_flag = if value { "-mno-red-zone" } else { "-mred-zone" };
                 push_if_supported(cc_flag.into());
