@@ -197,18 +197,6 @@ impl<'this> RustcCodegenFlags<'this> {
             if self.no_vectorize_slp {
                 push_if_supported("-fno-slp-vectorize".into());
             }
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
-            if let Some(value) = self.control_flow_guard {
-                let cc_val = match value {
-                    "y" | "yes" | "on" | "true" | "checks" => Some("cf"),
-                    "nochecks" => Some("cf-nochecks"),
-                    "n" | "no" | "off" | "false" => Some("none"),
-                    _ => None,
-                };
-                if let Some(cc_val) = cc_val {
-                    push_if_supported(format!("-mguard={cc_val}").into());
-                }
-            }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIC
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIE
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mdynamic-no-pic
@@ -285,6 +273,18 @@ impl<'this> RustcCodegenFlags<'this> {
                     };
                     if let Some(cc_val) = cc_val {
                         push_if_supported(format!("-flto={cc_val}").into());
+                    }
+                }
+                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
+                if let Some(value) = self.control_flow_guard {
+                    let cc_val = match value {
+                        "y" | "yes" | "on" | "true" | "checks" => Some("cf"),
+                        "nochecks" => Some("cf-nochecks"),
+                        "n" | "no" | "off" | "false" => Some("none"),
+                        _ => None,
+                    };
+                    if let Some(cc_val) = cc_val {
+                        push_if_supported(format!("-mguard={cc_val}").into());
                     }
                 }
             }
