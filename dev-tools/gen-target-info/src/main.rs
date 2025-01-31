@@ -26,17 +26,9 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         let env = spec.env.as_deref().unwrap_or("");
         let abi = spec.abi.as_deref().unwrap_or("");
 
-        let unversioned_llvm_target = if spec.llvm_target.contains("apple") {
-            // Remove deployment target information from LLVM target triples (we
-            // will add this in another part of CC).
-            //
-            // FIXME(madsmtm): Should become unnecessary after
-            // https://github.com/rust-lang/rust/pull/131037
-            let mut components = spec.llvm_target.split("-").collect::<Vec<_>>();
-
-            components[2] = components[2].trim_end_matches(|c: char| c.is_numeric() || c == '.');
-
-            components.join("-")
+        // FIXME(madsmtm): Unnecessary once we bump MSRV to Rust 1.74
+        let llvm_target = if spec.llvm_target == "armv7-apple-ios7.0.0" {
+            "armv7-apple-ios".to_string()
         } else if os == "uefi" {
             // Override the UEFI LLVM targets.
             //
@@ -80,10 +72,7 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
         writeln!(f, "            os: {os:?},")?;
         writeln!(f, "            env: {env:?},")?;
         writeln!(f, "            abi: {abi:?},")?;
-        writeln!(
-            f,
-            "            unversioned_llvm_target: {unversioned_llvm_target:?},"
-        )?;
+        writeln!(f, "            llvm_target: {llvm_target:?},")?;
         writeln!(f, "        }},")?;
         writeln!(f, "    ),")?;
     }
