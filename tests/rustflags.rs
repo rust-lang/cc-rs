@@ -1,3 +1,4 @@
+#[cfg(not(windows))]
 use crate::support::Test;
 mod support;
 
