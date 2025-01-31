@@ -225,12 +225,15 @@ impl<'this> RustcCodegenFlags<'this> {
                 push_if_supported(cc_flag.into());
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-msoft-float
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-soft-float
+            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mhard-float
+            // https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html (several archs, search for `-msoft-float`).
+            // https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html (several archs, search for `-mhard-float`).
             if let Some(value) = self.soft_float {
                 let cc_flag = if value {
                     "-msoft-float"
                 } else {
-                    "-mno-soft-float"
+                    // Do not use -mno-soft-float, that's basically just an alias for -mno-implicit-float.
+                    "-mhard-float"
                 };
                 push_if_supported(cc_flag.into());
             }
