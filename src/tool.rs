@@ -16,6 +16,8 @@ use crate::{
     Error, ErrorKind, OutputKind,
 };
 
+pub(crate) type CompilerFamilyLookupCache = HashMap<Box<Path>, ToolFamily>;
+
 /// Configuration used to represent an invocation of a C compiler.
 ///
 /// This can be used to figure out what compiler is in use, what the arguments
@@ -40,7 +42,7 @@ pub struct Tool {
 impl Tool {
     pub(crate) fn new(
         path: PathBuf,
-        cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
+        cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
@@ -57,7 +59,7 @@ impl Tool {
     pub(crate) fn with_args(
         path: PathBuf,
         args: Vec<String>,
-        cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
+        cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
@@ -90,7 +92,7 @@ impl Tool {
         path: PathBuf,
         args: Vec<String>,
         cuda: bool,
-        cached_compiler_family: &RwLock<HashMap<Box<Path>, ToolFamily>>,
+        cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
@@ -238,7 +240,7 @@ impl Tool {
                 Some(fname) if fname.contains("clang") => {
                     let is_clang_cl = args
                         .iter()
-                        .find_map(|a| a.strip_prefix("--driver-mode=") == Some("cl"))
+                        .any(|a| a.strip_prefix("--driver-mode=") == Some("cl"));
                     if is_clang_cl {
                         ToolFamily::Msvc { clang_cl: true }
                     } else {

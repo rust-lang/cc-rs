@@ -254,7 +254,7 @@ use command_helpers::*;
 
 mod tool;
 pub use tool::Tool;
-use tool::ToolFamily;
+use tool::{CompilerFamilyLookupCache, ToolFamily};
 
 mod tempfile;
 
@@ -277,7 +277,7 @@ struct BuildCache {
     env_cache: RwLock<HashMap<Box<str>, Env>>,
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
-    cached_compiler_family: RwLock<HashMap<Box<Path>, ToolFamily>>,
+    cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     known_flag_support_status_cache: RwLock<HashMap<CompilerFlag, bool>>,
     target_info_parser: target::TargetInfoParser,
 }
