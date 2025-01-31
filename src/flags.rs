@@ -223,11 +223,6 @@ impl<'this> RustcCodegenFlags<'this> {
                     push_if_supported(cc_flag.into());
                 }
             }
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fembed-bitcode
-            if let Some(value) = self.embed_bitcode {
-                let cc_val = if value { "all" } else { "off" };
-                push_if_supported(format!("-fembed-bitcode={cc_val}").into());
-            }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-omit-frame-pointer
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fomit-frame-pointer
             if let Some(value) = self.force_frame_pointers {
@@ -273,6 +268,12 @@ impl<'this> RustcCodegenFlags<'this> {
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fprofile-use
                 if let Some(value) = self.profile_use {
                     push_if_supported(format!("-fprofile-use={value}").into());
+                }
+
+                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fembed-bitcode
+                if let Some(value) = self.embed_bitcode {
+                    let cc_val = if value { "all" } else { "off" };
+                    push_if_supported(format!("-fembed-bitcode={cc_val}").into());
                 }
 
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
