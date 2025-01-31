@@ -179,7 +179,7 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mbranch-protection
             // https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html#index-mbranch-protection (Aarch64)
             // https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html#index-mbranch-protection-1 (ARM)
-            // FIXME(madsmtm): Parse the value, and make sure we pass it in the correct format.
+            // https://developer.arm.com/documentation/101754/0619/armclang-Reference/armclang-Command-line-Options/-mbranch-protection
             if let Some(value) = self.branch_protection {
                 push_if_supported(
                     format!("-mbranch-protection={}", value.replace(",", "+")).into(),
