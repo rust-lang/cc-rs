@@ -15,6 +15,7 @@ fn main() {
     extra_flags();
     path_to_ccache();
     more_spaces();
+    clang_cl();
 }
 
 fn ccache() {
@@ -109,4 +110,19 @@ fn more_spaces() {
     env::set_var("CC", "cc -m32");
     let compiler = test.gcc().file("foo.c").get_compiler();
     assert_eq!(compiler.path(), Path::new("cc"));
+}
+
+fn clang_cl() {
+    for exe_suffix in ["", ".exe"] {
+        let test = Test::clang();
+        let bin = format!("clang{exe_suffix}");
+        env::set_var("CC", &format!("{bin} --driver-mode=cl"));
+        let test_compiler = |build: cc::Build| {
+            let compiler = build.get_compiler();
+            assert_eq!(compiler.path(), Path::new(&*bin));
+            assert!(compiler.is_like_msvc());
+            assert!(compiler.is_like_clang_cl());
+        };
+        test_compiler(test.gcc());
+    }
 }
