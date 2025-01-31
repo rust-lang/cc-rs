@@ -209,17 +209,6 @@ impl<'this> RustcCodegenFlags<'this> {
                     push_if_supported(format!("-mguard={cc_val}").into());
                 }
             }
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-            if let Some(value) = self.lto {
-                let cc_val = match value {
-                    "y" | "yes" | "on" | "true" | "fat" => Some("full"),
-                    "thin" => Some("thin"),
-                    _ => None,
-                };
-                if let Some(cc_val) = cc_val {
-                    push_if_supported(format!("-flto={cc_val}").into());
-                }
-            }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIC
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIE
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mdynamic-no-pic
@@ -284,6 +273,18 @@ impl<'this> RustcCodegenFlags<'this> {
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fprofile-use
                 if let Some(value) = self.profile_use {
                     push_if_supported(format!("-fprofile-use={value}").into());
+                }
+
+                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
+                if let Some(value) = self.lto {
+                    let cc_val = match value {
+                        "y" | "yes" | "on" | "true" | "fat" => Some("full"),
+                        "thin" => Some("thin"),
+                        _ => None,
+                    };
+                    if let Some(cc_val) = cc_val {
+                        push_if_supported(format!("-flto={cc_val}").into());
+                    }
                 }
             }
             ToolFamily::Gnu { .. } => {}
