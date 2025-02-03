@@ -40,14 +40,14 @@ pub fn get_target_spec_from_msrv(target: &str) -> TargetSpec {
     serde_json::from_slice(&stdout).unwrap()
 }
 
-pub fn get_target_specs_from_json() -> RustcTargetSpecs {
-    let mut cmd = process::Command::new("rustc");
-    cmd.args([
-        "+nightly",
-        "-Zunstable-options",
-        "--print",
-        "all-target-specs-json",
-    ]);
+pub fn get_target_specs_from_json(rustc: Option<String>) -> RustcTargetSpecs {
+    let mut cmd = process::Command::new(rustc.clone().unwrap_or("rustc".into()));
+
+    if rustc.is_none() {
+        cmd.arg("+nightly");
+    }
+
+    cmd.args(["-Zunstable-options", "--print", "all-target-specs-json"]);
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::inherit());
 
