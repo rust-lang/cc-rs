@@ -22,9 +22,13 @@ jobs:
             beta,
             nightly,
             linux32,
-            macos,
             aarch64-macos,
+            x86_64-macos,
             aarch64-ios,
+            aarch64-ios-sim,
+            x86_64-ios-sim,
+            aarch64-ios-macabi,
+            x86_64-ios-macabi,
             win32,
             win64,
             mingw32,
@@ -49,19 +53,39 @@ jobs:
             os: ubuntu-latest
             rust: stable
             target: i686-unknown-linux-gnu
-          - build: macos
-            os: macos-latest
-            rust: stable
-            target: x86_64-apple-darwin
           - build: aarch64-macos
             os: macos-14
             rust: stable
             target: aarch64-apple-darwin
+          - build: x86_64-macos
+            os: macos-13 # x86
+            rust: stable
+            target: x86_64-apple-darwin
           - build: aarch64-ios
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios
             no_run: --no-run
+          - build: aarch64-ios-sim
+            os: macos-latest
+            rust: stable
+            target: aarch64-apple-ios-sim
+            no_run: --no-run
+          - build: x86_64-ios-sim
+            os: macos-13 # x86
+            rust: stable
+            target: x86_64-apple-ios # Simulator
+            no_run: --no-run
+          - build: aarch64-ios-macabi
+            os: macos-latest
+            rust: stable
+            target: aarch64-apple-ios-macabi
+            no_run: --no-run # FIXME(madsmtm): Fix running tests
+          - build: x86_64-ios-macabi
+            os: macos-13 # x86
+            rust: stable
+            target: x86_64-apple-ios-macabi
+            no_run: --no-run # FIXME(madsmtm): Fix running tests
           - build: windows-aarch64
             os: windows-latest
             rust: stable
@@ -139,42 +163,42 @@ jobs:
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
-  check-tvos:
+  check-build-std:
     name: Test build-std
-    runs-on: ${{ matrix.os }}
+    runs-on: macos-latest
     strategy:
       matrix:
-        build: [aarch64-tvos, aarch64-tvos-sim, x86_64-tvos]
-        include:
-          - build: aarch64-tvos
-            os: macos-latest
-            rust: nightly
-            target: aarch64-apple-tvos
-            no_run: --no-run
-          - build: aarch64-tvos-sim
-            os: macos-latest
-            rust: nightly
-            target: aarch64-apple-tvos-sim
-            no_run: --no-run
-          - build: x86_64-tvos
-            os: macos-latest
-            rust: nightly
-            target: x86_64-apple-tvos
-            no_run: --no-run
+        target:
+          - x86_64h-apple-darwin
+          # FIXME(madsmtm): needs deployment target
+          # - armv7s-apple-ios
+          # FIXME(madsmtm): needs deployment target
+          # - i386-apple-ios # Simulator
+          - aarch64-apple-tvos
+          - aarch64-apple-tvos-sim
+          - x86_64-apple-tvos # Simulator
+          - aarch64-apple-watchos
+          - aarch64-apple-watchos-sim
+          - x86_64-apple-watchos-sim
+          # FIXME(madsmtm): needs deployment target
+          # - arm64_32-apple-watchos
+          - armv7k-apple-watchos
+          - aarch64-apple-visionos
+          - aarch64-apple-visionos-sim
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust (rustup)
         run: |
           set -euxo pipefail
-          rustup toolchain install ${{ matrix.rust }} --no-self-update --profile minimal
-          rustup component add rust-src --toolchain ${{ matrix.rust }}
-          rustup default ${{ matrix.rust }}
+          rustup toolchain install nightly --no-self-update --profile minimal
+          rustup component add rust-src --toolchain nightly
+          rustup default nightly
         shell: bash
       - run: cargo update
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }}
-      - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --release
-      - run: cargo test -Z build-std=std ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} --features parallel
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
 
   check-wasm:
     name: Test wasm
@@ -188,7 +212,7 @@ jobs:
         run: |
           rustup target add ${{ matrix.target }}
         shell: bash
-      - run: cargo update 
+      - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
@@ -251,7 +275,7 @@ jobs:
           sudo dpkg -i cuda-keyring_1.0-1_all.deb
           sudo apt-get update
           sudo apt-get -y install cuda-minimal-build-11-8
-      - run: cargo update 
+      - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - name: Test 'cudart' feature
         shell: bash
@@ -321,7 +345,7 @@ jobs:
     name: Tests pass
     needs:
       - test
-      - check-tvos
+      - check-build-std
       - check-wasm
       - test-wasm32-wasip1-thread
       - cuda
