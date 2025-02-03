@@ -14,8 +14,8 @@ fn main() {
     let program = args.next().expect("Unexpected empty args");
 
     let out_dir = PathBuf::from(
-        env::var_os("GCCTEST_OUT_DIR")
-            .unwrap_or_else(|| panic!("{}: GCCTEST_OUT_DIR not found", program)),
+        env::var_os("CC_SHIM_OUT_DIR")
+            .unwrap_or_else(|| panic!("{}: CC_SHIM_OUT_DIR not found", program)),
     );
 
     // Find the first nonexistent candidate file to which the program's args can be written.
