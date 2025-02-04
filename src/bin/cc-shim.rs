@@ -8,14 +8,16 @@ use std::env;
 use std::fs::File;
 use std::io::{self, prelude::*};
 use std::path::PathBuf;
+use std::process::ExitCode;
 
-fn main() {
-    let mut args = env::args();
+fn main() -> ExitCode {
+    let args = env::args().collect::<Vec<_>>();
+    let mut args = args.iter();
     let program = args.next().expect("Unexpected empty args");
 
     let out_dir = PathBuf::from(
-        env::var_os("GCCTEST_OUT_DIR")
-            .unwrap_or_else(|| panic!("{}: GCCTEST_OUT_DIR not found", program)),
+        env::var_os("CC_SHIM_OUT_DIR")
+            .unwrap_or_else(|| panic!("{}: CC_SHIM_OUT_DIR not found", program)),
     );
 
     // Find the first nonexistent candidate file to which the program's args can be written.
@@ -42,7 +44,7 @@ fn main() {
     let mut f = io::BufWriter::new(f);
 
     (|| {
-        for arg in args {
+        for arg in args.clone() {
             writeln!(f, "{}", arg)?;
         }
 
@@ -61,6 +63,27 @@ fn main() {
         )
     });
 
+    if program.starts_with("clang") {
+        // Validate that we got no `-?` without a preceding `--driver-mode=cl`. Compiler family
+        // detection depends on this.
+        if let Some(cl_like_help_option_idx) = args.clone().position(|a| a == "-?") {
+            let has_cl_clang_driver_before_cl_like_help_option = args
+                .clone()
+                .take(cl_like_help_option_idx)
+                .rev()
+                .find_map(|a| a.strip_prefix("--driver-mode="))
+                .is_some_and(|a| a == "cl");
+            if has_cl_clang_driver_before_cl_like_help_option {
+                return ExitCode::SUCCESS;
+            } else {
+                eprintln!(
+                    "Found `-?` argument, but it was not preceded by a `--driver-mode=cl` argument."
+                );
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+
     // Create a file used by some tests.
     let path = &out_dir.join("libfoo.a");
     File::create(path).unwrap_or_else(|e| {
@@ -71,4 +94,6 @@ fn main() {
             e
         )
     });
+
+    ExitCode::SUCCESS
 }

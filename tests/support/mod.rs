@@ -44,8 +44,11 @@ impl Test {
         if gcc.ends_with("deps") {
             gcc.pop();
         }
-        let td = Builder::new().prefix("gcc-test").tempdir_in(&gcc).unwrap();
-        gcc.push(format!("gcc-shim{}", env::consts::EXE_SUFFIX));
+        let td = Builder::new()
+            .prefix("cc-shim-test")
+            .tempdir_in(&gcc)
+            .unwrap();
+        gcc.push(format!("cc-shim{}", env::consts::EXE_SUFFIX));
         Test {
             td,
             gcc,
@@ -98,7 +101,7 @@ impl Test {
             .debug(false)
             .out_dir(self.td.path())
             .__set_env("PATH", self.path())
-            .__set_env("GCCTEST_OUT_DIR", self.td.path());
+            .__set_env("CC_SHIM_OUT_DIR", self.td.path());
         if self.msvc {
             cfg.compiler(self.td.path().join("cl"));
             cfg.archiver(self.td.path().join("lib.exe"));
