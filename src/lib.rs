@@ -2188,14 +2188,23 @@ impl Build {
                         }
                     }
 
-                    // Pass `--target` with the LLVM target to properly configure Clang even when
-                    // cross-compiling.
+                    // Pass `--target` with the LLVM target to configure Clang for cross-compiling.
                     //
-                    // We intentionally don't put the deployment version in here on Apple targets,
-                    // and instead pass that via `-mmacosx-version-min=` and similar flags, for
-                    // better compatibility with older versions of Clang that has poor support for
-                    // versioned target names (especially when it comes to configuration files).
-                    cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
+                    // NOTE: In the past, we passed this, along with the deployment version in here
+                    // on Apple targets, but versioned targets were found to have poor compatibility
+                    // with older versions of Clang, especially around comes to configuration files.
+                    //
+                    // Instead, we specify `-arch` along with `-mmacosx-version-min=`, `-mtargetos=`
+                    // and similar flags in `.apple_flags()`.
+                    //
+                    // Note that Clang errors when both `-mtargetos=` and `-target` are specified,
+                    // so we omit this entirely on Apple targets (it's redundant when specifying
+                    // both the `-arch` and the deployment target / OS flag) (in theory we _could_
+                    // specify this on some of the Apple targets that use the older
+                    // `-m*-version-min=`, but for consistency we omit it entirely).
+                    if target.vendor != "apple" {
+                        cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
+                    }
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -2233,12 +2242,6 @@ impl Build {
                 }
             }
             ToolFamily::Gnu => {
-                if target.vendor == "apple" {
-                    let arch = map_darwin_target_from_rust_to_compiler_architecture(target);
-                    cmd.args.push("-arch".into());
-                    cmd.args.push(arch.into());
-                }
-
                 if target.vendor == "kmc" {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
@@ -2640,6 +2643,14 @@ impl Build {
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
+
+        // Add `-arch` on all compilers. This is a Darwin/Apple-specific flag
+        // that works both on GCC and Clang.
+        // https://gcc.gnu.org/onlinedocs/gcc/Darwin-Options.html#:~:text=arch
+        // https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-arch
+        let arch = map_darwin_target_from_rust_to_compiler_architecture(&target);
+        cmd.args.push("-arch".into());
+        cmd.args.push(arch.into());
 
         // Pass the deployment target via `-mmacosx-version-min=`, `-mtargetos=` and similar.
         //

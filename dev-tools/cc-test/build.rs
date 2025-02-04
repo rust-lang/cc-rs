@@ -50,10 +50,17 @@ fn main() {
         .compile("bar");
 
     let target = std::env::var("TARGET").unwrap();
-    let file = target.split('-').next().unwrap();
+    let arch = match target.split('-').next().unwrap() {
+        "arm64_32" => "aarch64",
+        "armv7k" => "armv7",
+        "armv7s" => "armv7",
+        "i386" => "i686",
+        "x86_64h" => "x86_64",
+        arch => arch,
+    };
     let file = format!(
         "src/{}.{}",
-        file,
+        arch,
         if target.contains("msvc") { "asm" } else { "S" }
     );
     cc::Build::new().file(file).compile("asm");

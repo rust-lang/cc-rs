@@ -525,7 +525,8 @@ fn asm_flags() {
 
 #[test]
 fn gnu_apple_darwin() {
-    for (arch, version) in &[("x86_64", "10.7"), ("aarch64", "11.0")] {
+    for (arch, ld64_arch, version) in &[("x86_64", "x86_64", "10.7"), ("aarch64", "arm64", "11.0")]
+    {
         let target = format!("{}-apple-darwin", arch);
         let test = Test::gnu();
         test.shim("fake-gcc")
@@ -539,6 +540,7 @@ fn gnu_apple_darwin() {
             .compile("foo");
 
         let cmd = test.cmd(0);
+        cmd.must_have_in_order("-arch", ld64_arch);
         cmd.must_have(format!("-mmacosx-version-min={version}"));
         cmd.must_not_have("-isysroot");
     }
@@ -614,6 +616,7 @@ fn clang_apple_tvos() {
         .file("foo.c")
         .compile("foo");
 
+    test.cmd(0).must_have_in_order("-arch", "arm64");
     test.cmd(0).must_have("-mappletvos-version-min=9.0");
 }
 
@@ -637,7 +640,9 @@ fn clang_apple_mac_catalyst() {
         .compile("foo");
     let execution = test.cmd(0);
 
-    execution.must_have("--target=arm64-apple-ios-macabi");
+    execution.must_have_in_order("-arch", "arm64");
+    // --target and -mtargetos= don't mix
+    execution.must_not_have("--target=arm64-apple-ios-macabi");
     execution.must_have("-mtargetos=ios15.0-macabi");
     execution.must_have_in_order("-isysroot", sdkroot);
     execution.must_have_in_order(
@@ -667,8 +672,7 @@ fn clang_apple_tvsimulator() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0)
-        .must_have("--target=x86_64-apple-tvos-simulator");
+    test.cmd(0).must_have_in_order("-arch", "x86_64");
     test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
 }
 
@@ -693,8 +697,12 @@ fn clang_apple_visionos() {
 
     dbg!(test.cmd(0).args);
 
-    test.cmd(0).must_have("--target=arm64-apple-xros");
+    test.cmd(0).must_have_in_order("-arch", "arm64");
+    // --target and -mtargetos= don't mix.
+    test.cmd(0).must_not_have("--target=arm64-apple-xros");
     test.cmd(0).must_have("-mtargetos=xros1.0");
+
+    // Flags that don't exist.
     test.cmd(0).must_not_have("-mxros-version-min=1.0");
     test.cmd(0).must_not_have("-mxrsimulator-version-min=1.0");
 }
