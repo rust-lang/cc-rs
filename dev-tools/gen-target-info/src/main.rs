@@ -84,15 +84,22 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
 
 fn main() {
     // Primarily use information from nightly.
-    let mut target_specs = get_target_specs_from_json();
+    let mut target_specs = get_target_specs_from_json(std::env::var("RUSTC").ok());
     // Next, read from MSRV to support old, removed targets.
-    for target_triple in get_targets_msrv().lines() {
-        let target_triple = target_triple.unwrap();
-        let target_triple = target_triple.trim();
-        target_specs
-            .0
-            .entry(target_triple.to_string())
-            .or_insert_with(|| get_target_spec_from_msrv(target_triple));
+    if std::env::var("CC_RS_MSRV")
+        .unwrap_or("1".to_string())
+        .parse::<u32>()
+        .unwrap()
+        != 0
+    {
+        for target_triple in get_targets_msrv().lines() {
+            let target_triple = target_triple.unwrap();
+            let target_triple = target_triple.trim();
+            target_specs
+                .0
+                .entry(target_triple.to_string())
+                .or_insert_with(|| get_target_spec_from_msrv(target_triple));
+        }
     }
 
     // Open file to write to
