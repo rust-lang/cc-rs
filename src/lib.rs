@@ -403,12 +403,8 @@ struct Object {
     dst: PathBuf,
 }
 
-impl Object {
-    /// Create a new source file -> object file pair.
-    fn new(src: PathBuf, dst: PathBuf) -> Object {
-        Object { src, dst }
-    }
-}
+impl Object{
+    fn new(src: PathBuf, dst: PathBuf) -> Self{Self{src, dst}}}
 
 impl Build {
     /// Construct a new instance of a blank set of configuration.
