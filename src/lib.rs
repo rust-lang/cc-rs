@@ -410,6 +410,7 @@ impl Object {
     }
 }
 
+/// Configure the builder.
 impl Build {
     /// Construct a new instance of a blank set of configuration.
     ///
@@ -610,144 +611,6 @@ impl Build {
     pub fn asm_flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
         self.asm_flags.push(flag.as_ref().into());
         self
-    }
-
-    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
-        let out_dir = self.get_out_dir()?;
-        let src = if self.cuda {
-            assert!(self.cpp);
-            out_dir.join("flag_check.cu")
-        } else if self.cpp {
-            out_dir.join("flag_check.cpp")
-        } else {
-            out_dir.join("flag_check.c")
-        };
-
-        if !src.exists() {
-            let mut f = fs::File::create(&src)?;
-            write!(f, "int main(void) {{ return 0; }}")?;
-        }
-
-        Ok(src)
-    }
-
-    /// Run the compiler to test if it accepts the given flag.
-    ///
-    /// For a convenience method for setting flags conditionally,
-    /// see `flag_if_supported()`.
-    ///
-    /// It may return error if it's unable to run the compiler with a test file
-    /// (e.g. the compiler is missing or a write to the `out_dir` failed).
-    ///
-    /// Note: Once computed, the result of this call is stored in the
-    /// `known_flag_support` field. If `is_flag_supported(flag)`
-    /// is called again, the result will be read from the hash table.
-    pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
-        self.is_flag_supported_inner(
-            flag.as_ref(),
-            &self.get_base_compiler()?,
-            &self.get_target()?,
-        )
-    }
-
-    fn is_flag_supported_inner(
-        &self,
-        flag: &OsStr,
-        tool: &Tool,
-        target: &TargetInfo<'_>,
-    ) -> Result<bool, Error> {
-        let compiler_flag = CompilerFlag {
-            compiler: tool.path().into(),
-            flag: flag.into(),
-        };
-
-        if let Some(is_supported) = self
-            .build_cache
-            .known_flag_support_status_cache
-            .read()
-            .unwrap()
-            .get(&compiler_flag)
-            .cloned()
-        {
-            return Ok(is_supported);
-        }
-
-        let out_dir = self.get_out_dir()?;
-        let src = self.ensure_check_file()?;
-        let obj = out_dir.join("flag_check");
-
-        let mut compiler = {
-            let mut cfg = Build::new();
-            cfg.flag(flag)
-                .compiler(tool.path())
-                .cargo_metadata(self.cargo_output.metadata)
-                .opt_level(0)
-                .debug(false)
-                .cpp(self.cpp)
-                .cuda(self.cuda)
-                .inherit_rustflags(false)
-                .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
-            if let Some(target) = &self.target {
-                cfg.target(target);
-            }
-            if let Some(host) = &self.host {
-                cfg.host(host);
-            }
-            cfg.try_get_compiler()?
-        };
-
-        // Clang uses stderr for verbose output, which yields a false positive
-        // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
-        if compiler.family.verbose_stderr() {
-            compiler.remove_arg("-v".into());
-        }
-        if compiler.is_like_clang() {
-            // Avoid reporting that the arg is unsupported just because the
-            // compiler complains that it wasn't used.
-            compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
-        }
-
-        let mut cmd = compiler.to_command();
-        let is_arm = matches!(target.arch, "aarch64" | "arm");
-        let clang = compiler.is_like_clang();
-        let gnu = compiler.family == ToolFamily::Gnu;
-        command_add_output_file(
-            &mut cmd,
-            &obj,
-            CmdAddOutputFileArgs {
-                cuda: self.cuda,
-                is_assembler_msvc: false,
-                msvc: compiler.is_like_msvc(),
-                clang,
-                gnu,
-                is_asm: false,
-                is_arm,
-            },
-        );
-
-        if compiler.supports_path_delimiter() {
-            cmd.arg("--");
-        }
-
-        cmd.arg(&src);
-
-        // On MSVC skip the CRT by setting the entry point to `main`.
-        // This way we don't need to add the default library paths.
-        if compiler.is_like_msvc() {
-            // Flags from _LINK_ are appended to the linker arguments.
-            cmd.env("_LINK_", "-entry:main");
-        }
-
-        let output = cmd.output()?;
-        let is_supported = output.status.success() && output.stderr.is_empty();
-
-        self.build_cache
-            .known_flag_support_status_cache
-            .write()
-            .unwrap()
-            .insert(compiler_flag, is_supported);
-
-        Ok(is_supported)
     }
 
     /// Add an arbitrary flag to the invocation of the compiler if it supports it
@@ -1367,6 +1230,147 @@ impl Build {
     {
         self.env.push((a.as_ref().into(), b.as_ref().into()));
         self
+    }
+}
+
+/// Invoke or fetch the compiler or archiver.
+impl Build {
+    /// Run the compiler to test if it accepts the given flag.
+    ///
+    /// For a convenience method for setting flags conditionally,
+    /// see `flag_if_supported()`.
+    ///
+    /// It may return error if it's unable to run the compiler with a test file
+    /// (e.g. the compiler is missing or a write to the `out_dir` failed).
+    ///
+    /// Note: Once computed, the result of this call is stored in the
+    /// `known_flag_support` field. If `is_flag_supported(flag)`
+    /// is called again, the result will be read from the hash table.
+    pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
+        self.is_flag_supported_inner(
+            flag.as_ref(),
+            &self.get_base_compiler()?,
+            &self.get_target()?,
+        )
+    }
+
+    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
+        let out_dir = self.get_out_dir()?;
+        let src = if self.cuda {
+            assert!(self.cpp);
+            out_dir.join("flag_check.cu")
+        } else if self.cpp {
+            out_dir.join("flag_check.cpp")
+        } else {
+            out_dir.join("flag_check.c")
+        };
+
+        if !src.exists() {
+            let mut f = fs::File::create(&src)?;
+            write!(f, "int main(void) {{ return 0; }}")?;
+        }
+
+        Ok(src)
+    }
+
+    fn is_flag_supported_inner(
+        &self,
+        flag: &OsStr,
+        tool: &Tool,
+        target: &TargetInfo<'_>,
+    ) -> Result<bool, Error> {
+        let compiler_flag = CompilerFlag {
+            compiler: tool.path().into(),
+            flag: flag.into(),
+        };
+
+        if let Some(is_supported) = self
+            .build_cache
+            .known_flag_support_status_cache
+            .read()
+            .unwrap()
+            .get(&compiler_flag)
+            .cloned()
+        {
+            return Ok(is_supported);
+        }
+
+        let out_dir = self.get_out_dir()?;
+        let src = self.ensure_check_file()?;
+        let obj = out_dir.join("flag_check");
+
+        let mut compiler = {
+            let mut cfg = Build::new();
+            cfg.flag(flag)
+                .compiler(tool.path())
+                .cargo_metadata(self.cargo_output.metadata)
+                .opt_level(0)
+                .debug(false)
+                .cpp(self.cpp)
+                .cuda(self.cuda)
+                .inherit_rustflags(false)
+                .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
+            if let Some(target) = &self.target {
+                cfg.target(target);
+            }
+            if let Some(host) = &self.host {
+                cfg.host(host);
+            }
+            cfg.try_get_compiler()?
+        };
+
+        // Clang uses stderr for verbose output, which yields a false positive
+        // result if the CFLAGS/CXXFLAGS include -v to aid in debugging.
+        if compiler.family.verbose_stderr() {
+            compiler.remove_arg("-v".into());
+        }
+        if compiler.is_like_clang() {
+            // Avoid reporting that the arg is unsupported just because the
+            // compiler complains that it wasn't used.
+            compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
+        }
+
+        let mut cmd = compiler.to_command();
+        let is_arm = matches!(target.arch, "aarch64" | "arm");
+        let clang = compiler.is_like_clang();
+        let gnu = compiler.family == ToolFamily::Gnu;
+        command_add_output_file(
+            &mut cmd,
+            &obj,
+            CmdAddOutputFileArgs {
+                cuda: self.cuda,
+                is_assembler_msvc: false,
+                msvc: compiler.is_like_msvc(),
+                clang,
+                gnu,
+                is_asm: false,
+                is_arm,
+            },
+        );
+
+        if compiler.supports_path_delimiter() {
+            cmd.arg("--");
+        }
+
+        cmd.arg(&src);
+
+        // On MSVC skip the CRT by setting the entry point to `main`.
+        // This way we don't need to add the default library paths.
+        if compiler.is_like_msvc() {
+            // Flags from _LINK_ are appended to the linker arguments.
+            cmd.env("_LINK_", "-entry:main");
+        }
+
+        let output = cmd.output()?;
+        let is_supported = output.status.success() && output.stderr.is_empty();
+
+        self.build_cache
+            .known_flag_support_status_cache
+            .write()
+            .unwrap()
+            .insert(compiler_flag, is_supported);
+
+        Ok(is_supported)
     }
 
     /// Run the compiler, generating the file `output`
