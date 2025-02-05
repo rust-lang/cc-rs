@@ -616,7 +616,7 @@ fn clang_apple_tvos() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_have_in_order("-arch", "arm64");
+    test.cmd(0).must_have("--target=arm64-apple-tvos");
     test.cmd(0).must_have("-mappletvos-version-min=9.0");
 }
 
@@ -640,10 +640,9 @@ fn clang_apple_mac_catalyst() {
         .compile("foo");
     let execution = test.cmd(0);
 
-    execution.must_have_in_order("-arch", "arm64");
+    execution.must_have("--target=arm64-apple-ios15.0-macabi");
     // --target and -mtargetos= don't mix
-    execution.must_not_have("--target=arm64-apple-ios-macabi");
-    execution.must_have("-mtargetos=ios15.0-macabi");
+    execution.must_not_have("-mtargetos=");
     execution.must_have_in_order("-isysroot", sdkroot);
     execution.must_have_in_order(
         "-isystem",
@@ -672,7 +671,8 @@ fn clang_apple_tvsimulator() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_have_in_order("-arch", "x86_64");
+    test.cmd(0)
+        .must_have("--target=x86_64-apple-tvos-simulator");
     test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
 }
 
@@ -697,10 +697,9 @@ fn clang_apple_visionos() {
 
     dbg!(test.cmd(0).args);
 
-    test.cmd(0).must_have_in_order("-arch", "arm64");
+    test.cmd(0).must_have("--target=arm64-apple-xros1.0");
     // --target and -mtargetos= don't mix.
-    test.cmd(0).must_not_have("--target=arm64-apple-xros");
-    test.cmd(0).must_have("-mtargetos=xros1.0");
+    test.cmd(0).must_not_have("-mtargetos=");
 
     // Flags that don't exist.
     test.cmd(0).must_not_have("-mxros-version-min=1.0");

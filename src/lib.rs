@@ -2194,21 +2194,34 @@ impl Build {
 
                     // Pass `--target` with the LLVM target to configure Clang for cross-compiling.
                     //
-                    // NOTE: In the past, we passed this, along with the deployment version in here
-                    // on Apple targets, but versioned targets were found to have poor compatibility
-                    // with older versions of Clang, especially around comes to configuration files.
+                    // This is **required** for cross-compilation, as it's the only flag that
+                    // consistently forces Clang to change the "toolchain" that is responsible for
+                    // parsing target-specific flags:
+                    // https://github.com/rust-lang/cc-rs/issues/1388
+                    // https://github.com/llvm/llvm-project/blob/llvmorg-19.1.7/clang/lib/Driver/Driver.cpp#L1359-L1360
+                    // https://github.com/llvm/llvm-project/blob/llvmorg-19.1.7/clang/lib/Driver/Driver.cpp#L6347-L6532
                     //
-                    // Instead, we specify `-arch` along with `-mmacosx-version-min=`, `-mtargetos=`
-                    // and similar flags in `.apple_flags()`.
+                    // This can be confusing, because on e.g. host macOS, you can usually get by
+                    // with `-arch` and `-mtargetos=`. But that only works because the _default_
+                    // toolchain is `Darwin`, which enables parsing of darwin-specific options.
                     //
-                    // Note that Clang errors when both `-mtargetos=` and `-target` are specified,
-                    // so we omit this entirely on Apple targets (it's redundant when specifying
-                    // both the `-arch` and the deployment target / OS flag) (in theory we _could_
-                    // specify this on some of the Apple targets that use the older
-                    // `-m*-version-min=`, but for consistency we omit it entirely).
-                    if target.vendor != "apple" {
-                        cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
-                    }
+                    // NOTE: In the past, we passed the deployment version in here on all Apple
+                    // targets, but versioned targets were found to have poor compatibility with
+                    // older versions of Clang, especially when it comes to configuration files:
+                    // https://github.com/rust-lang/cc-rs/issues/1278
+                    //
+                    // So instead, we pass the deployment target with `-m*-version-min=`, and only
+                    // pass it here on visionOS and Mac Catalyst where that option does not exist:
+                    // https://github.com/rust-lang/cc-rs/issues/1383
+                    let clang_target = if target.os == "visionos" || target.abi == "macabi" {
+                        Cow::Owned(
+                            target.versioned_llvm_target(&self.apple_deployment_target(target)),
+                        )
+                    } else {
+                        Cow::Borrowed(target.llvm_target)
+                    };
+
+                    cmd.push_cc_arg(format!("--target={clang_target}").into());
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -2648,21 +2661,29 @@ impl Build {
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        // Add `-arch` on all compilers. This is a Darwin/Apple-specific flag
-        // that works both on GCC and Clang.
+        // This is a Darwin/Apple-specific flag that works both on GCC and Clang, but it is only
+        // necessary on GCC since we specify `-target` on Clang.
         // https://gcc.gnu.org/onlinedocs/gcc/Darwin-Options.html#:~:text=arch
         // https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-arch
-        let arch = map_darwin_target_from_rust_to_compiler_architecture(&target);
-        cmd.args.push("-arch".into());
-        cmd.args.push(arch.into());
+        if cmd.is_like_gnu() {
+            let arch = map_darwin_target_from_rust_to_compiler_architecture(&target);
+            cmd.args.push("-arch".into());
+            cmd.args.push(arch.into());
+        }
 
-        // Pass the deployment target via `-mmacosx-version-min=`, `-mtargetos=` and similar.
-        //
-        // It is also necessary on GCC, as it forces a compilation error if the compiler is not
+        // Pass the deployment target via `-mmacosx-version-min=`, `-miphoneos-version-min=` and
+        // similar. Also necessary on GCC, as it forces a compilation error if the compiler is not
         // configured for Darwin: https://gcc.gnu.org/onlinedocs/gcc/Darwin-Options.html
-        let min_version = self.apple_deployment_target(&target);
-        cmd.args
-            .push(target.apple_version_flag(&min_version).into());
+        //
+        // On visionOS and Mac Catalyst, there is no -m*-version-min= flag:
+        // https://github.com/llvm/llvm-project/issues/88271
+        // And the workaround to use `-mtargetos=` cannot be used with the `--target` flag that we
+        // otherwise specify. So we avoid emitting that, and put the version in `--target` instead.
+        if cmd.is_like_gnu() || !(target.os == "visionos" || target.abi == "macabi") {
+            let min_version = self.apple_deployment_target(&target);
+            cmd.args
+                .push(target.apple_version_flag(&min_version).into());
+        }
 
         // AppleClang sometimes requires sysroot even on macOS
         if cmd.is_xctoolchain_clang() || target.os != "macos" {
