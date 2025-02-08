@@ -86,6 +86,16 @@ jobs:
             rust: stable
             target: x86_64-apple-ios-macabi
             no_run: --no-run # FIXME(madsmtm): Fix running tests
+          - build: cross-macos-aarch64
+            os: ubuntu-latest
+            rust: stable
+            target: aarch64-apple-darwin
+            no_run: --no-run
+          - build: cross-ios-aarch64
+            os: ubuntu-latest
+            rust: stable
+            target: aarch64-apple-ios
+            no_run: --no-run
           - build: windows-aarch64
             os: windows-latest
             rust: stable
@@ -155,6 +165,31 @@ jobs:
         env:
           CC: ${{ matrix.CC }}
           CXX: ${{ matrix.CXX }}
+      - name: Install llvm tools (for llvm-ar)
+        if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
+        run: sudo apt-get install llvm
+      - name: Download macOS SDK
+        if: startsWith(matrix.build, 'cross-macos')
+        run: |
+          wget https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
+          tar -xf MacOSX11.3.sdk.tar.xz
+          echo "SDKROOT=$(pwd)/MacOSX11.3.sdk" >> $GITHUB_ENV
+      - name: Download iOS SDK
+        if: startsWith(matrix.build, 'cross-ios')
+        run: |
+          wget https://github.com/xybp888/iOS-SDKs/releases/download/iOS18.1-SDKs/iPhoneOS18.1.sdk.zip
+          unzip iPhoneOS18.1.sdk.zip
+          echo "SDKROOT=$(pwd)/iPhoneOS18.1.sdk" >> $GITHUB_ENV
+      - name: Set up Apple cross-compilation
+        if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
+        run: |
+          # Test with clang/llvm for now, has better cross-compilation support (GCC requires downloading a different toolchain)
+          echo "CC=clang" >> $GITHUB_ENV
+          echo "CXX=clang++" >> $GITHUB_ENV
+          echo "AR=llvm-ar" >> $GITHUB_ENV
+          # Link with rust-lld
+          UPPERCASE_TARGET_NAME=$(echo "${{ matrix.target }}" | tr '[:lower:]-' '[:upper:]_')
+          echo "CARGO_TARGET_${UPPERCASE_TARGET_NAME}_LINKER=rust-lld" >> $GITHUB_ENV
       - name: setup dev environment
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-clang')

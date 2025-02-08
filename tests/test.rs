@@ -524,25 +524,96 @@ fn asm_flags() {
 }
 
 #[test]
-fn gnu_apple_darwin() {
-    for (arch, ld64_arch, version) in &[("x86_64", "x86_64", "10.7"), ("aarch64", "arm64", "11.0")]
-    {
-        let target = format!("{}-apple-darwin", arch);
+fn gnu_apple_sysroot() {
+    let targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
+
+    for target in targets {
         let test = Test::gnu();
         test.shim("fake-gcc")
             .gcc()
             .compiler("fake-gcc")
             .target(&target)
             .host(&target)
-            // Avoid test maintenance when minimum supported OSes change.
-            .__set_env("MACOSX_DEPLOYMENT_TARGET", version)
             .file("foo.c")
             .compile("foo");
 
         let cmd = test.cmd(0);
-        cmd.must_have_in_order("-arch", ld64_arch);
-        cmd.must_have(format!("-mmacosx-version-min={version}"));
         cmd.must_not_have("-isysroot");
+    }
+}
+
+#[test]
+#[cfg(target_os = "macos")] // Invokes xcrun
+fn gnu_apple_arch() {
+    let cases = [
+        ("x86_64-apple-darwin", "x86_64"),
+        ("x86_64h-apple-darwin", "x86_64h"),
+        ("aarch64-apple-darwin", "arm64"),
+        ("arm64e-apple-darwin", "arm64e"),
+        ("i686-apple-darwin", "i386"),
+        ("aarch64-apple-ios", "arm64"),
+        ("armv7s-apple-ios", "armv7s"),
+        ("arm64_32-apple-watchos", "arm64_32"),
+        ("armv7k-apple-watchos", "armv7k"),
+    ];
+
+    for (target, arch) in cases {
+        let test = Test::gnu();
+        test.shim("fake-gcc")
+            .gcc()
+            .compiler("fake-gcc")
+            .target(&target)
+            .host(&"aarch64-apple-darwin")
+            .file("foo.c")
+            .compile("foo");
+
+        let cmd = test.cmd(0);
+        cmd.must_have_in_order("-arch", arch);
+    }
+}
+
+#[test]
+#[cfg(target_os = "macos")] // Invokes xcrun
+fn gnu_apple_deployment_target() {
+    let cases = [
+        ("x86_64-apple-darwin", "-mmacosx-version-min=10.12"),
+        ("aarch64-apple-darwin", "-mmacosx-version-min=10.12"),
+        ("aarch64-apple-ios", "-miphoneos-version-min=10.0"),
+        ("aarch64-apple-ios-sim", "-mios-simulator-version-min=10.0"),
+        ("x86_64-apple-ios", "-mios-simulator-version-min=10.0"),
+        ("aarch64-apple-ios-macabi", "-mtargetos=ios10.0-macabi"),
+        ("aarch64-apple-tvos", "-mappletvos-version-min=10.0"),
+        (
+            "aarch64-apple-tvos-sim",
+            "-mappletvsimulator-version-min=10.0",
+        ),
+        ("aarch64-apple-watchos", "-mwatchos-version-min=5.0"),
+        (
+            "aarch64-apple-watchos-sim",
+            "-mwatchsimulator-version-min=5.0",
+        ),
+        ("aarch64-apple-visionos", "-mtargetos=xros1.0"),
+        ("aarch64-apple-visionos-sim", "-mtargetos=xros1.0-simulator"),
+    ];
+
+    for (target, os_version_flag) in cases {
+        let test = Test::gnu();
+        test.shim("fake-gcc")
+            .gcc()
+            .compiler("fake-gcc")
+            .target(&target)
+            .host(&"aarch64-apple-darwin")
+            // Avoid dependency on environment in test.
+            .__set_env("MACOSX_DEPLOYMENT_TARGET", "10.12")
+            .__set_env("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
+            .__set_env("TVOS_DEPLOYMENT_TARGET", "10.0")
+            .__set_env("WATCHOS_DEPLOYMENT_TARGET", "5.0")
+            .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
+            .file("foo.c")
+            .compile("foo");
+
+        let cmd = test.cmd(0);
+        cmd.must_have(os_version_flag);
     }
 }
 
@@ -616,7 +687,7 @@ fn clang_apple_tvos() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_have_in_order("-arch", "arm64");
+    test.cmd(0).must_have("--target=arm64-apple-tvos");
     test.cmd(0).must_have("-mappletvos-version-min=9.0");
 }
 
@@ -640,10 +711,9 @@ fn clang_apple_mac_catalyst() {
         .compile("foo");
     let execution = test.cmd(0);
 
-    execution.must_have_in_order("-arch", "arm64");
+    execution.must_have("--target=arm64-apple-ios15.0-macabi");
     // --target and -mtargetos= don't mix
-    execution.must_not_have("--target=arm64-apple-ios-macabi");
-    execution.must_have("-mtargetos=ios15.0-macabi");
+    execution.must_not_have("-mtargetos=");
     execution.must_have_in_order("-isysroot", sdkroot);
     execution.must_have_in_order(
         "-isystem",
@@ -672,7 +742,8 @@ fn clang_apple_tvsimulator() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_have_in_order("-arch", "x86_64");
+    test.cmd(0)
+        .must_have("--target=x86_64-apple-tvos-simulator");
     test.cmd(0).must_have("-mappletvsimulator-version-min=9.0");
 }
 
@@ -697,10 +768,9 @@ fn clang_apple_visionos() {
 
     dbg!(test.cmd(0).args);
 
-    test.cmd(0).must_have_in_order("-arch", "arm64");
+    test.cmd(0).must_have("--target=arm64-apple-xros1.0");
     // --target and -mtargetos= don't mix.
-    test.cmd(0).must_not_have("--target=arm64-apple-xros");
-    test.cmd(0).must_have("-mtargetos=xros1.0");
+    test.cmd(0).must_not_have("-mtargetos=");
 
     // Flags that don't exist.
     test.cmd(0).must_not_have("-mxros-version-min=1.0");
