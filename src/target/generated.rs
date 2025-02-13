@@ -509,6 +509,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "amdgcn-amd-amdhsa",
+        TargetInfo {
+            full_arch: "amdgcn",
+            arch: "amdgpu",
+            vendor: "amd",
+            os: "amdhsa",
+            env: "",
+            abi: "",
+            llvm_target: "amdgcn-amd-amdhsa",
+        },
+    ),
+    (
         "arm-linux-androideabi",
         TargetInfo {
             full_arch: "arm",
@@ -1253,6 +1265,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "i586-unknown-redox",
+        TargetInfo {
+            full_arch: "i586",
+            arch: "x86",
+            vendor: "unknown",
+            os: "redox",
+            env: "relibc",
+            abi: "",
+            llvm_target: "i586-unknown-redox",
+        },
+    ),
+    (
         "i686-apple-darwin",
         TargetInfo {
             full_arch: "i686",
@@ -1394,18 +1418,6 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             llvm_target: "i686-unknown-openbsd",
-        },
-    ),
-    (
-        "i686-unknown-redox",
-        TargetInfo {
-            full_arch: "i686",
-            arch: "x86",
-            vendor: "unknown",
-            os: "redox",
-            env: "relibc",
-            abi: "",
-            llvm_target: "i686-unknown-redox",
         },
     ),
     (
