@@ -16,6 +16,7 @@ fn main() {
     path_to_ccache();
     more_spaces();
     clang_cl();
+    env_var_alternatives_override();
 }
 
 fn ccache() {
@@ -125,4 +126,34 @@ fn clang_cl() {
         };
         test_compiler(test.gcc());
     }
+}
+
+fn env_var_alternatives_override() {
+    let compiler1 = format!("clang1{}", env::consts::EXE_SUFFIX);
+    let compiler2 = format!("clang2{}", env::consts::EXE_SUFFIX);
+    let compiler3 = format!("clang3{}", env::consts::EXE_SUFFIX);
+    let compiler4 = format!("clang4{}", env::consts::EXE_SUFFIX);
+
+    let test = Test::new();
+    test.shim(&compiler1);
+    test.shim(&compiler2);
+    test.shim(&compiler3);
+    test.shim(&compiler4);
+
+    env::set_var("CC", &compiler1);
+    let compiler = test.gcc().target("x86_64-unknown-none").get_compiler();
+    assert_eq!(compiler.path(), Path::new(&compiler1));
+
+    env::set_var("HOST_CC", &compiler2);
+    env::set_var("TARGET_CC", &compiler2);
+    let compiler = test.gcc().target("x86_64-unknown-none").get_compiler();
+    assert_eq!(compiler.path(), Path::new(&compiler2));
+
+    env::set_var("CC_x86_64_unknown_none", &compiler3);
+    let compiler = test.gcc().target("x86_64-unknown-none").get_compiler();
+    assert_eq!(compiler.path(), Path::new(&compiler3));
+
+    env::set_var("CC_x86_64-unknown-none", &compiler4);
+    let compiler = test.gcc().target("x86_64-unknown-none").get_compiler();
+    assert_eq!(compiler.path(), Path::new(&compiler4));
 }

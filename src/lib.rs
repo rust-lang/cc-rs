@@ -653,7 +653,12 @@ impl Build {
     /// ```
     ///
     pub fn try_flags_from_environment(&mut self, environ_key: &str) -> Result<&mut Build, Error> {
-        let flags = self.envflags(environ_key)?;
+        let flags = self.envflags(environ_key)?.ok_or_else(|| {
+            Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!("could not find environment variable {environ_key}"),
+            )
+        })?;
         self.flags.extend(
             flags
                 .into_iter()
@@ -1907,7 +1912,8 @@ impl Build {
             cmd.args.push(directory.as_os_str().into());
         }
 
-        if let Ok(flags) = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" }) {
+        let flags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" })?;
+        if let Some(flags) = &flags {
             for arg in flags {
                 cmd.push_cc_arg(arg.into());
             }
@@ -1918,12 +1924,12 @@ impl Build {
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
 
-        if self.warnings.unwrap_or(!self.has_flags()) {
+        if self.warnings.unwrap_or(flags.is_none()) {
             let wflags = cmd.family.warnings_flags().into();
             cmd.push_cc_arg(wflags);
         }
 
-        if self.extra_warnings.unwrap_or(!self.has_flags()) {
+        if self.extra_warnings.unwrap_or(flags.is_none()) {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
                 cmd.push_cc_arg(wflags.into());
             }
@@ -2441,12 +2447,6 @@ impl Build {
         let codegen_flags = RustcCodegenFlags::parse(&env)?;
         codegen_flags.cc_flags(self, cmd, target);
         Ok(())
-    }
-
-    fn has_flags(&self) -> bool {
-        let flags_env_var_name = if self.cpp { "CXXFLAGS" } else { "CFLAGS" };
-        let flags_env_var_value = self.getenv_with_target_prefixes(flags_env_var_name);
-        flags_env_var_value.is_ok()
     }
 
     fn msvc_macro_assembler(&self) -> Result<Command, Error> {
@@ -3115,8 +3115,8 @@ impl Build {
     fn try_get_archiver_and_flags(&self) -> Result<(Command, PathBuf, bool), Error> {
         let (mut cmd, name) = self.get_base_archiver()?;
         let mut any_flags = false;
-        if let Ok(flags) = self.envflags("ARFLAGS") {
-            any_flags |= !flags.is_empty();
+        if let Some(flags) = self.envflags("ARFLAGS")? {
+            any_flags = true;
             cmd.args(flags);
         }
         for flag in &self.ar_flags {
@@ -3162,7 +3162,7 @@ impl Build {
     /// see [`Self::get_ranlib`] for the complete description.
     pub fn try_get_ranlib(&self) -> Result<Command, Error> {
         let mut cmd = self.get_base_ranlib()?;
-        if let Ok(flags) = self.envflags("RANLIBFLAGS") {
+        if let Some(flags) = self.envflags("RANLIBFLAGS")? {
             cmd.args(flags);
         }
         Ok(cmd)
@@ -3643,7 +3643,8 @@ impl Build {
         })
     }
 
-    fn getenv_with_target_prefixes(&self, var_base: &str) -> Result<Arc<OsStr>, Error> {
+    /// Get a single-valued environment variable with target variants.
+    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
         let target = self.get_raw_target()?;
         let kind = if self.get_is_cross_compile()? {
             "TARGET"
@@ -3652,32 +3653,55 @@ impl Build {
         };
         let target_u = target.replace('-', "_");
         let res = self
-            .getenv(&format!("{}_{}", var_base, target))
-            .or_else(|| self.getenv(&format!("{}_{}", var_base, target_u)))
-            .or_else(|| self.getenv(&format!("{}_{}", kind, var_base)))
-            .or_else(|| self.getenv(var_base));
+            .getenv(&format!("{env}_{target}"))
+            .or_else(|| self.getenv(&format!("{env}_{target_u}")))
+            .or_else(|| self.getenv(&format!("{kind}_{env}")))
+            .or_else(|| self.getenv(env));
 
         match res {
             Some(res) => Ok(res),
             None => Err(Error::new(
                 ErrorKind::EnvVarNotFound,
-                format!("Could not find environment variable {}.", var_base),
+                format!("could not find environment variable {env}"),
             )),
         }
     }
 
-    fn envflags(&self, name: &str) -> Result<Vec<String>, Error> {
-        let env_os = self.getenv_with_target_prefixes(name)?;
-        let env = env_os.to_string_lossy();
-
-        if self.get_shell_escaped_flags() {
-            Ok(Shlex::new(&env).collect())
+    /// Get values from CFLAGS-style environment variable.
+    fn envflags(&self, env: &str) -> Result<Option<Vec<String>>, Error> {
+        let target = self.get_raw_target()?;
+        let kind = if self.get_is_cross_compile()? {
+            "TARGET"
         } else {
-            Ok(env
-                .split_ascii_whitespace()
-                .map(ToString::to_string)
-                .collect())
+            "HOST"
+        };
+        let target_u = target.replace('-', "_");
+
+        // Collect from all environment variables, in reverse order as in
+        // `getenv_with_target_prefixes` precedence (so that `CFLAGS_$TARGET`
+        // can override flags in `TARGET_CFLAGS`, which overrides those in
+        // `CFLAGS`).
+        let mut any_set = false;
+        let mut res = vec![];
+        for env in [
+            env,
+            &format!("{kind}_{env}"),
+            &format!("{env}_{target_u}"),
+            &format!("{env}_{target}"),
+        ] {
+            if let Some(var) = self.getenv(env) {
+                any_set = true;
+
+                let var = var.to_string_lossy();
+                if self.get_shell_escaped_flags() {
+                    res.extend(Shlex::new(&var));
+                } else {
+                    res.extend(var.split_ascii_whitespace().map(ToString::to_string));
+                }
+            }
         }
+
+        Ok(if any_set { Some(res) } else { None })
     }
 
     fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
