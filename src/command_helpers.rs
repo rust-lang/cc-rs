@@ -393,7 +393,7 @@ pub(crate) fn spawn(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Chi
             };
             Err(Error::new(
                 ErrorKind::ToolNotFound,
-                format!("failed to find tool {:?}{extra}: {e}", cmd.0.get_program()),
+                format!("failed to find tool {:?}: {e}{extra}", cmd.0.get_program()),
             ))
         }
         Err(e) => Err(Error::new(
