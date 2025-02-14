@@ -3663,8 +3663,12 @@ impl Build {
 
     /// Get a single-valued environment variable with target variants.
     fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
-        let envs = self.target_envs(env)?;
-        let res = envs.iter().filter_map(|env| self.getenv(&env)).next();
+        // Take from first environment variable in the environment.
+        let res = self
+            .target_envs(env)?
+            .iter()
+            .filter_map(|env| self.getenv(env))
+            .next();
 
         match res {
             Some(res) => Ok(res),
