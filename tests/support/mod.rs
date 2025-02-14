@@ -160,8 +160,8 @@ impl Execution {
         match (before_position, after_position) {
             (Some(b), Some(a)) if b < a => {}
             (b, a) => panic!(
-                "{:?} (last position: {:?}) did not appear before {:?} (last position: {:?})",
-                before, b, after, a
+                "{:?} (last position: {:?}) did not appear before {:?} (last position: {:?}): {:?}",
+                before, b, after, a, self.args
             ),
         };
         self
