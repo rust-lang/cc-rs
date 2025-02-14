@@ -3643,8 +3643,8 @@ impl Build {
         })
     }
 
-    /// Get a single-valued environment variable with target variants.
-    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
+    /// The list of environment variables to check for a given env, in order of priority.
+    fn target_envs(&self, env: &str) -> Result<[String; 4], Error> {
         let target = self.get_raw_target()?;
         let kind = if self.get_is_cross_compile()? {
             "TARGET"
@@ -3652,11 +3652,19 @@ impl Build {
             "HOST"
         };
         let target_u = target.replace('-', "_");
-        let res = self
-            .getenv(&format!("{env}_{target}"))
-            .or_else(|| self.getenv(&format!("{env}_{target_u}")))
-            .or_else(|| self.getenv(&format!("{kind}_{env}")))
-            .or_else(|| self.getenv(env));
+
+        Ok([
+            format!("{env}_{target}"),
+            format!("{env}_{target_u}"),
+            format!("{kind}_{env}"),
+            env.to_string(),
+        ])
+    }
+
+    /// Get a single-valued environment variable with target variants.
+    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
+        let envs = self.target_envs(env)?;
+        let res = envs.iter().filter_map(|env| self.getenv(&env)).next();
 
         match res {
             Some(res) => Ok(res),
@@ -3669,26 +3677,13 @@ impl Build {
 
     /// Get values from CFLAGS-style environment variable.
     fn envflags(&self, env: &str) -> Result<Option<Vec<String>>, Error> {
-        let target = self.get_raw_target()?;
-        let kind = if self.get_is_cross_compile()? {
-            "TARGET"
-        } else {
-            "HOST"
-        };
-        let target_u = target.replace('-', "_");
-
         // Collect from all environment variables, in reverse order as in
         // `getenv_with_target_prefixes` precedence (so that `CFLAGS_$TARGET`
         // can override flags in `TARGET_CFLAGS`, which overrides those in
         // `CFLAGS`).
         let mut any_set = false;
         let mut res = vec![];
-        for env in [
-            env,
-            &format!("{kind}_{env}"),
-            &format!("{env}_{target_u}"),
-            &format!("{env}_{target}"),
-        ] {
+        for env in self.target_envs(env)?.iter().rev() {
             if let Some(var) = self.getenv(env) {
                 any_set = true;
 
