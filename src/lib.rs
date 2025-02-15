@@ -232,7 +232,7 @@ use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 #[cfg(feature = "parallel")]
 use std::process::Child;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::sync::{
     atomic::{AtomicU8, Ordering::Relaxed},
     Arc, RwLock,
@@ -3226,7 +3226,6 @@ impl Build {
                 }
             });
 
-        let default = tool.to_string();
         let tool = match tool_opt {
             Some(t) => t,
             None => {
@@ -3287,7 +3286,7 @@ impl Build {
                     self.cmd(&name)
                 } else if self.get_is_cross_compile()? {
                     match self.prefix_for_target(&self.get_raw_target()?) {
-                        Some(p) => {
+                        Some(prefix) => {
                             // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
                             // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
                             // outright broken (such as when targeting freebsd with `--disable-lto`
@@ -3295,24 +3294,31 @@ impl Build {
                             // fails to find one).
                             //
                             // The same applies to ranlib.
-                            let mut chosen = default;
-                            for &infix in &["", "-gcc"] {
-                                let target_p = format!("{}{}-{}", p, infix, tool);
-                                if Command::new(&target_p).output().is_ok() {
-                                    chosen = target_p;
-                                    break;
-                                }
-                            }
+                            let chosen = ["", "-gcc"]
+                                .iter()
+                                .filter_map(|infix| {
+                                    let target_p = format!("{prefix}{infix}-{tool}");
+                                    let status = Command::new(&target_p)
+                                        .arg("--version")
+                                        .stdin(Stdio::null())
+                                        .stdout(Stdio::null())
+                                        .stderr(Stdio::null())
+                                        .status()
+                                        .ok()?;
+                                    status.success().then_some(target_p)
+                                })
+                                .next()
+                                .unwrap_or_else(|| tool.to_string());
                             name = chosen.into();
                             self.cmd(&name)
                         }
                         None => {
-                            name = default.into();
+                            name = tool.into();
                             self.cmd(&name)
                         }
                     }
                 } else {
-                    name = default.into();
+                    name = tool.into();
                     self.cmd(&name)
                 }
             }
