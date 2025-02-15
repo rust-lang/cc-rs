@@ -3299,6 +3299,7 @@ impl Build {
                                 .filter_map(|infix| {
                                     let target_p = format!("{prefix}{infix}-{tool}");
                                     let status = Command::new(&target_p)
+                                        .arg("--version")
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::null())
                                         .stderr(Stdio::null())
