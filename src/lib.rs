@@ -3298,8 +3298,13 @@ impl Build {
                                 .iter()
                                 .filter_map(|infix| {
                                     let target_p = format!("{prefix}{infix}-{tool}");
-                                    let status = Command::new(&target_p).status().ok()?;
-                                    status.success().then_some(target_p)         
+                                    let status = Command::new(&target_p)
+                                        .stdin(Stdio::null())
+                                        .stdout(Stdio::null())
+                                        .stderr(Stdio::null())
+                                        .status()
+                                        .ok()?;
+                                    status.success().then_some(target_p)
                                 })
                                 .next()
                                 .unwrap_or_else(|| tool.to_string());
