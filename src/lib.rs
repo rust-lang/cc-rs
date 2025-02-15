@@ -3295,7 +3295,7 @@ impl Build {
                             //
                             // The same applies to ranlib.
                             let chosen = ["", "-gcc"]
-                                .into_iter()
+                                .iter()
                                 .filter_map(|infix| {
                                     let target_p = format!("{prefix}{infix}-{tool}");
                                     let status = Command::new(&target_p).status().ok()?;
