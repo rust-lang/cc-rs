@@ -3029,6 +3029,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "x86_64-pc-cygwin",
+        TargetInfo {
+            full_arch: "x86_64",
+            arch: "x86_64",
+            vendor: "pc",
+            os: "cygwin",
+            env: "",
+            abi: "",
+            llvm_target: "x86_64-pc-cygwin",
+        },
+    ),
+    (
         "x86_64-pc-nto-qnx710",
         TargetInfo {
             full_arch: "x86_64",
