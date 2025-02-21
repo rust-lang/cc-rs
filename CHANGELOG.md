@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.15](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.14...cc-v1.2.15) - 2025-02-21
+
+### Other
+
+- Regenerate target info ([#1406](https://github.com/rust-lang/cc-rs/pull/1406))
+- Always read from all `CFLAGS`-style flags ([#1401](https://github.com/rust-lang/cc-rs/pull/1401))
+- Simplify the error output on failed `Command` invocation ([#1397](https://github.com/rust-lang/cc-rs/pull/1397))
+
 ## [1.2.14](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.13...cc-v1.2.14) - 2025-02-14
 
 ### Other
