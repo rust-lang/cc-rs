@@ -196,6 +196,9 @@ jobs:
       - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-build-std:
@@ -234,6 +237,9 @@ jobs:
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   check-wasm:
     name: Test wasm
@@ -252,6 +258,9 @@ jobs:
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   test-wasm32-wasip1-thread:
     name: Test wasm32-wasip1-thread
@@ -297,6 +306,10 @@ jobs:
       - name: Run tests
         run: cargo +nightly build -p $TARGET-test --target $TARGET
 
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
+
   cuda:
     name: Test CUDA support
     runs-on: ubuntu-22.04
@@ -317,6 +330,9 @@ jobs:
         run: |
           PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
           PATH="/usr/local/cuda/bin:$PATH" CXX=clang++ cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   msrv:
     name: MSRV
@@ -353,6 +369,9 @@ jobs:
         shell: bash
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --no-deps
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   rustfmt:
     name: Rustfmt
