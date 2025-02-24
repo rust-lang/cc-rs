@@ -1892,79 +1892,17 @@ impl Build {
 
         let mut cmd = self.get_base_compiler()?;
 
-        // Disable default flag generation via `no_default_flags` or environment variable
-        let no_defaults = self.no_default_flags || self.getenv_boolean("CRATE_CC_NO_DEFAULTS");
-
-        if !no_defaults {
-            self.add_default_flags(&mut cmd, &target, &opt_level)?;
-        }
-
-        if let Some(ref std) = self.std {
-            let separator = match cmd.family {
-                ToolFamily::Msvc { .. } => ':',
-                ToolFamily::Gnu | ToolFamily::Clang { .. } => '=',
-            };
-            cmd.push_cc_arg(format!("-std{}{}", separator, std).into());
-        }
-
-        for directory in self.include_directories.iter() {
-            cmd.args.push("-I".into());
-            cmd.args.push(directory.as_os_str().into());
-        }
-
-        let flags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" })?;
-        if let Some(flags) = &flags {
-            for arg in flags {
-                cmd.push_cc_arg(arg.into());
-            }
-        }
-
-        // If warnings and/or extra_warnings haven't been explicitly set,
-        // then we set them only if the environment doesn't already have
-        // CFLAGS/CXXFLAGS, since those variables presumably already contain
-        // the desired set of warnings flags.
-
-        if self.warnings.unwrap_or(flags.is_none()) {
-            let wflags = cmd.family.warnings_flags().into();
-            cmd.push_cc_arg(wflags);
-        }
-
-        if self.extra_warnings.unwrap_or(flags.is_none()) {
-            if let Some(wflags) = cmd.family.extra_warnings_flags() {
-                cmd.push_cc_arg(wflags.into());
-            }
-        }
-
-        for flag in self.flags.iter() {
-            cmd.args.push((**flag).into());
-        }
-
-        // Add cc flags inherited from matching rustc flags
-        if self.inherit_rustflags {
-            self.add_inherited_rustflags(&mut cmd, &target)?;
-        }
-
-        for flag in self.flags_supported.iter() {
-            if self
-                .is_flag_supported_inner(flag, &cmd, &target)
-                .unwrap_or(false)
-            {
-                cmd.push_cc_arg((**flag).into());
-            }
-        }
-
-        for (key, value) in self.definitions.iter() {
-            if let Some(ref value) = *value {
-                cmd.args.push(format!("-D{}={}", key, value).into());
-            } else {
-                cmd.args.push(format!("-D{}", key).into());
-            }
-        }
-
-        if self.warnings_into_errors {
-            let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
-            cmd.push_cc_arg(warnings_to_errors_flag);
-        }
+        // The flags below are added in roughly the following order:
+        // 1. Default flags
+        //   - Controlled by `cc-rs`.
+        // 2. `rustc`-inherited flags
+        //   - Controlled by `rustc`.
+        // 3. Builder flags
+        //   - Controlled by the developer using `cc-rs` in e.g. their `build.rs`.
+        // 4. Environment flags
+        //   - Controlled by the end user.
+        //
+        // This is important to allow later flags to override previous ones.
 
         // Copied from <https://github.com/rust-lang/rust/blob/5db81020006d2920fc9c62ffc0f4322f90bffa04/compiler/rustc_codegen_ssa/src/back/linker.rs#L27-L38>
         //
@@ -1977,6 +1915,78 @@ impl Build {
             cmd.env.push(("VSLANG".into(), "1033".into()));
         } else {
             cmd.env.push(("LC_ALL".into(), "C".into()));
+        }
+
+        // Disable default flag generation via `no_default_flags` or environment variable
+        let no_defaults = self.no_default_flags || self.getenv_boolean("CRATE_CC_NO_DEFAULTS");
+        if !no_defaults {
+            self.add_default_flags(&mut cmd, &target, &opt_level)?;
+        }
+
+        // Specify various flags that are not considered part of the default flags above.
+        // FIXME(madsmtm): Should these be considered part of the defaults? If no, why not?
+        if let Some(ref std) = self.std {
+            let separator = match cmd.family {
+                ToolFamily::Msvc { .. } => ':',
+                ToolFamily::Gnu | ToolFamily::Clang { .. } => '=',
+            };
+            cmd.push_cc_arg(format!("-std{}{}", separator, std).into());
+        }
+        for directory in self.include_directories.iter() {
+            cmd.args.push("-I".into());
+            cmd.args.push(directory.as_os_str().into());
+        }
+        if self.warnings_into_errors {
+            let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
+            cmd.push_cc_arg(warnings_to_errors_flag);
+        }
+
+        // If warnings and/or extra_warnings haven't been explicitly set,
+        // then we set them only if the environment doesn't already have
+        // CFLAGS/CXXFLAGS, since those variables presumably already contain
+        // the desired set of warnings flags.
+        let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" })?;
+        if self.warnings.unwrap_or(envflags.is_none()) {
+            let wflags = cmd.family.warnings_flags().into();
+            cmd.push_cc_arg(wflags);
+        }
+        if self.extra_warnings.unwrap_or(envflags.is_none()) {
+            if let Some(wflags) = cmd.family.extra_warnings_flags() {
+                cmd.push_cc_arg(wflags.into());
+            }
+        }
+
+        // Add cc flags inherited from matching rustc flags.
+        if self.inherit_rustflags {
+            self.add_inherited_rustflags(&mut cmd, &target)?;
+        }
+
+        // Set flags configured in the builder (do this second-to-last, to allow these to override
+        // everything above).
+        for flag in self.flags.iter() {
+            cmd.args.push((**flag).into());
+        }
+        for flag in self.flags_supported.iter() {
+            if self
+                .is_flag_supported_inner(flag, &cmd, &target)
+                .unwrap_or(false)
+            {
+                cmd.push_cc_arg((**flag).into());
+            }
+        }
+        for (key, value) in self.definitions.iter() {
+            if let Some(ref value) = *value {
+                cmd.args.push(format!("-D{}={}", key, value).into());
+            } else {
+                cmd.args.push(format!("-D{}", key).into());
+            }
+        }
+
+        // Set flags from the environment (do this last, to allow these to override everything else).
+        if let Some(flags) = &envflags {
+            for arg in flags {
+                cmd.push_cc_arg(arg.into());
+            }
         }
 
         Ok(cmd)

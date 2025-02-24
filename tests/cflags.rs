@@ -19,21 +19,39 @@ fn gnu_no_warnings_if_cflags() {
     test.cmd(0).must_not_have("-Wall").must_not_have("-Wextra");
 }
 
-/// Test the ordering of `CFLAGS*` variables.
+/// Test the ordering of flags.
+///
+/// 1. Default flags
+/// 2. Rustflags.
+/// 3. Builder flags.
+/// 4. Environment flags.
 fn cflags_order() {
-    unsafe { env::set_var("CFLAGS", "-arbitrary1") };
-    unsafe { env::set_var("HOST_CFLAGS", "-arbitrary2") };
-    unsafe { env::set_var("TARGET_CFLAGS", "-arbitrary2") };
-    unsafe { env::set_var("CFLAGS_x86_64_unknown_none", "-arbitrary3") };
-    unsafe { env::set_var("CFLAGS_x86_64-unknown-none", "-arbitrary4") };
+    // FIXME(madsmtm): Re-enable once `is_flag_supported` works in CI regardless of `target`.
+    // unsafe { std::env::set_var("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5") };
+
+    unsafe { env::set_var("CFLAGS", "-Larbitrary1") };
+    unsafe { env::set_var("HOST_CFLAGS", "-Larbitrary2") };
+    unsafe { env::set_var("TARGET_CFLAGS", "-Larbitrary2") };
+    unsafe { env::set_var("CFLAGS_x86_64_unknown_none", "-Larbitrary3") };
+    unsafe { env::set_var("CFLAGS_x86_64-unknown-none", "-Larbitrary4") };
+
     let test = Test::gnu();
     test.gcc()
         .target("x86_64-unknown-none")
+        .static_flag(true)
+        .flag("-Lbuilder-flag1")
+        .flag("-Lbuilder-flag2")
         .file("foo.c")
         .compile("foo");
 
     test.cmd(0)
-        .must_have_in_order("-arbitrary1", "-arbitrary2")
-        .must_have_in_order("-arbitrary2", "-arbitrary3")
-        .must_have_in_order("-arbitrary3", "-arbitrary4");
+        // .must_have_in_order("-static", "-gdwarf-5")
+        // .must_have_in_order("-gdwarf-5", "-Lbuilder-flag1")
+        .must_have_in_order("-static", "-Lbuilder-flag1")
+        .must_have_in_order("-Lbuilder-flag1", "-Lbuilder-flag2")
+        .must_have_in_order("-Lbuilder-flag2", "-Larbitrary1")
+        .must_have_in_order("-Larbitrary1", "-Larbitrary2")
+        .must_have_in_order("-Larbitrary1", "-Larbitrary2")
+        .must_have_in_order("-Larbitrary2", "-Larbitrary3")
+        .must_have_in_order("-Larbitrary3", "-Larbitrary4");
 }
