@@ -417,9 +417,17 @@ pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAd
     if args.is_assembler_msvc
         || !(!args.msvc || args.clang || args.gnu || args.cuda || (args.is_asm && args.is_arm))
     {
+        // Set the object file output
         let mut s = OsString::from("-Fo");
         s.push(dst);
         cmd.arg(s);
+
+        // Set the exe file output
+        if !args.is_asm {
+            let mut s = OsString::from("-Fe");
+            s.push(dst);
+            cmd.arg(s);
+        }
     } else {
         cmd.arg("-o").arg(dst);
     }
