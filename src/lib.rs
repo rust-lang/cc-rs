@@ -1337,8 +1337,6 @@ impl Build {
 
         let mut cmd = compiler.to_command();
         let is_arm = matches!(target.arch, "aarch64" | "arm");
-        let clang = compiler.is_like_clang();
-        let gnu = compiler.family == ToolFamily::Gnu;
         command_add_output_file(
             &mut cmd,
             &obj,
@@ -1346,8 +1344,8 @@ impl Build {
                 cuda: self.cuda,
                 is_assembler_msvc: false,
                 msvc: compiler.is_like_msvc(),
-                clang,
-                gnu,
+                clang: compiler.is_like_clang(),
+                gnu: compiler.is_like_gnu(),
                 is_asm: false,
                 is_arm,
             },
@@ -1366,7 +1364,7 @@ impl Build {
             cmd.env("_LINK_", "-entry:main");
         }
 
-        let output = cmd.output()?;
+        let output = cmd.current_dir(out_dir).output()?;
         let is_supported = output.status.success() && output.stderr.is_empty();
 
         self.build_cache
@@ -1749,8 +1747,6 @@ impl Build {
         let target = self.get_target()?;
         let msvc = target.env == "msvc";
         let compiler = self.try_get_compiler()?;
-        let clang = compiler.is_like_clang();
-        let gnu = compiler.family == ToolFamily::Gnu;
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let mut cmd = if is_assembler_msvc {
@@ -1770,8 +1766,8 @@ impl Build {
                 cuda: self.cuda,
                 is_assembler_msvc,
                 msvc: compiler.is_like_msvc(),
-                clang,
-                gnu,
+                clang: compiler.is_like_clang(),
+                gnu: compiler.is_like_gnu(),
                 is_asm,
                 is_arm,
             },
