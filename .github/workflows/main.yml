@@ -169,12 +169,14 @@ jobs:
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
         run: sudo apt-get install llvm
       - name: Download macOS SDK
+        working-directory: ${{ runner.temp }}
         if: startsWith(matrix.build, 'cross-macos')
         run: |
           wget https://github.com/phracker/MacOSX-SDKs/releases/download/11.3/MacOSX11.3.sdk.tar.xz
           tar -xf MacOSX11.3.sdk.tar.xz
           echo "SDKROOT=$(pwd)/MacOSX11.3.sdk" >> $GITHUB_ENV
       - name: Download iOS SDK
+        working-directory: ${{ runner.temp }}
         if: startsWith(matrix.build, 'cross-ios')
         run: |
           wget https://github.com/xybp888/iOS-SDKs/releases/download/iOS18.1-SDKs/iPhoneOS18.1.sdk.zip
@@ -196,6 +198,9 @@ jobs:
       - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-build-std:
@@ -234,6 +239,9 @@ jobs:
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   check-wasm:
     name: Test wasm
@@ -252,6 +260,9 @@ jobs:
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   test-wasm32-wasip1-thread:
     name: Test wasm32-wasip1-thread
@@ -274,7 +285,7 @@ jobs:
           echo "WASI_TOOLCHAIN_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install wasi-sdk
-        working-directory: /tmp
+        working-directory: ${{ runner.temp }}
         env:
           REPO: WebAssembly/wasi-sdk
         run: |
@@ -297,12 +308,17 @@ jobs:
       - name: Run tests
         run: cargo +nightly build -p $TARGET-test --target $TARGET
 
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
+
   cuda:
     name: Test CUDA support
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
       - name: Install cuda-minimal-build-11-8
+        working-directory: ${{ runner.temp }}
         shell: bash
         run: |
           # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
@@ -317,6 +333,9 @@ jobs:
         run: |
           PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
           PATH="/usr/local/cuda/bin:$PATH" CXX=clang++ cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   msrv:
     name: MSRV
@@ -353,6 +372,9 @@ jobs:
         shell: bash
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --no-deps
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
 
   rustfmt:
     name: Rustfmt

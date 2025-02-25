@@ -1,0 +1,18 @@
+name: "Check Clean Git Working Tree"
+description: "Check that the git working tree is clean"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Check clean Git working tree
+      shell: bash
+      run: |
+        status_output=$(git status --porcelain=v1)
+        if [ -z "$status_output" ]; then
+          echo "Git working tree is clean."
+          exit 0
+        else
+          echo "dirty Git working tree detected!"
+          echo "$status_output"
+          exit 1
+        fi
