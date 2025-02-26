@@ -1357,11 +1357,15 @@ impl Build {
 
         cmd.arg(&src);
 
-        // On MSVC skip the CRT by setting the entry point to `main`.
-        // This way we don't need to add the default library paths.
         if compiler.is_like_msvc() {
-            // Flags from _LINK_ are appended to the linker arguments.
-            cmd.env("_LINK_", "-entry:main");
+            // On MSVC we need to make sure the LIB directory is included
+            // so the CRT can be found.
+            for (key, value) in &tool.env {
+                if key == "LIB" {
+                    cmd.env("LIB", value);
+                    break;
+                }
+            }
         }
 
         let output = cmd.current_dir(out_dir).output()?;
