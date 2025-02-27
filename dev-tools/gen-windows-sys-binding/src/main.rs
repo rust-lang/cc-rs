@@ -30,7 +30,7 @@ fn main() {
     windows_bindgen::bindgen([
         "--flat",
         "--sys",
-        "--no-core",
+        "--no-deps",
         "--out",
         temp_file.path().to_str().unwrap(),
         "--filter",
