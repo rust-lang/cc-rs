@@ -8,7 +8,7 @@ pub mod find_tools;
 pub(crate) mod windows_sys;
 /// TODO: once msrv is bumped, use windows-link crate
 #[cfg(windows)]
-mod windows_targets as windows_link;
+mod windows_link;
 
 #[cfg(windows)]
 mod registry;
