@@ -68,7 +68,7 @@ fn main() {
         f.write_all("\n".as_bytes()).unwrap();
     }
 
-    f.write_all(r#"use super::windows_targets;"#.as_bytes())
+    f.write_all(r#"use super::windows_link;"#.as_bytes())
         .unwrap();
     f.write_all("\n".as_bytes()).unwrap();
 
