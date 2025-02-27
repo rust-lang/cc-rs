@@ -2224,7 +2224,16 @@ impl Build {
                         cmd.push_cc_arg("-m64".into());
                     } else if target.arch == "x86" {
                         cmd.push_cc_arg("-m32".into());
-                        cmd.push_cc_arg("-arch:IA32".into());
+                        // See
+                        // <https://learn.microsoft.com/en-us/cpp/build/reference/arch-x86?view=msvc-170>.
+                        //
+                        // NOTE: Rust officially supported Windows targets all require SSE2 as part
+                        // of baseline target features.
+                        //
+                        // NOTE: The same applies for STL. See: -
+                        // <https://github.com/microsoft/STL/issues/3922>, and -
+                        // <https://github.com/microsoft/STL/pull/4741>.
+                        cmd.push_cc_arg("-arch:SSE2".into());
                     } else {
                         cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
                     }
