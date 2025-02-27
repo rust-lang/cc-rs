@@ -1351,6 +1351,8 @@ impl Build {
             },
         );
 
+        cmd.arg("-c");
+
         if compiler.supports_path_delimiter() {
             cmd.arg("--");
         }
