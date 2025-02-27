@@ -1109,13 +1109,25 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "avr-none",
+        TargetInfo {
+            full_arch: "avr",
+            arch: "avr",
+            vendor: "unknown",
+            os: "none",
+            env: "",
+            abi: "",
+            llvm_target: "avr-unknown-unknown",
+        },
+    ),
+    (
         "avr-unknown-gnu-atmega328",
         TargetInfo {
             full_arch: "avr",
             arch: "avr",
             vendor: "unknown",
             os: "none",
-            env: "gnu",
+            env: "",
             abi: "",
             llvm_target: "avr-unknown-unknown",
         },
@@ -1205,18 +1217,6 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
-        "i586-pc-nto-qnx700",
-        TargetInfo {
-            full_arch: "i586",
-            arch: "x86",
-            vendor: "pc",
-            os: "nto",
-            env: "nto70",
-            abi: "",
-            llvm_target: "i586-pc-unknown",
-        },
-    ),
-    (
         "i586-pc-windows-msvc",
         TargetInfo {
             full_arch: "i586",
@@ -1298,6 +1298,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             llvm_target: "i686-linux-android",
+        },
+    ),
+    (
+        "i686-pc-nto-qnx700",
+        TargetInfo {
+            full_arch: "i686",
+            arch: "x86",
+            vendor: "pc",
+            os: "nto",
+            env: "nto70",
+            abi: "",
+            llvm_target: "i586-pc-unknown",
         },
     ),
     (
