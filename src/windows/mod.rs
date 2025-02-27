@@ -4,11 +4,11 @@
 // This is used in the crate's public API, so don't use #[cfg(windows)]
 pub mod find_tools;
 
-#[cfg(windows)]
-pub(crate) mod windows_sys;
 /// TODO: once msrv is bumped, use windows-link crate
 #[cfg(windows)]
 mod windows_link;
+#[cfg(windows)]
+pub(crate) mod windows_sys;
 
 #[cfg(windows)]
 mod registry;
