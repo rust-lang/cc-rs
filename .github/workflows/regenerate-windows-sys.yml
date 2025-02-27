@@ -8,7 +8,7 @@ on:
     branches:
       - 'main'
     paths:
-      - 'dev-tools/gen-target-info/**'
+      - 'dev-tools/gen-windows-sys-binding/**'
 
 jobs:
   regenerate:
