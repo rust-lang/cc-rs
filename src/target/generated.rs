@@ -1637,6 +1637,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "mips-zkm-zkvm-elf",
+        TargetInfo {
+            full_arch: "mips",
+            arch: "mips",
+            vendor: "zkm",
+            os: "zkvm",
+            env: "",
+            abi: "",
+            llvm_target: "mips-zkm-zkvm-elf",
+        },
+    ),
+    (
         "mips64-openwrt-linux-musl",
         TargetInfo {
             full_arch: "mips64",
@@ -1790,6 +1802,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
             env: "",
             abi: "",
             llvm_target: "mipsel-unknown-none",
+        },
+    ),
+    (
+        "mipsel-zkm-zkvm-elf",
+        TargetInfo {
+            full_arch: "mipsel",
+            arch: "mips",
+            vendor: "zkm",
+            os: "zkvm",
+            env: "",
+            abi: "",
+            llvm_target: "mipsel-zkm-zkvm-elf",
         },
     ),
     (
