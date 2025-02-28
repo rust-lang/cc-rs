@@ -2202,14 +2202,14 @@ impl Build {
                     // So instead, we pass the deployment target with `-m*-version-min=`, and only
                     // pass it here on visionOS and Mac Catalyst where that option does not exist:
                     // https://github.com/rust-lang/cc-rs/issues/1383
-                    let clang_target = if target.os == "visionos" || target.abi == "macabi" {
-                        Cow::Owned(
-                            target.versioned_llvm_target(&self.apple_deployment_target(target)),
-                        )
+                    let version = if target.os == "visionos" || target.abi == "macabi" {
+                        Some(self.apple_deployment_target(target))
                     } else {
-                        Cow::Borrowed(target.llvm_target)
+                        None
                     };
 
+                    let clang_target =
+                        target.llvm_target(&self.get_raw_target()?, version.as_deref());
                     cmd.push_cc_arg(format!("--target={clang_target}").into());
                 }
             }
@@ -2235,7 +2235,13 @@ impl Build {
                         // <https://github.com/microsoft/STL/pull/4741>.
                         cmd.push_cc_arg("-arch:SSE2".into());
                     } else {
-                        cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
+                        cmd.push_cc_arg(
+                            format!(
+                                "--target={}",
+                                target.llvm_target(&self.get_raw_target()?, None)
+                            )
+                            .into(),
+                        );
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
@@ -3520,7 +3526,9 @@ impl Build {
 
     fn get_target(&self) -> Result<TargetInfo<'_>, Error> {
         match &self.target {
-            Some(t) if Some(&**t) != self.getenv_unwrap_str("TARGET").ok().as_deref() => t.parse(),
+            Some(t) if Some(&**t) != self.getenv_unwrap_str("TARGET").ok().as_deref() => {
+                TargetInfo::from_rustc_target(t)
+            }
             // Fetch target information from environment if not set, or if the
             // target was the same as the TARGET environment variable, in
             // case the user did `build.target(&env::var("TARGET").unwrap())`.
