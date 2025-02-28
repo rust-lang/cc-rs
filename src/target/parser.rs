@@ -306,10 +306,8 @@ impl<'a> TargetInfo<'a> {
 
         // Various environment/ABIs are determined based on OS name.
         match os {
-            "3ds" => env = "newlib",
+            "3ds" | "rtems" | "espidf" => env = "newlib",
             "vxworks" => env = "gnu",
-            "rtems" => env = "newlib",
-            "espidf" => env = "newlib",
             "redox" => env = "relibc",
             "aix" => abi = "vec-extabi",
             _ => {}
