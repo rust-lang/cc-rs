@@ -266,7 +266,7 @@ impl<'a> TargetInfo<'a> {
         // Insist that the triple contains at least a valid architecture.
         let full_arch = components.next().ok_or(Error::new(
             ErrorKind::InvalidTarget,
-            format!("target `{target}` was empty"),
+            format!("target was empty"),
         ))?;
         let arch = parse_arch(full_arch).ok_or_else(|| {
             Error::new(
@@ -275,32 +275,45 @@ impl<'a> TargetInfo<'a> {
             )
         })?;
 
-        // Newer target triples have begun omitting the vendor.
-        // Additionally, some Linux distributions want to set their name as
-        // the target vendor (so we have to assume that it can be an arbitary
-        // string).
-        //
-        // To handle this, we parse the rest of the components from the BACK
-        // instead, e.g. first the environment/abi (if present), then the OS,
-        // and finally the vendor (if present).
-        let mut components = components.rev();
-
-        let envabi_or_os = components.next().ok_or(Error::new(
-            ErrorKind::InvalidTarget,
-            format!("target `{target}` must have at least two components"),
-        ))?;
-
-        // Unknown; assume instead that the last component is the OS name.
-        let (os, mut env, mut abi, has_envabi) = {
-            if let Some((env, abi)) = parse_envabi(envabi_or_os) {
-                let os = components.next().ok_or(Error::new(
+        // Newer target triples have begun omitting the vendor, so the only
+        // component we know must be there is the OS name.
+        let components: Vec<_> = components.collect();
+        let (vendor, os, mut env, mut abi) = match &*components {
+            [] => {
+                return Err(Error::new(
                     ErrorKind::InvalidTarget,
-                    format!("target `{target}` must have an OS component"),
-                ))?;
-                (os, env, abi, true)
-            } else {
-                // Value did not contain env/ABI, so assume it is an OS instead.
-                (envabi_or_os, "", "", false)
+                    format!("target `{target}` must have at least two components"),
+                ))
+            }
+            // Two components; format is `arch-os`.
+            [os] => ("unknown", *os, "", ""),
+            // The three-component case is a bit tricky to handle, it could
+            // either have the format `arch-vendor-os` or `arch-os-env+abi`.
+            [vendor_or_os, os_or_envabi] => {
+                // We delineate between these by checking if the last
+                // component is an env/ABI; if it isn't, then it's probably
+                // an OS instead.
+                if let Some((env, abi)) = parse_envabi(os_or_envabi) {
+                    ("unknown", *vendor_or_os, env, abi)
+                } else {
+                    (*vendor_or_os, *os_or_envabi, "", "")
+                }
+            }
+            // Four components; format is `arch-vendor-os-env+abi`.
+            [vendor, os, envabi] => {
+                let (env, abi) = parse_envabi(envabi).ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::UnknownTarget,
+                        format!("unknown environment/ABI `{envabi}` in target `{target}`"),
+                    )
+                })?;
+                (*vendor, *os, env, abi)
+            }
+            _ => {
+                return Err(Error::new(
+                    ErrorKind::InvalidTarget,
+                    format!("too many components in target `{target}`"),
+                ))
             }
         };
 
@@ -362,7 +375,7 @@ impl<'a> TargetInfo<'a> {
             os => os,
         };
 
-        let vendor = match components.next().unwrap_or("unknown") {
+        let vendor = match vendor {
             // esp, esp32, esp32s2 etc.
             vendor if vendor.starts_with("esp") => "espressif",
             // FIXME(madsmtm): https://github.com/rust-lang/rust/issues/131165
@@ -370,6 +383,8 @@ impl<'a> TargetInfo<'a> {
             // FIXME(madsmtm): Badly named targets `*-linux-android*`,
             // "linux" makes no sense as the vendor name.
             "linux" if os == "android" || os == "androideabi" => "unknown",
+            // Some Linux distributions set their name as the target vendor,
+            // so we have to assume that it can be an arbitary string.
             vendor => vendor,
         };
 
@@ -381,20 +396,6 @@ impl<'a> TargetInfo<'a> {
         // FIXME(madsmtm): Unclear why both vendor and ABI is set on these.
         if vendor == "uwp" {
             abi = "uwp";
-        }
-
-        if components.next().is_some() {
-            return Err(if has_envabi || components.next().is_some() {
-                Error::new(
-                    ErrorKind::InvalidTarget,
-                    format!("too many components in target `{target}`"),
-                )
-            } else {
-                Error::new(
-                    ErrorKind::UnknownTarget,
-                    format!("unknown environment/ABI `{envabi_or_os}` in target `{target}`"),
-                )
-            });
         }
 
         Ok(Self {
@@ -414,6 +415,7 @@ mod tests {
     use std::process::Command;
 
     use super::TargetInfo;
+    use crate::ErrorKind;
 
     // Test tier 1 targets.
     #[test]
@@ -503,6 +505,12 @@ mod tests {
         }
 
         target
+    }
+
+    #[test]
+    fn unknown_env_determined_as_unknown() {
+        let err = TargetInfo::from_rustc_target("aarch64-unknown-linux-bogus").unwrap_err();
+        assert!(matches!(err.kind, ErrorKind::UnknownTarget));
     }
 
     // Used in .github/workflows/test-rustc-targets.yml
