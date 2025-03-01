@@ -266,7 +266,7 @@ impl<'a> TargetInfo<'a> {
         // Insist that the triple contains at least a valid architecture.
         let full_arch = components.next().ok_or(Error::new(
             ErrorKind::InvalidTarget,
-            format!("target was empty"),
+            "target was empty".to_string(),
         ))?;
         let arch = parse_arch(full_arch).ok_or_else(|| {
             Error::new(
