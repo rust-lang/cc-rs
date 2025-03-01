@@ -1,6 +1,5 @@
-//! Very basic parsing of `rustc` target triples.
-//!
-//! See the `target-lexicon` crate for a more principled approach to this.
+//! Parsing of `rustc` target triples to match the values exposed to Cargo
+//! build scripts (`CARGO_CFG_*`).
 
 mod apple;
 mod generated;
