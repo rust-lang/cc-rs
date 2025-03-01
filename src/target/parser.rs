@@ -290,7 +290,7 @@ impl<'a> TargetInfo<'a> {
             // The three-component case is a bit tricky to handle, it could
             // either have the format `arch-vendor-os` or `arch-os-env+abi`.
             [vendor_or_os, os_or_envabi] => {
-                // We delineate between these by checking if the last
+                // We differentiate between these by checking if the last
                 // component is an env/ABI; if it isn't, then it's probably
                 // an OS instead.
                 if let Some((env, abi)) = parse_envabi(os_or_envabi) {
