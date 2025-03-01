@@ -1,4 +1,4 @@
-//! Parsing of `rustc` target triples to match the values exposed to Cargo
+//! Parsing of `rustc` target names to match the values exposed to Cargo
 //! build scripts (`CARGO_CFG_*`).
 
 mod apple;

@@ -19,17 +19,17 @@ impl TargetInfoParserInner {
         // No need to emit `rerun-if-env-changed` for this,
         // as it is controlled by Cargo itself.
         #[allow(clippy::disallowed_methods)]
-        let target_triple = env::var("TARGET").map_err(|err| {
+        let target_name = env::var("TARGET").map_err(|err| {
             Error::new(
                 ErrorKind::EnvVarNotFound,
                 format!("failed reading TARGET: {err}"),
             )
         })?;
 
-        // Parse the full architecture name from the target triple.
-        let (full_arch, _rest) = target_triple.split_once('-').ok_or(Error::new(
+        // Parse the full architecture name from the target name.
+        let (full_arch, _rest) = target_name.split_once('-').ok_or(Error::new(
             ErrorKind::InvalidTarget,
-            format!("target `{target_triple}` only had a single component (at least two required)"),
+            format!("target `{target_name}` only had a single component (at least two required)"),
         ))?;
 
         let cargo_env = |name, fallback: Option<&str>| -> Result<Box<str>, Error> {
@@ -42,7 +42,7 @@ impl TargetInfoParserInner {
                     Some(fallback) => Ok(fallback.into()),
                     None => Err(Error::new(
                         ErrorKind::EnvVarNotFound,
-                        format!("did not find fallback information for target `{target_triple}`, and failed reading {name}: {err}"),
+                        format!("did not find fallback information for target `{target_name}`, and failed reading {name}: {err}"),
                     )),
                 },
             }
@@ -59,10 +59,10 @@ impl TargetInfoParserInner {
         //
         // These may not be set in case the user depended on being able to
         // just set `TARGET` outside of build scripts; in those cases, fall
-        // back back to data from the known set of target triples instead.
+        // back back to data from the known set of target names instead.
         //
         // See discussion in #1225 for further details.
-        let fallback_target = TargetInfo::from_rustc_target(&target_triple).ok();
+        let fallback_target = TargetInfo::from_rustc_target(&target_name).ok();
         let ft = fallback_target.as_ref();
         let arch = cargo_env("CARGO_CFG_TARGET_ARCH", ft.map(|t| t.arch))?;
         let vendor = cargo_env("CARGO_CFG_TARGET_VENDOR", ft.map(|t| t.vendor))?;
@@ -70,7 +70,7 @@ impl TargetInfoParserInner {
         let env = cargo_env("CARGO_CFG_TARGET_ENV", ft.map(|t| t.env))?;
         // `target_abi` was stabilized in Rust 1.78, which is higher than our
         // MSRV, so it may not always be available; In that case, fall back to
-        // `""`, which is _probably_ correct for unknown target triples.
+        // `""`, which is _probably_ correct for unknown target names.
         let abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi))
             .unwrap_or_else(|_| String::default().into_boxed_str());
 
@@ -115,7 +115,7 @@ impl TargetInfoParser {
     }
 }
 
-/// Parse the full architecture in the triple into the simpler
+/// Parse the full architecture in the target name into the simpler
 /// `cfg(target_arch = "...")` that `rustc` exposes.
 fn parse_arch(full_arch: &str) -> Option<&str> {
     // NOTE: Some of these don't necessarily match an existing target in
@@ -188,7 +188,7 @@ fn parse_arch(full_arch: &str) -> Option<&str> {
     })
 }
 
-/// Parse environment and ABI from the last component of the target triple.
+/// Parse environment and ABI from the last component of the target name.
 fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
     let (env, abi) = match last_component {
         // Combined environment and ABI
@@ -263,7 +263,7 @@ impl<'a> TargetInfo<'a> {
 
         let mut components = target.split('-');
 
-        // Insist that the triple contains at least a valid architecture.
+        // Insist that the target name contains at least a valid architecture.
         let full_arch = components.next().ok_or(Error::new(
             ErrorKind::InvalidTarget,
             "target was empty".to_string(),
@@ -275,7 +275,7 @@ impl<'a> TargetInfo<'a> {
             )
         })?;
 
-        // Newer target triples have begun omitting the vendor, so the only
+        // Newer target names have begun omitting the vendor, so the only
         // component we know must be there is the OS name.
         let components: Vec<_> = components.collect();
         let (vendor, os, mut env, mut abi) = match &*components {
@@ -440,7 +440,7 @@ mod tests {
         }
     }
 
-    // Various custom target triples not (or no longer) known by `rustc`.
+    // Various custom target names not (or no longer) known by `rustc`.
     #[test]
     fn parse_extra() {
         let targets = [

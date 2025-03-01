@@ -15,8 +15,8 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
     writeln!(f, "#[rustfmt::skip]")?;
     writeln!(f, "pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[")?;
 
-    for (triple, spec) in &target_specs.0 {
-        writeln!(f, "    ({triple:?}, {:?}),", spec.llvm_target)?;
+    for (target_name, spec) in &target_specs.0 {
+        writeln!(f, "    ({target_name:?}, {:?}),", spec.llvm_target)?;
     }
 
     writeln!(f, "];")?;
@@ -34,13 +34,13 @@ fn main() {
         .unwrap()
         != 0
     {
-        for target_triple in get_targets_msrv().lines() {
-            let target_triple = target_triple.unwrap();
-            let target_triple = target_triple.trim();
+        for target_name in get_targets_msrv().lines() {
+            let target_name = target_name.unwrap();
+            let target_name = target_name.trim();
             target_specs
                 .0
-                .entry(target_triple.to_string())
-                .or_insert_with(|| get_target_spec_from_msrv(target_triple));
+                .entry(target_name.to_string())
+                .or_insert_with(|| get_target_spec_from_msrv(target_name));
         }
     }
 
