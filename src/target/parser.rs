@@ -317,6 +317,15 @@ impl<'a> TargetInfo<'a> {
             }
         };
 
+        // Part of the architecture name is carried over into the ABI.
+        match full_arch {
+            // https://github.com/rust-lang/compiler-team/issues/830
+            arch if arch.starts_with("riscv32e") => {
+                abi = "ilp32e";
+            }
+            _ => {}
+        }
+
         // Various environment/ABIs are determined based on OS name.
         match os {
             "3ds" | "rtems" | "espidf" => env = "newlib",
@@ -343,12 +352,6 @@ impl<'a> TargetInfo<'a> {
             // Specifies abi even though not in name.
             "armv7-unknown-linux-ohos" | "armv7-unknown-trusty" => {
                 abi = "eabi";
-            }
-            // Specifies abi even though not in name.
-            "riscv32e-unknown-none-elf"
-            | "riscv32em-unknown-none-elf"
-            | "riscv32emc-unknown-none-elf" => {
-                abi = "ilp32e";
             }
             _ => {}
         }
