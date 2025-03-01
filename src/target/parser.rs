@@ -391,12 +391,11 @@ impl<'a> TargetInfo<'a> {
             vendor => vendor,
         };
 
-        // FIXME(madsmtm): Unclear why both vendor and ABI is set on this.
+        // Intentionally also marked as an ABI:
+        // https://github.com/rust-lang/rust/pull/86922
         if vendor == "fortanix" {
             abi = "fortanix";
         }
-
-        // FIXME(madsmtm): Unclear why both vendor and ABI is set on these.
         if vendor == "uwp" {
             abi = "uwp";
         }
