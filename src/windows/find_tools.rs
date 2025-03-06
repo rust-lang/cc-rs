@@ -110,9 +110,9 @@ impl EnvGetter for StdEnvGetter {
 /// Attempts to find a tool within an MSVC installation using the Windows
 /// registry as a point to search from.
 ///
-/// The `arch_or_target` argument is the architecture or the Rust target
-/// triple that the tool should work for (e.g. compile or link for). The
-/// supported architecture names are:
+/// The `arch_or_target` argument is the architecture or the Rust target name
+/// that the tool should work for (e.g. compile or link for). The supported
+/// architecture names are:
 /// - `"x64"` or `"x86_64"`
 /// - `"arm64"` or `"aarch64"`
 /// - `"arm64ec"`

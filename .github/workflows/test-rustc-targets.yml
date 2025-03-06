@@ -1,0 +1,52 @@
+name: Test nightly `rustc` targets and add issue comment if changed
+
+on:
+  workflow_dispatch: # Allow running on-demand
+  schedule:
+    - cron: '0 3 * * 1,4' # Every Monday and Thursdag
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'src/target/**'
+
+jobs:
+  regenerate:
+    if: github.repository_owner == 'rust-lang'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
+      - name: Install current nightly Rust
+        run: |
+          rustup toolchain install nightly --no-self-update --profile minimal
+          rustup default nightly
+      - run: cargo update
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Test with `RUSTFLAGS=--cfg=rustc_target_test cargo test --lib`
+        id: test
+        continue-on-error: true # We want to open an issue if it fails
+        run: cargo test --lib 2>&1 | tee test_output.txt
+        env:
+          RUSTFLAGS: --cfg=rustc_target_test
+
+      # Added to https://github.com/rust-lang/cc-rs/issues/1426
+      - name: Add issue comment if test failed
+        if: steps.test.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh issue comment 1426 --body "
+          Failed parsing `rustc` target on `$(rustc --version)`.
+
+          <details><summary>Test output</summary>
+          <p>
+          \`\`\`
+          $(cat test_output.txt)
+          \`\`\`
+          </p>
+          </details>
+          " --head $(git branch --show-current)
