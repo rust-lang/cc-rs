@@ -1459,12 +1459,20 @@ impl Build {
                     .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
             }
             // Link c++ lib from WASI sysroot
-            if target.os == "wasi" {
-                if let Ok(wasi_sysroot) = self.wasi_sysroot() {
+            if target.arch == "wasm32" {
+                if target.os == "wasi" {
+                    if let Ok(wasi_sysroot) = self.wasi_sysroot() {
+                        self.cargo_output.print_metadata(&format_args!(
+                            "cargo:rustc-flags=-L {}/lib/{} -lstatic=c++ -lstatic=c++abi",
+                            Path::new(&wasi_sysroot).display(),
+                            self.get_raw_target()?
+                        ));
+                    }
+                } else if target.os == "linux" {
+                    let musl_sysroot = self.wasm_musl_sysroot().unwrap();
                     self.cargo_output.print_metadata(&format_args!(
-                        "cargo:rustc-flags=-L {}/lib/{} -lstatic=c++ -lstatic=c++abi",
-                        Path::new(&wasi_sysroot).display(),
-                        self.get_raw_target()?
+                        "cargo:rustc-flags=-L {}/lib -lstatic=c++ -lstatic=c++abi",
+                        Path::new(&musl_sysroot).display(),
                     ));
                 }
             }
@@ -2179,8 +2187,25 @@ impl Build {
                         if self.cpp && self.cpp_set_stdlib.is_none() {
                             cmd.push_cc_arg("-stdlib=libc++".into());
                         }
+                    } else if target.arch == "wasm32" && target.os == "linux" {
+                        for x in &[
+                            "atomics",
+                            "bulk-memory",
+                            "mutable-globals",
+                            "sign-ext",
+                            "exception-handling",
+                        ] {
+                            cmd.push_cc_arg(format!("-m{x}").into());
+                        }
+                        for x in &["wasm-exceptions", "declspec"] {
+                            cmd.push_cc_arg(format!("-f{x}").into());
+                        }
+                        let musl_sysroot = self.wasm_musl_sysroot().unwrap();
+                        cmd.push_cc_arg(
+                            format!("--sysroot={}", Path::new(&musl_sysroot).display()).into(),
+                        );
+                        cmd.push_cc_arg("-pthread".into());
                     }
-
                     // Pass `--target` with the LLVM target to configure Clang for cross-compiling.
                     //
                     // This is **required** for cross-compilation, as it's the only flag that
@@ -3951,6 +3976,17 @@ impl Build {
             .insert(sdk.into(), version.clone());
 
         version
+    }
+
+    fn wasm_musl_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+        if let Some(musl_sysroot_path) = self.getenv("WASM_MUSL_SYSROOT") {
+            Ok(musl_sysroot_path)
+        } else {
+            Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                "Environment variable WASM_MUSL_SYSROOT not defined for wasm32. Download sysroot from GitHub & setup environment variable MUSL_SYSROOT targeting the folder.",
+            ))
+        }
     }
 
     fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
