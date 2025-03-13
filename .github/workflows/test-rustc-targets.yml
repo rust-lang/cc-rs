@@ -29,7 +29,9 @@ jobs:
       - name: Test with `RUSTFLAGS=--cfg=rustc_target_test cargo test --lib`
         id: test
         continue-on-error: true # We want to open an issue if it fails
-        run: cargo test --lib 2>&1 | tee test_output.txt
+        run: |
+          set -o pipefail
+          cargo test --lib 2>&1 | tee test_output.txt
         env:
           RUSTFLAGS: --cfg=rustc_target_test
 
