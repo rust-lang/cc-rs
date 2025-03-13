@@ -42,13 +42,15 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh issue comment 1426 --body "
-          Failed parsing `rustc` target on `$(rustc --version)`.
+          Failed parsing \`rustc\` target on \`$(rustc --version)\`.
 
           <details><summary>Test output</summary>
           <p>
+
           \`\`\`
           $(cat test_output.txt)
           \`\`\`
+
           </p>
           </details>
-          " --head $(git branch --show-current)
+          "
