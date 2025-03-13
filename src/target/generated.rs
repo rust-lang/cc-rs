@@ -2873,6 +2873,18 @@ pub(crate) const LIST: &[(&str, TargetInfo<'static>)] = &[
         },
     ),
     (
+        "wasm32-wali-linux-musl",
+        TargetInfo {
+            full_arch: "wasm32",
+            arch: "wasm32",
+            vendor: "unknown",
+            os: "linux",
+            env: "musl",
+            abi: "",
+            llvm_target: "wasm32-wasi",
+        },
+    ),
+    (
         "wasm32-wasi",
         TargetInfo {
             full_arch: "wasm32",
