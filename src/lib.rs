@@ -145,11 +145,11 @@
 //!
 //! * Unix platforms require `cc` to be the C compiler. This can be found by
 //!   installing cc/clang on Linux distributions and Xcode on macOS, for example.
-//! * Windows platforms targeting MSVC (e.g. your target triple ends in `-msvc`)
+//! * Windows platforms targeting MSVC (e.g. your target name ends in `-msvc`)
 //!   require Visual Studio to be installed. `cc-rs` attempts to locate it, and
 //!   if it fails, `cl.exe` is expected to be available in `PATH`. This can be
 //!   set up by running the appropriate developer tools shell.
-//! * Windows platforms targeting MinGW (e.g. your target triple ends in `-gnu`)
+//! * Windows platforms targeting MinGW (e.g. your target name ends in `-gnu`)
 //!   require `cc` to be available in `PATH`. We recommend the
 //!   [MinGW-w64](https://www.mingw-w64.org/) distribution.
 //!   You may also acquire it via
@@ -2177,9 +2177,9 @@ impl Build {
                         //   libstdc++ (this behavior was changed in llvm 14).
                         //
                         // This breaks C++11 (or greater) builds if targeting FreeBSD with the
-                        // generic xxx-unknown-freebsd triple on clang 13 or below *without*
+                        // generic xxx-unknown-freebsd target on clang 13 or below *without*
                         // explicitly specifying that libc++ should be used.
-                        // When cross-compiling, we can't infer from the rust/cargo target triple
+                        // When cross-compiling, we can't infer from the rust/cargo target name
                         // which major version of FreeBSD we are targeting, so we need to make sure
                         // that libc++ is used (unless the user has explicitly specified otherwise).
                         // There's no compelling reason to use a different approach when compiling
@@ -2227,14 +2227,14 @@ impl Build {
                     // So instead, we pass the deployment target with `-m*-version-min=`, and only
                     // pass it here on visionOS and Mac Catalyst where that option does not exist:
                     // https://github.com/rust-lang/cc-rs/issues/1383
-                    let clang_target = if target.os == "visionos" || target.abi == "macabi" {
-                        Cow::Owned(
-                            target.versioned_llvm_target(&self.apple_deployment_target(target)),
-                        )
+                    let version = if target.os == "visionos" || target.abi == "macabi" {
+                        Some(self.apple_deployment_target(target))
                     } else {
-                        Cow::Borrowed(target.llvm_target)
+                        None
                     };
 
+                    let clang_target =
+                        target.llvm_target(&self.get_raw_target()?, version.as_deref());
                     cmd.push_cc_arg(format!("--target={clang_target}").into());
                 }
             }
@@ -2260,7 +2260,13 @@ impl Build {
                         // <https://github.com/microsoft/STL/pull/4741>.
                         cmd.push_cc_arg("-arch:SSE2".into());
                     } else {
-                        cmd.push_cc_arg(format!("--target={}", target.llvm_target).into());
+                        cmd.push_cc_arg(
+                            format!(
+                                "--target={}",
+                                target.llvm_target(&self.get_raw_target()?, None)
+                            )
+                            .into(),
+                        );
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
@@ -3545,7 +3551,9 @@ impl Build {
 
     fn get_target(&self) -> Result<TargetInfo<'_>, Error> {
         match &self.target {
-            Some(t) if Some(&**t) != self.getenv_unwrap_str("TARGET").ok().as_deref() => t.parse(),
+            Some(t) if Some(&**t) != self.getenv_unwrap_str("TARGET").ok().as_deref() => {
+                TargetInfo::from_rustc_target(t)
+            }
             // Fetch target information from environment if not set, or if the
             // target was the same as the TARGET environment variable, in
             // case the user did `build.target(&env::var("TARGET").unwrap())`.
