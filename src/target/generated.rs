@@ -243,6 +243,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("thumbv8m.main-nuttx-eabihf", "thumbv8m.main-none-eabihf"),
     ("wasm32-unknown-emscripten", "wasm32-unknown-emscripten"),
     ("wasm32-unknown-unknown", "wasm32-unknown-unknown"),
+    ("wasm32-wali-linux-musl", "wasm32-wasi"),
     ("wasm32-wasi", "wasm32-wasi"),
     ("wasm32-wasip1", "wasm32-wasip1"),
     ("wasm32-wasip1-threads", "wasm32-wasi"),
