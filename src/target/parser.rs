@@ -386,6 +386,9 @@ impl<'a> TargetInfo<'a> {
             // FIXME(madsmtm): Badly named targets `*-linux-android*`,
             // "linux" makes no sense as the vendor name.
             "linux" if os == "android" || os == "androideabi" => "unknown",
+            // FIXME(madsmtm): Fix in `rustc` after
+            // https://github.com/rust-lang/compiler-team/issues/850.
+            "wali" => "unknown",
             // Some Linux distributions set their name as the target vendor,
             // so we have to assume that it can be an arbitary string.
             vendor => vendor,
