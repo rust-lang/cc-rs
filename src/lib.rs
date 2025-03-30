@@ -332,6 +332,7 @@ pub struct Build {
     shell_escaped_flags: Option<bool>,
     build_cache: Arc<BuildCache>,
     inherit_rustflags: bool,
+    link_shared_flag: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -459,6 +460,7 @@ impl Build {
             shell_escaped_flags: None,
             build_cache: Arc::default(),
             inherit_rustflags: true,
+            link_shared_flag: false,
         }
     }
 
@@ -1227,6 +1229,14 @@ impl Build {
         self
     }
 
+    /// Configure whether cc should build dynamic library and link with `rustc-link-lib=dylib`
+    ///
+    /// This option defaults to `false`.
+    pub fn link_shared_flag(&mut self, link_shared_flag: bool) -> &mut Build {
+        self.link_shared_flag = link_shared_flag;
+        self
+    }
+
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
     where
@@ -1380,6 +1390,22 @@ impl Build {
         Ok(is_supported)
     }
 
+    fn get_canonical_library_names(name: &str) -> (&str, String, String) {
+        let lib_striped = name.strip_prefix("lib").unwrap_or(name);
+        let lib_name = if lib_striped.ends_with(".a") {
+            &lib_striped[..lib_striped.len() - 2]
+        } else if lib_striped.ends_with(".so") {
+            &lib_striped[..lib_striped.len() - 3]
+        } else {
+            lib_striped
+        };
+        (
+            lib_name,
+            format!("lib{lib_name}.a"),
+            format!("lib{lib_name}.so"),
+        )
+    }
+
     /// Run the compiler, generating the file `output`
     ///
     /// This will return a result instead of panicking; see [`Self::compile()`] for
@@ -1396,21 +1422,25 @@ impl Build {
             }
         }
 
-        let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
-            (&output[3..output.len() - 2], output.to_owned())
-        } else {
-            let mut gnu = String::with_capacity(5 + output.len());
-            gnu.push_str("lib");
-            gnu.push_str(output);
-            gnu.push_str(".a");
-            (output, gnu)
-        };
+        let (lib_name, static_name, dynlib_name) = Self::get_canonical_library_names(output);
         let dst = self.get_out_dir()?;
 
         let objects = objects_from_files(&self.files, &dst)?;
 
         self.compile_objects(&objects)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+
+        if self.link_shared_flag {
+            let objects = objects.iter().map(|o| o.dst.clone()).collect::<Vec<_>>();
+
+            let mut command = self.try_get_compiler()?.to_command();
+            let cmd = command
+                .args(["-shared", "-o"])
+                .arg(dst.join(dynlib_name))
+                .args(&objects);
+            run(cmd, &self.cargo_output)?;
+        }
+
+        self.assemble(lib_name, &dst.join(static_name), &objects)?;
 
         let target = self.get_target()?;
         if target.env == "msvc" {
@@ -1435,8 +1465,13 @@ impl Build {
         }
 
         if self.link_lib_modifiers.is_empty() {
-            self.cargo_output
-                .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
+            if self.link_shared_flag {
+                self.cargo_output
+                    .print_metadata(&format_args!("cargo:rustc-link-lib=dylib={}", lib_name));
+            } else {
+                self.cargo_output
+                    .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
+            }
         } else {
             self.cargo_output.print_metadata(&format_args!(
                 "cargo:rustc-link-lib=static:{}={}",
