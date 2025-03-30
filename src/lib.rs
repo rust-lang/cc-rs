@@ -1434,9 +1434,9 @@ impl Build {
                 .arg(dst.join(dynlib_name))
                 .args(&objects);
             run(cmd, &self.cargo_output)?;
+        } else {
+            self.assemble(lib_name, &dst.join(static_name), &objects)?;
         }
-
-        self.assemble(lib_name, &dst.join(static_name), &objects)?;
 
         let target = self.get_target()?;
         if target.env == "msvc" {
