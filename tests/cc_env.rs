@@ -117,7 +117,7 @@ fn clang_cl() {
     for exe_suffix in ["", ".exe"] {
         let test = Test::clang();
         let bin = format!("clang{exe_suffix}");
-        env::set_var("CC", &format!("{bin} --driver-mode=cl"));
+        env::set_var("CC", format!("{bin} --driver-mode=cl"));
         let test_compiler = |build: cc::Build| {
             let compiler = build.get_compiler();
             assert_eq!(compiler.path(), Path::new(&*bin));

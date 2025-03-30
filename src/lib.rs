@@ -1392,13 +1392,9 @@ impl Build {
 
     fn get_canonical_library_names(name: &str) -> (&str, String, String) {
         let lib_striped = name.strip_prefix("lib").unwrap_or(name);
-        let lib_name = if lib_striped.ends_with(".a") {
-            &lib_striped[..lib_striped.len() - 2]
-        } else if lib_striped.ends_with(".so") {
-            &lib_striped[..lib_striped.len() - 3]
-        } else {
-            lib_striped
-        };
+        let static_striped = lib_striped.strip_suffix(".a").unwrap_or(lib_striped);
+        let lib_name = lib_striped.strip_suffix(".so").unwrap_or(static_striped);
+
         (
             lib_name,
             format!("lib{lib_name}.a"),
