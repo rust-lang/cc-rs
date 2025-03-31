@@ -333,6 +333,7 @@ pub struct Build {
     build_cache: Arc<BuildCache>,
     inherit_rustflags: bool,
     link_shared_flag: bool,
+    shared_lib_out_dir: Option<Arc<Path>>,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -461,6 +462,7 @@ impl Build {
             build_cache: Arc::default(),
             inherit_rustflags: true,
             link_shared_flag: false,
+            shared_lib_out_dir: None,
         }
     }
 
@@ -1237,6 +1239,14 @@ impl Build {
         self
     }
 
+    /// Configures the output directory where shared library will be located.
+    ///
+    /// This option defaults to `out_dir`.
+    pub fn shared_lib_out_dir<P: AsRef<Path>>(&mut self, out_dir: P) -> &mut Build {
+        self.shared_lib_out_dir = Some(out_dir.as_ref().into());
+        self
+    }
+
     #[doc(hidden)]
     pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
     where
@@ -1390,16 +1400,26 @@ impl Build {
         Ok(is_supported)
     }
 
-    fn get_canonical_library_names(name: &str) -> (&str, String, String) {
-        let lib_striped = name.strip_prefix("lib").unwrap_or(name);
+    /// Get canonical library names for `output`
+    fn get_canonical_library_names<'a>(
+        &self,
+        output: &'a str,
+    ) -> Result<(&'a str, String, String), Error> {
+        let lib_striped = output.strip_prefix("lib").unwrap_or(output);
         let static_striped = lib_striped.strip_suffix(".a").unwrap_or(lib_striped);
-        let lib_name = lib_striped.strip_suffix(".so").unwrap_or(static_striped);
 
-        (
+        let dyn_ext = if self.get_target()?.env == "msvc" {
+            ".dll"
+        } else {
+            ".so"
+        };
+        let lib_name = lib_striped.strip_suffix(dyn_ext).unwrap_or(static_striped);
+
+        Ok((
             lib_name,
             format!("lib{lib_name}.a"),
-            format!("lib{lib_name}.so"),
-        )
+            format!("lib{lib_name}{dyn_ext}"),
+        ))
     }
 
     /// Run the compiler, generating the file `output`
@@ -1418,7 +1438,7 @@ impl Build {
             }
         }
 
-        let (lib_name, static_name, dynlib_name) = Self::get_canonical_library_names(output);
+        let (lib_name, static_name, dynlib_name) = self.get_canonical_library_names(output)?;
         let dst = self.get_out_dir()?;
 
         let objects = objects_from_files(&self.files, &dst)?;
@@ -1428,12 +1448,13 @@ impl Build {
         if self.link_shared_flag {
             let objects = objects.iter().map(|o| o.dst.clone()).collect::<Vec<_>>();
 
-            let mut command = self.try_get_compiler()?.to_command();
-            let cmd = command
-                .args(["-shared", "-o"])
-                .arg(dst.join(dynlib_name))
-                .args(&objects);
-            run(cmd, &self.cargo_output)?;
+            let mut cmd = self.try_get_compiler()?.to_command();
+            let dynlib_path = dst.join(&dynlib_name);
+            cmd.args(["-shared", "-o"]).arg(&dynlib_path).args(&objects);
+            run(&mut cmd, &self.cargo_output)?;
+            if let Some(out_dir) = &self.shared_lib_out_dir {
+                fs::copy(dynlib_path, out_dir.join(&dynlib_name))?;
+            }
         } else {
             self.assemble(lib_name, &dst.join(static_name), &objects)?;
         }
