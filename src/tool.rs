@@ -199,21 +199,12 @@ impl Tool {
             compiler_detect_output.warnings = compiler_detect_output.debug;
 
             let stdout = run_output(
-                Command::new(path).arg("-E").arg(tmp.path()),
+                Command::new(path).arg("-E").arg("--").arg(tmp.path()),
                 &compiler_detect_output,
             )?;
             let stdout = String::from_utf8_lossy(&stdout);
 
-            if stdout.contains("-Wslash-u-filename") {
-                let stdout = run_output(
-                    Command::new(path).arg("-E").arg("--").arg(tmp.path()),
-                    &compiler_detect_output,
-                )?;
-                let stdout = String::from_utf8_lossy(&stdout);
-                guess_family_from_stdout(&stdout, path, args, cargo_output)
-            } else {
-                guess_family_from_stdout(&stdout, path, args, cargo_output)
-            }
+            guess_family_from_stdout(&stdout, path, args, cargo_output)
         }
         let detect_family = |path: &Path, args: &[String]| -> Result<ToolFamily, Error> {
             let cache_key = [path.as_os_str()]
