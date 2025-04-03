@@ -532,8 +532,8 @@ fn gnu_apple_sysroot() {
         test.shim("fake-gcc")
             .gcc()
             .compiler("fake-gcc")
-            .target(&target)
-            .host(&target)
+            .target(target)
+            .host(target)
             .file("foo.c")
             .compile("foo");
 
