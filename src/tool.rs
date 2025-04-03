@@ -198,10 +198,19 @@ impl Tool {
             let mut compiler_detect_output = cargo_output.clone();
             compiler_detect_output.warnings = compiler_detect_output.debug;
 
-            let stdout = run_output(
-                Command::new(path).arg("-E").arg("--").arg(tmp.path()),
-                &compiler_detect_output,
-            )?;
+            let mut detect_cmd = Command::new(path);
+            // If it is clang-cl, use -- to separate the path
+            // to prevent confusion between the path and the parameter.
+            let is_clang_cl = path
+                .file_name()
+                .map_or(false, |name| name.to_string_lossy().contains("clang-cl"));
+            if is_clang_cl {
+                detect_cmd.arg("-E").arg("--").arg(tmp.path());
+            } else {
+                detect_cmd.arg("-E").arg(tmp.path());
+            }
+
+            let stdout = run_output(&mut detect_cmd, &compiler_detect_output)?;
             let stdout = String::from_utf8_lossy(&stdout);
 
             guess_family_from_stdout(&stdout, path, args, cargo_output)
