@@ -80,7 +80,7 @@ mod inherited_jobserver {
 
     pub(super) struct JobServer {
         /// Implicit token for this process which is obtained and will be
-        /// released in parent. Since JobTokens only give back what they got,
+        /// released in parent. Since `JobTokens` only give back what they got,
         /// there should be at most one global implicit token in the wild.
         ///
         /// Since Rust does not execute any `Drop` for global variables,
@@ -164,7 +164,7 @@ mod inherited_jobserver {
         helper_thread: Option<HelperThread>,
     }
 
-    impl<'a> ActiveJobServer<'a> {
+    impl ActiveJobServer<'_> {
         pub(super) async fn acquire(&mut self) -> Result<JobToken, Error> {
             let mut has_requested_token = false;
 
