@@ -381,8 +381,6 @@ impl<'a> TargetInfo<'a> {
         let vendor = match vendor {
             // esp, esp32, esp32s2 etc.
             vendor if vendor.starts_with("esp") => "espressif",
-            // FIXME(madsmtm): https://github.com/rust-lang/rust/issues/131165
-            "openwrt" => "unknown",
             // FIXME(madsmtm): Badly named targets `*-linux-android*`,
             // "linux" makes no sense as the vendor name.
             "linux" if os == "android" || os == "androideabi" => "unknown",
