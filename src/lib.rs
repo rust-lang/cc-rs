@@ -2884,14 +2884,21 @@ impl Build {
                         "qcc".to_string()
                     }
                 } else if self.get_is_cross_compile()? {
-                    let prefix = self.prefix_for_target(&raw_target);
-                    match prefix {
-                        Some(prefix) => {
+                    self.prefix_for_target(&raw_target)
+                        .filter_map(|prefix| {
                             let cc = if target.abi == "llvm" { clang } else { gnu };
-                            format!("{}-{}", prefix, cc)
-                        }
-                        None => default.to_string(),
-                    }
+                            let prefixed_cc = format!("{}-{}", prefix, cc);
+                            let status = Command::new(&prefixed_cc)
+                                .arg("--version")
+                                .stdin(Stdio::null())
+                                .stdout(Stdio::null())
+                                .stderr(Stdio::null())
+                                .status()
+                                .ok()?;
+                            status.success().then_some(prefixed_cc)
+                        })
+                        .next()
+                        .unwrap_or_else(|| default.to_string())
                 } else {
                     default.to_string()
                 };
@@ -3335,8 +3342,9 @@ impl Build {
                     name = format!("g{}", tool).into();
                     self.cmd(&name)
                 } else if self.get_is_cross_compile()? {
-                    match self.prefix_for_target(&self.get_raw_target()?) {
-                        Some(prefix) => {
+                    let chosen = self
+                        .prefix_for_target(&self.get_raw_target()?)
+                        .filter_map(|prefix| {
                             // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
                             // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
                             // outright broken (such as when targeting freebsd with `--disable-lto`
@@ -3344,7 +3352,7 @@ impl Build {
                             // fails to find one).
                             //
                             // The same applies to ranlib.
-                            let chosen = ["", "-gcc"]
+                            ["", "-gcc"]
                                 .iter()
                                 .filter_map(|infix| {
                                     let target_p = format!("{prefix}{infix}-{tool}");
@@ -3358,15 +3366,12 @@ impl Build {
                                     status.success().then_some(target_p)
                                 })
                                 .next()
-                                .unwrap_or_else(|| tool.to_string());
-                            name = chosen.into();
-                            self.cmd(&name)
-                        }
-                        None => {
-                            name = tool.into();
-                            self.cmd(&name)
-                        }
-                    }
+                        })
+                        .next()
+                        .unwrap_or_else(|| tool.to_string());
+
+                    name = chosen.into();
+                    self.cmd(&name)
                 } else {
                     name = tool.into();
                     self.cmd(&name)
@@ -3378,22 +3383,23 @@ impl Build {
     }
 
     // FIXME: Use parsed target instead of raw target.
-    fn prefix_for_target(&self, target: &str) -> Option<Cow<'static, str>> {
+    fn prefix_for_target(&self, target: &str) -> impl Iterator<Item = Cow<'static, str>> {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         self.getenv("CROSS_COMPILE")
             .as_deref()
             .map(|s| s.to_string_lossy().trim_end_matches('-').to_owned())
             .map(Cow::Owned)
-            .or_else(|| {
+            .into_iter()
+            .chain(
                 // Put aside RUSTC_LINKER's prefix to be used as second choice, after CROSS_COMPILE
                 self.getenv("RUSTC_LINKER").and_then(|var| {
                     var.to_string_lossy()
                         .strip_suffix("-gcc")
                         .map(str::to_string)
                         .map(Cow::Owned)
-                })
-            })
-            .or_else(|| {
+                }),
+            )
+            .chain(
                 match target {
                     // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
                     "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
@@ -3514,8 +3520,13 @@ impl Build {
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
                     _ => None,
                 }
-                .map(Cow::Borrowed)
-            })
+                .map(Cow::Borrowed),
+            )
+            .chain(
+                (target == "x86_64-unknown-linux-musl")
+                    .then_some("musl")
+                    .map(Cow::Borrowed),
+            )
     }
 
     /// Some platforms have multiple, compatible, canonical prefixes. Look through
