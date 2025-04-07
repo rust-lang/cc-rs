@@ -3512,7 +3512,7 @@ impl Build {
                     ]), // explicit None if not found, so caller knows to fall back
                     "x86_64-unknown-linux-musl" => {
                         self.find_working_gnu_prefix(&["x86_64-linux-musl", "musl"])
-                    },
+                    }
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
                     _ => None,
                 }
