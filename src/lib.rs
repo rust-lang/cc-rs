@@ -2113,7 +2113,7 @@ impl Build {
                     // This assumes qcc/q++ as compiler, which is currently the only supported compiler for QNX.
                     // See for details: https://github.com/rust-lang/cc-rs/pull/1319
                     let arg = match target.arch {
-                        "i586" => "-Vgcc_ntox86_cxx",
+                        "i586" | "x86" => "-Vgcc_ntox86_cxx",
                         "aarch64" => "-Vgcc_ntoaarch64le_cxx",
                         "x86_64" => "-Vgcc_ntox86_64_cxx",
                         _ => {
@@ -3333,6 +3333,21 @@ impl Build {
                     //
                     // Use the GNU-variant to match other Unix systems.
                     name = format!("g{}", tool).into();
+                    self.cmd(&name)
+                } else if target.os == "vxworks" {
+                    name = format!("wr-{}", tool).into();
+                    self.cmd(&name)
+                } else if target.os == "nto" {
+                    name = match target.arch {
+                        "i586" | "x86" => format!("ntox86-{}", tool).into(),
+                        "aarch64" | "x86_64" => format!("nto{}-{}", target.arch, tool).into(),
+                        _ => {
+                            return Err(Error::new(
+                                ErrorKind::InvalidTarget,
+                                format!("Unknown architecture for Neutrino QNX: {}", target.arch),
+                            ))
+                        }
+                    };
                     self.cmd(&name)
                 } else if self.get_is_cross_compile()? {
                     match self.prefix_for_target(&self.get_raw_target()?) {
