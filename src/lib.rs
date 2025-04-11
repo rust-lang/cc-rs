@@ -1351,6 +1351,12 @@ impl Build {
             },
         );
 
+        // Checking for compiler flags does not require linking (and we _must_
+        // avoid making it do so, since it breaks cross-compilation when the C
+        // compiler isn't configured to be able to link).
+        // https://github.com/rust-lang/cc-rs/issues/1423
+        cmd.arg("-c");
+
         if compiler.supports_path_delimiter() {
             cmd.arg("--");
         }
