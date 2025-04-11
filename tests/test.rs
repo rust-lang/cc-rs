@@ -355,6 +355,37 @@ fn gnu_shared() {
 }
 
 #[test]
+#[cfg(target_os = "linux")]
+fn gnu_link_shared() {
+    use std::process::Command;
+
+    let output = Command::new("rustc").arg("-vV").output().unwrap();
+    let stdout_buf = String::from_utf8(output.stdout).unwrap();
+    let target = stdout_buf
+        .lines()
+        .find_map(|l| l.strip_prefix("host: "))
+        .unwrap();
+
+    reset_env();
+    let test = Test::gnu();
+    let root_dir = env!("CARGO_MANIFEST_DIR");
+    let src = format!("{root_dir}/dev-tools/cc-test/src/foo.c");
+
+    cc::Build::new()
+        .host(target)
+        .target(target)
+        .opt_level(2)
+        .out_dir(test.td.path())
+        .file(&src)
+        .shared_flag(true)
+        .static_flag(false)
+        .link_shared_flag(true)
+        .compile("foo");
+
+    assert!(test.td.path().join("libfoo.so").exists());
+}
+
+#[test]
 fn gnu_flag_if_supported() {
     reset_env();
 
