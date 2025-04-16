@@ -3341,7 +3341,9 @@ impl Build {
                     // Ref: https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/a/ar.html
                     name = match target.arch {
                         "i586" => format!("ntox86-{}", tool).into(),
-                        "x86" | "aarch64" | "x86_64" => format!("nto{}-{}", target.arch, tool).into(),
+                        "x86" | "aarch64" | "x86_64" => {
+                            format!("nto{}-{}", target.arch, tool).into()
+                        }
                         _ => {
                             return Err(Error::new(
                                 ErrorKind::InvalidTarget,
