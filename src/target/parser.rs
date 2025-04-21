@@ -387,6 +387,7 @@ impl<'a> TargetInfo<'a> {
             // FIXME(madsmtm): Fix in `rustc` after
             // https://github.com/rust-lang/compiler-team/issues/850.
             "wali" => "unknown",
+            "lynx" => "unknown",
             // Some Linux distributions set their name as the target vendor,
             // so we have to assume that it can be an arbitary string.
             vendor => vendor,
