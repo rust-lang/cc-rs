@@ -258,6 +258,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("x86_64-fortanix-unknown-sgx", "x86_64-elf"),
     ("x86_64-fuchsia", "x86_64-fuchsia"),
     ("x86_64-linux-android", "x86_64-linux-android"),
+    ("x86_64-lynx-lynxos178", "x86_64-unknown-unknown-gnu"),
     ("x86_64-pc-cygwin", "x86_64-pc-cygwin"),
     ("x86_64-pc-nto-qnx710", "x86_64-pc-unknown"),
     ("x86_64-pc-nto-qnx710_iosock", "x86_64-pc-unknown"),
