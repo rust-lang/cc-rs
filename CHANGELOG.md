@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - Regenerate target info ([#1461](https://github.com/rust-lang/cc-rs/pull/1461))
-- Update rusqlite requirement from 0.34.0 to 0.35.0 ([#1460](https://github.com/rust-lang/cc-rs/pull/1460))
 - Fix parser.rs on latest rustc nightly ([#1459](https://github.com/rust-lang/cc-rs/pull/1459))
 
 ## [1.2.19](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.18...cc-v1.2.19) - 2025-04-11
