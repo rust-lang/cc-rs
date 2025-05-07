@@ -562,7 +562,15 @@ impl Build {
     }
 
     /// Add multiple flags to the invocation of the compiler.
-    /// This is equivalent to calling `.flag()` for each item in the iterator.
+    /// This is equivalent to calling [`flag`](Self::flag) for each item in the iterator.
+    ///
+    /// # Example
+    /// ```
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .flag("-Wall -Wextra")
+    ///     .compile("foo");
+    /// ```
     pub fn flags<Iter>(&mut self, flags: Iter) -> &mut Build
     where
         Iter: IntoIterator,
