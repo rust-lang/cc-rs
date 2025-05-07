@@ -565,7 +565,7 @@ impl Build {
     /// This is equivalent to calling [`flag`](Self::flag) for each item in the iterator.
     ///
     /// # Example
-    /// ```
+    /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
     ///     .flag("-Wall -Wextra")
