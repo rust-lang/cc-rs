@@ -568,7 +568,7 @@ impl Build {
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
-    ///     .flag("-Wall -Wextra")
+    ///     .flags(["-Wall, "-Wextra"])
     ///     .compile("foo");
     /// ```
     pub fn flags<Iter>(&mut self, flags: Iter) -> &mut Build
