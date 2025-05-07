@@ -561,6 +561,19 @@ impl Build {
         self
     }
 
+    /// Add multiple flags to the invocation of the compiler.
+    /// This is equivalent to calling `.flag()` for each item in the iterator.
+    pub fn flags<Iter>(&mut self, flags: Iter) -> &mut Build
+    where
+        Iter: IntoIterator,
+        Iter::Item: AsRef<OsStr>,
+    {
+        for flag in flags {
+            self.flag(flag);
+        }
+        self
+    }
+
     /// Removes a compiler flag that was added by [`Build::flag`].
     ///
     /// Will not remove flags added by other means (default flags,
