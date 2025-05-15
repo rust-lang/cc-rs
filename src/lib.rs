@@ -2139,8 +2139,8 @@ impl Build {
                     // QNX 8.0: https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/q/qcc.html
                     // This assumes qcc/q++ as compiler, which is currently the only supported compiler for QNX.
                     // See for details: https://github.com/rust-lang/cc-rs/pull/1319
-                    let arg = match target.arch {
-                        "i586" => "-Vgcc_ntox86_cxx",
+                    let arg = match target.full_arch {
+                        "x86" | "i586" => "-Vgcc_ntox86_cxx",
                         "aarch64" => "-Vgcc_ntoaarch64le_cxx",
                         "x86_64" => "-Vgcc_ntox86_64_cxx",
                         _ => {
@@ -3360,6 +3360,24 @@ impl Build {
                     //
                     // Use the GNU-variant to match other Unix systems.
                     name = format!("g{}", tool).into();
+                    self.cmd(&name)
+                } else if target.os == "vxworks" {
+                    name = format!("wr-{}", tool).into();
+                    self.cmd(&name)
+                } else if target.os == "nto" {
+                    // Ref: https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/a/ar.html
+                    name = match target.full_arch {
+                        "i586" => format!("ntox86-{}", tool).into(),
+                        "x86" | "aarch64" | "x86_64" => {
+                            format!("nto{}-{}", target.arch, tool).into()
+                        }
+                        _ => {
+                            return Err(Error::new(
+                                ErrorKind::InvalidTarget,
+                                format!("Unknown architecture for Neutrino QNX: {}", target.arch),
+                            ))
+                        }
+                    };
                     self.cmd(&name)
                 } else if self.get_is_cross_compile()? {
                     match self.prefix_for_target(&self.get_raw_target()?) {
