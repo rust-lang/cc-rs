@@ -3490,7 +3490,7 @@ impl Build {
                     "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
                     "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
-                    "powerpc64-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
+                    "powerpc64-unknown-linux-gnu" => Some("powerpc64-linux-gnu"),
                     "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
                     "riscv32i-unknown-none-elf" => self.find_working_gnu_prefix(&[
                         "riscv32-unknown-elf",
