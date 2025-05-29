@@ -1,3 +1,11 @@
+use crate::command_helpers::spawn;
+use crate::{
+    command_helpers::{run_output, CargoOutput},
+    run,
+    tempfile::NamedTempfile,
+    Error, ErrorKind, OutputKind,
+};
+use std::io::Read;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -7,13 +15,6 @@ use std::{
     path::{Path, PathBuf},
     process::{Command, Stdio},
     sync::RwLock,
-};
-
-use crate::{
-    command_helpers::{run_output, CargoOutput},
-    run,
-    tempfile::NamedTempfile,
-    Error, ErrorKind, OutputKind,
 };
 
 pub(crate) type CompilerFamilyLookupCache = HashMap<Box<[Box<OsStr>]>, ToolFamily>;
@@ -198,22 +199,37 @@ impl Tool {
             let mut compiler_detect_output = cargo_output.clone();
             compiler_detect_output.warnings = compiler_detect_output.debug;
 
-            let stdout = run_output(
-                Command::new(path).arg("-E").arg(tmp.path()),
-                &compiler_detect_output,
-            )?;
-            let stdout = String::from_utf8_lossy(&stdout);
+            let mut cmd = Command::new(path);
+            cmd.arg("-E").arg(tmp.path());
 
-            if stdout.contains("-Wslash-u-filename") {
-                let stdout = run_output(
+            // The -Wslash-u-filename warning is normally part of stdout.
+            // But with clang-cl it can be part of stderr instead and exit with a
+            // non-zero exit code.
+            let slash_u_filename_warning = {
+                let mut captured_cargo_output = compiler_detect_output.clone();
+                captured_cargo_output.output = OutputKind::Capture;
+                captured_cargo_output.warnings = true;
+                let mut child = spawn(&mut cmd, &captured_cargo_output)?;
+
+                let mut out = vec![];
+                child.stdout.take().unwrap().read_to_end(&mut out)?;
+                child.stderr.take().unwrap().read_to_end(&mut out)?;
+
+                child.wait()?;
+                String::from_utf8_lossy(&out).contains("-Wslash-u-filename")
+            };
+
+            let stdout = if slash_u_filename_warning {
+                run_output(
                     Command::new(path).arg("-E").arg("--").arg(tmp.path()),
                     &compiler_detect_output,
-                )?;
-                let stdout = String::from_utf8_lossy(&stdout);
-                guess_family_from_stdout(&stdout, path, args, cargo_output)
+                )?
             } else {
-                guess_family_from_stdout(&stdout, path, args, cargo_output)
-            }
+                run_output(&mut cmd, &compiler_detect_output)?
+            };
+
+            let stdout = String::from_utf8_lossy(&stdout);
+            guess_family_from_stdout(&stdout, path, args, cargo_output)
         }
         let detect_family = |path: &Path, args: &[String]| -> Result<ToolFamily, Error> {
             let cache_key = [path.as_os_str()]
