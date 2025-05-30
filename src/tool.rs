@@ -218,7 +218,7 @@ impl Tool {
 
             let stdout = if [&out, &err]
                 .iter()
-                .any(|o| String::from_utf8_lossy(&o).contains("-Wslash-u-filename"))
+                .any(|o| String::from_utf8_lossy(o).contains("-Wslash-u-filename"))
             {
                 run_output(
                     Command::new(path).arg("-E").arg("--").arg(tmp.path()),
