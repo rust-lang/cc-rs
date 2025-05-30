@@ -1,6 +1,5 @@
-use crate::command_helpers::spawn;
 use crate::{
-    command_helpers::{run_output, CargoOutput},
+    command_helpers::{spawn, run_output, CargoOutput},
     run,
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
