@@ -33,7 +33,7 @@ jobs:
             win64,
             mingw32,
             mingw64,
-            windows-2019,
+            windows-2022,
           ]
         cargo_flags: ['', '--release', '--features parallel']
         include:
@@ -102,7 +102,7 @@ jobs:
             target: aarch64-pc-windows-msvc
             no_run: --no-run
           - build: win32
-            os: windows-2019
+            os: windows-2022
             rust: stable-i686-msvc
             target: i686-pc-windows-msvc
           - build: win64
@@ -110,29 +110,25 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: mingw32
-            # windows-latest, a.k.a. windows-2022, runner is equipped with
-            # a newer mingw toolchain, which appears to produce unexecutable
-            # mixed-language binaries in debug builds. Fall back to
-            # windows-2019 for now and revisit it later...
-            os: windows-2019
+            os: windows-2022
             rust: stable-i686-gnu
             target: i686-pc-windows-gnu
           - build: mingw64
             os: windows-latest
             rust: stable-x86_64-gnu
             target: x86_64-pc-windows-gnu
-          - build: windows-2019
-            os: windows-2019
+          - build: windows-2022
+            os: windows-2022
             rust: stable-x86_64
             target: x86_64-pc-windows-msvc
           - build: windows-clang
-            os: windows-2019
+            os: windows-2022
             rust: stable
             target: x86_64-pc-windows-msvc
             CC: clang
             CXX: clang++
           - build: windows-clang-cl
-            os: windows-2019
+            os: windows-2022
             rust: stable
             target: x86_64-pc-windows-msvc
             CC: clang-cl
