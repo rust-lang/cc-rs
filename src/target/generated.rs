@@ -129,6 +129,8 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("i686-win7-windows-gnu", "i686-pc-windows-gnu"),
     ("i686-win7-windows-msvc", "i686-pc-windows-msvc"),
     ("i686-wrs-vxworks", "i686-unknown-linux-gnu"),
+    ("loongarch32-unknown-none", "loongarch32-unknown-none"),
+    ("loongarch32-unknown-none-softfloat", "loongarch32-unknown-none"),
     ("loongarch64-unknown-linux-gnu", "loongarch64-unknown-linux-gnu"),
     ("loongarch64-unknown-linux-musl", "loongarch64-unknown-linux-musl"),
     ("loongarch64-unknown-linux-ohos", "loongarch64-unknown-linux-ohos"),
