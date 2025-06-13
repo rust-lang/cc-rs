@@ -6,6 +6,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.27](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.26...cc-v1.2.27) - 2025-06-13
+
+### Other
+
+- Regenerate windows sys bindings ([#1485](https://github.com/rust-lang/cc-rs/pull/1485))
+- Update windows-bindgen requirement from 0.61 to 0.62 ([#1484](https://github.com/rust-lang/cc-rs/pull/1484))
+- Regenerate target info ([#1483](https://github.com/rust-lang/cc-rs/pull/1483))
+
 ## [1.2.26](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.25...cc-v1.2.26) - 2025-06-06
 
 ### Other
