@@ -217,12 +217,11 @@ pub fn find_vs_version() -> Result<VsVers, String> {
             "14.0" => Ok(VsVers::Vs14),
             vers => Err(format!(
                 "\n\n\
-                 unsupported or unknown VisualStudio version: {}\n\
+                 unsupported or unknown VisualStudio version: {vers}\n\
                  if another version is installed consider running \
                  the appropriate vcvars script before building this \
                  crate\n\
-                 ",
-                vers
+                 "
             )),
         },
         _ => {

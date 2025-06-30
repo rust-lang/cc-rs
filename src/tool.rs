@@ -261,8 +261,7 @@ impl Tool {
 
         let family = detect_family(&path, &args).unwrap_or_else(|e| {
             cargo_output.print_warning(&format_args!(
-                "Compiler family detection failed due to error: {}",
-                e
+                "Compiler family detection failed due to error: {e}"
             ));
             match path.file_name().map(OsStr::to_string_lossy) {
                 Some(fname) if fname.contains("clang-cl") => ToolFamily::Msvc { clang_cl: true },
@@ -505,7 +504,7 @@ impl ToolFamily {
             ToolFamily::Gnu | ToolFamily::Clang { .. } => {
                 cmd.push_cc_arg(
                     dwarf_version
-                        .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{}", v))
+                        .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{v}"))
                         .into(),
                 );
             }

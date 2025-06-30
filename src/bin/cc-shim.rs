@@ -22,7 +22,7 @@ fn main() -> ExitCode {
 
     // Find the first nonexistent candidate file to which the program's args can be written.
     let candidate = (0..).find_map(|i| {
-        let candidate = out_dir.join(format!("out{}", i));
+        let candidate = out_dir.join(format!("out{i}"));
 
         if candidate.exists() {
             // If the file exists, commands have already run. Try again.
@@ -45,7 +45,7 @@ fn main() -> ExitCode {
 
     (|| {
         for arg in args.clone() {
-            writeln!(f, "{}", arg)?;
+            writeln!(f, "{arg}")?;
         }
 
         f.flush()?;
