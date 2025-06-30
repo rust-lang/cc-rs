@@ -382,7 +382,7 @@ impl Error {
 
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Error {
-        Error::new(ErrorKind::IOError, format!("{}", e))
+        Error::new(ErrorKind::IOError, format!("{e}"))
     }
 }
 
@@ -1463,7 +1463,7 @@ impl Build {
 
         if self.link_lib_modifiers.is_empty() {
             self.cargo_output
-                .print_metadata(&format_args!("cargo:rustc-link-lib=static={}", lib_name));
+                .print_metadata(&format_args!("cargo:rustc-link-lib=static={lib_name}"));
         } else {
             self.cargo_output.print_metadata(&format_args!(
                 "cargo:rustc-link-lib=static:{}={}",
@@ -1551,7 +1551,7 @@ impl Build {
                     bad => panic!("unsupported cudart option: {}", bad),
                 };
                 self.cargo_output
-                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", lib));
+                    .print_metadata(&format_args!("cargo:rustc-link-lib={lib}"));
             }
         }
 
@@ -1965,7 +1965,7 @@ impl Build {
                 ToolFamily::Msvc { .. } => ':',
                 ToolFamily::Gnu | ToolFamily::Clang { .. } => '=',
             };
-            cmd.push_cc_arg(format!("-std{}{}", separator, std).into());
+            cmd.push_cc_arg(format!("-std{separator}{std}").into());
         }
         for directory in self.include_directories.iter() {
             cmd.args.push("-I".into());
@@ -2011,9 +2011,9 @@ impl Build {
         }
         for (key, value) in self.definitions.iter() {
             if let Some(ref value) = *value {
-                cmd.args.push(format!("-D{}={}", key, value).into());
+                cmd.args.push(format!("-D{key}={value}").into());
             } else {
-                cmd.args.push(format!("-D{}", key).into());
+                cmd.args.push(format!("-D{key}").into());
             }
         }
 
@@ -2069,7 +2069,7 @@ impl Build {
                 if opt_level == "z" && !cmd.is_like_clang() {
                     cmd.push_opt_unless_duplicate("-Os".into());
                 } else {
-                    cmd.push_opt_unless_duplicate(format!("-O{}", opt_level).into());
+                    cmd.push_opt_unless_duplicate(format!("-O{opt_level}").into());
                 }
 
                 if cmd.is_like_clang() && target.os == "android" {
@@ -2498,7 +2498,7 @@ impl Build {
             match (self.cpp_set_stdlib.as_ref(), cmd.family) {
                 (None, _) => {}
                 (Some(stdlib), ToolFamily::Gnu) | (Some(stdlib), ToolFamily::Clang { .. }) => {
-                    cmd.push_cc_arg(format!("-stdlib=lib{}", stdlib).into());
+                    cmd.push_cc_arg(format!("-stdlib=lib{stdlib}").into());
                 }
                 _ => {
                     self.cargo_output.print_warning(&format_args!("cpp_set_stdlib is specified, but the {:?} compiler does not support this option, ignored", cmd.family));
@@ -2553,11 +2553,11 @@ impl Build {
                 cmd.arg("-PreDefine");
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
-                        cmd.arg(format!("{} SETA {}", key, i));
+                        cmd.arg(format!("{key} SETA {i}"));
                     } else if value.starts_with('"') && value.ends_with('"') {
-                        cmd.arg(format!("{} SETS {}", key, value));
+                        cmd.arg(format!("{key} SETS {value}"));
                     } else {
-                        cmd.arg(format!("{} SETS \"{}\"", key, value));
+                        cmd.arg(format!("{key} SETS \"{value}\""));
                     }
                 } else {
                     cmd.arg(format!("{} SETL {}", key, "{TRUE}"));
@@ -2570,9 +2570,9 @@ impl Build {
 
             for (key, value) in self.definitions.iter() {
                 if let Some(ref value) = *value {
-                    cmd.arg(format!("-D{}={}", key, value));
+                    cmd.arg(format!("-D{key}={value}"));
                 } else {
-                    cmd.arg(format!("-D{}", key));
+                    cmd.arg(format!("-D{key}"));
                 }
             }
         }
@@ -2619,7 +2619,7 @@ impl Build {
             // MSVC linker will also be passed foo.lib, so be sure that both
             // exist for now.
 
-            let lib_dst = dst.with_file_name(format!("{}.lib", lib_name));
+            let lib_dst = dst.with_file_name(format!("{lib_name}.lib"));
             let _ = fs::remove_file(&lib_dst);
             match fs::hard_link(dst, &lib_dst).or_else(|_| {
                 // if hard-link fails, just copy (ignoring the number of bytes written)
@@ -2852,7 +2852,7 @@ impl Build {
                             ToolFamily::Clang { zig_cc: false },
                         );
                         t.args.push("/c".into());
-                        t.args.push(format!("{}.bat", tool).into());
+                        t.args.push(format!("{tool}.bat").into());
                         Some(t)
                     } else {
                         Some(Tool::new(
@@ -2876,7 +2876,7 @@ impl Build {
                         msvc.to_string()
                     } else {
                         let cc = if target.abi == "llvm" { clang } else { gnu };
-                        format!("{}.exe", cc)
+                        format!("{cc}.exe")
                     }
                 } else if target.os == "ios"
                     || target.os == "watchos"
@@ -2902,9 +2902,9 @@ impl Build {
                         "wr-cc".to_string()
                     }
                 } else if target.arch == "arm" && target.vendor == "kmc" {
-                    format!("arm-kmc-eabi-{}", gnu)
+                    format!("arm-kmc-eabi-{gnu}")
                 } else if target.arch == "aarch64" && target.vendor == "kmc" {
-                    format!("aarch64-kmc-elf-{}", gnu)
+                    format!("aarch64-kmc-elf-{gnu}")
                 } else if target.os == "nto" {
                     // See for details: https://github.com/rust-lang/cc-rs/pull/1319
                     if self.cpp {
@@ -2917,7 +2917,7 @@ impl Build {
                     match prefix {
                         Some(prefix) => {
                             let cc = if target.abi == "llvm" { clang } else { gnu };
-                            format!("{}-{}", prefix, cc)
+                            format!("{prefix}-{cc}")
                         }
                         None => default.to_string(),
                     }
@@ -2988,7 +2988,7 @@ impl Build {
                 tool.has_internal_target_arg = true;
                 tool.path.set_file_name(clang.trim_start_matches('-'));
                 tool.path.set_extension("exe");
-                tool.args.push(format!("--target={}", target).into());
+                tool.args.push(format!("--target={target}").into());
 
                 // Additionally, shell scripts for target i686-linux-android versions 16 to 24
                 // pass the `mstackrealign` option so we do that here as well.
@@ -3275,11 +3275,11 @@ impl Build {
                     // Windows use bat files so we have to be a bit more specific
                     if cfg!(windows) {
                         let mut cmd = self.cmd("cmd");
-                        name = format!("em{}.bat", tool).into();
+                        name = format!("em{tool}.bat").into();
                         cmd.arg("/c").arg(&name);
                         Some(cmd)
                     } else {
-                        name = format!("em{}", tool).into();
+                        name = format!("em{tool}").into();
                         Some(self.cmd(&name))
                     }
                 } else if target.arch == "wasm32" || target.arch == "wasm64" {
@@ -3290,7 +3290,7 @@ impl Build {
                     // of "llvm-ar"...
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.is_like_clang() {
-                        name = format!("llvm-{}", tool).into();
+                        name = format!("llvm-{tool}").into();
                         self.search_programs(
                             &mut self.cmd(&compiler.path),
                             &name,
@@ -3309,7 +3309,7 @@ impl Build {
             Some(t) => t,
             None => {
                 if target.os == "android" {
-                    name = format!("llvm-{}", tool).into();
+                    name = format!("llvm-{tool}").into();
                     match Command::new(&name).arg("--version").status() {
                         Ok(status) if status.success() => (),
                         _ => {
@@ -3361,15 +3361,15 @@ impl Build {
                     // but the OS comes bundled with a GNU-compatible variant.
                     //
                     // Use the GNU-variant to match other Unix systems.
-                    name = format!("g{}", tool).into();
+                    name = format!("g{tool}").into();
                     self.cmd(&name)
                 } else if target.os == "vxworks" {
-                    name = format!("wr-{}", tool).into();
+                    name = format!("wr-{tool}").into();
                     self.cmd(&name)
                 } else if target.os == "nto" {
                     // Ref: https://www.qnx.com/developers/docs/8.0/com.qnx.doc.neutrino.utilities/topic/a/ar.html
                     name = match target.full_arch {
-                        "i586" => format!("ntox86-{}", tool).into(),
+                        "i586" => format!("ntox86-{tool}").into(),
                         "x86" | "aarch64" | "x86_64" => {
                             format!("nto{}-{}", target.arch, tool).into()
                         }
@@ -3582,7 +3582,7 @@ impl Build {
             .and_then(|path_entries| {
                 env::split_paths(path_entries).find_map(|path_entry| {
                     for prefix in prefixes {
-                        let target_compiler = format!("{}{}{}", prefix, suffix, extension);
+                        let target_compiler = format!("{prefix}{suffix}{extension}");
                         if path_entry.join(&target_compiler).exists() {
                             return Some(prefix);
                         }
@@ -3706,7 +3706,7 @@ impl Build {
         // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) && v != "PATH" {
             self.cargo_output
-                .print_metadata(&format_args!("cargo:rerun-if-env-changed={}", v));
+                .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
         let r = env::var_os(v).map(Arc::from);
         self.cargo_output.print_metadata(&format_args!(
@@ -3735,7 +3735,7 @@ impl Build {
             Some(s) => Ok(s),
             None => Err(Error::new(
                 ErrorKind::EnvVarNotFound,
-                format!("Environment variable {} not defined.", v),
+                format!("Environment variable {v} not defined."),
             )),
         }
     }
@@ -3745,7 +3745,7 @@ impl Build {
         env.to_str().map(String::from).ok_or_else(|| {
             Error::new(
                 ErrorKind::EnvVarNotFound,
-                format!("Environment variable {} is not valid utf-8.", v),
+                format!("Environment variable {v} is not valid utf-8."),
             )
         })
     }
@@ -3956,8 +3956,7 @@ impl Build {
                     // If below 10.9, we ignore it and let the SDK's target definitions handle it.
                     if major == 10 && minor < 9 {
                         self.cargo_output.print_warning(&format_args!(
-                            "macOS deployment target ({}) too low, it will be increased",
-                            deployment_target_ver
+                            "macOS deployment target ({deployment_target_ver}) too low, it will be increased"
                         ));
                         return None;
                     }
@@ -3968,8 +3967,7 @@ impl Build {
                     // If below 10.7, we ignore it and let the SDK's target definitions handle it.
                     if major < 7 {
                         self.cargo_output.print_warning(&format_args!(
-                            "iOS deployment target ({}) too low, it will be increased",
-                            deployment_target_ver
+                            "iOS deployment target ({deployment_target_ver}) too low, it will be increased"
                         ));
                         return None;
                     }
@@ -4140,7 +4138,7 @@ impl Default for Build {
 }
 
 fn fail(s: &str) -> ! {
-    eprintln!("\n\nerror occurred in cc-rs: {}\n\n", s);
+    eprintln!("\n\nerror occurred in cc-rs: {s}\n\n");
     std::process::exit(1);
 }
 
@@ -4202,13 +4200,13 @@ fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> Stri
         .replace("armv7", "arm")
         .replace("thumbv7neon", "arm")
         .replace("thumbv7", "arm");
-    let gnu_compiler = format!("{}-{}", target, gnu);
-    let clang_compiler = format!("{}-{}", target, clang);
+    let gnu_compiler = format!("{target}-{gnu}");
+    let clang_compiler = format!("{target}-{clang}");
 
     // On Windows, the Android clang compiler is provided as a `.cmd` file instead
     // of a `.exe` file. `std::process::Command` won't run `.cmd` files unless the
     // `.cmd` is explicitly appended to the command name, so we do that here.
-    let clang_compiler_cmd = format!("{}-{}.cmd", target, clang);
+    let clang_compiler_cmd = format!("{target}-{clang}.cmd");
 
     // Check if gnu compiler is present
     // if not, use clang
