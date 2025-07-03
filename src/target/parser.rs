@@ -402,6 +402,13 @@ impl<'a> TargetInfo<'a> {
         if vendor == "uwp" {
             abi = "uwp";
         }
+        if arch == "powerpc64" {
+            abi = if target == "powerpc64-unknown-linux-gnu" {
+                "elfv1"
+            } else {
+                "elfv2"
+            };
+        }
 
         Ok(Self {
             full_arch,
