@@ -402,10 +402,7 @@ impl<'a> TargetInfo<'a> {
         if vendor == "uwp" {
             abi = "uwp";
         }
-        if [
-            "powerpc64-unknown-linux-gnu",
-            "powerpc64-wrs-vxworks",
-        ].contains(&target) {
+        if ["powerpc64-unknown-linux-gnu", "powerpc64-wrs-vxworks"].contains(&target) {
             abi = "elfv1";
         }
         if [
@@ -415,7 +412,9 @@ impl<'a> TargetInfo<'a> {
             "powerpc64le-unknown-freebsd",
             "powerpc64le-unknown-linux-gnu",
             "powerpc64le-unknown-linux-musl",
-        ].contains(&target) {
+        ]
+        .contains(&target)
+        {
             abi = "elfv2";
         }
 
