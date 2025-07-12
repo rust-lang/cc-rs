@@ -2483,6 +2483,24 @@ impl Build {
             }
         }
 
+        if target.os == "solaris" || target.os == "illumos" {
+            // On Solaris and illumos, multi-threaded C programs must be built with `_REENTRANT`
+            // defined. This configures headers to define APIs appropriately for multi-threaded
+            // use. This is documented in threads(7), see also https://illumos.org/man/7/threads.
+            //
+            // If C code is compiled without multi-threading support but does use multiple threads,
+            // incorrect behavior may result. One extreme example is that on some systems the
+            // global errno may be at the same address as the process' first thread's errno; errno
+            // clobbering may occur to disastrous effect. Conversely, if _REENTRANT is defined
+            // while it is not actually needed, system headers may define some APIs suboptimally
+            // but will not result in incorrect behavior. Other code *should* be reasonable under
+            // such conditions.
+            //
+            // We're typically building C code to eventually link into a Rust program. Many Rust
+            // programs are multi-threaded in some form. So, set the flag by default.
+            cmd.args.push("-D_REENTRANT".into());
+        }
+
         if target.vendor == "apple" {
             self.apple_flags(cmd)?;
         }
