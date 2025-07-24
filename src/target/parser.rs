@@ -184,6 +184,10 @@ fn parse_arch(full_arch: &str) -> Option<&str> {
         "s390x" => "s390x",
         "xtensa" => "xtensa",
 
+        // Arches supported by gcc, but not LLVM.
+        arch if arch.starts_with("alpha") => "alpha", // DEC Alpha
+        "hppa" => "hppa", // https://en.wikipedia.org/wiki/PA-RISC, also known as HPPA
+        arch if arch.starts_with("sh") => "sh", // SuperH
         _ => return None,
     })
 }
