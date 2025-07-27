@@ -95,7 +95,12 @@
 //!   dependencies. Note that operations that return [`Tool`]s such as
 //!   [`Build::get_compiler`] may produce less accurate results as in some cases `cc` runs
 //!   commands in order to locate compilers. Additionally, this does nothing to prevent
-//!   users from running [`Tool::to_command`] and executing the [`Command`] themselves.//!
+//!   users from running [`Tool::to_command`] and executing the [`Command`] themselves.
+//! * `RUSTC_WRAPPER` - If set, the specified command will be prefixed to the compiler
+//!   command. This is useful for projects that want to use
+//!   [sccache](https://github.com/mozilla/sccache),
+//!   [buildcache](https://gitlab.com/bits-n-bites/buildcache), or
+//!   [cachepot](https://github.com/paritytech/cachepot).
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
 //! to be inspected, for example via the `Build::try_flags_from_environment`
@@ -215,6 +220,15 @@
 //!     .file("bar.cu")
 //!     .compile("bar");
 //! ```
+//!
+//! # Speed up compilation with sccache
+//!
+//! `cc-rs` does not handle incremental compilation like `make` or `ninja`. It
+//! always compiles the all sources, no matter if they have changed or not.
+//! This would be time-consuming in large projects. To save compilation time,
+//! you can use [sccache](https://github.com/mozilla/sccache) by setting
+//! environment variable `RUSTC_WRAPPER=sccache`, which will use cached `.o`
+//! files if the sources are unchanged.
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
 #![deny(warnings)]
