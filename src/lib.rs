@@ -76,6 +76,10 @@
 //!   trailing spaces. This compiler must understand the `-c` flag. For
 //!   certain `TARGET`s, it also is assumed to know about other flags (most
 //!   common is `-fPIC`).
+//!   ccache, distcc, sccache, icecc, cachepot and buildcache are supported,
+//!   for sccache, simply set `CC` to `sccache cc`.
+//!   For other custom `CC` wrapper, just set `CC_KNOWN_WRAPPER_CUSTOM`
+//!   to the custom wrapper used in `CC`.
 //! * `AR` - the `ar` (archiver) executable to use to build the static library.
 //! * `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in
 //!   some cross compiling scenarios. Setting this variable
