@@ -12,24 +12,24 @@ fn main() {
         return;
     }
 
-    let out = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-    fs::remove_dir_all(&out).unwrap();
-    fs::create_dir(&out).unwrap();
+    let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
+    fs::remove_dir_all(&out_dir).unwrap();
+    fs::create_dir(&out_dir).unwrap();
 
     // The following are builds where we want to capture the output (i.e. stdout and
     // stderr). We do that by re-running _this_ executable and passing in the
     // action as the first argument.
-    run_forked_capture_output(&out, "metadata-on");
-    run_forked_capture_output(&out, "metadata-off");
+    run_forked_capture_output(&out_dir, "metadata-on");
+    run_forked_capture_output(&out_dir, "metadata-off");
 
-    run_forked_capture_output(&out, "warnings-off");
+    run_forked_capture_output(&out_dir, "warnings-off");
     if cc::Build::new().get_compiler().is_like_msvc() {
         // MSVC doesn't output warnings to stderr, so we can't capture them.
         // the test will use this env var to know whether to run the test.
         println!("cargo:rustc-env=TEST_WARNINGS_ON=0");
     } else {
         println!("cargo:rustc-env=TEST_WARNINGS_ON=1");
-        run_forked_capture_output(&out, "warnings-on");
+        run_forked_capture_output(&out_dir, "warnings-on");
     }
 
     let mut build = cc::Build::new();
@@ -104,7 +104,7 @@ fn main() {
         // Test that the `windows_registry` module will set PATH by looking for
         // nmake which runs vanilla cl, and then also test it after we remove all
         // the relevant env vars from our own process.
-        let out = out.join("tmp");
+        let out = out_dir.join("tmp");
         fs::create_dir(&out).unwrap();
         println!("nmake 1");
         let status = cc::windows_registry::find(&target, "nmake.exe")
@@ -175,8 +175,8 @@ fn main() {
     assert!(out.contains("hello world"));
 
     // Test static linking of stdc++ on Linux
-    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
-    if target_os == "linux" {
+    #[cfg(target_os = "linux")]
+    {
         // Rust linker has no problem linking against dynamic libraries, for instance
         // it doesn't require any additional steps to link against system
         // `libstdc++.so`, but if we emit `cargo:rustc-link-lib=static=stdc++`, it will
@@ -190,10 +190,11 @@ fn main() {
                 .stdout,
         )
         .unwrap()
+        .trim()
         .into();
-        let search_dir = libstdc_path.parent().unwrap();
 
-        println!("cargo:rustc-link-search={}", search_dir.display());
+        let out_stdlib = out_dir.join("libstdc++.a");
+        std::os::unix::fs::symlink(libstdc_path, out_stdlib).unwrap();
 
         cc::Build::new()
             .file("src/baz.cpp")
