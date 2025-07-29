@@ -181,7 +181,7 @@ fn main() {
         // it doesn't require any additional steps to link against system
         // `libstdc++.so`, but if we emit `cargo:rustc-link-lib=static=stdc++`, it will
         // not be able to find `libstdc++.a` file despite it almost always located next to
-        // `libstdc++.so`. So providing explicit `rustc-link-search` solves the error
+        // `libstdc++.so`. So symlinking to OUT dir solves the problem
 
         let mut cmd = Command::new("g++");
         cmd.arg("--print-file-name=libstdc++.a");
