@@ -173,6 +173,35 @@ fn main() {
     let out = cc::Build::new().file("src/expand.c").expand();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains("hello world"));
+
+    // Test static linking of stdc++ on Linux
+    let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
+    if target_os == "linux" {
+        // Rust linker has no problem linking against dynamic libraries, for instance
+        // it doesn't require any additional steps to link against system
+        // `libstdc++.so`, but if we emit `cargo:rustc-link-lib=static=stdc++`, it will
+        // not be able to find `libstdc++.a` file despite it almost always located next to
+        // `libstdc++.so`. So providing explicit `rustc-link-search` solves the error
+        let libstdc_path: PathBuf = String::from_utf8(
+            Command::new("g++")
+                .args(["--print-file-name=libstdc++.a"])
+                .output()
+                .expect("Failed to run g++")
+                .stdout,
+        )
+        .unwrap()
+        .into();
+        let search_dir = libstdc_path.parent().unwrap();
+
+        println!("cargo:rustc-link-search={}", search_dir.display());
+
+        cc::Build::new()
+            .file("src/baz.cpp")
+            .cpp(true)
+            .cpp_link_stdlib("stdc++")
+            .cpp_link_stdlib_static(true)
+            .compile("baz");
+    }
 }
 
 #[track_caller]

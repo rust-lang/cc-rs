@@ -963,11 +963,11 @@ impl Build {
     ///
     /// ```no_run
     /// cc::Build::new()
-    ///     .file("src/foo.c")
-    ///     .shared_flag(true)
+    ///     .file("src/foo.cpp")
+    ///     .cpp(true)
     ///     .cpp_link_stdlib("stdc++")
     ///     .cpp_link_stdlib_static(true)
-    ///     .compile("libfoo.so");
+    ///     .compile("foo");
     /// ```
     pub fn cpp_link_stdlib_static(&mut self, is_static: bool) -> &mut Build {
         self.cpp_link_stdlib_static = is_static;
