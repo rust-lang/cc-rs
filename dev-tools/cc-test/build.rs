@@ -182,16 +182,17 @@ fn main() {
         // `libstdc++.so`, but if we emit `cargo:rustc-link-lib=static=stdc++`, it will
         // not be able to find `libstdc++.a` file despite it almost always located next to
         // `libstdc++.so`. So providing explicit `rustc-link-search` solves the error
-        let libstdc_path: PathBuf = String::from_utf8(
-            Command::new("g++")
-                .args(["--print-file-name=libstdc++.a"])
-                .output()
-                .expect("Failed to run g++")
-                .stdout,
-        )
-        .unwrap()
-        .trim()
-        .into();
+
+        let mut cmd = Command::new("g++");
+        cmd.arg("--print-file-name=libstdc++.a");
+        if arch == "i686" {
+            cmd.arg("-m32");
+        }
+        let libstdc_path: PathBuf =
+            String::from_utf8(cmd.output().expect("Failed to run g++").stdout)
+                .unwrap()
+                .trim()
+                .into();
 
         let out_stdlib = out_dir.join("libstdc++.a");
         std::os::unix::fs::symlink(libstdc_path, out_stdlib).unwrap();
