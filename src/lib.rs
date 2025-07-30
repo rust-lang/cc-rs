@@ -314,6 +314,7 @@ pub struct Build {
     files: Vec<Arc<Path>>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<Arc<str>>>,
+    cpp_link_stdlib_static: bool,
     cpp_set_stdlib: Option<Arc<str>>,
     cuda: bool,
     cudart: Option<Arc<str>>,
@@ -446,6 +447,7 @@ impl Build {
             static_flag: None,
             cpp: false,
             cpp_link_stdlib: None,
+            cpp_link_stdlib_static: false,
             cpp_set_stdlib: None,
             cuda: false,
             cudart: None,
@@ -962,6 +964,27 @@ impl Build {
         cpp_link_stdlib: V,
     ) -> &mut Build {
         self.cpp_link_stdlib = Some(cpp_link_stdlib.into().map(Arc::from));
+        self
+    }
+
+    /// Force linker to statically link C++ stdlib. By default cc-rs will emit
+    /// rustc-link flag to link against system C++ stdlib (e.g. libstdc++.so, libc++.so)
+    /// Provide value of `true` if linking against system library is not desired
+    ///
+    /// Note that for `wasm32` target C++ stdlib will always be linked statically
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// cc::Build::new()
+    ///     .file("src/foo.cpp")
+    ///     .cpp(true)
+    ///     .cpp_link_stdlib("stdc++")
+    ///     .cpp_link_stdlib_static(true)
+    ///     .compile("foo");
+    /// ```
+    pub fn cpp_link_stdlib_static(&mut self, is_static: bool) -> &mut Build {
+        self.cpp_link_stdlib_static = is_static;
         self
     }
 
@@ -1496,8 +1519,15 @@ impl Build {
         // Add specific C++ libraries, if enabled.
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
-                self.cargo_output
-                    .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
+                if self.cpp_link_stdlib_static {
+                    self.cargo_output.print_metadata(&format_args!(
+                        "cargo:rustc-link-lib=static={}",
+                        stdlib.display()
+                    ));
+                } else {
+                    self.cargo_output
+                        .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
+                }
             }
             // Link c++ lib from WASI sysroot
             if target.arch == "wasm32" {
