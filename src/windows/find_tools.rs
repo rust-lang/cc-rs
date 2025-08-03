@@ -553,7 +553,8 @@ mod impl_ {
                 // E.g. C:\...\VC\Tools\LLVM\x64\bin\clang.exe
                 base_path.push("bin");
                 base_path.push(tool);
-                base_path.is_file()
+                base_path
+                    .is_file()
                     .then(|| Tool::with_family(base_path, MSVC_FAMILY))
             })
             .next()
@@ -1188,8 +1189,8 @@ mod impl_ {
             // Determine expected host-specific path based on host architecture
             let host_arch_value = host_arch();
             let expected_host_path = match host_arch_value {
-                X86 => "LLVM\\bin", // x86 host
-                X86_64 => "LLVM\\x64\\bin", // x64 host
+                X86 => "LLVM\\bin",            // x86 host
+                X86_64 => "LLVM\\x64\\bin",    // x64 host
                 AARCH64 => "LLVM\\ARM64\\bin", // arm64 host
                 _ => panic!("Unsupported host architecture: {}", host_arch_value),
             };
