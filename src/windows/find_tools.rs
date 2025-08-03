@@ -119,7 +119,11 @@ impl EnvGetter for StdEnvGetter {
 /// - `"x86"`, `"i586"` or `"i686"`
 /// - `"arm"` or `"thumbv7a"`
 ///
-/// The `tool` argument is the tool to find (e.g. `cl.exe` or `link.exe`).
+/// The `tool` argument is the tool to find. Supported tools include:
+/// - MSVC tools: `cl.exe`, `link.exe`, `lib.exe`, etc.
+/// - `MSBuild`: `msbuild.exe`
+/// - Visual Studio IDE: `devenv.exe`
+/// - Clang/LLVM tools: `clang.exe`, `clang++.exe`, `clang-*.exe`, `llvm-*.exe`, `lld.exe`, etc.
 ///
 /// This function will return `None` if the tool could not be found, or it will
 /// return `Some(cmd)` which represents a command that's ready to execute the
