@@ -96,11 +96,19 @@ jobs:
             rust: stable
             target: aarch64-apple-ios
             no_run: --no-run
-          - build: windows-aarch64
+          - build: cross-windows-aarch64
             os: windows-latest
             rust: stable
             target: aarch64-pc-windows-msvc
             no_run: --no-run
+          - build: windows-aarch64
+            os: windows-11-arm
+            rust: stable
+            target: aarch64-pc-windows-msvc
+          - build: cross-win64
+            os: windows-11-arm
+            rust: stable
+            target: x86_64-pc-windows-msvc
           - build: win32
             os: windows-2022
             rust: stable-i686-msvc
