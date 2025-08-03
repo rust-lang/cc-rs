@@ -119,7 +119,11 @@ impl EnvGetter for StdEnvGetter {
 /// - `"x86"`, `"i586"` or `"i686"`
 /// - `"arm"` or `"thumbv7a"`
 ///
-/// The `tool` argument is the tool to find (e.g. `cl.exe` or `link.exe`).
+/// The `tool` argument is the tool to find. Supported tools include:
+/// - MSVC tools: `cl.exe`, `link.exe`, `lib.exe`, etc.
+/// - `MSBuild`: `msbuild.exe`
+/// - Visual Studio IDE: `devenv.exe`
+/// - Clang/LLVM tools: `clang.exe`, `clang++.exe`, `clang-*.exe`, `llvm-*.exe`, `lld.exe`, etc.
 ///
 /// This function will return `None` if the tool could not be found, or it will
 /// return `Some(cmd)` which represents a command that's ready to execute the
@@ -166,6 +170,15 @@ pub(crate) fn find_tool_inner(
     // cl.exe and lib.exe.
     if tool.contains("devenv") {
         return impl_::find_devenv(target, env_getter);
+    }
+
+    // Clang/LLVM isn't located in the same location as other tools like
+    // cl.exe and lib.exe.
+    if ["clang", "lldb", "llvm", "ld", "lld"]
+        .iter()
+        .any(|&t| tool.contains(t))
+    {
+        return impl_::find_llvm_tool(tool, target, env_getter);
     }
 
     // Ok, if we're here, now comes the fun part of the probing. Default shells
@@ -507,6 +520,44 @@ mod impl_ {
 
     fn find_msbuild_vs16(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<Tool> {
         find_tool_in_vs16plus_path(r"MSBuild\Current\Bin\MSBuild.exe", target, "16", env_getter)
+    }
+
+    pub(super) fn find_llvm_tool(
+        tool: &str,
+        target: TargetArch,
+        env_getter: &dyn EnvGetter,
+    ) -> Option<Tool> {
+        find_llvm_tool_vs17(tool, target, env_getter)
+    }
+
+    fn find_llvm_tool_vs17(
+        tool: &str,
+        target: TargetArch,
+        env_getter: &dyn EnvGetter,
+    ) -> Option<Tool> {
+        vs16plus_instances(target, "17", env_getter)
+            .filter_map(|mut base_path| {
+                base_path.push(r"VC\Tools\LLVM");
+                let host_folder = match host_arch() {
+                    // The default LLVM bin folder is x86, and there's separate subfolders
+                    // for the x64 and ARM64 host tools.
+                    X86 => "",
+                    X86_64 => "x64",
+                    AARCH64 => "ARM64",
+                    _ => return None,
+                };
+                if host_folder != "" {
+                    // E.g. C:\...\VC\Tools\LLVM\x64
+                    base_path.push(host_folder);
+                }
+                // E.g. C:\...\VC\Tools\LLVM\x64\bin\clang.exe
+                base_path.push("bin");
+                base_path.push(tool);
+                base_path
+                    .is_file()
+                    .then(|| Tool::with_family(base_path, MSVC_FAMILY))
+            })
+            .next()
     }
 
     // In MSVC 15 (2017) MS once again changed the scheme for locating
@@ -1058,6 +1109,152 @@ mod impl_ {
         }
     }
 
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        use std::path::Path;
+        // Import the find function from the module level
+        use crate::windows::find_tools::find;
+        // Import StdEnvGetter from the parent module
+        use crate::windows::find_tools::StdEnvGetter;
+
+        fn host_arch_to_string(host_arch_value: u16) -> &'static str {
+            match host_arch_value {
+                X86 => "x86",
+                X86_64 => "x64",
+                AARCH64 => "arm64",
+                _ => panic!("Unsupported host architecture: {}", host_arch_value),
+            }
+        }
+
+        #[test]
+        fn test_find_cl_exe() {
+            // Test that we can find cl.exe for common target architectures
+            // and validate the correct host-target combination paths
+            // This should pass on Windows CI with Visual Studio installed
+
+            let target_architectures = ["x64", "x86", "arm64"];
+            let mut found_any = false;
+
+            // Determine the host architecture
+            let host_arch_value = host_arch();
+            let host_name = host_arch_to_string(host_arch_value);
+
+            for &target_arch in &target_architectures {
+                if let Some(cmd) = find(target_arch, "cl.exe") {
+                    // Verify the command looks valid
+                    assert!(
+                        !cmd.get_program().is_empty(),
+                        "cl.exe program path should not be empty"
+                    );
+                    assert!(
+                        Path::new(cmd.get_program()).exists(),
+                        "cl.exe should exist at: {:?}",
+                        cmd.get_program()
+                    );
+
+                    // Verify the path contains the correct host-target combination
+                    // Use case-insensitive comparison since VS IDE uses "Hostx64" while Build Tools use "HostX64"
+                    let path_str = cmd.get_program().to_string_lossy();
+                    let path_str_lower = path_str.to_lowercase();
+                    let expected_host_target_path =
+                        format!("\\bin\\host{host_name}\\{target_arch}");
+                    let expected_host_target_path_unix =
+                        expected_host_target_path.replace("\\", "/");
+
+                    assert!(
+                        path_str_lower.contains(&expected_host_target_path) || path_str_lower.contains(&expected_host_target_path_unix),
+                        "cl.exe path should contain host-target combination (case-insensitive) '{}' for {} host targeting {}, but found: {}",
+                        expected_host_target_path,
+                        host_name,
+                        target_arch,
+                        path_str
+                    );
+
+                    found_any = true;
+                }
+            }
+
+            assert!(found_any, "Expected to find cl.exe for at least one target architecture (x64, x86, or arm64) on Windows CI with Visual Studio installed");
+        }
+
+        #[test]
+        fn test_find_llvm_tools() {
+            // Test the actual find_llvm_tool function with various LLVM tools
+            // This test assumes CI environment has Visual Studio + Clang installed
+            // We test against x64 target since clang can cross-compile to any target
+            let target_arch = TargetArch::new("x64").expect("Should support x64 architecture");
+            let llvm_tools = ["clang.exe", "clang++.exe", "lld.exe", "llvm-ar.exe"];
+
+            // Determine expected host-specific path based on host architecture
+            let host_arch_value = host_arch();
+            let expected_host_path = match host_arch_value {
+                X86 => "LLVM\\bin",            // x86 host
+                X86_64 => "LLVM\\x64\\bin",    // x64 host
+                AARCH64 => "LLVM\\ARM64\\bin", // arm64 host
+                _ => panic!("Unsupported host architecture: {}", host_arch_value),
+            };
+
+            let host_name = host_arch_to_string(host_arch_value);
+
+            let mut found_tools_count = 0;
+
+            for &tool in &llvm_tools {
+                // Test finding LLVM tools using the standard environment getter
+                let env_getter = StdEnvGetter;
+                let result = find_llvm_tool(tool, target_arch, &env_getter);
+
+                match result {
+                    Some(found_tool) => {
+                        found_tools_count += 1;
+
+                        // Verify the found tool has a valid, non-empty path
+                        assert!(
+                            !found_tool.path().as_os_str().is_empty(),
+                            "Found LLVM tool '{}' should have a non-empty path",
+                            tool
+                        );
+
+                        // Verify the tool path actually exists on filesystem
+                        assert!(
+                            found_tool.path().exists(),
+                            "LLVM tool '{}' path should exist: {:?}",
+                            tool,
+                            found_tool.path()
+                        );
+
+                        // Verify the tool path contains the expected tool name
+                        let path_str = found_tool.path().to_string_lossy();
+                        assert!(
+                            path_str.contains(tool.trim_end_matches(".exe")),
+                            "Tool path '{}' should contain tool name '{}'",
+                            path_str,
+                            tool
+                        );
+
+                        // Verify it's in the correct host-specific VS LLVM directory
+                        assert!(
+                            path_str.contains(expected_host_path) || path_str.contains(&expected_host_path.replace("\\", "/")),
+                            "LLVM tool should be in host-specific VS LLVM directory '{}' for {} host, but found: {}",
+                            expected_host_path,
+                            host_name,
+                            path_str
+                        );
+                    }
+                    None => {}
+                }
+            }
+
+            // On CI with VS + Clang installed, we should find at least some LLVM tools
+            assert!(
+                found_tools_count > 0,
+                "Expected to find at least one LLVM tool on CI with Visual Studio + Clang installed for {} host. Found: {}",
+                host_name,
+                found_tools_count
+            );
+        }
+    }
+
     // Given a registry key, look at all the sub keys and find the one which has
     // the maximal numeric value.
     //
@@ -1176,6 +1373,16 @@ mod impl_ {
     // Maybe can check it using an environment variable looks like `DEVENV_BIN`.
     #[inline(always)]
     pub(super) fn find_devenv(_target: TargetArch, _: &dyn EnvGetter) -> Option<Tool> {
+        None
+    }
+
+    // Finding Clang/LLVM-related tools on unix systems is not currently supported.
+    #[inline(always)]
+    pub(super) fn find_llvm_tool(
+        _tool: &str,
+        _target: TargetArch,
+        _: &dyn EnvGetter,
+    ) -> Option<Tool> {
         None
     }
 
