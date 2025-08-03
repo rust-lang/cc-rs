@@ -536,8 +536,8 @@ mod impl_ {
         env_getter: &dyn EnvGetter,
     ) -> Option<Tool> {
         vs16plus_instances(target, "17", env_getter)
-            .filter_map(|path| {
-                let mut base_path = path.join(r"VC\Tools\LLVM");
+            .filter_map(|mut base_path| {
+                base_path.push(r"VC\Tools\LLVM");
                 let host_folder = match host_arch() {
                     // The default LLVM bin folder is x86, and there's separate subfolders
                     // for the x64 and ARM64 host tools.
@@ -551,12 +551,10 @@ mod impl_ {
                     base_path.push(host_folder);
                 }
                 // E.g. C:\...\VC\Tools\LLVM\x64\bin\clang.exe
-                let tool_path = base_path.join("bin").join(tool);
-                if !tool_path.is_file() {
-                    return None;
-                }
-                let tool = Tool::with_family(tool_path, MSVC_FAMILY);
-                Some(tool)
+                base_path.push("bin");
+                base_path.push(tool);
+                base_path.is_file()
+                    .then(|| Tool::with_family(base_path, MSVC_FAMILY))
             })
             .next()
     }
@@ -1159,7 +1157,7 @@ mod impl_ {
                     let path_str = cmd.get_program().to_string_lossy();
                     let path_str_lower = path_str.to_lowercase();
                     let expected_host_target_path =
-                        format!("\\bin\\host{}\\{}", host_name, target_arch);
+                        format!("\\bin\\host{host_name}\\{target_arch}");
                     let expected_host_target_path_unix =
                         expected_host_target_path.replace("\\", "/");
 
