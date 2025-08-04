@@ -1819,7 +1819,7 @@ impl Build {
 
         Ok(())
     }
-    
+
     #[cfg(not(feature = "parallel"))]
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
         check_disabled()?;
