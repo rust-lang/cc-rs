@@ -74,7 +74,7 @@ impl RegistryKey {
         }
     }
 
-    pub fn iter(&self) -> Iter {
+    pub fn iter(&self) -> Iter<'_> {
         Iter {
             idx: 0..,
             key: self,
