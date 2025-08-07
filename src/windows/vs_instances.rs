@@ -12,7 +12,7 @@ pub enum VsInstance {
 }
 
 impl VsInstance {
-    pub fn installation_name(&self) -> Option<Cow<str>> {
+    pub fn installation_name(&self) -> Option<Cow<'_, str>> {
         match self {
             VsInstance::Com(s) => s
                 .installation_name()
@@ -30,7 +30,7 @@ impl VsInstance {
         }
     }
 
-    pub fn installation_version(&self) -> Option<Cow<str>> {
+    pub fn installation_version(&self) -> Option<Cow<'_, str>> {
         match self {
             VsInstance::Com(s) => s
                 .installation_version()
