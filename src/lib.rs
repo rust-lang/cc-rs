@@ -1241,8 +1241,9 @@ impl Build {
         self
     }
 
-    /// Define whether metadata should be emitted for cargo to detect environment
-    /// changes that should trigger a rebuild.
+    /// Define whether metadata should be emitted for cargo to only trigger
+    /// rebuild when detected environment changes, by default build script is
+    /// always run on every compilation if no rerun cargo metadata is emitted.
     ///
     /// NOTE that cc does not emit metadata to detect changes for `PATH`, since it could
     /// be changed every comilation yet does not affect the result of compilation
