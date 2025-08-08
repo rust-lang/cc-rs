@@ -1399,7 +1399,6 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        let is_arm = matches!(target.arch, "aarch64" | "arm64ec" | "arm");
         command_add_output_file(
             &mut cmd,
             &obj,
@@ -1410,7 +1409,7 @@ impl Build {
                 clang: compiler.is_like_clang(),
                 gnu: compiler.is_like_gnu(),
                 is_asm: false,
-                is_arm,
+                is_arm: is_arm(target),
             },
         );
 
@@ -1845,7 +1844,7 @@ impl Build {
             }
             cmd
         };
-        let is_arm = matches!(target.arch, "aarch64" | "arm64ec" | "arm");
+        let is_arm = is_arm(&target);
         command_add_output_file(
             &mut cmd,
             &obj.dst,
@@ -2607,7 +2606,7 @@ impl Build {
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(&**directory);
         }
-        if matches!(target.arch, "aarch64" | "arm64ec" | "arm") {
+        if is_arm(&target) {
             if self.get_debug() {
                 cmd.arg("-g");
             }
@@ -4299,6 +4298,10 @@ fn map_darwin_target_from_rust_to_compiler_architecture<'a>(target: &TargetInfo<
         "x86_64h" => "x86_64h",
         arch => arch,
     }
+}
+
+fn is_arm(target: &TargetInfo<'_>) -> bool {
+    matches!(target.arch, "aarch64" | "arm64ec" | "arm")
 }
 
 #[derive(Clone, Copy, PartialEq)]
