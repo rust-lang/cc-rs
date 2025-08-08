@@ -1399,7 +1399,7 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        let is_arm = matches!(target.arch, "aarch64" | "arm");
+        let is_arm = matches!(target.arch, "aarch64" | "arm64ec" | "arm");
         command_add_output_file(
             &mut cmd,
             &obj,
@@ -1845,7 +1845,7 @@ impl Build {
             }
             cmd
         };
-        let is_arm = matches!(target.arch, "aarch64" | "arm");
+        let is_arm = matches!(target.arch, "aarch64" | "arm64ec" | "arm");
         command_add_output_file(
             &mut cmd,
             &obj.dst,
@@ -2594,14 +2594,11 @@ impl Build {
 
     fn msvc_macro_assembler(&self) -> Result<Command, Error> {
         let target = self.get_target()?;
-        let tool = if target.arch == "x86_64" {
-            "ml64.exe"
-        } else if target.arch == "arm" {
-            "armasm.exe"
-        } else if target.arch == "aarch64" {
-            "armasm64.exe"
-        } else {
-            "ml.exe"
+        let tool = match target.arch {
+            "x86_64" => "ml64.exe",
+            "arm" => "armasm.exe",
+            "aarch64" | "arm64ec" => "armasm64.exe",
+            _ => "ml.exe",
         };
         let mut cmd = self
             .windows_registry_find(&target, tool)
@@ -2610,7 +2607,7 @@ impl Build {
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(&**directory);
         }
-        if target.arch == "aarch64" || target.arch == "arm" {
+        if matches!(target.arch, "aarch64" | "arm64ec" | "arm") {
             if self.get_debug() {
                 cmd.arg("-g");
             }
