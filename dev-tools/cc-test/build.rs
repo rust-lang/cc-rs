@@ -51,7 +51,7 @@ fn main() {
 
     let target = std::env::var("TARGET").unwrap();
     let arch = match target.split('-').next().unwrap() {
-        "arm64_32" => "aarch64",
+        "arm64_32" | "arm64ec" => "aarch64",
         "armv7k" => "armv7",
         "armv7s" => "armv7",
         "i386" => "i686",
