@@ -287,6 +287,7 @@ mod impl_ {
 
     use super::{EnvGetter, TargetArch, MSVC_FAMILY};
     use crate::Tool;
+    use crate::ToolFamily;
 
     struct MsvcTool {
         tool: PathBuf,
@@ -555,7 +556,7 @@ mod impl_ {
                 base_path.push(tool);
                 base_path
                     .is_file()
-                    .then(|| Tool::with_family(base_path, MSVC_FAMILY))
+                    .then(|| Tool::with_family(base_path, ToolFamily::Msvc { clang_cl: true }))
             })
             .next()
     }
