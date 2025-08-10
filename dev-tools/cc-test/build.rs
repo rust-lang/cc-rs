@@ -134,6 +134,18 @@ fn main() {
             .arg("/fsrc/NMakefile")
             .env("OUT_DIR", &out)
             .env("CC_FRONTEND", cc_frontend)
+            .env(
+                "EXTRA_CFLAGS",
+                if arch == "arm64ec" { "-arm64EC" } else { "" },
+            )
+            .env(
+                "EXTRA_LIBFLAGS",
+                if arch == "arm64ec" {
+                    "-machine:arm64ec"
+                } else {
+                    ""
+                },
+            )
             .status()
             .unwrap();
         assert!(status.success());

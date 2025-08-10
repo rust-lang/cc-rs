@@ -105,6 +105,15 @@ jobs:
             os: windows-11-arm
             rust: stable
             target: aarch64-pc-windows-msvc
+          - build: cross-windows-arm64ec
+            os: windows-latest
+            rust: beta
+            target: arm64ec-pc-windows-msvc
+            no_run: --no-run
+          - build: windows-arm64ec
+            os: windows-11-arm
+            rust: beta
+            target: arm64ec-pc-windows-msvc
           - build: cross-win64
             os: windows-11-arm
             rust: stable
