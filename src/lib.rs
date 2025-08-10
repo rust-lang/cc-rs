@@ -1399,7 +1399,6 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        let is_arm = matches!(target.arch, "aarch64" | "arm");
         command_add_output_file(
             &mut cmd,
             &obj,
@@ -1410,7 +1409,7 @@ impl Build {
                 clang: compiler.is_like_clang(),
                 gnu: compiler.is_like_gnu(),
                 is_asm: false,
-                is_arm,
+                is_arm: is_arm(target),
             },
         );
 
@@ -1845,7 +1844,7 @@ impl Build {
             }
             cmd
         };
-        let is_arm = matches!(target.arch, "aarch64" | "arm");
+        let is_arm = is_arm(&target);
         command_add_output_file(
             &mut cmd,
             &obj.dst,
@@ -2594,14 +2593,11 @@ impl Build {
 
     fn msvc_macro_assembler(&self) -> Result<Command, Error> {
         let target = self.get_target()?;
-        let tool = if target.arch == "x86_64" {
-            "ml64.exe"
-        } else if target.arch == "arm" {
-            "armasm.exe"
-        } else if target.arch == "aarch64" {
-            "armasm64.exe"
-        } else {
-            "ml.exe"
+        let tool = match target.arch {
+            "x86_64" => "ml64.exe",
+            "arm" => "armasm.exe",
+            "aarch64" | "arm64ec" => "armasm64.exe",
+            _ => "ml.exe",
         };
         let mut cmd = self
             .windows_registry_find(&target, tool)
@@ -2610,9 +2606,13 @@ impl Build {
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(&**directory);
         }
-        if target.arch == "aarch64" || target.arch == "arm" {
+        if is_arm(&target) {
             if self.get_debug() {
                 cmd.arg("-g");
+            }
+
+            if target.arch == "arm64ec" {
+                cmd.args(["-machine", "ARM64EC"]);
             }
 
             for (key, value) in self.definitions.iter() {
@@ -4302,6 +4302,10 @@ fn map_darwin_target_from_rust_to_compiler_architecture<'a>(target: &TargetInfo<
         "x86_64h" => "x86_64h",
         arch => arch,
     }
+}
+
+fn is_arm(target: &TargetInfo<'_>) -> bool {
+    matches!(target.arch, "aarch64" | "arm64ec" | "arm")
 }
 
 #[derive(Clone, Copy, PartialEq)]
