@@ -37,7 +37,7 @@ fn main() {
         "--etc",
         &filter,
     ])
-        .unwrap();
+    .unwrap();
 
     let bindings =
         fs::read_to_string(temp_file.path()).expect("failed to read temp windows_sys.rs");
