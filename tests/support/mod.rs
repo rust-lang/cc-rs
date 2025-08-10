@@ -14,6 +14,7 @@ pub struct Test {
     pub td: TempDir,
     pub gcc: PathBuf,
     pub msvc: bool,
+    pub msvc_autodetect: bool,
 }
 
 pub struct Execution {
@@ -53,6 +54,7 @@ impl Test {
             td,
             gcc,
             msvc: false,
+            msvc_autodetect: false,
         }
     }
 
@@ -66,6 +68,14 @@ impl Test {
         let mut t = Test::new();
         t.shim("cl").shim("lib.exe");
         t.msvc = true;
+        t
+    }
+
+    // For msvc_autodetect, don't explicitly set the compiler - let the build system discover it
+    pub fn msvc_autodetect() -> Test {
+        let mut t = Test::new();
+        t.shim("cl").shim("clang-cl.exe").shim("lib.exe");
+        t.msvc_autodetect = true;
         t
     }
 
@@ -87,7 +97,7 @@ impl Test {
 
     pub fn gcc(&self) -> cc::Build {
         let mut cfg = cc::Build::new();
-        let target = if self.msvc {
+        let target = if self.msvc || self.msvc_autodetect {
             "x86_64-pc-windows-msvc"
         } else if cfg!(target_os = "macos") {
             "x86_64-apple-darwin"
