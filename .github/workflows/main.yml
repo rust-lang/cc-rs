@@ -349,7 +349,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     env:
-      MSRV: 1.63.0
+      MSRV: 1.85.0
     steps:
       - uses: actions/checkout@v4
       - name: Install Rust
@@ -361,8 +361,8 @@ jobs:
       - name: Create Cargo.lock with minimal version
         run: cargo +nightly update -Zminimal-versions
       - uses: Swatinem/rust-cache@v2
-      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked
-      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked --all-features
+      - run: cargo check --lib -p cc --locked
+      - run: cargo check --lib -p cc --locked --all-features
 
   clippy:
     name: Clippy
