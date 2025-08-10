@@ -1490,7 +1490,7 @@ impl Build {
                 .and_then(|(_, lib_paths)| {
                     env::split_paths(lib_paths).find(|path| {
                         let sub = Path::new("atlmfc/lib");
-                        path.ends_with(sub) || path.parent().map_or(false, |p| p.ends_with(sub))
+                        path.ends_with(sub) || path.parent().is_some_and(|p| p.ends_with(sub))
                     })
                 });
 
