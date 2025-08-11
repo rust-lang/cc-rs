@@ -541,6 +541,7 @@ mod tests {
         }
 
         if matches!(target.abi, "macabi" | "sim") {
+            assert_eq!(target.env, target.abi);
             target.abi = "";
         }
 
