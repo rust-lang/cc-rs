@@ -433,7 +433,7 @@ impl<'a> TargetInfo<'a> {
             abi = "elfv2";
         }
 
-        if env == "" && matches!(abi, "macabi" | "sim") {
+        if env.is_empty() && matches!(abi, "macabi" | "sim") {
             env = abi;
         }
         
