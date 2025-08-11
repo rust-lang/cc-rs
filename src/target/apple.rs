@@ -1,6 +1,6 @@
 use super::TargetInfo;
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub(crate) enum AppleEnv {
     Simulator,
     MacCatalyst,
