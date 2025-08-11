@@ -94,7 +94,7 @@ impl TargetInfo<'_> {
             "sim" => "simulator",
             env => env,
         };
-        let mut abi = match self.abi {
+        let abi = match self.abi {
             "sim" => "simulator",
             "llvm" | "softfloat" | "uwp" | "vec-extabi" => "",
             "ilp32" => "_ilp32",
