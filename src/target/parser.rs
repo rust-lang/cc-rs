@@ -266,6 +266,17 @@ impl<'a> TargetInfo<'a> {
             });
         }
 
+        if target == "armv7a-vex-v5" {
+            return Ok(Self {
+                full_arch: "armv7a",
+                arch: "arm",
+                vendor: "vex",
+                os: "vexos",
+                env: "v5",
+                abi: "eabihf",
+            });
+        }
+
         let mut components = target.split('-');
 
         // Insist that the target name contains at least a valid architecture.
@@ -338,6 +349,10 @@ impl<'a> TargetInfo<'a> {
             "redox" => env = "relibc",
             "aix" => abi = "vec-extabi",
             _ => {}
+        }
+
+        if matches!(abi, "macabi" | "sim") {
+            env = abi;
         }
 
         // Extra overrides for badly named targets.
