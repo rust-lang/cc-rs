@@ -232,8 +232,8 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
         "abiv2" => ("", "spe"),
         "eabi" => ("", "eabi"),
         "eabihf" => ("", "eabihf"),
-        "macabi" => ("", "macabi"),
-        "sim" => ("", "sim"),
+        "macabi" => ("macabi", ""),
+        "sim" => ("sim", ""),
         "softfloat" => ("", "softfloat"),
         "spe" => ("", "spe"),
         "x32" => ("", "x32"),
@@ -355,7 +355,7 @@ impl<'a> TargetInfo<'a> {
         match target {
             // Actually simulator targets.
             "i386-apple-ios" | "x86_64-apple-ios" | "x86_64-apple-tvos" => {
-                abi = "sim";
+                env = "sim";
             }
             // Name should've contained `muslabi64`.
             "mips64-openwrt-linux-musl" => {
@@ -540,8 +540,8 @@ mod tests {
             }
         }
 
-        if matches!(target.env, "macabi" | "sim") {
-            target.env = "";
+        if matches!(target.abi, "macabi" | "sim") {
+            target.abi = "";
         }
 
         target
