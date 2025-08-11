@@ -1,7 +1,7 @@
 use super::TargetInfo;
 
 impl TargetInfo<'_> {
-    fn env_or_abi(&self) -> &str {
+    pub(crate) fn env_or_abi(&self) -> &str {
         if !self.env.is_empty() {
             self.env
         } else {
