@@ -433,10 +433,6 @@ impl<'a> TargetInfo<'a> {
             abi = "elfv2";
         }
 
-        if env.is_empty() && matches!(abi, "macabi" | "sim") {
-            env = abi;
-        }
-
         Ok(Self {
             full_arch,
             arch,
@@ -542,6 +538,10 @@ mod tests {
             } else {
                 // Skip cfgs like `debug_assertions` and `unix`.
             }
+        }
+
+        if matches!(target.env, "macabi" | "sim") {
+            target.env = "";
         }
 
         target
