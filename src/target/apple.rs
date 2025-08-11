@@ -1,8 +1,16 @@
 use super::TargetInfo;
 
 impl TargetInfo<'_> {
+    fn env_or_abi(&self) -> str {
+        if !self.env.is_empty() {
+            self.env
+        } else {
+            self.abi
+        }
+    }
+
     pub(crate) fn apple_sdk_name(&self) -> &'static str {
-        match (self.os, self.abi) {
+        match (self.os, self.env_or_abi()) {
             ("macos", "") => "macosx",
             ("ios", "") => "iphoneos",
             ("ios", "sim") => "iphonesimulator",
@@ -30,7 +38,7 @@ impl TargetInfo<'_> {
         // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mmacos-version-min
         // https://clang.llvm.org/docs/AttributeReference.html#availability
         // https://gcc.gnu.org/onlinedocs/gcc/Darwin-Options.html#index-mmacosx-version-min
-        match (self.os, self.abi) {
+        match (self.os, self.env_or_abi()) {
             ("macos", "") => format!("-mmacosx-version-min={min_version}"),
             ("ios", "") => format!("-miphoneos-version-min={min_version}"),
             ("ios", "sim") => format!("-mios-simulator-version-min={min_version}"),
