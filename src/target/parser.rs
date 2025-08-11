@@ -436,7 +436,7 @@ impl<'a> TargetInfo<'a> {
         if env.is_empty() && matches!(abi, "macabi" | "sim") {
             env = abi;
         }
-     
+
         Ok(Self {
             full_arch,
             arch,
