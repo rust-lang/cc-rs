@@ -262,7 +262,7 @@ use shlex::Shlex;
 mod parallel;
 mod target;
 mod windows;
-use self::target::*;;
+use self::target::*;
 // Regardless of whether this should be in this crate's public API,
 // it has been since 2015, so don't break it.
 pub use windows::find_tools as windows_registry;
@@ -2301,7 +2301,7 @@ impl Build {
                     // So instead, we pass the deployment target with `-m*-version-min=`, and only
                     // pass it here on visionOS and Mac Catalyst where that option does not exist:
                     // https://github.com/rust-lang/cc-rs/issues/1383
-                    let version = if target.os == "visionos" || target.get_apple_env == Some(MacCatalyst) {
+                    let version = if target.os == "visionos" || target.get_apple_env() == Some(MacCatalyst) {
                         Some(self.apple_deployment_target(target))
                     } else {
                         None
