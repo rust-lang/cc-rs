@@ -12,6 +12,7 @@ impl TargetInfo<'_> {
         match (self.env, self.abi) {
             ("sim", _) | (_, "sim") => Some(Simulator),
             ("macabi", _) | (_, "macabi") => Some(MacCatalyst),
+            _ => None,
         }
     }
 
