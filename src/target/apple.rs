@@ -5,7 +5,7 @@ pub(crate) enum AppleEnv {
     Simulator,
     MacCatalyst,
 }
-use AppleEnv::*;
+pub(crate) use AppleEnv::*;
 
 impl TargetInfo<'_> {
     pub(crate) fn get_apple_env(&self) -> Option<AppleEnv> {
