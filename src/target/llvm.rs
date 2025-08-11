@@ -91,9 +91,10 @@ impl TargetInfo<'_> {
         let env = match self.env {
             "newlib" | "nto70" | "nto71" | "nto71_iosock" | "p1" | "p2" | "relibc" | "sgx"
             | "uclibc" => "",
+            "sim" => "simulator",
             env => env,
         };
-        let abi = match self.abi {
+        let mut abi = match self.abi {
             "sim" => "simulator",
             "llvm" | "softfloat" | "uwp" | "vec-extabi" => "",
             "ilp32" => "_ilp32",
