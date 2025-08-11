@@ -232,8 +232,8 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
         "abiv2" => ("", "spe"),
         "eabi" => ("", "eabi"),
         "eabihf" => ("", "eabihf"),
-        "macabi" => ("", "macabi"),
-        "sim" => ("", "sim"),
+        "macabi" => ("macabi", ""),
+        "sim" => ("sim", ""),
         "softfloat" => ("", "softfloat"),
         "spe" => ("", "spe"),
         "x32" => ("", "x32"),
@@ -263,6 +263,17 @@ impl<'a> TargetInfo<'a> {
                 os: "linux",
                 env: "",
                 abi: "",
+            });
+        }
+
+        if target == "armv7a-vex-v5" {
+            return Ok(Self {
+                full_arch: "armv7a",
+                arch: "arm",
+                vendor: "vex",
+                os: "vexos",
+                env: "v5",
+                abi: "eabihf",
             });
         }
 
@@ -344,7 +355,7 @@ impl<'a> TargetInfo<'a> {
         match target {
             // Actually simulator targets.
             "i386-apple-ios" | "x86_64-apple-ios" | "x86_64-apple-tvos" => {
-                abi = "sim";
+                env = "sim";
             }
             // Name should've contained `muslabi64`.
             "mips64-openwrt-linux-musl" => {
@@ -527,6 +538,11 @@ mod tests {
             } else {
                 // Skip cfgs like `debug_assertions` and `unix`.
             }
+        }
+
+        if matches!(target.abi, "macabi" | "sim") {
+            assert_eq!(target.env, target.abi);
+            target.abi = "";
         }
 
         target
