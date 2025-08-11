@@ -2301,11 +2301,12 @@ impl Build {
                     // So instead, we pass the deployment target with `-m*-version-min=`, and only
                     // pass it here on visionOS and Mac Catalyst where that option does not exist:
                     // https://github.com/rust-lang/cc-rs/issues/1383
-                    let version = if target.os == "visionos" || target.get_apple_env() == Some(MacCatalyst) {
-                        Some(self.apple_deployment_target(target))
-                    } else {
-                        None
-                    };
+                    let version =
+                        if target.os == "visionos" || target.get_apple_env() == Some(MacCatalyst) {
+                            Some(self.apple_deployment_target(target))
+                        } else {
+                            None
+                        };
 
                     let clang_target =
                         target.llvm_target(&self.get_raw_target()?, version.as_deref());
@@ -2791,7 +2792,9 @@ impl Build {
         // https://github.com/llvm/llvm-project/issues/88271
         // And the workaround to use `-mtargetos=` cannot be used with the `--target` flag that we
         // otherwise specify. So we avoid emitting that, and put the version in `--target` instead.
-        if cmd.is_like_gnu() || !(target.os == "visionos" || target.get_apple_env() == Some(MacCatalyst)) {
+        if cmd.is_like_gnu()
+            || !(target.os == "visionos" || target.get_apple_env() == Some(MacCatalyst))
+        {
             let min_version = self.apple_deployment_target(&target);
             cmd.args
                 .push(target.apple_version_flag(&min_version).into());
