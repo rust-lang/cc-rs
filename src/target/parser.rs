@@ -351,10 +351,6 @@ impl<'a> TargetInfo<'a> {
             _ => {}
         }
 
-        if matches!(abi, "macabi" | "sim") {
-            env = abi;
-        }
-
         // Extra overrides for badly named targets.
         match target {
             // Actually simulator targets.
@@ -437,6 +433,10 @@ impl<'a> TargetInfo<'a> {
             abi = "elfv2";
         }
 
+        if env == "" && matches!(abi, "macabi" | "sim") {
+            env = abi;
+        }
+        
         Ok(Self {
             full_arch,
             arch,
