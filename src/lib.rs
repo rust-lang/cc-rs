@@ -2308,9 +2308,12 @@ impl Build {
                             None
                         };
 
-                    let clang_target =
-                        target.llvm_target(&self.get_raw_target()?, version.as_deref());
+                    let rustc_target = self.get_raw_target()?;
+                    let clang_target = target.llvm_target(&rustc_target, version.as_deref());
                     cmd.push_cc_arg(format!("--target={clang_target}").into());
+                    if rustc_target == "wasm32v1-none" {
+                        cmd.push_cc_arg("-mcpu=mvp".into());
+                    }
                 }
             }
             ToolFamily::Msvc { clang_cl } => {
@@ -2335,13 +2338,13 @@ impl Build {
                         // <https://github.com/microsoft/STL/pull/4741>.
                         cmd.push_cc_arg("-arch:SSE2".into());
                     } else {
+                        let rustc_target = self.get_raw_target()?;
                         cmd.push_cc_arg(
-                            format!(
-                                "--target={}",
-                                target.llvm_target(&self.get_raw_target()?, None)
-                            )
-                            .into(),
+                            format!("--target={}", target.llvm_target(&rustc_target, None)).into(),
                         );
+                        if rustc_target == "wasm32v1-none" {
+                            cmd.push_cc_arg("-mcpu=mvp".into());
+                        }
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
