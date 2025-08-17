@@ -554,9 +554,10 @@ mod impl_ {
                 // E.g. C:\...\VC\Tools\LLVM\x64\bin\clang.exe
                 base_path.push("bin");
                 base_path.push(tool);
+                let clang_cl = tool.contains("clang-cl");
                 base_path
                     .is_file()
-                    .then(|| Tool::with_family(base_path, ToolFamily::Msvc { clang_cl: true }))
+                    .then(|| Tool::with_family(base_path, ToolFamily::Msvc { clang_cl }))
             })
             .next()
     }
@@ -1139,8 +1140,6 @@ mod impl_ {
         use std::path::Path;
         // Import the find function from the module level
         use crate::windows::find_tools::find;
-        // Import StdEnvGetter from the parent module
-        use crate::windows::find_tools::StdEnvGetter;
 
         fn host_arch_to_string(host_arch_value: u16) -> &'static str {
             match host_arch_value {
@@ -1203,7 +1202,11 @@ mod impl_ {
         }
 
         #[test]
+        #[cfg(not(feature = "disable-clang-cl-tests"))]
         fn test_find_llvm_tools() {
+            // Import StdEnvGetter from the parent module
+            use crate::windows::find_tools::StdEnvGetter;
+
             // Test the actual find_llvm_tool function with various LLVM tools
             // This test assumes CI environment has Visual Studio + Clang installed
             // We test against x64 target since clang can cross-compile to any target
