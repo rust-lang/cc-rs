@@ -2531,6 +2531,13 @@ impl Build {
             }
         }
 
+        if raw_target == "wasm32v1-none" {
+            // `wasm32v1-none` target only exists in `rustc`, so we need to change the compilation flags:
+            // https://doc.rust-lang.org/rustc/platform-support/wasm32v1-none.html
+            cmd.push_cc_arg("-mcpu=mvp".into());
+            cmd.push_cc_arg("-mmutable-globals".into());
+        }
+
         if target.os == "solaris" || target.os == "illumos" {
             // On Solaris and illumos, multi-threaded C programs must be built with `_REENTRANT`
             // defined. This configures headers to define APIs appropriately for multi-threaded
