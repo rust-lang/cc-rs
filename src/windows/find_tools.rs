@@ -633,11 +633,8 @@ mod impl_ {
     // Inspired from official microsoft/vswhere ParseVersionString
     // i.e. at most four u16 numbers separated by '.'
     fn parse_version(version: &str) -> Option<[Option<u16>; 4]> {
-        let mut iter = version
-            .split('.')
-            .map(|chunk| u16::from_str(chunk))
-            .fuse();
-        let get_next_number = || iter.next().transpose().ok();
+        let mut iter = version.split('.').map(|chunk| u16::from_str(chunk)).fuse();
+        let mut get_next_number = move || iter.next().transpose().ok();
         Some([
             get_next_number()?,
             get_next_number()?,
@@ -659,7 +656,7 @@ mod impl_ {
                 let tool = tool_from_vs15plus_instance(tool, target, &instance_path, env_getter)?;
                 Some((version, tool))
             })
-            .max_by_key(|(version, _)| version)
+            .max_by(|(a_version, _), (b_version, _)| a_version.cmp(b_version))
             .map(|(_version, tool)| tool)
     }
 
