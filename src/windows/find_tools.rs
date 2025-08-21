@@ -815,7 +815,22 @@ mod impl_ {
                 }
             }
             if version_file.is_empty() {
-                return None;
+                // If all else fails, manually search for bin directories.
+                let tools_dir: PathBuf = dir.join(r"VC\Tools\MSVC");
+                return tools_dir
+                    .read_dir()
+                    .ok()?
+                    .filter_map(|file| {
+                        let file = file.ok()?;
+                        let name = file.file_name().into_string().ok()?;
+
+                        file.path().join("bin").exists().then(|| {
+                            let version = parse_version(&name);
+                            (name, version)
+                        })
+                    })
+                    .max_by(|(_, a), (_, b)| a.cmp(b))
+                    .map(|(version, _)| version);
             }
             version_path.push(version_file);
             File::open(version_path).ok()?
