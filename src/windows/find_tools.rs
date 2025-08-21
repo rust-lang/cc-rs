@@ -632,9 +632,11 @@ mod impl_ {
 
     // Inspired from official microsoft/vswhere ParseVersionString
     // i.e. at most four u16 numbers separated by '.'
-    fn parse_version(version: &str) -> Option<[Option<u16>; 4]> {
+    fn parse_version(version: &str) -> Option<[u16; 4]> {
         let mut iter = version.split('.').map(|chunk| u16::from_str(chunk)).fuse();
-        let mut get_next_number = move || iter.next().transpose().ok();
+        let mut get_next_number = move || {
+            iter.next().transpose().ok().map(|digit| digit.unwrap_or(0))
+        };
         Some([
             get_next_number()?,
             get_next_number()?,
