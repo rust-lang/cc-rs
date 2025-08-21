@@ -659,7 +659,7 @@ mod impl_ {
                 let tool = tool_from_vs15plus_instance(tool, target, &instance_path, env_getter)?;
                 Some((version, tool))
             })
-            .max_by_key(|(version, _), (b_version, _)| version)
+            .max_by_key(|(version, _)| version)
             .map(|(_version, tool)| tool)
     }
 
