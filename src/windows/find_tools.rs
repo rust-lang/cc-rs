@@ -632,11 +632,19 @@ mod impl_ {
 
     // Inspired from official microsoft/vswhere ParseVersionString
     // i.e. at most four u16 numbers separated by '.'
-    fn parse_version(version: &str) -> Option<Vec<u16>> {
-        version
-            .split('.')
-            .map(|chunk| u16::from_str(chunk).ok())
-            .collect()
+    fn parse_version(version: &str) -> Option<[u16; 4]> {
+        let mut iter = version.split('.').map(u16::from_str).fuse();
+        let mut get_next_number = move || match iter.next() {
+            Some(Ok(version_part)) => Some(version_part),
+            Some(Err(_)) => None,
+            None => Some(0),
+        };
+        Some([
+            get_next_number()?,
+            get_next_number()?,
+            get_next_number()?,
+            get_next_number()?,
+        ])
     }
 
     pub(super) fn find_msvc_15plus(
