@@ -634,9 +634,8 @@ mod impl_ {
     // i.e. at most four u16 numbers separated by '.'
     fn parse_version(version: &str) -> Option<[u16; 4]> {
         let mut iter = version.split('.').map(|chunk| u16::from_str(chunk)).fuse();
-        let mut get_next_number = move || {
-            iter.next().transpose().ok().map(|digit| digit.unwrap_or(0))
-        };
+        let mut get_next_number =
+            move || iter.next().transpose().ok().map(|digit| digit.unwrap_or(0));
         Some([
             get_next_number()?,
             get_next_number()?,
@@ -647,7 +646,7 @@ mod impl_ {
 
     pub(super) fn find_msvc_15plus(
         tool: &str,
-        target: TargetArch,
+        target: TargetArch, cc
         env_getter: &dyn EnvGetter,
     ) -> Option<Tool> {
         let iter = vs15plus_instances(target, env_getter)?;
