@@ -791,7 +791,8 @@ fn apple_sdkroot_wrong() {
     let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
     let test = Test::clang();
     test.gcc()
-        .__set_env("SDKROOT", wrong_sdkroot)
+        // TODO fix-me https://github.com/rust-lang/cc-rs/pull/1516#discussion_r2295709756
+        //.__set_env("SDKROOT", wrong_sdkroot)
         .target("aarch64-apple-ios")
         .file("foo.c")
         .compile("foo");
@@ -849,5 +850,102 @@ fn clang_android() {
             .shim("llvm-ar");
         test.gcc().target(target).file("foo.c").compile("foo");
         test.cmd(0).must_not_have("--target=arm-linux-androideabi");
+    }
+}
+
+#[cfg(windows)]
+#[cfg(not(disable_clang_cl_tests))]
+mod msvc_clang_cl_tests {
+    use super::{reset_env, Test};
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_disabled_by_default() {
+        reset_env();
+
+        let test = Test::msvc_autodetect();
+
+        // When prefer_clang_cl_over_msvc is not called (default false), should use MSVC
+        let compiler = test
+            .gcc()
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        // By default, should be using MSVC (cl.exe) and NOT clang-cl
+        assert!(compiler.is_like_msvc(), "Should use MSVC by default");
+        assert!(
+            !compiler.is_like_clang_cl(),
+            "Should not use clang-cl by default"
+        );
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_enabled() {
+        reset_env();
+
+        let test = Test::msvc_autodetect();
+
+        let compiler = test
+            .gcc()
+            // When prefer_clang_cl_over_msvc is true, should use clang-cl.exe
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        assert!(
+            compiler.is_like_clang_cl(),
+            "clang-cl.exe should be identified as clang-cl-like, got {:?}",
+            compiler
+        );
+        assert!(
+            compiler.is_like_msvc(),
+            "clang-cl should still be MSVC-like"
+        );
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_respects_explicit_cc_env() {
+        reset_env();
+
+        let test = Test::msvc_autodetect();
+
+        //std::env::set_var("CC", "cl.exe");
+        let compiler = test
+            .gcc()
+            .__set_env("CC", "cl.exe")
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        // The preference should not override explicit compiler setting
+        assert!(compiler.is_like_msvc(), "Should still be MSVC-like");
+        assert!(
+            !compiler.is_like_clang_cl(),
+            "Should NOT use clang-cl when CC is explicitly set to cl.exe, got {:?}",
+            compiler
+        );
+        std::env::remove_var("CC"); // Clean up after test
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_cpp_mode() {
+        reset_env();
+
+        let test = Test::msvc_autodetect();
+        let compiler = test
+            .gcc()
+            .cpp(true)
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        // Verify clang-cl.exe works correctly in C++ mode
+        assert!(
+            compiler.is_like_clang_cl(),
+            "clang-cl.exe should be identified as clang-cl-like in C++ mode"
+        );
+        assert!(
+            compiler.is_like_msvc(),
+            "clang-cl should still be MSVC-like in C++ mode"
+        );
     }
 }

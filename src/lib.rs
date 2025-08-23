@@ -351,6 +351,7 @@ pub struct Build {
     shell_escaped_flags: Option<bool>,
     build_cache: Arc<BuildCache>,
     inherit_rustflags: bool,
+    prefer_clang_cl_over_msvc: bool,
 }
 
 /// Represents the types of errors that may occur while using cc-rs.
@@ -479,6 +480,7 @@ impl Build {
             shell_escaped_flags: None,
             build_cache: Arc::default(),
             inherit_rustflags: true,
+            prefer_clang_cl_over_msvc: false,
         }
     }
 
@@ -1287,6 +1289,14 @@ impl Build {
     /// This option defaults to `true`.
     pub fn inherit_rustflags(&mut self, inherit_rustflags: bool) -> &mut Build {
         self.inherit_rustflags = inherit_rustflags;
+        self
+    }
+
+    /// Prefer to use clang-cl over msvc.
+    ///
+    /// This option defaults to `false`.
+    pub fn prefer_clang_cl_over_msvc(&mut self, prefer_clang_cl_over_msvc: bool) -> &mut Build {
+        self.prefer_clang_cl_over_msvc = prefer_clang_cl_over_msvc;
         self
     }
 
@@ -2878,10 +2888,17 @@ impl Build {
         }
         let target = self.get_target()?;
         let raw_target = self.get_raw_target()?;
-        let (env, msvc, gnu, traditional, clang) = if self.cpp {
-            ("CXX", "cl.exe", "g++", "c++", "clang++")
+
+        let msvc = if self.prefer_clang_cl_over_msvc {
+            "clang-cl.exe"
         } else {
-            ("CC", "cl.exe", "gcc", "cc", "clang")
+            "cl.exe"
+        };
+
+        let (env, gnu, traditional, clang) = if self.cpp {
+            ("CXX", "g++", "c++", "clang++")
+        } else {
+            ("CC", "gcc", "cc", "clang")
         };
 
         // On historical Solaris systems, "cc" may have been Sun Studio, which
@@ -2894,7 +2911,7 @@ impl Build {
             traditional
         };
 
-        let cl_exe = self.windows_registry_find_tool(&target, "cl.exe");
+        let cl_exe = self.windows_registry_find_tool(&target, msvc);
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
@@ -3785,7 +3802,12 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        let r = env::var_os(v).map(Arc::from);
+        let r = self
+            .env
+            .iter()
+            .find(|(k, _)| k.as_ref() == v)
+            .map(|(_, value)| value.clone())
+            .or_else(|| env::var_os(v).map(Arc::from));
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,

@@ -47,3 +47,6 @@ members = [
 
 [patch.crates-io]
 cc = { path = "." }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
