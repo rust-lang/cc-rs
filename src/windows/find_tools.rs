@@ -1202,7 +1202,7 @@ mod impl_ {
         }
 
         #[test]
-        #[cfg(not(feature = "disable-clang-cl-tests"))]
+        #[cfg(not(disable_clang_cl_tests))]
         fn test_find_llvm_tools() {
             // Import StdEnvGetter from the parent module
             use crate::windows::find_tools::StdEnvGetter;

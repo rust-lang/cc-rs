@@ -853,7 +853,7 @@ fn clang_android() {
 }
 
 #[cfg(windows)]
-#[cfg(not(feature = "disable-clang-cl-tests"))]
+#[cfg(not(disable_clang_cl_tests))]
 mod msvc_clang_cl_tests {
     use super::{reset_env, Test};
 

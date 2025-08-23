@@ -33,10 +33,6 @@ parallel = ["dep:libc", "dep:jobserver"]
 # This is a placeholder feature for people who incorrectly used `cc` with `features = ["jobserver"]`
 # so that they aren't broken. This has never enabled `parallel`, so we won't do that.
 jobserver = []
-# Visual Studio doesn't have clang-cl (Clang/LLVM) installed by default as it's an optional module.
-# While GitHub Actions runners have it installed, it might cause some failing tests if you don't
-# have it. Run the tests with "--features disable-clang-cl-tests" if you want to disable related tests.
-disable-clang-cl-tests = []
 
 [dev-dependencies]
 tempfile = "3"
@@ -51,3 +47,6 @@ members = [
 
 [patch.crates-io]
 cc = { path = "." }
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
