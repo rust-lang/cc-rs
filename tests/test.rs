@@ -791,8 +791,7 @@ fn apple_sdkroot_wrong() {
     let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
     let test = Test::clang();
     test.gcc()
-        // TODO fix-me https://github.com/rust-lang/cc-rs/pull/1516#discussion_r2295709756
-        //.__set_env("SDKROOT", wrong_sdkroot)
+        .__set_env("SDKROOT", wrong_sdkroot)
         .target("aarch64-apple-ios")
         .file("foo.c")
         .compile("foo");
