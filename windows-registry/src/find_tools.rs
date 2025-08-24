@@ -60,7 +60,7 @@ impl TargetArch {
     }
 }
 
-pub(crate) enum Env {
+pub enum Env {
     Owned(OsString),
     Arced(Arc<OsStr>),
 }
@@ -91,7 +91,7 @@ impl From<Env> for PathBuf {
     }
 }
 
-pub(crate) trait EnvGetter {
+pub trait EnvGetter {
     fn get_env(&self, name: &'static str) -> Option<Env>;
 }
 
@@ -134,7 +134,7 @@ pub fn find(arch_or_target: &str, tool: &str) -> Option<Command> {
 
 /// Similar to the `find` function above, this function will attempt the same
 /// operation (finding a MSVC tool in a local install) but instead returns a
-/// `Tool` which may be introspected.
+/// `Tool` which may bpub mod windows_registrye introspected.
 pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<Tool> {
     let full_arch = if let Some((full_arch, rest)) = arch_or_target.split_once("-") {
         // The logic is all tailored for MSVC, if the target is not that then
@@ -146,10 +146,10 @@ pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<Tool> {
     } else {
         arch_or_target
     };
-    find_tool_inner(full_arch, tool, &StdEnvGetter)
+    find_tool_with_env(full_arch, tool, &StdEnvGetter)
 }
 
-pub(crate) fn find_tool_inner(
+pub fn find_tool_with_env(
     full_arch: &str,
     tool: &str,
     env_getter: &dyn EnvGetter,

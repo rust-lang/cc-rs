@@ -9,9 +9,11 @@ mod tool;
 pub use tool::*;
 
 #[cfg(windows)]
-mod windows_link;
+#[doc(hidden)]
+pub mod windows_link;
 #[cfg(windows)]
-mod windows_sys;
+#[doc(hidden)]
+pub mod windows_sys;
 
 #[cfg(windows)]
 mod registry;

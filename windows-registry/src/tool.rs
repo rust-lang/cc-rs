@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::{path::{PathBuf, Path}, process::Command};
 
 /// `Tool` found by `windows_registry`
 #[derive(Clone, Debug)]
@@ -20,5 +20,10 @@ impl Tool {
     /// Check is the tool clang-cl related
     pub fn is_clang_cl(&self) -> bool {
         self.is_clang_cl
+    }
+
+    /// Get path to the tool
+    pub fn path(&self) -> &Path {
+        &self.tool
     }
 }

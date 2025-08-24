@@ -261,11 +261,25 @@ use shlex::Shlex;
 #[cfg(feature = "parallel")]
 mod parallel;
 mod target;
-mod windows;
 use self::target::*;
+/// A helper module to looking for windows-specific tools:
+/// 1. On Windows host, probe the Windows Registry if needed;
+/// 2. On non-Windows host, check specified environment variables.
+pub mod windows_registry {
 // Regardless of whether this should be in this crate's public API,
 // it has been since 2015, so don't break it.
-pub use windows::find_tools as windows_registry;
+
+pub use ::windows_registry::{
+    find, VsVers, find_vs_version
+};
+
+    /// Similar to the `find` function above, this function will attempt the same
+    /// operation (finding a MSVC tool in a local install) but instead returns a
+    /// `Tool` which may bpub mod windows_registrye introspected.
+    pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<crate::Tool> {
+        ::windows_registry::find_tool(arch_or_target, tool).map(Into::into)
+    }
+}
 
 mod command_helpers;
 use command_helpers::*;
@@ -4216,9 +4230,9 @@ impl Build {
     fn windows_registry_find_tool(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Tool> {
         struct BuildEnvGetter<'s>(&'s Build);
 
-        impl windows_registry::EnvGetter for BuildEnvGetter<'_> {
-            fn get_env(&self, name: &str) -> Option<windows_registry::Env> {
-                self.0.getenv(name).map(windows_registry::Env::Arced)
+        impl ::windows_registry::EnvGetter for BuildEnvGetter<'_> {
+            fn get_env(&self, name: &str) -> Option<::windows_registry::Env> {
+                self.0.getenv(name).map(::windows_registry::Env::Arced)
             }
         }
 
@@ -4226,7 +4240,8 @@ impl Build {
             return None;
         }
 
-        windows_registry::find_tool_inner(target.full_arch, tool, &BuildEnvGetter(self))
+        ::windows_registry::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
+        .map(Into::into)
     }
 }
 
