@@ -257,11 +257,11 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 /// Windows Implementation.
 #[cfg(windows)]
 mod impl_ {
-    use crate::windows::com;
-    use crate::windows::registry::{RegistryKey, LOCAL_MACHINE};
-    use crate::windows::setup_config::SetupConfiguration;
-    use crate::windows::vs_instances::{VsInstances, VswhereInstance};
-    use crate::windows::windows_sys::{
+    use crate::com;
+    use crate::registry::{RegistryKey, LOCAL_MACHINE};
+    use crate::setup_config::SetupConfiguration;
+    use crate::vs_instances::{VsInstances, VswhereInstance};
+    use crate::windows_sys::{
         GetMachineTypeAttributes, GetProcAddress, LoadLibraryA, UserEnabled, HMODULE,
         IMAGE_FILE_MACHINE_AMD64, MACHINE_ATTRIBUTES, S_OK,
     };
@@ -278,9 +278,8 @@ mod impl_ {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Once;
 
-    use super::{EnvGetter, TargetArch, MSVC_FAMILY};
+    use super::{EnvGetter, TargetArch};
     use crate::Tool;
-    use crate::ToolFamily;
 
     struct MsvcTool {
         tool: PathBuf,
@@ -372,6 +371,7 @@ mod impl_ {
             let mut tool = Tool {
                 tool,
                 is_clang_cl: false,
+                env: Vec::new(),
             };
             add_env(&mut tool, "LIB", libs, env_getter);
             add_env(&mut tool, "PATH", path, env_getter);
@@ -463,6 +463,7 @@ mod impl_ {
                 .map(|path| Tool {
                     tool: path,
                     is_clang_cl: false,
+                    env: Vec::new(),
                 })
         }
     }
@@ -509,6 +510,7 @@ mod impl_ {
                 let mut tool = Tool {
                     tool: path,
                     is_clang_cl: false,
+                    env: Vec::new(),
                 };
                 if target == TargetArch::X64 {
                     tool.env.push(("Platform".into(), "X64".into()));
@@ -560,6 +562,7 @@ mod impl_ {
                 base_path.is_file().then(|| Tool {
                     tool: base_path,
                     is_clang_cl,
+                    env: Vec::new(),
                 })
             })
             .next()
@@ -704,6 +707,7 @@ mod impl_ {
             let mut tool = Tool {
                 tool: path,
                 is_clang_cl: false,
+                env: Vec::new(),
             };
             if target == TargetArch::X64 {
                 tool.env.push(("Platform".into(), "X64".into()));
@@ -1381,6 +1385,7 @@ mod impl_ {
                 let mut tool = Tool {
                     tool: path,
                     is_clang_cl: false,
+                    env: Vec::new(),
                 };
                 if target == TargetArch::X64 {
                     tool.env.push(("Platform".into(), "X64".into()));
@@ -1439,6 +1444,7 @@ mod impl_ {
                 .map(|path| Tool {
                     tool: path,
                     is_clang_cl: false,
+                    env: Vec::new(),
                 })
         };
 

@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -8,6 +9,7 @@ use std::{
 pub struct Tool {
     pub(crate) tool: PathBuf,
     pub(crate) is_clang_cl: bool,
+    pub(crate) env: Vec<(OsString, OsString)>,
 }
 
 impl Tool {
@@ -17,7 +19,13 @@ impl Tool {
     /// command returned will already have the initial arguments and environment
     /// variables configured.
     pub fn to_command(&self) -> Command {
-        Command::new(&self.tool)
+        let mut cmd = Command::new(&self.tool);
+
+        for (k, v) in self.env.iter() {
+            cmd.env(k, v);
+        }
+
+        cmd
     }
 
     /// Check is the tool clang-cl related
@@ -28,5 +36,10 @@ impl Tool {
     /// Get path to the tool
     pub fn path(&self) -> &Path {
         &self.tool
+    }
+
+    /// Get environment variables for the tools
+    pub fn env(&self) -> impl IntoIterator<Item = &(OsString, OsString)> {
+        &self.env
     }
 }

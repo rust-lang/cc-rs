@@ -41,12 +41,20 @@ pub struct Tool {
 
 impl From<windows_registry::Tool> for Tool {
     fn from(tool: windows_registry::Tool) -> Self {
-        Self::with_family(
+        let mut cc_tool = Self::with_family(
             tool.path().into(),
             ToolFamily::Msvc {
                 clang_cl: tool.is_clang_cl(),
             },
-        )
+        );
+
+        cc_tool.env = tool
+            .env()
+            .into_iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        cc_tool
     }
 }
 
