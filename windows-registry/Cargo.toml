@@ -19,3 +19,7 @@ rust-version = "1.63"
 
 
 [dependencies]
+
+[lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
+
