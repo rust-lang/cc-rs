@@ -788,7 +788,7 @@ fn apple_sdkroot_wrong() {
         return;
     }
 
-    let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
+    let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.platform";
     let test = Test::clang();
     test.gcc()
         .__set_env("SDKROOT", wrong_sdkroot)
