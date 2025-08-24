@@ -1,4 +1,3 @@
-
 //! Adapted from
 //! https://github.com/rust-lang/rust/blob/master/src/tools/generate-windows-sys/src/main.rs
 
@@ -44,9 +43,11 @@ pub fn generate_bindings() {
     let bindings =
         fs::read_to_string(temp_file.path()).expect("failed to read temp windows_sys.rs");
 
-    let mut f: BufWriter<fs::File> = fs::File::create(format!("{MANIFEST_DIR}/../../windows-registry/src/windows_sys.rs"))
-        .map(BufWriter::new)
-        .expect("failed to create windows_sys.rs");
+    let mut f: BufWriter<fs::File> = fs::File::create(format!(
+        "{MANIFEST_DIR}/../../windows-registry/src/windows_sys.rs"
+    ))
+    .map(BufWriter::new)
+    .expect("failed to create windows_sys.rs");
 
     write!(&mut f, "{PRELUDE}\n{bindings}\n").unwrap();
 

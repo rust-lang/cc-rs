@@ -41,7 +41,12 @@ pub struct Tool {
 
 impl From<windows_registry::Tool> for Tool {
     fn from(tool: windows_registry::Tool) -> Self {
-        Self::with_family(tool.path().into(), ToolFamily::Msvc { clang_cl: tool.is_clang_cl() })
+        Self::with_family(
+            tool.path().into(),
+            ToolFamily::Msvc {
+                clang_cl: tool.is_clang_cl(),
+            },
+        )
     }
 }
 

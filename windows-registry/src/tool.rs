@@ -1,4 +1,7 @@
-use std::{path::{PathBuf, Path}, process::Command};
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 /// `Tool` found by `windows_registry`
 #[derive(Clone, Debug)]

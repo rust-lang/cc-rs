@@ -266,16 +266,14 @@ use self::target::*;
 /// 1. On Windows host, probe the Windows Registry if needed;
 /// 2. On non-Windows host, check specified environment variables.
 pub mod windows_registry {
-// Regardless of whether this should be in this crate's public API,
-// it has been since 2015, so don't break it.
+    // Regardless of whether this should be in this crate's public API,
+    // it has been since 2015, so don't break it.
 
-pub use ::windows_registry::{
-    find, VsVers, find_vs_version
-};
+    pub use ::windows_registry::{find, find_vs_version, VsVers};
 
     /// Similar to the `find` function above, this function will attempt the same
     /// operation (finding a MSVC tool in a local install) but instead returns a
-    /// `Tool` which may bpub mod windows_registrye introspected.
+    /// [`Tool`](crate::Tool) which may bpub mod [`windows_registry`] introspected.
     pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<crate::Tool> {
         ::windows_registry::find_tool(arch_or_target, tool).map(Into::into)
     }
@@ -4241,7 +4239,7 @@ impl Build {
         }
 
         ::windows_registry::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
-        .map(Into::into)
+            .map(Into::into)
     }
 }
 

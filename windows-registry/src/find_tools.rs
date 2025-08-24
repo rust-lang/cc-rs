@@ -149,11 +149,7 @@ pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<Tool> {
     find_tool_with_env(full_arch, tool, &StdEnvGetter)
 }
 
-pub fn find_tool_with_env(
-    full_arch: &str,
-    tool: &str,
-    env_getter: &dyn EnvGetter,
-) -> Option<Tool> {
+pub fn find_tool_with_env(full_arch: &str, tool: &str, env_getter: &dyn EnvGetter) -> Option<Tool> {
     // We only need the arch.
     let target = TargetArch::new(full_arch)?;
 
