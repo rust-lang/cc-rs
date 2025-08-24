@@ -1149,7 +1149,7 @@ mod impl_ {
         use super::*;
         use std::path::Path;
         // Import the find function from the module level
-        use crate::windows::find_tools::find;
+        use crate::find_tools::find;
 
         fn host_arch_to_string(host_arch_value: u16) -> &'static str {
             match host_arch_value {
@@ -1215,7 +1215,7 @@ mod impl_ {
         #[cfg(not(disable_clang_cl_tests))]
         fn test_find_llvm_tools() {
             // Import StdEnvGetter from the parent module
-            use crate::windows::find_tools::StdEnvGetter;
+            use crate::find_tools::StdEnvGetter;
 
             // Test the actual find_llvm_tool function with various LLVM tools
             // This test assumes CI environment has Visual Studio + Clang installed
