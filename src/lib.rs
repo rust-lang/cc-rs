@@ -269,11 +269,40 @@ pub mod windows_registry {
     // Regardless of whether this should be in this crate's public API,
     // it has been since 2015, so don't break it.
 
-    pub use ::windows_registry::{find, find_vs_version, VsVers};
+    pub use ::windows_registry::find; // Fine, only uses std types
+
+    /// A version of Visual Studio
+    #[derive(Debug, PartialEq, Eq, Copy, Clone)]
+    #[non_exhaustive]
+    pub enum VsVers {
+        /// Visual Studio 12 (2013)
+        #[deprecated = "Visual Studio 12 is no longer supported. cc will never return this value."]
+        Vs12,
+        /// Visual Studio 14 (2015)
+        Vs14,
+        /// Visual Studio 15 (2017)
+        Vs15,
+        /// Visual Studio 16 (2019)
+        Vs16,
+        /// Visual Studio 17 (2022)
+        Vs17,
+    }
+
+    pub fn find_vs_version() -> Result<VsVers, String> {
+        ::windows_registry::find_vs_version().map(|vers| match vers {
+            #[allow(deprecated)]
+            ::windows_registry::VsVers::Vs12 => VsVers::Vs12,
+            ::windows_registry::VsVers::Vs14 => VsVers::Vs14,
+            ::windows_registry::VsVers::Vs15 => VsVers::Vs15,
+            ::windows_registry::VsVers::Vs16 => VsVers::Vs16,
+            ::windows_registry::VsVers::Vs17 => VsVers::Vs17,
+            _ => unreachable!("unknown VS version"),
+        })
+    }
 
     /// Similar to the `find` function above, this function will attempt the same
     /// operation (finding a MSVC tool in a local install) but instead returns a
-    /// [`Tool`](crate::Tool) which may bpub mod [`windows_registry`] introspected.
+    /// [`Tool`](crate::Tool) which may be introspected.
     pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<crate::Tool> {
         ::windows_registry::find_tool(arch_or_target, tool).map(Into::into)
     }

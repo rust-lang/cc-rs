@@ -134,7 +134,7 @@ pub fn find(arch_or_target: &str, tool: &str) -> Option<Command> {
 
 /// Similar to the `find` function above, this function will attempt the same
 /// operation (finding a MSVC tool in a local install) but instead returns a
-/// `Tool` which may bpub mod windows_registrye introspected.
+/// `Tool` which may be introspected.
 pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<Tool> {
     let full_arch = if let Some((full_arch, rest)) = arch_or_target.split_once("-") {
         // The logic is all tailored for MSVC, if the target is not that then
