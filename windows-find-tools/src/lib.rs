@@ -2,12 +2,18 @@
 //! the registry and from COM interfaces.
 
 // This is used in the crate's public API, so don't use #[cfg(windows)]
-pub mod find_tools;
+mod find_tools;
+pub use find_tools::*;
+
+mod tool;
+pub use tool::*;
 
 #[cfg(windows)]
-mod windows_link;
+#[doc(hidden)]
+pub mod windows_link;
 #[cfg(windows)]
-pub(crate) mod windows_sys;
+#[doc(hidden)]
+pub mod windows_sys;
 
 #[cfg(windows)]
 mod registry;

@@ -11,7 +11,7 @@ use std::os::raw;
 
 pub type wchar_t = u16;
 
-pub use crate::windows::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY};
+pub use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY};
 
 pub type REFIID = *const IID;
 pub type IID = GUID;
@@ -37,7 +37,7 @@ macro_rules! DEFINE_GUID {
         $name:ident, $l:expr, $w1:expr, $w2:expr,
         $b1:expr, $b2:expr, $b3:expr, $b4:expr, $b5:expr, $b6:expr, $b7:expr, $b8:expr
     ) => {
-        pub const $name: $crate::windows::winapi::GUID = $crate::windows::winapi::GUID {
+        pub const $name: $crate::winapi::GUID = $crate::winapi::GUID {
             data1: $l,
             data2: $w1,
             data3: $w2,
@@ -121,10 +121,10 @@ macro_rules! RIDL {
         $l:expr, $w1:expr, $w2:expr,
         $b1:expr, $b2:expr, $b3:expr, $b4:expr, $b5:expr, $b6:expr, $b7:expr, $b8:expr
     ) => (
-        impl $crate::windows::winapi::Interface for $interface {
+        impl $crate::winapi::Interface for $interface {
             #[inline]
-            fn uuidof() -> $crate::windows::winapi::GUID {
-                $crate::windows::winapi::GUID {
+            fn uuidof() -> $crate::winapi::GUID {
+                $crate::winapi::GUID {
                     data1: $l,
                     data2: $w1,
                     data3: $w2,
