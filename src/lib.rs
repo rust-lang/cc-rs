@@ -288,6 +288,10 @@ pub mod windows_registry {
         Vs17,
     }
 
+    /// Find the most recent installed version of Visual Studio
+    ///
+    /// This is used by the cmake crate to figure out the correct
+    /// generator.
     pub fn find_vs_version() -> Result<VsVers, String> {
         ::windows_registry::find_vs_version().map(|vers| match vers {
             #[allow(deprecated)]
@@ -304,7 +308,7 @@ pub mod windows_registry {
     /// operation (finding a MSVC tool in a local install) but instead returns a
     /// [`Tool`](crate::Tool) which may be introspected.
     pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<crate::Tool> {
-        ::windows_registry::find_tool(arch_or_target, tool).map(Into::into)
+        ::windows_registry::find_tool(arch_or_target, tool).map(crate::Tool::from_windows_registry)
     }
 }
 
@@ -4268,7 +4272,7 @@ impl Build {
         }
 
         ::windows_registry::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
-            .map(Into::into)
+            .map(Tool::from_windows_registry)
     }
 }
 

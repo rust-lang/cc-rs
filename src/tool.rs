@@ -39,8 +39,8 @@ pub struct Tool {
     pub(crate) has_internal_target_arg: bool,
 }
 
-impl From<windows_registry::Tool> for Tool {
-    fn from(tool: windows_registry::Tool) -> Self {
+impl Tool {
+    pub(crate) fn from_windows_registry(tool: ::windows_registry::Tool) -> Self {
         let mut cc_tool = Self::with_family(
             tool.path().into(),
             ToolFamily::Msvc {
@@ -56,9 +56,7 @@ impl From<windows_registry::Tool> for Tool {
 
         cc_tool
     }
-}
 
-impl Tool {
     pub(crate) fn new(
         path: PathBuf,
         cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
