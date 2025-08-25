@@ -7,7 +7,6 @@ repository = "https://github.com/rust-lang/cc-rs"
 documentation = "https://docs.rs/windows-registry"
 description = "Read MSVC versions from the registry and from COM interfaces"
 keywords = ["build-dependencies"]
-readme = "../README.md"
 categories = ["development-tools::build-utils"]
 rust-version = "1.63"
 
