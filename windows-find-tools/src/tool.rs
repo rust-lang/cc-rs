@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-/// `Tool` found by `windows_registry`
+/// `Tool` found by `windows-find-tools`
 #[derive(Clone, Debug)]
 pub struct Tool {
     pub(crate) tool: PathBuf,

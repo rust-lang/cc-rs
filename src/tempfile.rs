@@ -30,7 +30,7 @@ fn create_named(path: &Path) -> io::Result<File> {
     #[cfg(windows)]
     <OpenOptions as os::windows::fs::OpenOptionsExt>::custom_flags(
         &mut open_options,
-        ::windows_registry::windows_sys::FILE_ATTRIBUTE_TEMPORARY,
+        ::windows_find_tools::windows_sys::FILE_ATTRIBUTE_TEMPORARY,
     );
 
     open_options.open(path)

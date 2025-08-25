@@ -1,8 +1,9 @@
 # cc-rs
 
-A library for reading MSVC versions from the registry and from COM interfaces.
+A library for finding windows-specific tools, reading MSVC versions from the
+registry and from COM interfaces.
 
-Refer to the [documentation](https://docs.rs/windows-registry) for detailed usage instructions.
+Refer to the [documentation](https://docs.rs/windows-find-tools) for detailed usage instructions.
 
 ## License
 
@@ -18,5 +19,5 @@ at your option.
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in cc-rs by you, as defined in the Apache-2.0 license, shall be
+for inclusion in windows-find-tools by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
