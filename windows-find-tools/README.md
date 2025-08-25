@@ -1,4 +1,4 @@
-# cc-rs
+# windows-find-tools 
 
 A library for finding windows-specific tools, reading MSVC versions from the
 registry and from COM interfaces.
