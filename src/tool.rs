@@ -40,7 +40,7 @@ pub struct Tool {
 }
 
 impl Tool {
-    pub(crate) fn from_windows_find_tools(tool: ::windows_find_tools::Tool) -> Self {
+    pub(crate) fn from_find_msvc_tools(tool: ::find_msvc_tools::Tool) -> Self {
         let mut cc_tool = Self::with_family(
             tool.path().into(),
             ToolFamily::Msvc {

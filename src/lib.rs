@@ -269,7 +269,7 @@ pub mod windows_registry {
     // Regardless of whether this should be in this crate's public API,
     // it has been since 2015, so don't break it.
 
-    pub use ::windows_find_tools::find; // Fine, only uses std types
+    pub use ::find_msvc_tools::find; // Fine, only uses std types
 
     /// A version of Visual Studio
     #[derive(Debug, PartialEq, Eq, Copy, Clone)]
@@ -293,13 +293,13 @@ pub mod windows_registry {
     /// This is used by the cmake crate to figure out the correct
     /// generator.
     pub fn find_vs_version() -> Result<VsVers, String> {
-        ::windows_find_tools::find_vs_version().map(|vers| match vers {
+        ::find_msvc_tools::find_vs_version().map(|vers| match vers {
             #[allow(deprecated)]
-            ::windows_find_tools::VsVers::Vs12 => VsVers::Vs12,
-            ::windows_find_tools::VsVers::Vs14 => VsVers::Vs14,
-            ::windows_find_tools::VsVers::Vs15 => VsVers::Vs15,
-            ::windows_find_tools::VsVers::Vs16 => VsVers::Vs16,
-            ::windows_find_tools::VsVers::Vs17 => VsVers::Vs17,
+            ::find_msvc_tools::VsVers::Vs12 => VsVers::Vs12,
+            ::find_msvc_tools::VsVers::Vs14 => VsVers::Vs14,
+            ::find_msvc_tools::VsVers::Vs15 => VsVers::Vs15,
+            ::find_msvc_tools::VsVers::Vs16 => VsVers::Vs16,
+            ::find_msvc_tools::VsVers::Vs17 => VsVers::Vs17,
             _ => unreachable!("unknown VS version"),
         })
     }
@@ -308,8 +308,7 @@ pub mod windows_registry {
     /// operation (finding a MSVC tool in a local install) but instead returns a
     /// [`Tool`](crate::Tool) which may be introspected.
     pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<crate::Tool> {
-        ::windows_find_tools::find_tool(arch_or_target, tool)
-            .map(crate::Tool::from_windows_find_tools)
+        ::find_msvc_tools::find_tool(arch_or_target, tool).map(crate::Tool::from_find_msvc_tools)
     }
 }
 
@@ -2664,7 +2663,7 @@ impl Build {
             _ => "ml.exe",
         };
         let mut cmd = self
-            .windows_find_tools_find(&target, tool)
+            .find_msvc_tools_find(&target, tool)
             .unwrap_or_else(|| self.cmd(tool));
         cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
@@ -2957,7 +2956,7 @@ impl Build {
             traditional
         };
 
-        let cl_exe = self.windows_find_tools_find_tool(&target, msvc);
+        let cl_exe = self.find_msvc_tools_find_tool(&target, msvc);
 
         let tool_opt: Option<Tool> = self
             .env_tool(env)
@@ -3483,7 +3482,7 @@ impl Build {
 
                     if lib.is_empty() {
                         name = PathBuf::from("lib.exe");
-                        let mut cmd = match self.windows_find_tools_find(&target, "lib.exe") {
+                        let mut cmd = match self.find_msvc_tools_find(&target, "lib.exe") {
                             Some(t) => t,
                             None => self.cmd("lib.exe"),
                         };
@@ -4254,17 +4253,17 @@ impl Build {
         None
     }
 
-    fn windows_find_tools_find(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Command> {
-        self.windows_find_tools_find_tool(target, tool)
+    fn find_msvc_tools_find(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Command> {
+        self.find_msvc_tools_find_tool(target, tool)
             .map(|c| c.to_command())
     }
 
-    fn windows_find_tools_find_tool(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Tool> {
+    fn find_msvc_tools_find_tool(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Tool> {
         struct BuildEnvGetter<'s>(&'s Build);
 
-        impl ::windows_find_tools::EnvGetter for BuildEnvGetter<'_> {
-            fn get_env(&self, name: &str) -> Option<::windows_find_tools::Env> {
-                self.0.getenv(name).map(::windows_find_tools::Env::Arced)
+        impl ::find_msvc_tools::EnvGetter for BuildEnvGetter<'_> {
+            fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
+                self.0.getenv(name).map(::find_msvc_tools::Env::Arced)
             }
         }
 
@@ -4272,8 +4271,8 @@ impl Build {
             return None;
         }
 
-        ::windows_find_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
-            .map(Tool::from_windows_find_tools)
+        ::find_msvc_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
+            .map(Tool::from_find_msvc_tools)
     }
 }
 

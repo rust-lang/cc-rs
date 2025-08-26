@@ -44,7 +44,7 @@ pub fn generate_bindings() {
         fs::read_to_string(temp_file.path()).expect("failed to read temp windows_sys.rs");
 
     let mut f: BufWriter<fs::File> = fs::File::create(format!(
-        "{MANIFEST_DIR}/../../windows-find-tools/src/windows_sys.rs"
+        "{MANIFEST_DIR}/../../find-msvc-tools/src/windows_sys.rs"
     ))
     .map(BufWriter::new)
     .expect("failed to create windows_sys.rs");
