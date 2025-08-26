@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! A helper module to looking for windows-specific tools:
+//! An internal use crate to looking for windows-specific tools:
 //! 1. On Windows host, probe the Windows Registry if needed;
 //! 2. On non-Windows host, check specified environment variables.
 
@@ -24,9 +24,6 @@ use std::{
 };
 
 use crate::Tool;
-use crate::ToolFamily;
-
-const MSVC_FAMILY: ToolFamily = ToolFamily::Msvc { clang_cl: false };
 
 /// The target provided by the user.
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -63,7 +60,9 @@ impl TargetArch {
     }
 }
 
-pub(crate) enum Env {
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum Env {
     Owned(OsString),
     Arced(Arc<OsStr>),
 }
@@ -94,7 +93,7 @@ impl From<Env> for PathBuf {
     }
 }
 
-pub(crate) trait EnvGetter {
+pub trait EnvGetter {
     fn get_env(&self, name: &'static str) -> Option<Env>;
 }
 
@@ -149,14 +148,10 @@ pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<Tool> {
     } else {
         arch_or_target
     };
-    find_tool_inner(full_arch, tool, &StdEnvGetter)
+    find_tool_with_env(full_arch, tool, &StdEnvGetter)
 }
 
-pub(crate) fn find_tool_inner(
-    full_arch: &str,
-    tool: &str,
-    env_getter: &dyn EnvGetter,
-) -> Option<Tool> {
+pub fn find_tool_with_env(full_arch: &str, tool: &str, env_getter: &dyn EnvGetter) -> Option<Tool> {
     // We only need the arch.
     let target = TargetArch::new(full_arch)?;
 
@@ -264,11 +259,11 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 /// Windows Implementation.
 #[cfg(windows)]
 mod impl_ {
-    use crate::windows::com;
-    use crate::windows::registry::{RegistryKey, LOCAL_MACHINE};
-    use crate::windows::setup_config::SetupConfiguration;
-    use crate::windows::vs_instances::{VsInstances, VswhereInstance};
-    use crate::windows::windows_sys::{
+    use crate::com;
+    use crate::registry::{RegistryKey, LOCAL_MACHINE};
+    use crate::setup_config::SetupConfiguration;
+    use crate::vs_instances::{VsInstances, VswhereInstance};
+    use crate::windows_sys::{
         GetMachineTypeAttributes, GetProcAddress, LoadLibraryA, UserEnabled, HMODULE,
         IMAGE_FILE_MACHINE_AMD64, MACHINE_ATTRIBUTES, S_OK,
     };
@@ -285,9 +280,8 @@ mod impl_ {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Once;
 
-    use super::{EnvGetter, TargetArch, MSVC_FAMILY};
+    use super::{EnvGetter, TargetArch};
     use crate::Tool;
-    use crate::ToolFamily;
 
     struct MsvcTool {
         tool: PathBuf,
@@ -376,7 +370,11 @@ mod impl_ {
                 path,
                 include,
             } = self;
-            let mut tool = Tool::with_family(tool, MSVC_FAMILY);
+            let mut tool = Tool {
+                tool,
+                is_clang_cl: false,
+                env: Vec::new(),
+            };
             add_env(&mut tool, "LIB", libs, env_getter);
             add_env(&mut tool, "PATH", path, env_getter);
             add_env(&mut tool, "INCLUDE", include, env_getter);
@@ -464,7 +462,11 @@ mod impl_ {
                         .map(|p| p.join(tool))
                         .find(|p| p.exists())
                 })
-                .map(|path| Tool::with_family(path, MSVC_FAMILY))
+                .map(|path| Tool {
+                    tool: path,
+                    is_clang_cl: false,
+                    env: Vec::new(),
+                })
         }
     }
 
@@ -507,7 +509,11 @@ mod impl_ {
                 if !path.is_file() {
                     return None;
                 }
-                let mut tool = Tool::with_family(path, MSVC_FAMILY);
+                let mut tool = Tool {
+                    tool: path,
+                    is_clang_cl: false,
+                    env: Vec::new(),
+                };
                 if target == TargetArch::X64 {
                     tool.env.push(("Platform".into(), "X64".into()));
                 }
@@ -554,10 +560,12 @@ mod impl_ {
                 // E.g. C:\...\VC\Tools\LLVM\x64\bin\clang.exe
                 base_path.push("bin");
                 base_path.push(tool);
-                let clang_cl = tool.contains("clang-cl");
-                base_path
-                    .is_file()
-                    .then(|| Tool::with_family(base_path, ToolFamily::Msvc { clang_cl }))
+                let is_clang_cl = tool.contains("clang-cl");
+                base_path.is_file().then(|| Tool {
+                    tool: base_path,
+                    is_clang_cl,
+                    env: Vec::new(),
+                })
             })
             .next()
     }
@@ -698,7 +706,11 @@ mod impl_ {
         }
 
         path.map(|path| {
-            let mut tool = Tool::with_family(path, MSVC_FAMILY);
+            let mut tool = Tool {
+                tool: path,
+                is_clang_cl: false,
+                env: Vec::new(),
+            };
             if target == TargetArch::X64 {
                 tool.env.push(("Platform".into(), "X64".into()));
             } else if matches!(target, TargetArch::Arm64 | TargetArch::Arm64ec) {
@@ -1139,7 +1151,7 @@ mod impl_ {
         use super::*;
         use std::path::Path;
         // Import the find function from the module level
-        use crate::windows::find_tools::find;
+        use crate::find_tools::find;
 
         fn host_arch_to_string(host_arch_value: u16) -> &'static str {
             match host_arch_value {
@@ -1205,7 +1217,7 @@ mod impl_ {
         #[cfg(not(disable_clang_cl_tests))]
         fn test_find_llvm_tools() {
             // Import StdEnvGetter from the parent module
-            use crate::windows::find_tools::StdEnvGetter;
+            use crate::find_tools::StdEnvGetter;
 
             // Test the actual find_llvm_tool function with various LLVM tools
             // This test assumes CI environment has Visual Studio + Clang installed
@@ -1372,7 +1384,11 @@ mod impl_ {
             .map(|path| {
                 let mut path = PathBuf::from(path);
                 path.push("MSBuild.exe");
-                let mut tool = Tool::with_family(path, MSVC_FAMILY);
+                let mut tool = Tool {
+                    tool: path,
+                    is_clang_cl: false,
+                    env: Vec::new(),
+                };
                 if target == TargetArch::X64 {
                     tool.env.push(("Platform".into(), "X64".into()));
                 }
@@ -1386,7 +1402,7 @@ mod impl_ {
 mod impl_ {
     use std::{env, ffi::OsStr};
 
-    use super::{EnvGetter, TargetArch, MSVC_FAMILY};
+    use super::{EnvGetter, TargetArch};
     use crate::Tool;
 
     /// Finding msbuild.exe tool under unix system is not currently supported.
@@ -1427,7 +1443,11 @@ mod impl_ {
             env::split_paths(install_dir)
                 .map(|p| p.join(tool))
                 .find(|p| p.exists())
-                .map(|path| Tool::with_family(path, MSVC_FAMILY))
+                .map(|path| Tool {
+                    tool: path,
+                    is_clang_cl: false,
+                    env: Vec::new(),
+                })
         };
 
         // Take the path of tool for the vc install directory.
