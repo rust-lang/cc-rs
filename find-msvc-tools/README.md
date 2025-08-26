@@ -1,6 +1,6 @@
 # find-msvc-tools 
 
-A library for finding windows-specific tools, reading MSVC versions from the
+An internal use library for finding windows-specific tools, reading MSVC versions from the
 registry and from COM interfaces.
 
 Refer to the [documentation](https://docs.rs/find-msvc-tools) for detailed usage instructions.
@@ -18,6 +18,6 @@ at your option.
 
 ### Contribution
 
-Unless you explicitly state otherwise, any contribution intentionally submitted
+Unless you explicitly state otherwise, any contribution transitively intentionally submitted
 for inclusion in find-msvc-tools by you, as defined in the Apache-2.0 license, shall be
 dual licensed as above, without any additional terms or conditions.
