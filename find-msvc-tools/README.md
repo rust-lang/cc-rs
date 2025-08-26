@@ -1,5 +1,7 @@
 # find-msvc-tools 
 
+> This crate is maintained by the library team, primarily for use by the `cc` crate and not intended for external use (except as a transitive dependency). This crate may make major changes to its APIs or be deprecated without warning.
+
 An internal use library for finding windows-specific tools, reading MSVC versions from the
 registry and from COM interfaces.
 
