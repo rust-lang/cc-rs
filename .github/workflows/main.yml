@@ -54,11 +54,11 @@ jobs:
             rust: stable
             target: i686-unknown-linux-gnu
           - build: aarch64-macos
-            os: macos-14
+            os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
           - build: x86_64-macos
-            os: macos-13 # x86
+            os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
           - build: aarch64-ios
@@ -72,7 +72,7 @@ jobs:
             target: aarch64-apple-ios-sim
             no_run: --no-run
           - build: x86_64-ios-sim
-            os: macos-13 # x86
+            os: macos-latest
             rust: stable
             target: x86_64-apple-ios # Simulator
             no_run: --no-run
@@ -82,7 +82,7 @@ jobs:
             target: aarch64-apple-ios-macabi
             no_run: --no-run # FIXME(madsmtm): Fix running tests
           - build: x86_64-ios-macabi
-            os: macos-13 # x86
+            os: macos-latest
             rust: stable
             target: x86_64-apple-ios-macabi
             no_run: --no-run # FIXME(madsmtm): Fix running tests
