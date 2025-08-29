@@ -388,12 +388,7 @@ impl Tool {
         };
         cmd.args(&self.cc_wrapper_args);
 
-        cmd.args(
-            self
-                .args
-                .iter()
-                .filter(|a| !self.removed_args.contains(a))
-        );
+        cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
 
         for (k, v) in self.env.iter() {
             cmd.env(k, v);
