@@ -395,7 +395,9 @@ impl Tool {
                 .filter(|a| !self.removed_args.contains(a))
         );
 
-        cmd.envs(&self.env);
+        for (k, v) in self.env.iter() {
+            cmd.env(k, v);
+        }
 
         cmd
     }
