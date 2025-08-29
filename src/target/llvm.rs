@@ -95,7 +95,7 @@ impl TargetInfo<'_> {
             env => env,
         };
         let abi = match self.abi {
-            "sim" => "simulator",
+            "sim" if env != "simulator" => "simulator",
             "llvm" | "softfloat" | "uwp" | "vec-extabi" => "",
             "ilp32" => "_ilp32",
             "abi64" => "",
