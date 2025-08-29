@@ -388,16 +388,15 @@ impl Tool {
         };
         cmd.args(&self.cc_wrapper_args);
 
-        let value = self
-            .args
-            .iter()
-            .filter(|a| !self.removed_args.contains(a))
-            .collect::<Vec<_>>();
-        cmd.args(&value);
+        cmd.args(
+            self
+                .args
+                .iter()
+                .filter(|a| !self.removed_args.contains(a))
+        );
 
-        for (k, v) in self.env.iter() {
-            cmd.env(k, v);
-        }
+        cmd.envs(&self.env);
+
         cmd
     }
 
