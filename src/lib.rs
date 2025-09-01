@@ -269,7 +269,33 @@ pub mod windows_registry {
     // Regardless of whether this should be in this crate's public API,
     // it has been since 2015, so don't break it.
 
-    pub use ::find_msvc_tools::find; // Fine, only uses std types
+    /// Attempts to find a tool within an MSVC installation using the Windows
+    /// registry as a point to search from.
+    ///
+    /// The `arch_or_target` argument is the architecture or the Rust target name
+    /// that the tool should work for (e.g. compile or link for). The supported
+    /// architecture names are:
+    /// - `"x64"` or `"x86_64"`
+    /// - `"arm64"` or `"aarch64"`
+    /// - `"arm64ec"`
+    /// - `"x86"`, `"i586"` or `"i686"`
+    /// - `"arm"` or `"thumbv7a"`
+    ///
+    /// The `tool` argument is the tool to find. Supported tools include:
+    /// - MSVC tools: `cl.exe`, `link.exe`, `lib.exe`, etc.
+    /// - `MSBuild`: `msbuild.exe`
+    /// - Visual Studio IDE: `devenv.exe`
+    /// - Clang/LLVM tools: `clang.exe`, `clang++.exe`, `clang-*.exe`, `llvm-*.exe`, `lld.exe`, etc.
+    ///
+    /// This function will return `None` if the tool could not be found, or it will
+    /// return `Some(cmd)` which represents a command that's ready to execute the
+    /// tool with the appropriate environment variables set.
+    ///
+    /// Note that this function always returns `None` for non-MSVC targets (if a
+    /// full target name was specified).
+    pub fn find(arch_or_target: &str, tool: &str) -> Option<std::process::Command> {
+        ::find_msvc_tools::find(arch_or_target, tool)
+    }
 
     /// A version of Visual Studio
     #[derive(Debug, PartialEq, Eq, Copy, Clone)]
