@@ -16,9 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Fix semver-checks: Add back functino `windows_registry::find` ([#1539](https://github.com/rust-lang/cc-rs/pull/1539))
-- fix crates-io trusted publishing in publish.yml ([#1538](https://github.com/rust-lang/cc-rs/pull/1538))
-- use trusted publishing in publish.yml ([#1537](https://github.com/rust-lang/cc-rs/pull/1537))
 - Regenerate target info ([#1536](https://github.com/rust-lang/cc-rs/pull/1536))
 - Optimize Tool::to_command ([#1535](https://github.com/rust-lang/cc-rs/pull/1535))
 - Extract windows-find-tools ([#1531](https://github.com/rust-lang/cc-rs/pull/1531))
