@@ -18,7 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Regenerate target info ([#1536](https://github.com/rust-lang/cc-rs/pull/1536))
 - Optimize Tool::to_command ([#1535](https://github.com/rust-lang/cc-rs/pull/1535))
-- Extract windows-find-tools ([#1531](https://github.com/rust-lang/cc-rs/pull/1531))
+- Extract find-msvc-tools ([#1531](https://github.com/rust-lang/cc-rs/pull/1531))
 - Add prefer_clang_cl_over_msvc ([#1516](https://github.com/rust-lang/cc-rs/pull/1516))
 
 ## [1.2.34](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.33...cc-v1.2.34) - 2025-08-22
