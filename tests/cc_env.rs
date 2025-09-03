@@ -133,12 +133,14 @@ fn env_var_alternatives_override() {
     let compiler2 = format!("clang2{}", env::consts::EXE_SUFFIX);
     let compiler3 = format!("clang3{}", env::consts::EXE_SUFFIX);
     let compiler4 = format!("clang4{}", env::consts::EXE_SUFFIX);
+    let compiler5 = format!("clang5{}", env::consts::EXE_SUFFIX);
 
     let test = Test::new();
     test.shim(&compiler1);
     test.shim(&compiler2);
     test.shim(&compiler3);
     test.shim(&compiler4);
+    test.shim(&compiler5);
 
     env::set_var("CC", &compiler1);
     let compiler = test.gcc().target("x86_64-unknown-none").get_compiler();
@@ -156,4 +158,8 @@ fn env_var_alternatives_override() {
     env::set_var("CC_x86_64-unknown-none", &compiler4);
     let compiler = test.gcc().target("x86_64-unknown-none").get_compiler();
     assert_eq!(compiler.path(), Path::new(&compiler4));
+
+    env::set_var("CC_thumbv8m_main_none_eabi", &compiler5);
+    let compiler = test.gcc().target("thumbv8m.main-none-eabi").get_compiler();
+    assert_eq!(compiler.path(), Path::new(&compiler5));
 }

@@ -114,8 +114,8 @@
 //! Each of these variables can also be supplied with certain prefixes and suffixes,
 //! in the following prioritized order:
 //!
-//!   1. `<var>_<target>` - for example, `CC_x86_64-unknown-linux-gnu`
-//!   2. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu`
+//!   1. `<var>_<target>` - for example, `CC_x86_64-unknown-linux-gnu` or `CC_thumbv8m.main-none-eabi`
+//!   2. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu` or `CC_thumbv8m_main_none_eabi` (both periods and underscores are replaced)
 //!   3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
 //!   4. `<var>` - a plain `CC`, `AR` as above.
 //!
@@ -3928,7 +3928,7 @@ impl Build {
         } else {
             "HOST"
         };
-        let target_u = target.replace('-', "_");
+        let target_u = target.replace(['-', '.'], "_");
 
         Ok([
             format!("{env}_{target}"),
