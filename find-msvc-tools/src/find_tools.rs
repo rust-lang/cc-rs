@@ -256,6 +256,16 @@ pub fn find_vs_version() -> Result<VsVers, String> {
     }
 }
 
+/// To find the Universal CRT we look in a specific registry key for where
+/// all the Universal CRTs are located and then sort them asciibetically to
+/// find the newest version. While this sort of sorting isn't ideal,  it is
+/// what vcvars does so that's good enough for us.
+///
+/// Returns a pair of (root, version) for the ucrt dir if found
+pub fn get_ucrt_dir() -> Option<(PathBuf, String)> {
+    impl_::get_ucrt_dir()
+}
+
 /// Windows Implementation.
 #[cfg(windows)]
 mod impl_ {
@@ -997,7 +1007,7 @@ mod impl_ {
     // what vcvars does so that's good enough for us.
     //
     // Returns a pair of (root, version) for the ucrt dir if found
-    fn get_ucrt_dir() -> Option<(PathBuf, String)> {
+    pub(super) fn get_ucrt_dir() -> Option<(PathBuf, String)> {
         let key = r"SOFTWARE\Microsoft\Windows Kits\Installed Roots";
         let key = LOCAL_MACHINE.open(key.as_ref()).ok()?;
         let root = key.query_str("KitsRoot10").ok()?;
@@ -1400,7 +1410,7 @@ mod impl_ {
 /// Non-Windows Implementation.
 #[cfg(not(windows))]
 mod impl_ {
-    use std::{env, ffi::OsStr};
+    use std::{env, ffi::OsStr, path::PathBuf};
 
     use super::{EnvGetter, TargetArch};
     use crate::Tool;
@@ -1487,5 +1497,10 @@ mod impl_ {
     #[inline(always)]
     pub(super) fn has_msbuild_version(_version: &str, _: &dyn EnvGetter) -> bool {
         false
+    }
+
+    #[inline(always)]
+    pub(super) fn get_ucrt_dir() -> Option<(PathBuf, String)> {
+        None
     }
 }
