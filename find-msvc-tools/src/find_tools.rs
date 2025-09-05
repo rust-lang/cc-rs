@@ -1410,7 +1410,7 @@ mod impl_ {
 /// Non-Windows Implementation.
 #[cfg(not(windows))]
 mod impl_ {
-    use std::{env, ffi::OsStr};
+    use std::{env, ffi::OsStr, path::PathBuf};
 
     use super::{EnvGetter, TargetArch};
     use crate::Tool;
