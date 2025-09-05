@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.36](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.35...cc-v1.2.36) - 2025-09-05
+
+### Other
+
+- Regenerate windows sys bindings ([#1548](https://github.com/rust-lang/cc-rs/pull/1548))
+- Update windows-bindgen requirement from 0.62 to 0.63 ([#1547](https://github.com/rust-lang/cc-rs/pull/1547))
+- Add fn get_ucrt_dir for find-msvc-tools ([#1546](https://github.com/rust-lang/cc-rs/pull/1546))
+- Regenerate target info ([#1544](https://github.com/rust-lang/cc-rs/pull/1544))
+- fix publish.yml ([#1543](https://github.com/rust-lang/cc-rs/pull/1543))
+- Replace periods with underscores as well when parsing env variables ([#1541](https://github.com/rust-lang/cc-rs/pull/1541))
+
 ## [1.2.35](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.34...cc-v1.2.35) - 2025-09-01
 
 ### Fixed
