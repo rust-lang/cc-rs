@@ -231,6 +231,7 @@ mod inprocess_jobserver {
     pub(crate) struct JobServer(AtomicU32);
 
     impl JobServer {
+        #[allow(clippy::disallowed_methods)]
         pub(super) fn new() -> Self {
             // Use `NUM_JOBS` if set (it's configured by Cargo) and otherwise
             // just fall back to the number of cores on the local machine, or a reasonable

@@ -119,7 +119,7 @@ impl StderrForwarder {
         }
     }
 
-    fn forward_available(&mut self) -> bool {
+    pub(crate) fn forward_available(&mut self) -> bool {
         if let Some((stderr, buffer)) = self.inner.as_mut() {
             loop {
                 // For non-blocking we check to see if there is data available, so we should try to
@@ -226,7 +226,7 @@ impl StderrForwarder {
     }
 
     #[cfg(feature = "parallel")]
-    fn forward_all(&mut self) {
+    pub(crate) fn forward_all(&mut self) {
         while !self.forward_available() {}
     }
 
@@ -422,40 +422,5 @@ pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAd
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(dst);
-    }
-}
-
-#[cfg(feature = "parallel")]
-pub(crate) fn try_wait_on_child(
-    cmd: &Command,
-    child: &mut Child,
-    stdout: &mut dyn io::Write,
-    stderr_forwarder: &mut StderrForwarder,
-) -> Result<Option<()>, Error> {
-    stderr_forwarder.forward_available();
-
-    match child.try_wait() {
-        Ok(Some(status)) => {
-            stderr_forwarder.forward_all();
-
-            let _ = writeln!(stdout, "{}", status);
-
-            if status.success() {
-                Ok(Some(()))
-            } else {
-                Err(Error::new(
-                    ErrorKind::ToolExecError,
-                    format!("command did not execute successfully (status code {status}): {cmd:?}"),
-                ))
-            }
-        }
-        Ok(None) => Ok(None),
-        Err(e) => {
-            stderr_forwarder.forward_all();
-            Err(Error::new(
-                ErrorKind::ToolExecError,
-                format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
-            ))
-        }
     }
 }
