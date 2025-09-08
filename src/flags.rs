@@ -104,7 +104,10 @@ impl<'this> RustcCodegenFlags<'this> {
         };
         let flag = flag.as_ref();
 
-        fn flag_not_empty_generic<T>(flag: &str, flag_value: Option<T>) -> Result<Option<T>, Error> {
+        fn flag_not_empty_generic<T>(
+            flag: &str,
+            flag_value: Option<T>,
+        ) -> Result<Option<T>, Error> {
             if let Some(flag_value) = flag_value {
                 Ok(Some(flag_value))
             } else {
