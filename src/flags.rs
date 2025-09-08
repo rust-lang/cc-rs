@@ -102,18 +102,27 @@ impl<'this> RustcCodegenFlags<'this> {
         } else {
             Cow::Owned(format!("{prefix}{flag}"))
         };
+        let flag = flag.as_ref();
 
-        fn flag_ok_or<'flag>(
-            flag: Option<&'flag str>,
-            msg: &'static str,
-        ) -> Result<&'flag str, Error> {
-            flag.ok_or(Error::new(ErrorKind::InvalidFlag, msg))
+        fn flag_not_empty_inner<T>(
+            flag: &str,
+            flag_value: Option<T>,
+        ) -> Result<Option<T>, Error> {
+            if let Some(flag_value) = flag_value {
+                Ok(Some(flag_value))
+            } else {
+                Err(Error::new(
+                    ErrorKind::InvalidFlag,
+                    format!("{flag} must have a value"),
+                ))
+            }
         }
+        let flag_not_empty = |flag_value| flag_not_empty_inner(flag, flag_value);
 
-        match flag.as_ref() {
+        match flag {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#code-model
             "-Ccode-model" => {
-                self.code_model = Some(flag_ok_or(value, "-Ccode-model must have a value")?);
+                self.code_model = flag_not_empty(value)?;
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#no-vectorize-loops
             "-Cno-vectorize-loops" => self.no_vectorize_loops = true,
@@ -121,12 +130,11 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Cno-vectorize-slp" => self.no_vectorize_slp = true,
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#profile-generate
             "-Cprofile-generate" => {
-                self.profile_generate =
-                    Some(flag_ok_or(value, "-Cprofile-generate must have a value")?);
+                self.profile_generate = flag_not_empty(value)?;
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#profile-use
             "-Cprofile-use" => {
-                self.profile_use = Some(flag_ok_or(value, "-Cprofile-use must have a value")?);
+                self.profile_use = flag_not_empty(value)?;
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#control-flow-guard
             "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
@@ -134,8 +142,7 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Clto" => self.lto = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
-                self.relocation_model =
-                    Some(flag_ok_or(value, "-Crelocation-model must have a value")?);
+                self.relocation_model = flag_not_empty(value)?;
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#embed-bitcode
             "-Cembed-bitcode" => self.embed_bitcode = value.map_or(Some(true), arg_to_bool),
@@ -151,22 +158,17 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://doc.rust-lang.org/beta/unstable-book/compiler-flags/branch-protection.html
             // FIXME: Drop the -Z variant and update the doc link once the option is stabilised
             "-Zbranch-protection" | "-Cbranch-protection" => {
-                self.branch_protection =
-                    Some(flag_ok_or(value, "-Zbranch-protection must have a value")?);
+                self.branch_protection = flag_not_empty(value)?;
             }
             // https://doc.rust-lang.org/beta/unstable-book/compiler-flags/dwarf-version.html
             // FIXME: Drop the -Z variant and update the doc link once the option is stablized
             "-Zdwarf-version" | "-Cdwarf-version" => {
-                self.dwarf_version = Some(value.and_then(arg_to_u32).ok_or(Error::new(
-                    ErrorKind::InvalidFlag,
-                    "-Zdwarf-version must have a value",
-                ))?);
+                self.dwarf_version = flag_not_empty(value.and_then(arg_to_u32))?;
             }
             // https://github.com/rust-lang/rust/issues/114903
             // FIXME: Drop the -Z variant and update the doc link once the option is stabilized
             "-Zstack-protector" | "-Cstack-protector" => {
-                self.stack_protector =
-                    Some(flag_ok_or(value, "-Zstack-protector must have a value")?);
+                self.stack_protector = flag_not_empty(value)?;
             }
             _ => {}
         }
