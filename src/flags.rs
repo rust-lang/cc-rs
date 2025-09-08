@@ -19,6 +19,7 @@ pub(crate) struct RustcCodegenFlags<'a> {
     no_redzone: Option<bool>,
     soft_float: Option<bool>,
     dwarf_version: Option<u32>,
+    stack_protector: Option<&'a str>,
 }
 
 impl<'this> RustcCodegenFlags<'this> {
@@ -161,6 +162,12 @@ impl<'this> RustcCodegenFlags<'this> {
                     "-Zdwarf-version must have a value",
                 ))?);
             }
+            // https://github.com/rust-lang/rust/issues/114903
+            // FIXME: Drop the -Z variant and update the doc link once the option is stabilized
+            "-Zstack-protector" | "-Cstack-protector" => {
+                self.stack_protector =
+                    Some(flag_ok_or(value, "-Zstack-protector must have a value")?);
+            }
             _ => {}
         }
         Ok(())
@@ -266,6 +273,23 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://gcc.gnu.org/onlinedocs/gcc/Debugging-Options.html#index-gdwarf
             if let Some(value) = self.dwarf_version {
                 push_if_supported(format!("-gdwarf-{value}").into());
+            }
+            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fstack-protector
+            // https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fstack-protector
+            if let Some(value) = self.stack_protector {
+                // don't need to propagate stack-protector on MSVC since /GS is already the default
+                // https://learn.microsoft.com/en-us/cpp/build/reference/gs-buffer-security-check?view=msvc-170
+                //
+                // Do NOT `stack-protector=none` since it weakens security for C code,
+                // and `-Zstack-protector=basic` is deprecated and will be removed soon.
+                let cc_flag = match value {
+                    "strong" => Some("-fstack-protector-strong"),
+                    "all" => Some("-fstack-protector-all"),
+                    _ => None,
+                };
+                if let Some(cc_flag) = cc_flag {
+                    push_if_supported(cc_flag.into());
+                }
             }
         }
 
@@ -380,6 +404,16 @@ mod tests {
     }
 
     #[test]
+    fn stack_protector() {
+        let expected = RustcCodegenFlags {
+            stack_protector: Some("strong"),
+            ..RustcCodegenFlags::default()
+        };
+        check("-Zstack-protector=strong", &expected);
+        check("-Cstack-protector=strong", &expected);
+    }
+
+    #[test]
     fn three_valid_prefixes() {
         let expected = RustcCodegenFlags {
             lto: Some("true"),
@@ -408,6 +442,7 @@ mod tests {
             "-Csoft-float=yes",
             "-Zbranch-protection=bti,pac-ret,leaf",
             "-Zdwarf-version=5",
+            "-Zstack-protector=strong",
             // Set flags we don't recognise but rustc supports next
             // rustc flags
             "--cfg",
@@ -515,6 +550,7 @@ mod tests {
                 soft_float: Some(true),
                 branch_protection: Some("bti,pac-ret,leaf"),
                 dwarf_version: Some(5),
+                stack_protector: Some("strong"),
             },
         );
     }
