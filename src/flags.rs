@@ -104,10 +104,7 @@ impl<'this> RustcCodegenFlags<'this> {
         };
         let flag = flag.as_ref();
 
-        fn flag_not_empty_inner<T>(
-            flag: &str,
-            flag_value: Option<T>,
-        ) -> Result<Option<T>, Error> {
+        fn flag_not_empty_generic<T>(flag: &str, flag_value: Option<T>) -> Result<Option<T>, Error> {
             if let Some(flag_value) = flag_value {
                 Ok(Some(flag_value))
             } else {
@@ -117,7 +114,7 @@ impl<'this> RustcCodegenFlags<'this> {
                 ))
             }
         }
-        let flag_not_empty = |flag_value| flag_not_empty_inner(flag, flag_value);
+        let flag_not_empty = |flag_value| flag_not_empty_generic(flag, flag_value);
 
         match flag {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#code-model
@@ -163,7 +160,7 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://doc.rust-lang.org/beta/unstable-book/compiler-flags/dwarf-version.html
             // FIXME: Drop the -Z variant and update the doc link once the option is stablized
             "-Zdwarf-version" | "-Cdwarf-version" => {
-                self.dwarf_version = flag_not_empty(value.and_then(arg_to_u32))?;
+                self.dwarf_version = flag_not_empty_generic(flag, value.and_then(arg_to_u32))?;
             }
             // https://github.com/rust-lang/rust/issues/114903
             // FIXME: Drop the -Z variant and update the doc link once the option is stabilized
