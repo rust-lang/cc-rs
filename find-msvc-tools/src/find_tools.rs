@@ -300,6 +300,13 @@ mod impl_ {
         include: Vec<PathBuf>,
     }
 
+    #[derive(Default)]
+    struct SdkInfo {
+        libs: Vec<PathBuf>,
+        path: Vec<PathBuf>,
+        include: Vec<PathBuf>,
+    }
+
     struct LibraryHandle(HMODULE);
 
     impl LibraryHandle {
@@ -373,6 +380,12 @@ mod impl_ {
             }
         }
 
+        fn add_sdk(&mut self, sdk_info: SdkInfo) {
+            self.libs.extend(sdk_info.libs);
+            self.path.extend(sdk_info.path);
+            self.include.extend(sdk_info.include);
+        }
+
         fn into_tool(self, env_getter: &dyn EnvGetter) -> Tool {
             let MsvcTool {
                 tool,
@@ -389,6 +402,12 @@ mod impl_ {
             add_env(&mut tool, "PATH", path, env_getter);
             add_env(&mut tool, "INCLUDE", include, env_getter);
             tool
+        }
+    }
+
+    impl SdkInfo {
+        fn find_tool(&self, tool: &str) -> Option<PathBuf> {
+            self.path.iter().map(|p| p.join(tool)).find(|p| p.exists())
         }
     }
 
@@ -738,9 +757,10 @@ mod impl_ {
     ) -> Option<Tool> {
         let (root_path, bin_path, host_dylib_path, lib_path, alt_lib_path, include_path) =
             vs15plus_vc_paths(target, instance_path, env_getter)?;
-        let tool_path = bin_path.join(tool);
+        let sdk_info = get_sdks(target, env_getter)?;
+        let mut tool_path = bin_path.join(tool);
         if !tool_path.exists() {
-            return None;
+            tool_path = sdk_info.find_tool(tool)?;
         };
 
         let mut tool = MsvcTool::new(tool_path);
@@ -757,7 +777,7 @@ mod impl_ {
             tool.include.push(atl_include_path);
         }
 
-        add_sdks(&mut tool, target, env_getter)?;
+        tool.add_sdk(sdk_info);
 
         Some(tool.into_tool(env_getter))
     }
@@ -900,12 +920,13 @@ mod impl_ {
         env_getter: &dyn EnvGetter,
     ) -> Option<Tool> {
         let vcdir = get_vc_dir("14.0")?;
-        let mut tool = get_tool(tool, &vcdir, target)?;
-        add_sdks(&mut tool, target, env_getter)?;
+        let sdk_info = get_sdks(target, env_getter)?;
+        let mut tool = get_tool(tool, &vcdir, target, &sdk_info)?;
+        tool.add_sdk(sdk_info);
         Some(tool.into_tool(env_getter))
     }
 
-    fn add_sdks(tool: &mut MsvcTool, target: TargetArch, env_getter: &dyn EnvGetter) -> Option<()> {
+    fn get_sdks(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<SdkInfo> {
         let sub = target.as_vs_arch();
         let (ucrt, ucrt_version) = get_ucrt_dir()?;
 
@@ -916,35 +937,37 @@ mod impl_ {
             _ => return None,
         };
 
-        tool.path
+        let mut info = SdkInfo::default();
+
+        info.path
             .push(ucrt.join("bin").join(&ucrt_version).join(host));
 
         let ucrt_include = ucrt.join("include").join(&ucrt_version);
-        tool.include.push(ucrt_include.join("ucrt"));
+        info.include.push(ucrt_include.join("ucrt"));
 
         let ucrt_lib = ucrt.join("lib").join(&ucrt_version);
-        tool.libs.push(ucrt_lib.join("ucrt").join(sub));
+        info.libs.push(ucrt_lib.join("ucrt").join(sub));
 
         if let Some((sdk, version)) = get_sdk10_dir(env_getter) {
-            tool.path.push(sdk.join("bin").join(host));
+            info.path.push(sdk.join("bin").join(host));
             let sdk_lib = sdk.join("lib").join(&version);
-            tool.libs.push(sdk_lib.join("um").join(sub));
+            info.libs.push(sdk_lib.join("um").join(sub));
             let sdk_include = sdk.join("include").join(&version);
-            tool.include.push(sdk_include.join("um"));
-            tool.include.push(sdk_include.join("cppwinrt"));
-            tool.include.push(sdk_include.join("winrt"));
-            tool.include.push(sdk_include.join("shared"));
+            info.include.push(sdk_include.join("um"));
+            info.include.push(sdk_include.join("cppwinrt"));
+            info.include.push(sdk_include.join("winrt"));
+            info.include.push(sdk_include.join("shared"));
         } else if let Some(sdk) = get_sdk81_dir() {
-            tool.path.push(sdk.join("bin").join(host));
+            info.path.push(sdk.join("bin").join(host));
             let sdk_lib = sdk.join("lib").join("winv6.3");
-            tool.libs.push(sdk_lib.join("um").join(sub));
+            info.libs.push(sdk_lib.join("um").join(sub));
             let sdk_include = sdk.join("include");
-            tool.include.push(sdk_include.join("um"));
-            tool.include.push(sdk_include.join("winrt"));
-            tool.include.push(sdk_include.join("shared"));
+            info.include.push(sdk_include.join("um"));
+            info.include.push(sdk_include.join("winrt"));
+            info.include.push(sdk_include.join("shared"));
         }
 
-        Some(())
+        Some(info)
     }
 
     fn add_env(
@@ -963,22 +986,25 @@ mod impl_ {
 
     // Given a possible MSVC installation directory, we look for the linker and
     // then add the MSVC library path.
-    fn get_tool(tool: &str, path: &Path, target: TargetArch) -> Option<MsvcTool> {
+    fn get_tool(
+        tool: &str,
+        path: &Path,
+        target: TargetArch,
+        sdk_info: &SdkInfo,
+    ) -> Option<MsvcTool> {
         bin_subdir(target)
             .into_iter()
             .map(|(sub, host)| {
                 (
                     path.join("bin").join(sub).join(tool),
-                    path.join("bin").join(host),
+                    Some(path.join("bin").join(host)),
                 )
             })
             .filter(|(path, _)| path.is_file())
-            .map(|(path, host)| {
-                let mut tool = MsvcTool::new(path);
-                tool.path.push(host);
-                tool
-            })
-            .filter_map(|mut tool| {
+            .chain(iter::once_with(|| Some((sdk_info.find_tool(tool)?, None))).flatten())
+            .map(|(tool_path, host)| {
+                let mut tool = MsvcTool::new(tool_path);
+                tool.path.extend(host);
                 let sub = vc_lib_subdir(target);
                 tool.libs.push(path.join("lib").join(sub));
                 tool.include.push(path.join("include"));
@@ -987,7 +1013,7 @@ mod impl_ {
                     tool.libs.push(atlmfc_path.join("lib").join(sub));
                     tool.include.push(atlmfc_path.join("include"));
                 }
-                Some(tool)
+                tool
             })
             .next()
     }
