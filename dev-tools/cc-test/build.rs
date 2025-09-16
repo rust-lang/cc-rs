@@ -173,6 +173,9 @@ fn main() {
             !has_spectre(&target),
             "LIB should not use spectre-mitigated libs when VSCMD_ARG_VCVARS_SPECTRE is not set"
         );
+
+        // Test that we can find tools in the Windows SDK too.
+        cc::windows_registry::find_tool(&target, "rc.exe").unwrap();
     }
 
     // This tests whether we  can build a library but not link it to the main
