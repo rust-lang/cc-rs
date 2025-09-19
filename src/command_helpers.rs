@@ -66,8 +66,12 @@ impl CargoOutput {
     }
 
     pub(crate) fn print_debug(&self, arg: &dyn Display) {
-        if self.metadata && !self.checked_dbg_var.load(Ordering::Relaxed) {
-            self.checked_dbg_var.store(true, Ordering::Relaxed);
+        if self.metadata
+            && self
+                .checked_dbg_var
+                .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
+                .is_ok()
+        {
             println!("cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT");
         }
         if self.debug {
