@@ -4326,9 +4326,8 @@ fn is_disabled() -> bool {
         0 => {
             let truth = compute_is_disabled();
             let encoded_truth = if truth { 2u8 } else { 1 };
-            // Might race against another thread, but we'd both be setting the
-            // same value so it should be fine.
-            CACHE.store(encoded_truth, Relaxed);
+            // Use compare_exchange to avoid race condition
+            let _ = CACHE.compare_exchange(0, encoded_truth, Relaxed, Relaxed);
             truth
         }
         _ => unreachable!(),
