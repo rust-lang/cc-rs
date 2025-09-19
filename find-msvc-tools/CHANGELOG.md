@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.1...find-msvc-tools-v0.1.2) - 2025-09-19
+
+### Other
+
+- [win] Search the Windows SDK for tools as well ([#1553](https://github.com/rust-lang/cc-rs/pull/1553))
+
 ## [0.1.1](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.0...find-msvc-tools-v0.1.1) - 2025-09-05
 
 ### Other
