@@ -152,6 +152,8 @@ jobs:
             CXX: clang-cl
     steps:
       - uses: actions/checkout@v5
+      - run: curl -vv https://static.rust-lang.org/dist/channel-rust-1.87.0.toml.sha256
+        shell: bash
       - name: Install Rust (rustup)
         run: |
           set -euxo pipefail
