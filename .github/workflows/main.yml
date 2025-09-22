@@ -277,11 +277,17 @@ jobs:
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
 
-  test-wasm32-wasip1-thread:
-    name: Test wasm32-wasip1-thread
+  test-wasi:
+    name: Test wasm32-wasi* targets
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+        - wasm32-wasip1
+        - wasm32-wasip2
+        - wasm32-wasip1-threads
     env:
-      TARGET: wasm32-wasip1-threads
+      TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v5
       - name: Install Rust (rustup)
@@ -308,9 +314,7 @@ jobs:
           wget "https://github.com/$REPO/releases/download/${VERSION}/${FILE}"
           sudo dpkg -i "${FILE}"
           WASI_SDK_PATH="/opt/wasi-sdk"
-          CC="${WASI_SDK_PATH}/bin/clang"
           echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
-          echo "CC=$CC" >> "$GITHUB_ENV"
 
       - run: cargo update
       - uses: Swatinem/rust-cache@v2
@@ -319,7 +323,7 @@ jobs:
           cache-all-crates: "true"
 
       - name: Run tests
-        run: cargo +nightly build -p $TARGET-test --target $TARGET
+        run: cargo +nightly build -p wasi-test --target $TARGET
 
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -417,7 +421,7 @@ jobs:
       - test
       - check-build-std
       - check-wasm
-      - test-wasm32-wasip1-thread
+      - test-wasi
       - cuda
       - msrv
       - clippy

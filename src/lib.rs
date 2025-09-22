@@ -2921,6 +2921,8 @@ impl Build {
                         "{}-{}-{}-{}",
                         target.full_arch, target.vendor, target.os, traditional
                     )
+                } else if target.os == "wasi" {
+                    self.autodetect_wasi_compiler(&raw_target, clang)
                 } else if target.arch == "wasm32" || target.arch == "wasm64" {
                     // Compiling WASM is not currently supported by GCC, so
                     // let's default to Clang.
@@ -4165,6 +4167,30 @@ impl Build {
 
         ::find_msvc_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
             .map(Tool::from_find_msvc_tools)
+    }
+
+    /// Compiling for WASI targets typically uses the [wasi-sdk] project and
+    /// installations of wasi-sdk are typically indicated with the
+    /// `WASI_SDK_PATH` environment variable. Check to see if that environment
+    /// variable exists, and check to see if an appropriate compiler is located
+    /// there. If that all passes then use that compiler by default, but
+    /// otherwise fall back to whatever the clang default is since gcc doesn't
+    /// have support for compiling to wasm.
+    ///
+    /// [wasi-sdk]: https://github.com/WebAssembly/wasi-sdk
+    fn autodetect_wasi_compiler(&self, raw_target: &str, clang: &str) -> String {
+        if let Some(path) = self.getenv("WASI_SDK_PATH") {
+            let target_clang = Path::new(&path)
+                .join("bin")
+                .join(format!("{raw_target}-clang"));
+            if let Some(path) = self.which(&target_clang, None) {
+                if let Some(s) = path.to_str() {
+                    return s.to_string();
+                }
+            }
+        }
+
+        clang.to_string()
     }
 }
 
