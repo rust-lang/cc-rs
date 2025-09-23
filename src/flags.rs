@@ -20,6 +20,7 @@ pub(crate) struct RustcCodegenFlags<'a> {
     soft_float: Option<bool>,
     dwarf_version: Option<u32>,
     stack_protector: Option<&'a str>,
+    linker_plugin_lto: Option<bool>,
 }
 
 impl<'this> RustcCodegenFlags<'this> {
@@ -139,7 +140,9 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#control-flow-guard
             "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
-            "-Clinker-plugin-lto" => self.lto = value.or(Some("true")),
+            "-Clto" => self.lto = value.or(Some("true")),
+            // https://doc.rust-lang.org/beta/rustc/linker-plugin-lto.html
+            "-Clinker-plugin-lto" => self.linker_plugin_lto = value.map_or(Some(false), arg_to_bool),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
                 self.relocation_model = flag_not_empty(value)?;
@@ -324,7 +327,9 @@ impl<'this> RustcCodegenFlags<'this> {
                         _ => None,
                     };
                     if let Some(cc_val) = cc_val {
-                        push_if_supported(format!("-flto={cc_val}").into());
+                        if self.linker_plugin_lto.unwrap_or(false) {
+                            push_if_supported(format!("-flto={cc_val}").into());
+                        }
                     }
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
