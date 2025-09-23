@@ -558,6 +558,7 @@ mod tests {
                 branch_protection: Some("bti,pac-ret,leaf"),
                 dwarf_version: Some(5),
                 stack_protector: Some("strong"),
+                linker_plugin_lto: Some(true),
             },
         );
     }
