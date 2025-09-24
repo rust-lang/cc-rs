@@ -142,7 +142,7 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
             "-Clto" => self.lto = value.or(Some("true")),
             // https://doc.rust-lang.org/beta/rustc/linker-plugin-lto.html
-            "-Clinker-plugin-lto" => self.linker_plugin_lto = value.map_or(Some(false), arg_to_bool),
+            "-Clinker-plugin-lto" => self.linker_plugin_lto = Some(true),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
                 self.relocation_model = flag_not_empty(value)?;
