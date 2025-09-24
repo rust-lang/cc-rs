@@ -518,7 +518,7 @@ mod tests {
             "-Clink-self-contained=yes",
             "-Clinker=lld",
             "-Clinker-flavor=ld.lld",
-            "-Clinker-plugin-lto=yes",
+            "-Clinker-plugin-lto=/path",
             "-Cllvm-args=foo",
             "-Cmetadata=foo",
             "-Cno-prepopulate-passes",
