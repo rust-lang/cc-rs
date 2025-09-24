@@ -319,18 +319,14 @@ impl<'this> RustcCodegenFlags<'this> {
                     push_if_supported(format!("-fembed-bitcode={cc_val}").into());
                 }
 
-                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-                if let Some(value) = self.lto {
-                    let cc_val = match value {
-                        "y" | "yes" | "on" | "true" | "fat" => Some("full"),
-                        "thin" => Some("thin"),
-                        _ => None,
+                // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
+                if self.linker_plugin_lto.unwrap_or(false) {
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
+                    let cc_val = match self.lto {
+                        Some("thin") => "thin",
+                        _ => "full",
                     };
-                    if let Some(cc_val) = cc_val {
-                        if self.linker_plugin_lto.unwrap_or(false) {
-                            push_if_supported(format!("-flto={cc_val}").into());
-                        }
-                    }
+                    push_if_supported(format!("-flto={cc_val}").into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
                 if let Some(value) = self.control_flow_guard {
