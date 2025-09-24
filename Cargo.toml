@@ -44,7 +44,7 @@ members = [
     "dev-tools/cc-test",
     "dev-tools/gen-target-info",
     "dev-tools/gen-windows-sys-binding",
-    "dev-tools/wasm32-wasip1-threads-test",
+    "dev-tools/wasi-test",
 ]
 
 [patch.crates-io]
