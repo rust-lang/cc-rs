@@ -2920,7 +2920,8 @@ impl Build {
                     format!(
                         "{}-{}-{}-{}",
                         target.full_arch, target.vendor, target.os, traditional
-                    ).into()
+                    )
+                    .into()
                 } else if target.os == "wasi" {
                     self.autodetect_wasi_compiler(&raw_target, clang)
                 } else if target.arch == "wasm32" || target.arch == "wasm64" {
@@ -2928,22 +2929,14 @@ impl Build {
                     // let's default to Clang.
                     clang.into()
                 } else if target.os == "vxworks" {
-                    if self.cpp {
-                        "wr-c++"
-                    } else {
-                        "wr-cc"
-                    }.into()
+                    if self.cpp { "wr-c++" } else { "wr-cc" }.into()
                 } else if target.arch == "arm" && target.vendor == "kmc" {
                     format!("arm-kmc-eabi-{gnu}").into()
                 } else if target.arch == "aarch64" && target.vendor == "kmc" {
                     format!("aarch64-kmc-elf-{gnu}").into()
                 } else if target.os == "nto" {
                     // See for details: https://github.com/rust-lang/cc-rs/pull/1319
-                    if self.cpp {
-                        "q++"
-                    } else {
-                        "qcc"
-                    }.into()
+                    if self.cpp { "q++" } else { "qcc" }.into()
                 } else if self.get_is_cross_compile()? {
                     let prefix = self.prefix_for_target(&raw_target);
                     match prefix {
@@ -4277,7 +4270,8 @@ fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> Path
         clang_compiler_cmd
     } else {
         clang_compiler
-    }.into()
+    }
+    .into()
 }
 
 // Rust and clang/cc don't agree on how to name the target.
