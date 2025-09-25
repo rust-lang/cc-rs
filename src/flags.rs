@@ -141,7 +141,7 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
             "-Clto" => self.lto = value.or(Some("true")),
-            // https://doc.rust-lang.org/beta/rustc/linker-plugin-lto.html
+            // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
             "-Clinker-plugin-lto" => self.linker_plugin_lto = Some(true),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
