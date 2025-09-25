@@ -2944,7 +2944,13 @@ impl Build {
                             let cc = if target.abi == "llvm" { clang } else { gnu };
                             format!("{prefix}-{cc}").into()
                         }
-                        None => default.into(),
+                        None => {
+                            if raw_target == "xtensa-esp32s3-espidf" {
+                                "xtensa-esp32s3-elf".into()
+                            } else {
+                                default.into()
+                            }
+                        }
                     }
                 } else {
                     default.into()
