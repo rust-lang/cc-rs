@@ -292,6 +292,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("x86_64-unknown-linux-none", "x86_64-unknown-linux-none"),
     ("x86_64-unknown-linux-ohos", "x86_64-unknown-linux-ohos"),
     ("x86_64-unknown-managarm-mlibc", "x86_64-unknown-managarm-mlibc"),
+    ("x86_64-unknown-motor", "x86_64-unknown-none-elf"),
     ("x86_64-unknown-netbsd", "x86_64-unknown-netbsd"),
     ("x86_64-unknown-none", "x86_64-unknown-none-elf"),
     ("x86_64-unknown-none-linuxkernel", "x86_64-unknown-none-elf"),
