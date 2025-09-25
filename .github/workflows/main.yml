@@ -386,7 +386,7 @@ jobs:
       - uses: actions/checkout@v5
       - name: Install Rust
         run: |
-          rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
+          rustup toolchain install stable --no-self-update --profile minimal --component clippy
           rustup default stable
         shell: bash
       - uses: Swatinem/rust-cache@v2

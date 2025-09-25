@@ -20,6 +20,7 @@ pub(crate) struct RustcCodegenFlags<'a> {
     soft_float: Option<bool>,
     dwarf_version: Option<u32>,
     stack_protector: Option<&'a str>,
+    linker_plugin_lto: Option<bool>,
 }
 
 impl<'this> RustcCodegenFlags<'this> {
@@ -140,6 +141,8 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
             "-Clto" => self.lto = value.or(Some("true")),
+            // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
+            "-Clinker-plugin-lto" => self.linker_plugin_lto = Some(true),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
                 self.relocation_model = flag_not_empty(value)?;
@@ -316,16 +319,14 @@ impl<'this> RustcCodegenFlags<'this> {
                     push_if_supported(format!("-fembed-bitcode={cc_val}").into());
                 }
 
-                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-                if let Some(value) = self.lto {
-                    let cc_val = match value {
-                        "y" | "yes" | "on" | "true" | "fat" => Some("full"),
-                        "thin" => Some("thin"),
-                        _ => None,
+                // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
+                if self.linker_plugin_lto.unwrap_or(false) {
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
+                    let cc_val = match self.lto {
+                        Some("thin") => "thin",
+                        _ => "full",
                     };
-                    if let Some(cc_val) = cc_val {
-                        push_if_supported(format!("-flto={cc_val}").into());
-                    }
+                    push_if_supported(format!("-flto={cc_val}").into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
                 if let Some(value) = self.control_flow_guard {
@@ -513,7 +514,7 @@ mod tests {
             "-Clink-self-contained=yes",
             "-Clinker=lld",
             "-Clinker-flavor=ld.lld",
-            "-Clinker-plugin-lto=yes",
+            "-Clinker-plugin-lto=/path",
             "-Cllvm-args=foo",
             "-Cmetadata=foo",
             "-Cno-prepopulate-passes",
@@ -553,6 +554,7 @@ mod tests {
                 branch_protection: Some("bti,pac-ret,leaf"),
                 dwarf_version: Some(5),
                 stack_protector: Some("strong"),
+                linker_plugin_lto: Some(true),
             },
         );
     }
