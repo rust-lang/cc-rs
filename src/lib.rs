@@ -2854,7 +2854,7 @@ impl Build {
             // also making it available as "cc".
             Cow::Borrowed(Path::new(gnu))
         } else if self.prefer_clang() {
-            self.which(Cow::Borrowed(clang.into()), None).map(Cow::Owned).or(fallback)
+            self.which(Cow::Borrowed(clang.into()), None).map(Cow::Owned).unwrap_or(fallback)
         } else {
             fallback
         };
