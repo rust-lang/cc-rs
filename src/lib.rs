@@ -2944,7 +2944,7 @@ impl Build {
                             let cc = if target.abi == "llvm" { clang } else { gnu };
                             format!("{prefix}-{cc}").into()
                         }
-                        None => default.into()
+                        None => default.into(),
                     }
                 } else {
                     default.into()
