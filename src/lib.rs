@@ -3589,10 +3589,10 @@ impl Build {
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
                     "xtensa-esp32-espidf" => Some("xtensa-esp32-elf"),
                     "xtensa-esp32-none-elf" => Some("xtensa-esp32-elf"),
-                    "xtensa-esp32s2-espidf" => Some("xtensa-esp32s2-elf"),
-                    "xtensa-esp32s2-none-elf" => Some("xtensa-esp32s2-elf"),
-                    "xtensa-esp32s3-espidf" => Some("xtensa-esp32s3-elf"),
-                    "xtensa-esp32s3-none-elf" => Some("xtensa-esp32s3-elf"),
+                    "xtensa-esp32s2-espidf" => Some("xtensa-esp32-elf"),
+                    "xtensa-esp32s2-none-elf" => Some("xtensa-esp32-elf"),
+                    "xtensa-esp32s3-espidf" => Some("xtensa-esp32-elf"),
+                    "xtensa-esp32s3-none-elf" => Some("xtensa-esp32-elf"),
                     _ => None,
                 }
                 .map(Cow::Borrowed)
