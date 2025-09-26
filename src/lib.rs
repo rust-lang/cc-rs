@@ -2811,6 +2811,14 @@ impl Build {
         cmd
     }
 
+    fn prefer_clang(&self) -> bool {
+        if let Some(env) = self.getenv("CARGO_ENCODED_RUSTFLAGS") {
+            env.to_string_lossy().contains("linker-plugin-lto")
+        } else {
+            false
+        }
+    }
+
     fn get_base_compiler(&self) -> Result<Tool, Error> {
         let out_dir = self.get_out_dir().ok();
         let out_dir = out_dir.as_deref();
@@ -2844,6 +2852,8 @@ impl Build {
         // also making it available as "cc".
         let default = if cfg!(target_os = "solaris") || cfg!(target_os = "illumos") {
             gnu
+        } else if self.prefer_clang() {
+            clang
         } else {
             traditional
         };
