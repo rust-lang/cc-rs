@@ -52,3 +52,8 @@ cc = { path = "." }
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
+
+[profile.release]
+opt-level = 3 # Or "s" or "z" for different optimization goals
+lto = true
+
