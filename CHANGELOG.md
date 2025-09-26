@@ -81,6 +81,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.39](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.38...cc-v1.2.39) - 2025-09-26
+
+### Other
+
+- Fix cross compilation to xtensa-esp32s3-espidf ([#1569](https://github.com/rust-lang/cc-rs/pull/1569))
+- Fix autodetect_wasi_compiler: support non utf-8 path ([#1568](https://github.com/rust-lang/cc-rs/pull/1568))
+- Regenerate target info ([#1567](https://github.com/rust-lang/cc-rs/pull/1567))
+- Fix rustcflags mapping: require -Clinker-plugin-lto for -flto ([#1564](https://github.com/rust-lang/cc-rs/pull/1564))
+- Use `$WASI_SDK_PATH` on WASI targets by default ([#1562](https://github.com/rust-lang/cc-rs/pull/1562))
+- Fix atomicity violations in concurrent cache operations ([#1559](https://github.com/rust-lang/cc-rs/pull/1559))
+
 ## [1.2.38](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.37...cc-v1.2.38) - 2025-09-19
 
 ### Other
