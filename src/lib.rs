@@ -2845,8 +2845,8 @@ impl Build {
         } else {
             ("CC", "gcc", "cc", "clang")
         };
-        let traditional = Cow::Borrowed(Path::new(traditional));
-
+        
+        let fallback = Cow::Borrowed(Path::new(traditional));
         let default = if cfg!(target_os = "solaris") || cfg!(target_os = "illumos") {
             // On historical Solaris systems, "cc" may have been Sun Studio, which
             // is not flag-compatible with "gcc".  This history casts a long shadow,
@@ -2854,9 +2854,9 @@ impl Build {
             // also making it available as "cc".
             Cow::Borrowed(Path::new(gnu))
         } else if self.prefer_clang() {
-            self.which(Cow::Borrowed(clang), None).map(Cow::Owned).or(traditional)
+            self.which(Cow::Borrowed(clang.into()), None).map(Cow::Owned).or(fallback)
         } else {
-            traditional
+            fallback
         };
 
         let cl_exe = self.find_msvc_tools_find_tool(&target, msvc);
