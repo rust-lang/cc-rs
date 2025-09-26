@@ -2845,15 +2845,16 @@ impl Build {
         } else {
             ("CC", "gcc", "cc", "clang")
         };
+        let traditional = Cow(Path::new(traditional));
 
-        // On historical Solaris systems, "cc" may have been Sun Studio, which
-        // is not flag-compatible with "gcc".  This history casts a long shadow,
-        // and many modern illumos distributions today ship GCC as "gcc" without
-        // also making it available as "cc".
         let default = if cfg!(target_os = "solaris") || cfg!(target_os = "illumos") {
-            gnu
+            // On historical Solaris systems, "cc" may have been Sun Studio, which
+            // is not flag-compatible with "gcc".  This history casts a long shadow,
+            // and many modern illumos distributions today ship GCC as "gcc" without
+            // also making it available as "cc".
+            Cow(Path::new(gnu))
         } else if self.prefer_clang() {
-            clang
+            self.which(clang, None).map(Cow::Owned).or(traditional)
         } else {
             traditional
         };
