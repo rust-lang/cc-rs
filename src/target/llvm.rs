@@ -95,13 +95,6 @@ impl TargetInfo<'_> {
             env => env,
         };
         let abi = match self.abi {
-            "sim" => {
-                if env != "simulator" {
-                    "simulator"
-                } else {
-                    ""
-                }
-            }
             "llvm" | "softfloat" | "uwp" | "vec-extabi" => "",
             "ilp32" => "_ilp32",
             "abi64" => "",
@@ -198,8 +191,8 @@ mod tests {
                 arch: "aarch64",
                 vendor: "apple",
                 os: "ios",
-                env: "",
-                abi: "sim",
+                env: "sim",
+                abi: "",
             }
             .llvm_target("aarch64-apple-ios-sim", Some("14.0")),
             "arm64-apple-ios14.0-simulator"

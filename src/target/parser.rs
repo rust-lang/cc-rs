@@ -1,4 +1,4 @@
-use std::env;
+use std::{env, mem};
 
 use crate::{target::TargetInfo, utilities::OnceLock, Error, ErrorKind};
 
@@ -67,12 +67,24 @@ impl TargetInfoParserInner {
         let arch = cargo_env("CARGO_CFG_TARGET_ARCH", ft.map(|t| t.arch))?;
         let vendor = cargo_env("CARGO_CFG_TARGET_VENDOR", ft.map(|t| t.vendor))?;
         let os = cargo_env("CARGO_CFG_TARGET_OS", ft.map(|t| t.os))?;
-        let env = cargo_env("CARGO_CFG_TARGET_ENV", ft.map(|t| t.env))?;
+        let mut env = cargo_env("CARGO_CFG_TARGET_ENV", ft.map(|t| t.env))?;
         // `target_abi` was stabilized in Rust 1.78, which is higher than our
         // MSRV, so it may not always be available; In that case, fall back to
         // `""`, which is _probably_ correct for unknown target names.
-        let abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi))
+        let mut abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi))
             .unwrap_or_else(|_| String::default().into_boxed_str());
+
+        // Remove `macabi` and `sim` from `target_abi` (if present), it's been moved to `target_env`.
+        // TODO: Remove once MSRV is bumped to 1.91 and `rustc` removes these from `target_abi`.
+        if matches!(&*abi, "macabi" | "sim") {
+            debug_assert!(
+                matches!(&*env, "" | "macbi" | "sim"),
+                "env/abi mismatch: {:?}, {:?}",
+                env,
+                abi,
+            );
+            env = mem::replace(&mut abi, String::default().into_boxed_str());
+        }
 
         Ok(Self {
             full_arch: full_arch.to_string().into_boxed_str(),
@@ -596,5 +608,31 @@ mod tests {
         if has_failure {
             panic!("failed comparing targets");
         }
+    }
+
+    #[test]
+    fn parses_apple_envs_correctly() {
+        assert_eq!(
+            TargetInfo::from_rustc_target("aarch64-apple-ios-macabi").unwrap(),
+            TargetInfo {
+                full_arch: "aarch64",
+                arch: "aarch64",
+                vendor: "apple",
+                os: "ios",
+                env: "macabi",
+                abi: "",
+            }
+        );
+        assert_eq!(
+            TargetInfo::from_rustc_target("aarch64-apple-ios-sim").unwrap(),
+            TargetInfo {
+                full_arch: "aarch64",
+                arch: "aarch64",
+                vendor: "apple",
+                os: "ios",
+                env: "sim",
+                abi: "",
+            }
+        );
     }
 }

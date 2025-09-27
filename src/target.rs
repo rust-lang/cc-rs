@@ -6,7 +6,6 @@ mod generated;
 mod llvm;
 mod parser;
 
-pub(crate) use apple::*;
 pub(crate) use parser::TargetInfoParser;
 
 /// Information specific to a `rustc` target.
