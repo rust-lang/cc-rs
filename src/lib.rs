@@ -2944,13 +2944,7 @@ impl Build {
                             let cc = if target.abi == "llvm" { clang } else { gnu };
                             format!("{prefix}-{cc}").into()
                         }
-                        None => {
-                            if raw_target == "xtensa-esp32s3-espidf" {
-                                "xtensa-esp32s3-elf".into()
-                            } else {
-                                default.into()
-                            }
-                        }
+                        None => default.into(),
                     }
                 } else {
                     default.into()
@@ -3593,6 +3587,12 @@ impl Build {
                         self.find_working_gnu_prefix(&["x86_64-linux-musl", "musl"])
                     }
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
+                    "xtensa-esp32-espidf"
+                    | "xtensa-esp32-none-elf"
+                    | "xtensa-esp32s2-espidf"
+                    | "xtensa-esp32s2-none-elf"
+                    | "xtensa-esp32s3-espidf"
+                    | "xtensa-esp32s3-none-elf" => Some("xtensa-esp-elf"),
                     _ => None,
                 }
                 .map(Cow::Borrowed)
