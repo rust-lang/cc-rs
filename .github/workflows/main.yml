@@ -217,6 +217,26 @@ jobs:
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
 
+  test-linker-plugin-lto:
+     name: Test linker-plugin-lto
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@v5
+       - name: Install Rust (rustup)
+         run: |
+           set -euxo pipefail
+           rustup toolchain install stable --no-self-update --profile minimal
+           rustup default stable
+         shell: bash
+       - run: cargo update
+       - uses: Swatinem/rust-cache@v2
+       - run: cargo test --workspace --release
+         env:
+           RUSTCFLAGS: -C linker-plugin-lto
+       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+       - name: check clean Git workting tree
+         uses: ./.github/actions/check-clean-git-working-tree
+
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-build-std:
     name: Test build-std
@@ -421,6 +441,7 @@ jobs:
     name: Tests pass
     needs:
       - test
+      - test-linker-plugin-lto
       - check-build-std
       - check-wasm
       - test-wasi

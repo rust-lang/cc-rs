@@ -2808,6 +2808,14 @@ impl Build {
         cmd
     }
 
+    fn prefer_clang(&self) -> bool {
+        if let Some(env) = self.getenv("CARGO_ENCODED_RUSTFLAGS") {
+            env.to_string_lossy().contains("linker-plugin-lto")
+        } else {
+            false
+        }
+    }
+
     fn get_base_compiler(&self) -> Result<Tool, Error> {
         let out_dir = self.get_out_dir().ok();
         let out_dir = out_dir.as_deref();
@@ -2835,14 +2843,19 @@ impl Build {
             ("CC", "gcc", "cc", "clang")
         };
 
-        // On historical Solaris systems, "cc" may have been Sun Studio, which
-        // is not flag-compatible with "gcc".  This history casts a long shadow,
-        // and many modern illumos distributions today ship GCC as "gcc" without
-        // also making it available as "cc".
+        let fallback = Cow::Borrowed(Path::new(traditional));
         let default = if cfg!(target_os = "solaris") || cfg!(target_os = "illumos") {
-            gnu
+            // On historical Solaris systems, "cc" may have been Sun Studio, which
+            // is not flag-compatible with "gcc".  This history casts a long shadow,
+            // and many modern illumos distributions today ship GCC as "gcc" without
+            // also making it available as "cc".
+            Cow::Borrowed(Path::new(gnu))
+        } else if self.prefer_clang() {
+            self.which(Path::new(clang), None)
+                .map(Cow::Owned)
+                .unwrap_or(fallback)
         } else {
-            traditional
+            fallback
         };
 
         let cl_exe = self.find_msvc_tools_find_tool(&target, msvc);
