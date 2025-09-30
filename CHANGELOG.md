@@ -7,6 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.39](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.38...cc-v1.2.39) - 2025-09-26
+
+### Other
+
+- Fix cross compilation to xtensa-esp32s3-espidf ([#1569](https://github.com/rust-lang/cc-rs/pull/1569))
+- Fix autodetect_wasi_compiler: support non utf-8 path ([#1568](https://github.com/rust-lang/cc-rs/pull/1568))
+- Regenerate target info ([#1567](https://github.com/rust-lang/cc-rs/pull/1567))
+- Fix rustcflags mapping: require -Clinker-plugin-lto for -flto ([#1564](https://github.com/rust-lang/cc-rs/pull/1564))
+- Use `$WASI_SDK_PATH` on WASI targets by default ([#1562](https://github.com/rust-lang/cc-rs/pull/1562))
+- Fix atomicity violations in concurrent cache operations ([#1559](https://github.com/rust-lang/cc-rs/pull/1559))
+
+## [1.2.38](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.37...cc-v1.2.38) - 2025-09-19
+
+### Other
+
+- updated the following local packages: find-msvc-tools
+
+## [1.2.37](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.36...cc-v1.2.37) - 2025-09-12
+
+### Other
+
+- Fix errmsg in RustcCodegenFlags::set_rustc_flag ([#1551](https://github.com/rust-lang/cc-rs/pull/1551))
+- propagate stack protector to Linux C compilers ([#1550](https://github.com/rust-lang/cc-rs/pull/1550))
+- Extract new fn `run_commands_in_parallel` ([#1549](https://github.com/rust-lang/cc-rs/pull/1549))
+
 ## [1.2.36](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.35...cc-v1.2.36) - 2025-09-05
 
 ### Other
@@ -73,38 +98,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - ability to statically link against C++ stdlib ([#1497](https://github.com/rust-lang/cc-rs/pull/1497))
 - Add instructions on using sccache ([#1503](https://github.com/rust-lang/cc-rs/pull/1503))
 - Add support for recognizing some architectures supported by GCC, but not LLVM. ([#1500](https://github.com/rust-lang/cc-rs/pull/1500))
-# Changelog
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-## [1.2.39](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.38...cc-v1.2.39) - 2025-09-26
-
-### Other
-
-- Fix cross compilation to xtensa-esp32s3-espidf ([#1569](https://github.com/rust-lang/cc-rs/pull/1569))
-- Fix autodetect_wasi_compiler: support non utf-8 path ([#1568](https://github.com/rust-lang/cc-rs/pull/1568))
-- Regenerate target info ([#1567](https://github.com/rust-lang/cc-rs/pull/1567))
-- Fix rustcflags mapping: require -Clinker-plugin-lto for -flto ([#1564](https://github.com/rust-lang/cc-rs/pull/1564))
-- Use `$WASI_SDK_PATH` on WASI targets by default ([#1562](https://github.com/rust-lang/cc-rs/pull/1562))
-- Fix atomicity violations in concurrent cache operations ([#1559](https://github.com/rust-lang/cc-rs/pull/1559))
-
-## [1.2.38](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.37...cc-v1.2.38) - 2025-09-19
-
-### Other
-
-- updated the following local packages: find-msvc-tools
-
-## [1.2.37](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.36...cc-v1.2.37) - 2025-09-12
-
-### Other
-
-- Fix errmsg in RustcCodegenFlags::set_rustc_flag ([#1551](https://github.com/rust-lang/cc-rs/pull/1551))
-- propagate stack protector to Linux C compilers ([#1550](https://github.com/rust-lang/cc-rs/pull/1550))
-- Extract new fn `run_commands_in_parallel` ([#1549](https://github.com/rust-lang/cc-rs/pull/1549))
 
 ## [1.2.30](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.29...cc-v1.2.30) - 2025-07-18
 
