@@ -38,7 +38,6 @@ fn cflags_order() {
     let test = Test::gnu();
     test.gcc()
         .target("x86_64-unknown-none")
-        .static_flag(true)
         .flag("-Lbuilder-flag1")
         .flag("-Lbuilder-flag2")
         .file("foo.c")

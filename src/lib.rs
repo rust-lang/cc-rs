@@ -413,8 +413,6 @@ pub struct Build {
     pic: Option<bool>,
     use_plt: Option<bool>,
     static_crt: Option<bool>,
-    shared_flag: Option<bool>,
-    static_flag: Option<bool>,
     warnings_into_errors: bool,
     warnings: Option<bool>,
     extra_warnings: Option<bool>,
@@ -519,8 +517,6 @@ impl Build {
             asm_flags: Vec::new(),
             no_default_flags: false,
             files: Vec::new(),
-            shared_flag: None,
-            static_flag: None,
             cpp: false,
             cpp_link_stdlib: None,
             cpp_link_stdlib_static: false,
@@ -781,43 +777,6 @@ impl Build {
         Ok(self)
     }
 
-    /// Set the `-shared` flag.
-    ///
-    /// When enabled, the compiler will produce a shared object which can
-    /// then be linked with other objects to form an executable.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// cc::Build::new()
-    ///     .file("src/foo.c")
-    ///     .shared_flag(true)
-    ///     .compile("libfoo.so");
-    /// ```
-    pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Build {
-        self.shared_flag = Some(shared_flag);
-        self
-    }
-
-    /// Set the `-static` flag.
-    ///
-    /// When enabled on systems that support dynamic linking, this prevents
-    /// linking with the shared libraries.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// cc::Build::new()
-    ///     .file("src/foo.c")
-    ///     .shared_flag(true)
-    ///     .static_flag(true)
-    ///     .compile("foo");
-    /// ```
-    pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
-        self.static_flag = Some(static_flag);
-        self
-    }
-
     /// Disables the generation of default compiler flags. The default compiler
     /// flags may cause conflicts in some cross compiling scenarios.
     ///
@@ -1032,9 +991,8 @@ impl Build {
     /// ```no_run
     /// cc::Build::new()
     ///     .file("src/foo.c")
-    ///     .shared_flag(true)
     ///     .cpp_link_stdlib("stdc++")
-    ///     .compile("libfoo.so");
+    ///     .compile("foo");
     /// ```
     pub fn cpp_link_stdlib<'a, V: Into<Option<&'a str>>>(
         &mut self,
@@ -2313,12 +2271,10 @@ impl Build {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
 
-                if self.static_flag.is_none() {
-                    let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
-                    let features = features.as_deref().unwrap_or_default();
-                    if features.to_string_lossy().contains("crt-static") {
-                        cmd.args.push("-static".into());
-                    }
+                let features = self.getenv("CARGO_CFG_TARGET_FEATURE");
+                let features = features.as_deref().unwrap_or_default();
+                if features.to_string_lossy().contains("crt-static") {
+                    cmd.args.push("-static".into());
                 }
 
                 // armv7 targets get to use armv7 instructions
@@ -2504,13 +2460,6 @@ impl Build {
 
         if target.vendor == "apple" {
             self.apple_flags(cmd)?;
-        }
-
-        if self.static_flag.unwrap_or(false) {
-            cmd.args.push("-static".into());
-        }
-        if self.shared_flag.unwrap_or(false) {
-            cmd.args.push("-shared".into());
         }
 
         if self.cpp {
