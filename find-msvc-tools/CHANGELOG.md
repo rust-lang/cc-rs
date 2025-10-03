@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.3](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.2...find-msvc-tools-v0.1.3) - 2025-10-03
+
+### Other
+
+- Regenerate windows sys bindings ([#1572](https://github.com/rust-lang/cc-rs/pull/1572))
+
 ## [0.1.2](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.1...find-msvc-tools-v0.1.2) - 2025-09-19
 
 ### Other
