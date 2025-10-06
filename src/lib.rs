@@ -4145,15 +4145,16 @@ impl Build {
             cargo_output,
         )
         .ok()?;
-        // clang driver appears to be forcing UTF-8 output even on Windows,
-        // hence from_utf8 is assumed to be usable in all cases.
-        let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
-        for dirs in search_dirs.split(['\r', '\n']) {
-            if let Some(path) = dirs.strip_prefix("programs: =") {
-                return self.which(prog, Some(OsStr::new(path)));
-            }
-        }
-        None
+
+        search_dirs.split(|byte| *byte == b'\r' || *byte == '\n')
+          .find_map(|dir| {
+              let path = dirs.strip_prefix(b"programs: =")?.trim_ascii();
+              if path.is_empty() {
+                  return None;
+              }
+
+              self.which(prog, Some(OsStr::new(path)))
+          })
     }
 
     fn find_msvc_tools_find(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Command> {
