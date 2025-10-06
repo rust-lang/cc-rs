@@ -4146,15 +4146,16 @@ impl Build {
         )
         .ok()?;
 
-        search_dirs.split(|byte| *byte == b'\r' || *byte == '\n')
-          .find_map(|dir| {
-              let path = dirs.strip_prefix(b"programs: =")?.trim_ascii();
-              if path.is_empty() {
-                  return None;
-              }
+        search_dirs
+            .split(|byte| *byte == b'\r' || *byte == b'\n')
+            .find_map(|dir| {
+                let path = dirs.strip_prefix(b"programs: =")?.trim_ascii();
+                if path.is_empty() {
+                    return None;
+                }
 
-              self.which(prog, Some(OsStr::new(path)))
-          })
+                self.which(prog, Some(OsStr::new(path)))
+            })
     }
 
     fn find_msvc_tools_find(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Command> {
