@@ -4132,15 +4132,15 @@ impl Build {
         }
     }
 
-    /// search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
+    /// search for |prog| on 'programs' path in '|cc| --print-search-dirs' output
     fn search_programs(
         &self,
-        clang: &Path,
+        cc: &Path,
         prog: &Path,
         cargo_output: &CargoOutput,
     ) -> Option<PathBuf> {
         let search_dirs = run_output(
-            self.cmd(clang).arg("--print-search-dirs"),
+            self.cmd(cc).arg("--print-search-dirs"),
             // this doesn't concern the compilation so we always want to show warnings.
             cargo_output,
         )
