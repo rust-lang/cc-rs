@@ -3326,12 +3326,8 @@ impl Build {
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.is_like_clang() {
                         name = format!("llvm-{tool}").into();
-                        self.search_programs(
-                            &mut self.cmd(&compiler.path),
-                            &name,
-                            &self.cargo_output,
-                        )
-                        .map(|name| self.cmd(name))
+                        self.search_programs(&compiler.path, &name, &self.cargo_output)
+                            .map(|name| self.cmd(name))
                     } else {
                         None
                     }
@@ -3361,23 +3357,30 @@ impl Build {
                     // here.
 
                     let compiler = self.get_base_compiler()?;
-                    let mut lib = String::new();
-                    if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
-                        // See if there is 'llvm-lib' next to 'clang-cl'
-                        // Another possibility could be to see if there is 'clang'
-                        // next to 'clang-cl' and use 'search_programs()' to locate
-                        // 'llvm-lib'. This is because 'clang-cl' doesn't support
-                        // the -print-search-dirs option.
-                        if let Some(mut cmd) = self.which(&compiler.path, None) {
-                            cmd.pop();
-                            cmd.push("llvm-lib.exe");
-                            if let Some(llvm_lib) = self.which(&cmd, None) {
-                                llvm_lib.to_str().unwrap().clone_into(&mut lib);
+                    let lib = if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
+                        self.search_programs(
+                            &compiler.path,
+                            Path::new("llvm-lib"),
+                            &self.cargo_output,
+                        )
+                        .or_else(|| {
+                            // See if there is 'llvm-lib' next to 'clang-cl'
+                            if let Some(mut cmd) = self.which(&compiler.path, None) {
+                                cmd.pop();
+                                cmd.push("llvm-lib");
+                                self.which(&cmd, None)
+                            } else {
+                                None
                             }
-                        }
-                    }
+                        })
+                    } else {
+                        None
+                    };
 
-                    if lib.is_empty() {
+                    if let Some(lib) = lib {
+                        name = lib;
+                        self.cmd(&name)
+                    } else {
                         name = PathBuf::from("lib.exe");
                         let mut cmd = match self.find_msvc_tools_find(&target, "lib.exe") {
                             Some(t) => t,
@@ -3387,9 +3390,6 @@ impl Build {
                             cmd.arg("/machine:arm64ec");
                         }
                         cmd
-                    } else {
-                        name = lib.into();
-                        self.cmd(&name)
                     }
                 } else if target.os == "illumos" {
                     // The default 'ar' on illumos uses a non-standard flags,
@@ -4132,15 +4132,15 @@ impl Build {
         }
     }
 
-    /// search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
+    /// search for |prog| on 'programs' path in '|cc| --print-search-dirs' output
     fn search_programs(
         &self,
-        cc: &mut Command,
+        cc: &Path,
         prog: &Path,
         cargo_output: &CargoOutput,
     ) -> Option<PathBuf> {
         let search_dirs = run_output(
-            cc.arg("-print-search-dirs"),
+            self.cmd(cc).arg("--print-search-dirs"),
             // this doesn't concern the compilation so we always want to show warnings.
             cargo_output,
         )
