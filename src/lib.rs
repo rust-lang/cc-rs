@@ -3326,12 +3326,8 @@ impl Build {
                     let compiler = self.get_base_compiler().ok()?;
                     if compiler.is_like_clang() {
                         name = format!("llvm-{tool}").into();
-                        self.search_programs(
-                            &compiler.path,
-                            &name,
-                            &self.cargo_output,
-                        )
-                        .map(|name| self.cmd(name))
+                        self.search_programs(&compiler.path, &name, &self.cargo_output)
+                            .map(|name| self.cmd(name))
                     } else {
                         None
                     }
