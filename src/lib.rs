@@ -3365,7 +3365,7 @@ impl Build {
                     let lib = if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
                         self.search_programs(
                             &mut self.cmd(&compiler.path),
-                            "llvm-lib.exe",
+                            Path::new("llvm-lib.exe"),
                             &self.cargo_output,
                             true,
                         )
