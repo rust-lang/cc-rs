@@ -3367,7 +3367,7 @@ impl Build {
                             // See if there is 'llvm-lib' next to 'clang-cl'
                             if let Some(mut cmd) = self.which(&compiler.path, None) {
                                 cmd.pop();
-                                cmd.push("llvm-lib.exe");
+                                cmd.push("llvm-lib");
                                 self.which(&cmd, None)
                             } else {
                                 None
