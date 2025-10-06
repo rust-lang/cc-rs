@@ -3327,10 +3327,9 @@ impl Build {
                     if compiler.is_like_clang() {
                         name = format!("llvm-{tool}").into();
                         self.search_programs(
-                            &mut self.cmd(&compiler.path),
+                            &compiler.path,
                             &name,
                             &self.cargo_output,
-                            false,
                         )
                         .map(|name| self.cmd(name))
                     } else {
@@ -3364,10 +3363,9 @@ impl Build {
                     let compiler = self.get_base_compiler()?;
                     let lib = if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
                         self.search_programs(
-                            &mut self.cmd(&compiler.path),
-                            Path::new("llvm-lib.exe"),
+                            &compiler.path,
+                            Path::new("llvm-lib"),
                             &self.cargo_output,
-                            true,
                         )
                         .or_else(|| {
                             // See if there is 'llvm-lib' next to 'clang-cl'
@@ -4141,14 +4139,12 @@ impl Build {
     /// search for |prog| on 'programs' path in '|cc| -print-search-dirs' output
     fn search_programs(
         &self,
-        cc: &mut Command,
+        clang: &Path,
         prog: &Path,
         cargo_output: &CargoOutput,
-        is_clang_cl: bool,
     ) -> Option<PathBuf> {
-        let arg = "--print-search-dirs";
         let search_dirs = run_output(
-            cc.arg(if is_clang_cl { arg } else { &arg[1..] }),
+            self.cmd(clang).arg("--print-search-dirs"),
             // this doesn't concern the compilation so we always want to show warnings.
             cargo_output,
         )
