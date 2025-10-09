@@ -257,6 +257,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("wasm32-wasip1", "wasm32-wasip1"),
     ("wasm32-wasip1-threads", "wasm32-wasi"),
     ("wasm32-wasip2", "wasm32-wasip2"),
+    ("wasm32-wasip3", "wasm32-wasip3"),
     ("wasm32v1-none", "wasm32-unknown-unknown"),
     ("wasm64-unknown-unknown", "wasm64-unknown-unknown"),
     ("x86_64-apple-darwin", "x86_64-apple-macosx"),
