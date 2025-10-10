@@ -128,6 +128,13 @@ impl EnvGetter for StdEnvGetter {
 /// return `Some(cmd)` which represents a command that's ready to execute the
 /// tool with the appropriate environment variables set.
 ///
+/// To find MSVC tools, this function will first attempt to detect if we are
+/// running in the context of a developer command prompt, and then use the tools
+/// as found in the current `PATH`. If that fails, it will attempt to locate
+/// the newest MSVC toolset in the newest installed version of Visual Studio.
+/// To limit the search to a specific version of the MSVC toolset, set the
+/// VCToolsVersion environment variable to the desired version (e.g. "14.44.35207").
+///
 /// Note that this function always returns `None` for non-MSVC targets (if a
 /// full target name was specified).
 pub fn find(arch_or_target: &str, tool: &str) -> Option<Command> {
@@ -787,7 +794,7 @@ mod impl_ {
         instance_path: &Path,
         env_getter: &dyn EnvGetter,
     ) -> Option<(PathBuf, PathBuf, PathBuf, PathBuf, Option<PathBuf>, PathBuf)> {
-        let version = vs15plus_vc_read_version(instance_path)?;
+        let version = vs15plus_vc_read_version(instance_path, env_getter)?;
 
         let hosts = match host_arch() {
             X86 => &["X86"],
@@ -843,7 +850,13 @@ mod impl_ {
         ))
     }
 
-    fn vs15plus_vc_read_version(dir: &Path) -> Option<String> {
+    fn vs15plus_vc_read_version(dir: &Path, env_getter: &dyn EnvGetter) -> Option<String> {
+        if let Some(version) = env_getter.get_env("VCToolsVersion") {
+            // Restrict the search to a specific msvc version; if it doesn't exist then
+            // our caller will fail to find the tool for this instance and move on.
+            return version.to_str().map(ToString::to_string);
+        }
+
         // Try to open the default version file.
         let mut version_path: PathBuf =
             dir.join(r"VC\Auxiliary\Build\Microsoft.VCToolsVersion.default.txt");
@@ -919,6 +932,11 @@ mod impl_ {
         target: TargetArch,
         env_getter: &dyn EnvGetter,
     ) -> Option<Tool> {
+        if env_getter.get_env("VCToolsVersion").is_some() {
+            // VCToolsVersion is not set/supported for MSVC 14
+            return None;
+        }
+
         let vcdir = get_vc_dir("14.0")?;
         let sdk_info = get_sdks(target, env_getter)?;
         let mut tool = get_tool(tool, &vcdir, target, &sdk_info)?;
