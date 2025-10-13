@@ -322,11 +322,10 @@ impl<'this> RustcCodegenFlags<'this> {
                 // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
                 if self.linker_plugin_lto.unwrap_or(false) {
                     // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-                    let cc_val = match self.lto {
-                        Some("thin") => "thin",
-                        _ => "full",
-                    };
-                    push_if_supported(format!("-flto={cc_val}").into());
+                    // It has to be thin LTO because llvm linker plugin/lld uses thin LTO by default.
+                    // And for thin LTO to work, the archive also has to be compiled using thin LTO,
+                    // since thin LTO generates function summary that fat LTO does not generate.
+                    push_if_supported("-flto=thin".into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
                 if let Some(value) = self.control_flow_guard {
