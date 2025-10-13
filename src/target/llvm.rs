@@ -98,6 +98,7 @@ impl TargetInfo<'_> {
             "llvm" | "softfloat" | "uwp" | "vec-extabi" => "",
             "ilp32" => "_ilp32",
             "abi64" => "",
+            "elfv1" | "elfv2" => "",
             abi => abi,
         };
         Cow::Owned(match (vendor, env, abi) {
