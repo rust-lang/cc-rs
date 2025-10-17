@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.42](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.41...cc-v1.2.42) - 2025-10-17
+
+### Other
+
+- Add elf abi to ppc64 targets ([#1596](https://github.com/rust-lang/cc-rs/pull/1596))
+
 ## [1.2.41](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.40...cc-v1.2.41) - 2025-10-10
 
 ### Other
