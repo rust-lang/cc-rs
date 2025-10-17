@@ -324,8 +324,9 @@ impl<'this> RustcCodegenFlags<'this> {
                 // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
                 if self.linker_plugin_lto.unwrap_or(false) {
                     // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-                    // It has to be thin LTO because llvm linker plugin/lld uses thin LTO by default.
-                    // And for thin LTO to work, the archive also has to be compiled using thin LTO,
+                    // In order to use linker-plugin-lto to achieve cross-lang lto, cc has to use thin LTO
+                    // to compile the c/c++ libraries because llvm linker plugin/lld uses thin LTO by default.
+                    // And for thin LTO in linker plugin to work, the archive also has to be compiled using thin LTO,
                     // since thin LTO generates extra information that fat LTO does not generate that
                     // is required for thin LTO process.
                     push_if_supported("-flto=thin".into());
