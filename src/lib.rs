@@ -783,17 +783,19 @@ impl Build {
 
     /// Set the `-shared` flag.
     ///
-    /// When enabled, the compiler will produce a shared object which can
-    /// then be linked with other objects to form an executable.
+    /// This will typically be ignored by the compiler when calling [`Self::compile()`] since it only
+    /// produces static libraries.
     ///
     /// # Example
     ///
     /// ```no_run
+    /// // This will create a library named "liblibfoo.so.a"
     /// cc::Build::new()
     ///     .file("src/foo.c")
     ///     .shared_flag(true)
     ///     .compile("libfoo.so");
     /// ```
+    #[deprecated = "cc only creates static libraries, setting this does nothing"]
     pub fn shared_flag(&mut self, shared_flag: bool) -> &mut Build {
         self.shared_flag = Some(shared_flag);
         self
@@ -801,8 +803,8 @@ impl Build {
 
     /// Set the `-static` flag.
     ///
-    /// When enabled on systems that support dynamic linking, this prevents
-    /// linking with the shared libraries.
+    /// This will typically be ignored by the compiler when calling [`Self::compile()`] since it only
+    /// produces static libraries.
     ///
     /// # Example
     ///
@@ -813,6 +815,7 @@ impl Build {
     ///     .static_flag(true)
     ///     .compile("foo");
     /// ```
+    #[deprecated = "cc only creates static libraries, setting this does nothing"]
     pub fn static_flag(&mut self, static_flag: bool) -> &mut Build {
         self.static_flag = Some(static_flag);
         self
