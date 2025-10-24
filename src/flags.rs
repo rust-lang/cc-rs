@@ -140,6 +140,8 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#control-flow-guard
             "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
+            //
+            // This variable is currently unused, we just keep it in case we need it in future
             "-Clto" => self.lto = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
             "-Clinker-plugin-lto" => self.linker_plugin_lto = Some(true),
@@ -322,11 +324,12 @@ impl<'this> RustcCodegenFlags<'this> {
                 // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
                 if self.linker_plugin_lto.unwrap_or(false) {
                     // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
-                    let cc_val = match self.lto {
-                        Some("thin") => "thin",
-                        _ => "full",
-                    };
-                    push_if_supported(format!("-flto={cc_val}").into());
+                    // In order to use linker-plugin-lto to achieve cross-lang lto, cc has to use thin LTO
+                    // to compile the c/c++ libraries because llvm linker plugin/lld uses thin LTO by default.
+                    // And for thin LTO in linker plugin to work, the archive also has to be compiled using thin LTO,
+                    // since thin LTO generates extra information that fat LTO does not generate that
+                    // is required for thin LTO process.
+                    push_if_supported("-flto=thin".into());
                 }
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mguard
                 if let Some(value) = self.control_flow_guard {
