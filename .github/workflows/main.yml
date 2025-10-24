@@ -257,7 +257,8 @@ jobs:
           - x86_64-apple-watchos-sim
           # FIXME(madsmtm): needs deployment target
           # - arm64_32-apple-watchos
-          - armv7k-apple-watchos
+          # FIXME(nobodyxu): https://github.com/rust-lang/rust/issues/147776
+          # - armv7k-apple-watchos
           - aarch64-apple-visionos
           - aarch64-apple-visionos-sim
     steps:
