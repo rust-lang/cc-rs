@@ -166,7 +166,7 @@ impl<'this> RustcCodegenFlags<'this> {
                 self.branch_protection = flag_not_empty(value)?;
             }
             // https://doc.rust-lang.org/beta/unstable-book/compiler-flags/dwarf-version.html
-            // FIXME: Drop the -Z variant and update the doc link once the option is stablized
+            // FIXME: Drop the -Z variant and update the doc link once the option is stabilized
             "-Zdwarf-version" | "-Cdwarf-version" => {
                 self.dwarf_version = flag_not_empty_generic(flag, value.and_then(arg_to_u32))?;
             }
