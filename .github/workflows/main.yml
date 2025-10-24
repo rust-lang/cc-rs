@@ -436,6 +436,8 @@ jobs:
         uses: actions/checkout@v5
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
+        with:
+          release-type: minor
 
   # Dummy job to have a stable name for the "all tests pass" requirement
   tests-pass:
