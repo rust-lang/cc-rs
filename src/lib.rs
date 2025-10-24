@@ -3041,6 +3041,23 @@ impl Build {
             };
         }
 
+        // Under cross-compilation scenarios, llvm-mingw's clang executable is just a
+        // wrapper script that calls the actual clang binary with a suitable `--target`
+        // argument, much like the Android NDK case outlined above. Passing a target
+        // argument ourselves in this case will result in an error, as they expect
+        // targets like `x86_64-w64-mingw32`, and we can't always set such a target
+        // string because it is specific to this MinGW cross-compilation toolchain.
+        //
+        // For example, the following command will always fail due to using an unsuitable
+        // `--target` argument we'd otherwise pass:
+        // $ /opt/llvm-mingw-20250613-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-clang --target=x86_64-pc-windows-gnu dummy.c
+        //
+        // Code reference:
+        // https://github.com/mstorsjo/llvm-mingw/blob/a1f6413e5c21fd74b64137b56167f4fba500d1d8/wrappers/clang-target-wrapper.sh#L31
+        if !cfg!(windows) && target.os == "windows" && is_llvm_mingw_wrapper(&tool.path) {
+            tool.has_internal_target_arg = true;
+        }
+
         // If we found `cl.exe` in our environment, the tool we're returning is
         // an MSVC-like tool, *and* no env vars were set then set env vars for
         // the tool that we're returning.
@@ -4242,6 +4259,17 @@ fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool 
         }
     }
     false
+}
+
+fn is_llvm_mingw_wrapper(clang_path: &Path) -> bool {
+    if let Some(filename) = clang_path
+        .file_name()
+        .and_then(|file_name| file_name.to_str())
+    {
+        filename.ends_with("-w64-mingw32-clang") || filename.ends_with("-w64-mingw32-clang++")
+    } else {
+        false
+    }
 }
 
 // FIXME: Use parsed target.
