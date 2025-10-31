@@ -78,7 +78,7 @@ impl TargetInfoParserInner {
         // TODO: Remove once MSRV is bumped to 1.91 and `rustc` removes these from `target_abi`.
         if matches!(&*abi, "macabi" | "sim") {
             debug_assert!(
-                matches!(&*env, "" | "macbi" | "sim"),
+                matches!(&*env, "" | "macabi" | "sim"),
                 "env/abi mismatch: {:?}, {:?}",
                 env,
                 abi,
