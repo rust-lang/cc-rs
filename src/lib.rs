@@ -3738,6 +3738,9 @@ impl Build {
                     ));
                 }
             };
+        } else if is_libtool(&self.try_get_archiver_and_flags()?.1) {
+            // `libtool -static` always writes the symbol table itself, and it
+            // doesn't understand `ar`'s `s` mode.
         } else {
             // Non-msvc targets (those using `ar`) need a separate step to add
             // the symbol table to archives since our construction command of
@@ -3822,6 +3825,30 @@ impl Build {
                 cmd.args(objs);
             }
             run(&mut cmd, &self.cargo_output)?;
+        } else if is_libtool(&program) {
+            // -static: create a static library.
+            // -D: zero out timestamps, UIDs, and GIDs, like `ar`'s `D` modifier.
+            // -o: the path of the library to write.
+            //
+            // NOTE: These are added even if flags were passed using
+            // $ARFLAGS/ar_flag, because they dictate the _mode_ libtool runs
+            // in, like `cq` does for `ar` below.
+            cmd.arg("-static").arg("-D").arg("-o").arg(dst);
+            // libtool can't append to an existing library, but it does accept
+            // static libraries as inputs and pulls in all of their members.
+            // So move the library from the previous batches aside and pass it
+            // in along with this batch's objects.
+            if dst.exists() {
+                let mut tmp_name = dst.file_name().unwrap_or_default().to_os_string();
+                tmp_name.push(".tmp.a");
+                let tmp_archive = dst.with_file_name(tmp_name);
+                fs::rename(dst, &tmp_archive)?;
+                let result = run(cmd.arg(&tmp_archive).args(objs), &self.cargo_output);
+                let _ = fs::remove_file(&tmp_archive);
+                result?;
+            } else {
+                run(cmd.args(objs), &self.cargo_output)?;
+            }
         } else {
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
@@ -5809,6 +5836,14 @@ fn is_llvm_mingw_wrapper(clang_path: &Path) -> bool {
     } else {
         false
     }
+}
+
+/// Whether the archiver is Apple's `libtool` or `llvm-libtool-darwin`, which
+/// take `-static -o <lib> <inputs>` instead of `ar`'s `cq <lib> <inputs>`.
+fn is_libtool(archiver: &Path) -> bool {
+    archiver
+        .file_name()
+        .map_or(false, |name| name.to_string_lossy().contains_ignore_ascii_case("libtool"))
 }
 
 // FIXME: Use parsed target.
