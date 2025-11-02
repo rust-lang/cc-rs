@@ -242,7 +242,6 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display};
 use std::fs;
@@ -253,6 +252,7 @@ use std::sync::{
     atomic::{AtomicU8, Ordering::Relaxed},
     Arc, RwLock,
 };
+use std::{env, vec};
 
 use shlex::Shlex;
 
@@ -2657,15 +2657,17 @@ impl Build {
                 }
             };
         } else {
-            // Non-msvc targets (those using `ar`) need a separate step to add
-            // the symbol table to archives since our construction command of
-            // `cq` doesn't add it for us.
+            // Targets using `ar` need a separate step to add the symbol table
+            // to archives since our construction command of `cq` doesn't add it
+            // for us.
             let mut ar = self.try_get_archiver()?;
 
-            // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
-            // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
-            // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
-            run(ar.arg("s").arg(dst), &self.cargo_output)?;
+            if !ar.get_program().to_string_lossy().contains("libtool") {
+                // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
+                // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
+                // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
+                run(ar.arg("s").arg(dst), &self.cargo_output)?;
+            }
         }
 
         Ok(())
@@ -2693,6 +2695,29 @@ impl Build {
             }
             cmd.args(objs);
             run(&mut cmd, &self.cargo_output)?;
+        } else if program.to_string_lossy().contains("libtool") {
+            // Build up the basics of the required command line invocation:
+            // -static: Enables static linking mode.
+            // -D: Similar to ZERO_AR_DATE, makes the produced archives more deterministic.
+            // -o: Indicates the following path is the intended output file path.
+            cmd.arg("-static").arg("-D").arg("-o").arg(dst);
+            // libtool does not support incrementally updating a static library, so just do
+            // the obvious alternative and re-merge an archive with itself incrementally.
+            if fs::exists(dst)? {
+                let tmp_archive = dst.with_file_name(
+                    dst.file_name()
+                        .expect("Archive file name is invalid")
+                        .to_str()
+                        .unwrap()
+                        .to_owned()
+                        + ".tmp.a",
+                );
+                fs::rename(dst, &tmp_archive)?;
+                run(cmd.arg(&tmp_archive).args(objs), &self.cargo_output)?;
+                fs::remove_file(&tmp_archive)?;
+            } else {
+                run(cmd.args(objs), &self.cargo_output)?;
+            }
         } else {
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
