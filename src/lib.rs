@@ -3503,11 +3503,13 @@ impl Build {
                     // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
                     "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
                     "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
+                    "aarch64-unknown-helenos" => Some("aarch64-helenos"),
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                     "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
                     "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
+                    "armv5te-unknown-helenos-eabi" => Some("arm-helenos"),
                     "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
                     "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
@@ -3530,6 +3532,7 @@ impl Build {
                     "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
                     "i686-pc-windows-gnullvm" => Some("i686-w64-mingw32"),
                     "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
+                    "i686-unknown-helenos" => Some("i686-helenos"),
                     "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
                         "i686-linux-gnu",
                         "x86_64-linux-gnu", // transparently support gcc-multilib
@@ -3548,6 +3551,7 @@ impl Build {
                     "mipsisa32r6el-unknown-linux-gnu" => Some("mipsisa32r6el-linux-gnu"),
                     "mipsisa64r6-unknown-linux-gnuabi64" => Some("mipsisa64r6-linux-gnuabi64"),
                     "mipsisa64r6el-unknown-linux-gnuabi64" => Some("mipsisa64r6el-linux-gnuabi64"),
+                    "powerpc-unknown-helenos" => Some("ppc-helenos"),
                     "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
                     "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
                     "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
@@ -3592,6 +3596,7 @@ impl Build {
                     "riscv64gc-unknown-netbsd" => Some("riscv64--netbsd"),
                     "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
                     "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
+                    "sparc64-unknown-helenos" => Some("sparc64-helenos"),
                     "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
                     "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
                     "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
@@ -3613,6 +3618,7 @@ impl Build {
                     "x86_64-pc-windows-gnullvm" => Some("x86_64-w64-mingw32"),
                     "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
                     "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
+                    "x86_64-unknown-helenos" => Some("amd64-helenos"),
                     "x86_64-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
                         "x86_64-linux-gnu", // rustfmt wrap
                     ]), // explicit None if not found, so caller knows to fall back
