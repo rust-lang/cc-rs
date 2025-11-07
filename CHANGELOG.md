@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.45](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.44...cc-v1.2.45) - 2025-11-07
+
+### Other
+
+- Regenerate target info ([#1606](https://github.com/rust-lang/cc-rs/pull/1606))
+- Use a default check for the "env" variable in apple_sdk_name ([#1605](https://github.com/rust-lang/cc-rs/pull/1605))
+
 ## [1.2.44](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.43...cc-v1.2.44) - 2025-10-31
 
 ### Other
