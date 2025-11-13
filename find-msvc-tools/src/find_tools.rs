@@ -212,6 +212,8 @@ pub enum VsVers {
     Vs16,
     /// Visual Studio 17 (2022)
     Vs17,
+    /// Visual Studio 18 (2026)
+    Vs18,
 }
 
 /// Find the most recent installed version of Visual Studio
@@ -226,6 +228,7 @@ pub fn find_vs_version() -> Result<VsVers, String> {
 
     match std::env::var("VisualStudioVersion") {
         Ok(version) => match &version[..] {
+            "18.0" => Ok(VsVers::Vs18),
             "17.0" => Ok(VsVers::Vs17),
             "16.0" => Ok(VsVers::Vs16),
             "15.0" => Ok(VsVers::Vs15),
@@ -242,7 +245,9 @@ pub fn find_vs_version() -> Result<VsVers, String> {
         _ => {
             // Check for the presence of a specific registry key
             // that indicates visual studio is installed.
-            if has_msbuild_version("17.0") {
+            if has_msbuild_version("18.0") {
+                Ok(VsVers::Vs18)
+            } else if has_msbuild_version("17.0") {
                 Ok(VsVers::Vs17)
             } else if has_msbuild_version("16.0") {
                 Ok(VsVers::Vs16)
@@ -506,6 +511,10 @@ mod impl_ {
         }
     }
 
+    fn find_msbuild_vs18(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<Tool> {
+        find_tool_in_vs16plus_path(r"MSBuild\Current\Bin\MSBuild.exe", target, "18", env_getter)
+    }
+
     fn find_msbuild_vs17(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<Tool> {
         find_tool_in_vs16plus_path(r"MSBuild\Current\Bin\MSBuild.exe", target, "17", env_getter)
     }
@@ -570,15 +579,17 @@ mod impl_ {
         target: TargetArch,
         env_getter: &dyn EnvGetter,
     ) -> Option<Tool> {
-        find_llvm_tool_vs17(tool, target, env_getter)
+        find_llvm_tool_vs17plus(tool, target, env_getter, "18")
+            .or_else(|| find_llvm_tool_vs17plus(tool, target, env_getter, "17"))
     }
 
-    fn find_llvm_tool_vs17(
+    fn find_llvm_tool_vs17plus(
         tool: &str,
         target: TargetArch,
         env_getter: &dyn EnvGetter,
+        version: &'static str,
     ) -> Option<Tool> {
-        vs16plus_instances(target, "17", env_getter)
+        vs16plus_instances(target, version, env_getter)
             .filter_map(|mut base_path| {
                 base_path.push(r"VC\Tools\LLVM");
                 let host_folder = match host_arch() {
@@ -1376,6 +1387,11 @@ mod impl_ {
     #[inline(always)]
     pub(super) fn has_msbuild_version(version: &str, env_getter: &dyn EnvGetter) -> bool {
         match version {
+            "18.0" => {
+                find_msbuild_vs18(TargetArch::X64, env_getter).is_some()
+                    || find_msbuild_vs18(TargetArch::X86, env_getter).is_some()
+                    || find_msbuild_vs18(TargetArch::Arm64, env_getter).is_some()
+            }
             "17.0" => {
                 find_msbuild_vs17(TargetArch::X64, env_getter).is_some()
                     || find_msbuild_vs17(TargetArch::X86, env_getter).is_some()
@@ -1412,7 +1428,9 @@ mod impl_ {
     // see http://stackoverflow.com/questions/328017/path-to-msbuild
     pub(super) fn find_msbuild(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<Tool> {
         // VS 15 (2017) changed how to locate msbuild
-        if let Some(r) = find_msbuild_vs17(target, env_getter) {
+        if let Some(r) = find_msbuild_vs18(target, env_getter) {
+            Some(r)
+        } else if let Some(r) = find_msbuild_vs17(target, env_getter) {
             Some(r)
         } else if let Some(r) = find_msbuild_vs16(target, env_getter) {
             return Some(r);
