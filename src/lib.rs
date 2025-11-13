@@ -312,6 +312,8 @@ pub mod windows_registry {
         Vs16,
         /// Visual Studio 17 (2022)
         Vs17,
+        /// Visual Studio 18 (2026)
+        Vs18,
     }
 
     /// Find the most recent installed version of Visual Studio
@@ -326,6 +328,7 @@ pub mod windows_registry {
             ::find_msvc_tools::VsVers::Vs15 => VsVers::Vs15,
             ::find_msvc_tools::VsVers::Vs16 => VsVers::Vs16,
             ::find_msvc_tools::VsVers::Vs17 => VsVers::Vs17,
+            ::find_msvc_tools::VsVers::Vs18 => VsVers::Vs18,
             _ => unreachable!("unknown VS version"),
         })
     }
