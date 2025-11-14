@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.46](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.45...cc-v1.2.46) - 2025-11-14
+
+### Other
+
+- Add Visual Studio 2026 support ([#1609](https://github.com/rust-lang/cc-rs/pull/1609))
+
 ## [1.2.45](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.44...cc-v1.2.45) - 2025-11-07
 
 ### Other
