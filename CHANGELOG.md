@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.47](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.46...cc-v1.2.47) - 2025-11-21
+
+### Other
+
+- add helenos linker identifications ([#1615](https://github.com/rust-lang/cc-rs/pull/1615))
+
 ## [1.2.46](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.45...cc-v1.2.46) - 2025-11-14
 
 ### Other
