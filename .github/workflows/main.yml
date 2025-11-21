@@ -151,7 +151,7 @@ jobs:
             CC: clang-cl
             CXX: clang-cl
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - run: curl -vv https://static.rust-lang.org/dist/channel-rust-1.87.0.toml.sha256
         shell: bash
       - name: Install Rust (rustup)
@@ -221,7 +221,7 @@ jobs:
      name: Test linker-plugin-lto
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@v5
+       - uses: actions/checkout@v6
        - name: Install Rust (rustup)
          run: |
            set -euxo pipefail
@@ -262,7 +262,7 @@ jobs:
           - aarch64-apple-visionos
           - aarch64-apple-visionos-sim
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust (rustup)
         run: |
           set -euxo pipefail
@@ -286,7 +286,7 @@ jobs:
       matrix:
         target: [wasm32-unknown-unknown]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust (rustup)
         run: |
           rustup target add ${{ matrix.target }}
@@ -312,7 +312,7 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust (rustup)
         run: |
           rustup toolchain install nightly --no-self-update --profile minimal --target $TARGET
@@ -356,7 +356,7 @@ jobs:
     name: Test CUDA support
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install cuda-minimal-build-11-8
         working-directory: ${{ runner.temp }}
         shell: bash
@@ -387,7 +387,7 @@ jobs:
     env:
       MSRV: 1.63.0
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         run: |
           rustup toolchain install $MSRV --no-self-update --profile minimal
@@ -404,7 +404,7 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         run: |
           rustup toolchain install stable --no-self-update --profile minimal --component clippy
@@ -420,7 +420,7 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         run: |
           rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
@@ -433,7 +433,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
       - name: Check semver
         uses: obi1kenobi/cargo-semver-checks-action@v2
         with:
