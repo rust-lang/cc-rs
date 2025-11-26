@@ -2703,7 +2703,7 @@ impl Build {
             cmd.arg("-static").arg("-D").arg("-o").arg(dst);
             // libtool does not support incrementally updating a static library, so just do
             // the obvious alternative and re-merge an archive with itself incrementally.
-            if dst.exists()? {
+            if dst.exists() {
                 let tmp_archive = dst.with_file_name(
                     dst.file_name()
                         .expect("Archive file name is invalid")
