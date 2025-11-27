@@ -110,6 +110,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("csky-unknown-linux-gnuabiv2hf", "csky-unknown-linux-gnuabiv2"),
     ("hexagon-unknown-linux-musl", "hexagon-unknown-linux-musl"),
     ("hexagon-unknown-none-elf", "hexagon-unknown-none-elf"),
+    ("hexagon-unknown-qurt", "hexagon-unknown-elf"),
     ("i386-apple-ios", "i386-apple-ios-simulator"),
     ("i586-pc-windows-msvc", "i586-pc-windows-msvc"),
     ("i586-unknown-linux-gnu", "i586-unknown-linux-gnu"),
