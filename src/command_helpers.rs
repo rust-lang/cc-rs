@@ -367,7 +367,10 @@ pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Resul
         stderr,
     } = spawn_and_wait_for_output(cmd, cargo_output)?;
 
-    stderr.split(|&b| b == b'\n').for_each(write_warning);
+    stderr
+        .split(|&b| b == b'\n')
+        .filter(|part| !part.is_empty())
+        .for_each(write_warning);
 
     cargo_output.print_debug(&status);
 
