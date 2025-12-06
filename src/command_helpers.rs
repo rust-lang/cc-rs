@@ -9,7 +9,7 @@ use std::{
     hash::Hasher,
     io::{self, Read, Write},
     path::Path,
-    process::{Child, ChildStderr, Command, Stdio},
+    process::{Child, ChildStderr, Command, Output, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -348,20 +348,20 @@ pub(crate) fn run(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<(), E
     wait_on_child(cmd, &mut child, cargo_output)
 }
 
-pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
+pub(crate) fn spawn_and_wait_for_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Output, Error> {
     // We specifically need the output to be captured, so override default
     let mut captured_cargo_output = cargo_output.clone();
     captured_cargo_output.output = OutputKind::Capture;
-    let Output {
-        status,
-        stdout,
-        stderr,
-    } = spawn(cmd, &captured_cargo_output)?
+    spawn(cmd, &captured_cargo_output)?
         .wait_with_output()
         .map_err(|e| Err(Error::new(
             ErrorKind::ToolExecError,
             format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
-        )))?;
+        )))
+}
+
+pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
+    let Output { status, stdout, stderr } = spawn_and_wait_for_output(cmd, cargo_output)?;
 
     stderr.split(|&b| b == b'\n').for_each(write_warning);
 
