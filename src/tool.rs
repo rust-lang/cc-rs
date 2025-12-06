@@ -4,7 +4,6 @@ use crate::{
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
 };
-use std::io::Read;
 use std::{
     borrow::Cow,
     collections::HashMap,
