@@ -4,7 +4,6 @@ use crate::{
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
 };
-use std::io::Read;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -12,7 +11,7 @@ use std::{
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
     sync::RwLock,
 };
 
@@ -224,16 +223,13 @@ impl Tool {
             let mut captured_cargo_output = compiler_detect_output.clone();
             captured_cargo_output.output = OutputKind::Capture;
             captured_cargo_output.warnings = true;
-            let mut child = spawn(&mut cmd, &captured_cargo_output)?;
+            let Output {
+                status,
+                stdout,
+                stderr,
+            } = spawn(&mut cmd, &captured_cargo_output)?.wait_with_output()?;
 
-            let mut out = vec![];
-            let mut err = vec![];
-            child.stdout.take().unwrap().read_to_end(&mut out)?;
-            child.stderr.take().unwrap().read_to_end(&mut err)?;
-
-            let status = child.wait()?;
-
-            let stdout = if [&out, &err]
+            let stdout = if [&stdout, &stderr]
                 .iter()
                 .any(|o| String::from_utf8_lossy(o).contains("-Wslash-u-filename"))
             {
@@ -251,7 +247,7 @@ impl Tool {
                     ));
                 }
 
-                out
+                stdout
             };
 
             let stdout = String::from_utf8_lossy(&stdout);
