@@ -226,7 +226,7 @@ impl Tool {
                 status,
                 stdout,
                 stderr,
-            } = spawn_and_wait_for_output(&mut cmd, &captured_cargo_output)?.wait_with_output()?;
+            } = spawn_and_wait_for_output(&mut cmd, &captured_cargo_output)?;
 
             let stdout = if [&stdout, &stderr]
                 .iter()
