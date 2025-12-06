@@ -509,17 +509,46 @@ pub enum ToolFamily {
 
 impl ToolFamily {
     /// What the flag to request debug info for this family of tools look like
-    pub(crate) fn add_debug_flags(&self, cmd: &mut Tool, dwarf_version: Option<u32>) {
+    pub(crate) fn add_debug_flags(
+        &self,
+        cmd: &mut Tool,
+        debug_opt: &str,
+        dwarf_version: Option<u32>,
+    ) {
         match *self {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-Z7".into());
             }
             ToolFamily::Gnu | ToolFamily::Clang { .. } => {
-                cmd.push_cc_arg(
-                    dwarf_version
-                        .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{v}"))
-                        .into(),
-                );
+                match debug_opt {
+                    // From https://doc.rust-lang.org/cargo/reference/profiles.html#debug
+                    "" | "0" | "false" | "none" => {
+                        debug_assert!(
+                            false,
+                            "earlier check should have avoided calling add_debug_flags"
+                        );
+                    }
+
+                    // line-directives-only is LLVM-specific; for GCC we have to treat it like "1"
+                    "line-directives-only" if cmd.is_like_clang() => {
+                        cmd.push_cc_arg("-gline-directives-only".into());
+                    }
+                    // Clang has -gline-tables-only, but it's an alias for -g1 anyway.
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-gline-tables-only
+                    "1" | "limited" | "line-tables-only" | "line-directives-only" => {
+                        cmd.push_cc_arg("-g1".into());
+                    }
+                    "2" | "true" | "full" => {
+                        cmd.push_cc_arg("-g".into());
+                    }
+                    _ => {
+                        // Err on the side of including too much info rather than too little.
+                        cmd.push_cc_arg("-g".into());
+                    }
+                }
+                if let Some(v) = dwarf_version {
+                    cmd.push_cc_arg(format!("-gdwarf-{v}").into());
+                }
             }
         }
     }

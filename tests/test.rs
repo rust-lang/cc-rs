@@ -63,7 +63,10 @@ fn gnu_debug() {
         .debug(true)
         .file("foo.c")
         .compile("foo");
-    test.cmd(0).must_have("-gdwarf-4");
+    test.cmd(0)
+        .must_have("-g")
+        .must_not_have("-g1")
+        .must_have("-gdwarf-4");
 
     let test = Test::gnu();
     test.gcc()
@@ -71,7 +74,31 @@ fn gnu_debug() {
         .debug(true)
         .file("foo.c")
         .compile("foo");
-    test.cmd(0).must_have("-gdwarf-2");
+    test.cmd(0)
+        .must_have("-g")
+        .must_not_have("-g1")
+        .must_have("-gdwarf-2");
+}
+
+#[test]
+fn gnu_debug_limited() {
+    let test = Test::gnu();
+    test.gcc().debug_str("limited").file("foo.c").compile("foo");
+    test.cmd(0).must_not_have("-g").must_have("-g1");
+}
+
+#[test]
+fn gnu_debug_none() {
+    let test = Test::gnu();
+    test.gcc().debug_str("none").file("foo.c").compile("foo");
+    test.cmd(0).must_not_have("-g").must_not_have("-g1");
+}
+
+#[test]
+fn gnu_debug_unknown() {
+    let test = Test::gnu();
+    test.gcc().debug_str("99").file("foo.c").compile("foo");
+    test.cmd(0).must_have("-g").must_not_have("-g1");
 }
 
 #[test]
