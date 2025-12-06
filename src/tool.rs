@@ -223,7 +223,11 @@ impl Tool {
             let mut captured_cargo_output = compiler_detect_output.clone();
             captured_cargo_output.output = OutputKind::Capture;
             captured_cargo_output.warnings = true;
-            let Output { status, stdout, stderr } = spawn(&mut cmd, &captured_cargo_output)?.wait_with_output()?;
+            let Output {
+                status,
+                stdout,
+                stderr,
+            } = spawn(&mut cmd, &captured_cargo_output)?.wait_with_output()?;
 
             let stdout = if [&stdout, &stderr]
                 .iter()
