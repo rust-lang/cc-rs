@@ -361,7 +361,11 @@ pub(crate) fn spawn_and_wait_for_output(cmd: &mut Command, cargo_output: &CargoO
 }
 
 pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
-    let Output { status, stdout, stderr } = spawn_and_wait_for_output(cmd, cargo_output)?;
+    let Output {
+        status,
+        stdout,
+        stderr,
+    } = spawn_and_wait_for_output(cmd, cargo_output)?;
 
     stderr.split(|&b| b == b'\n').for_each(write_warning);
 
