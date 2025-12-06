@@ -1187,14 +1187,14 @@ impl Build {
     /// Configures whether the compiler will emit debug information when
     /// generating object files.
     ///
-    /// This should be one of the values accepted by Cargo's [`debug`][]
+    /// This should be one of the values accepted by Cargo's [`debug`][1]
     /// profile setting, which cc-rs will try to map to the appropriate C
     /// compiler flag.
     ///
     /// This option is automatically scraped from the `DEBUG` environment
     /// variable by build scripts, so it's not required to call this function.
     ///
-    /// [debuginfo]: https://doc.rust-lang.org/cargo/reference/profiles.html#debug
+    /// [1]: https://doc.rust-lang.org/cargo/reference/profiles.html#debug
     pub fn debug_str(&mut self, debug: &str) -> &mut Build {
         self.debug = Some(debug.into());
         self
