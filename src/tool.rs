@@ -1,5 +1,5 @@
 use crate::{
-    command_helpers::{run_output, spawn, CargoOutput},
+    command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput},
     run,
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
@@ -221,13 +221,12 @@ impl Tool {
             // But with clang-cl it can be part of stderr instead and exit with a
             // non-zero exit code.
             let mut captured_cargo_output = compiler_detect_output.clone();
-            captured_cargo_output.output = OutputKind::Capture;
             captured_cargo_output.warnings = true;
             let Output {
                 status,
                 stdout,
                 stderr,
-            } = spawn(&mut cmd, &captured_cargo_output)?.wait_with_output()?;
+            } = spawn_and_wait_for_output(&mut cmd, &captured_cargo_output)?.wait_with_output()?;
 
             let stdout = if [&stdout, &stderr]
                 .iter()
