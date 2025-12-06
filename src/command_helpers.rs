@@ -352,18 +352,13 @@ pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Resul
     // We specifically need the output to be captured, so override default
     let mut captured_cargo_output = cargo_output.clone();
     captured_cargo_output.output = OutputKind::Capture;
-    let mut child = spawn(cmd, &captured_cargo_output)?;
+    let Output {
+        status,
+        stdout,
+        stderr,
+    } = spawn(cmd, &captured_cargo_output)?.wait_with_output()?;
 
-    let mut stdout = vec![];
-    child
-        .stdout
-        .take()
-        .unwrap()
-        .read_to_end(&mut stdout)
-        .unwrap();
-
-    // Don't care about this output, use the normal settings
-    StderrForwarder::new(child).forward_all();
+    stderr.split(|&b| b == b'\n').for_each(write_warning);
 
     let status = match child.wait() {
         Ok(s) => s,
