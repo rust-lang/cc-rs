@@ -348,7 +348,10 @@ pub(crate) fn run(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<(), E
     wait_on_child(cmd, &mut child, cargo_output)
 }
 
-pub(crate) fn spawn_and_wait_for_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Output, Error> {
+pub(crate) fn spawn_and_wait_for_output(
+    cmd: &mut Command,
+    cargo_output: &CargoOutput,
+) -> Result<Output, Error> {
     // We specifically need the output to be captured, so override default
     let mut captured_cargo_output = cargo_output.clone();
     captured_cargo_output.output = OutputKind::Capture;
