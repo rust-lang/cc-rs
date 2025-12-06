@@ -12,7 +12,7 @@ use std::{
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
     sync::RwLock,
 };
 
@@ -244,7 +244,7 @@ impl Tool {
                     ));
                 }
 
-                out
+                stdout
             };
 
             let stdout = String::from_utf8_lossy(&stdout);
