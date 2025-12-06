@@ -354,10 +354,10 @@ pub(crate) fn spawn_and_wait_for_output(cmd: &mut Command, cargo_output: &CargoO
     captured_cargo_output.output = OutputKind::Capture;
     spawn(cmd, &captured_cargo_output)?
         .wait_with_output()
-        .map_err(|e| Err(Error::new(
+        .map_err(|e| Error::new(
             ErrorKind::ToolExecError,
             format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
-        )))
+        ))
 }
 
 pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
