@@ -363,9 +363,28 @@ pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Resul
         .unwrap();
 
     // Don't care about this output, use the normal settings
-    wait_on_child(cmd, &mut child, cargo_output)?;
+    StderrForwarder::new(child).forward_all();
 
-    Ok(stdout)
+    let status = match child.wait() {
+        Ok(s) => s,
+        Err(e) => {
+            return Err(Error::new(
+                ErrorKind::ToolExecError,
+                format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
+            ));
+        }
+    };
+
+    cargo_output.print_debug(&status);
+
+    if status.success() {
+        Ok(stdout)
+    } else {
+        Err(Error::new(
+            ErrorKind::ToolExecError,
+            format!("command did not execute successfully (status code {status}): {cmd:?}"),
+        ))
+    }
 }
 
 pub(crate) fn spawn(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Child, Error> {
