@@ -9,7 +9,7 @@ use std::{
     hash::Hasher,
     io::{self, Read, Write},
     path::Path,
-    process::{Child, ChildStderr, Command, Stdio},
+    process::{Child, ChildStderr, Command, Output, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -348,24 +348,45 @@ pub(crate) fn run(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<(), E
     wait_on_child(cmd, &mut child, cargo_output)
 }
 
-pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
+pub(crate) fn spawn_and_wait_for_output(
+    cmd: &mut Command,
+    cargo_output: &CargoOutput,
+) -> Result<Output, Error> {
     // We specifically need the output to be captured, so override default
     let mut captured_cargo_output = cargo_output.clone();
     captured_cargo_output.output = OutputKind::Capture;
-    let mut child = spawn(cmd, &captured_cargo_output)?;
+    spawn(cmd, &captured_cargo_output)?
+        .wait_with_output()
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::ToolExecError,
+                format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
+            )
+        })
+}
 
-    let mut stdout = vec![];
-    child
-        .stdout
-        .take()
-        .unwrap()
-        .read_to_end(&mut stdout)
-        .unwrap();
+pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
+    let Output {
+        status,
+        stdout,
+        stderr,
+    } = spawn_and_wait_for_output(cmd, cargo_output)?;
 
-    // Don't care about this output, use the normal settings
-    wait_on_child(cmd, &mut child, cargo_output)?;
+    stderr
+        .split(|&b| b == b'\n')
+        .filter(|part| !part.is_empty())
+        .for_each(write_warning);
 
-    Ok(stdout)
+    cargo_output.print_debug(&status);
+
+    if status.success() {
+        Ok(stdout)
+    } else {
+        Err(Error::new(
+            ErrorKind::ToolExecError,
+            format!("command did not execute successfully (status code {status}): {cmd:?}"),
+        ))
+    }
 }
 
 pub(crate) fn spawn(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Child, Error> {
