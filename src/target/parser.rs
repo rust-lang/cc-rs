@@ -337,6 +337,16 @@ impl<'a> TargetInfo<'a> {
                 })?;
                 (*vendor, *os, env, abi)
             }
+            // Five components; format is `arch-vendor-os-env+abi-sanitizer`.
+            [vendor, os, envabi, _sanitizer] => {
+                let (env, abi) = parse_envabi(envabi).ok_or_else(|| {
+                    Error::new(
+                        ErrorKind::UnknownTarget,
+                        format!("unknown environment/ABI `{envabi}` in target `{target}`"),
+                    )
+                })?;
+                (*vendor, *os, env, abi)
+            }
             _ => {
                 return Err(Error::new(
                     ErrorKind::InvalidTarget,
@@ -564,6 +574,21 @@ mod tests {
     fn unknown_env_determined_as_unknown() {
         let err = TargetInfo::from_rustc_target("aarch64-unknown-linux-bogus").unwrap_err();
         assert!(matches!(err.kind, ErrorKind::UnknownTarget));
+    }
+
+    #[test]
+    fn sanitizer_targets() {
+        assert_eq!(
+            TargetInfo::from_rustc_target("x86_64-unknown-linux-gnu-asan").unwrap(),
+            TargetInfo {
+                full_arch: "x86_64",
+                arch: "x86_64",
+                vendor: "unknown",
+                os: "linux",
+                env: "gnu",
+                abi: "",
+            }
+        );
     }
 
     // Used in .github/workflows/test-rustc-targets.yml
