@@ -879,6 +879,94 @@ fn clang_android() {
     }
 }
 
+#[test]
+fn parent_dir_file_path() {
+    // Regression test for issue #172
+    // https://github.com/rust-lang/cc-rs/issues/172
+    // Ensures that files referenced with parent directory components (..)
+    // have their object files placed within OUT_DIR, not in parent directories
+
+    reset_env();
+    let test = Test::gnu();
+
+    let intermediates = test
+        .gcc()
+        .file("../external_lib/test.c")
+        .compile_intermediates();
+
+    // Verify we got an object file back
+    assert_eq!(
+        intermediates.len(),
+        1,
+        "Expected exactly one intermediate object file"
+    );
+
+    let obj_path = &intermediates[0];
+    let out_dir = test.td.path();
+
+    // Verify the object file is actually within OUT_DIR
+    assert!(
+        obj_path.starts_with(out_dir),
+        "Object file {:?} is not within OUT_DIR {:?}. This indicates the file path \
+         with parent directory components (..) caused the object file to escape OUT_DIR.",
+        obj_path,
+        out_dir
+    );
+}
+
+#[test]
+fn multiple_parent_dir_references() {
+    // Test deeply nested parent directory references
+    // e.g., ../../deep/path/../file.c
+
+    reset_env();
+    let test = Test::gnu();
+
+    let intermediates = test
+        .gcc()
+        .file("a/b/c/../../b/c/deep.c")
+        .compile_intermediates();
+
+    assert_eq!(intermediates.len(), 1);
+    let obj_path = &intermediates[0];
+    let out_dir = test.td.path();
+
+    // Must be within OUT_DIR
+    assert!(
+        obj_path.starts_with(out_dir),
+        "Object file with multiple parent refs {:?} escaped OUT_DIR {:?}",
+        obj_path,
+        out_dir
+    );
+}
+
+#[test]
+fn parent_dir_with_multiple_files() {
+    // Test that multiple files with parent directory references
+    // all get properly contained in OUT_DIR
+
+    reset_env();
+    let test = Test::gnu();
+
+    let intermediates = test
+        .gcc()
+        .file("src1/../src1/file1.c")
+        .file("src2/../src2/file2.c")
+        .compile_intermediates();
+
+    assert_eq!(intermediates.len(), 2, "Expected two object files");
+
+    let out_dir = test.td.path();
+    for obj_path in &intermediates {
+        assert!(
+            obj_path.starts_with(out_dir),
+            "Object file {:?} is not within OUT_DIR {:?}",
+            obj_path,
+            out_dir
+        );
+    }
+}
+
 #[cfg(windows)]
 #[cfg(not(disable_clang_cl_tests))]
 mod msvc_clang_cl_tests {
