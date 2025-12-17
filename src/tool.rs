@@ -566,6 +566,13 @@ impl ToolFamily {
         }
     }
 
+    pub(crate) fn warnings_suppression_flags(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc { .. } => "-W0",
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => "-w",
+        }
+    }
+
     /// What the flags to enable extra warnings
     pub(crate) fn extra_warnings_flags(&self) -> Option<&'static str> {
         match *self {
