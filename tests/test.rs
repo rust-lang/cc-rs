@@ -417,6 +417,31 @@ fn gnu_flag_if_supported_cpp() {
     test.cmd(0).must_have("-std=c++11");
 }
 
+// Regression test for issue #359: is_flag_supported should work with
+// language-specific flags (e.g., assembly flags) by using stdin compilation
+// instead of file-based compilation to avoid file extension issues.
+#[cfg(not(windows))]
+#[test]
+fn is_flag_supported_assembly_flags() {
+    let test = Test::gnu();
+
+    // Test that assembly-specific flags are correctly detected as supported
+    let build = test.gcc();
+    let result = build.is_flag_supported("-xassembler-with-cpp");
+    assert!(
+        result.is_ok() && result.unwrap(),
+        "Assembly flag -xassembler-with-cpp should be supported"
+    );
+
+    // Test that normal C flags still work
+    let build = test.gcc();
+    let result = build.is_flag_supported("-Wall");
+    assert!(
+        result.is_ok() && result.unwrap(),
+        "C flag -Wall should be supported"
+    );
+}
+
 #[test]
 fn gnu_static() {
     reset_env();
