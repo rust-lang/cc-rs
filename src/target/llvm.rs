@@ -21,6 +21,13 @@ impl TargetInfo<'_> {
         if rustc_target == "armv7-apple-ios" {
             // FIXME(madsmtm): Unnecessary once we bump MSRV to Rust 1.74
             return Cow::Borrowed("armv7-apple-ios");
+        } else if rustc_target == "aarch64-unknown-linux-pauthtest" {
+            // `aarch64-unknown-linux-pauthtest` rustc target sets both
+            // environment and abi (to `musl` and `pauthtest` respectively`).
+            // However, the abi field exists mainly for `cfg(...)` evaluation in
+            // Rust, not for generating the actual LLVM triple. The logic of:
+            // `arch-vendor-os-env+abi` does not applay here.
+            return Cow::Borrowed("aarch64-unknown-linux-pauthtest");
         } else if self.os == "uefi" {
             // Override the UEFI LLVM targets.
             //
