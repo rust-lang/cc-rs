@@ -174,6 +174,14 @@ fn gnu_warnings() {
 }
 
 #[test]
+fn gnu_warnings_disabled() {
+    let test = Test::gnu();
+    test.gcc().warnings(false).file("foo.c").compile("foo");
+
+    test.cmd(0).must_have("-w").must_not_have("-Wall");
+}
+
+#[test]
 fn gnu_extra_warnings0() {
     reset_env();
 
@@ -200,7 +208,10 @@ fn gnu_extra_warnings1() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_not_have("-Wall").must_have("-Wextra");
+    test.cmd(0)
+        .must_have("-w")
+        .must_not_have("-Wall")
+        .must_have("-Wextra");
 }
 
 #[test]
@@ -531,6 +542,14 @@ fn msvc_std_c() {
     test.gcc().file("foo.c").std("c11").compile("foo");
 
     test.cmd(0).must_have("-std:c11");
+}
+
+#[test]
+fn msvc_warnings_disabled() {
+    let test = Test::msvc();
+    test.gcc().warnings(false).file("foo.c").compile("foo");
+
+    test.cmd(0).must_have("-W0").must_not_have("-W4");
 }
 
 // Disable this test with the parallel feature because the execution

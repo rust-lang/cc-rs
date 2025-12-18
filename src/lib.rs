@@ -1997,9 +1997,21 @@ impl Build {
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
         let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" })?;
-        if self.warnings.unwrap_or(envflags.is_none()) {
-            let wflags = cmd.family.warnings_flags().into();
-            cmd.push_cc_arg(wflags);
+        match self.warnings {
+            Some(true) => {
+                let wflags = cmd.family.warnings_flags().into();
+                cmd.push_cc_arg(wflags);
+            }
+            Some(false) => {
+                let wflags = cmd.family.warnings_suppression_flags().into();
+                cmd.push_cc_arg(wflags);
+            }
+            None => {
+                if envflags.is_none() {
+                    let wflags = cmd.family.warnings_flags().into();
+                    cmd.push_cc_arg(wflags);
+                }
+            }
         }
         if self.extra_warnings.unwrap_or(envflags.is_none()) {
             if let Some(wflags) = cmd.family.extra_warnings_flags() {
