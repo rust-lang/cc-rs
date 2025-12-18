@@ -4,10 +4,12 @@
 #![allow(clippy::disallowed_methods)]
 
 use crate::support::Test;
+use serial_test::serial;
 
 mod support;
 
 #[test]
+#[serial]
 fn busybox_ar_fallback() {
     // Use standard test setup with proper cc-shim
     let test = Test::gnu();
