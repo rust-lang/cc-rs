@@ -222,6 +222,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("riscv64gc-unknown-nuttx-elf", "riscv64"),
     ("riscv64gc-unknown-openbsd", "riscv64-unknown-openbsd"),
     ("riscv64gc-unknown-redox", "riscv64-unknown-redox"),
+    ("riscv64im-unknown-none-elf", "riscv64"),
     ("riscv64imac-unknown-none-elf", "riscv64"),
     ("riscv64imac-unknown-nuttx-elf", "riscv64"),
     ("s390x-unknown-linux-gnu", "s390x-unknown-linux-gnu"),
