@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.6](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.5...find-msvc-tools-v0.1.6) - 2025-12-26
+
+### Other
+
+- Update Readmes ([#1641](https://github.com/rust-lang/cc-rs/pull/1641))
+
 ## [0.1.5](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.4...find-msvc-tools-v0.1.5) - 2025-11-14
 
 ### Other
