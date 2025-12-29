@@ -423,7 +423,7 @@ mod impl_ {
                 .path
                 .iter()
                 .map(|p| p.join(tool))
-                .find_map(|p| p.exists() || (p.set_extension(EXE_EXTENSION) && p.exists()).then_some(p))
+                .find_map(|p| (p.exists() || (p.set_extension(env::consts::EXE_EXTENSION) && p.exists())).then_some(p))
         }
     }
 
