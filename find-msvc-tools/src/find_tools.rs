@@ -419,11 +419,10 @@ mod impl_ {
 
     impl SdkInfo {
         fn find_tool(&self, tool: &str) -> Option<PathBuf> {
-            self
-                .path
-                .iter()
-                .map(|p| p.join(tool))
-                .find_map(|p| (p.exists() || (p.set_extension(env::consts::EXE_EXTENSION) && p.exists())).then_some(p))
+            self.path.iter().map(|p| p.join(tool)).find_map(|mut p| {
+                (p.exists() || (p.set_extension(env::consts::EXE_EXTENSION) && p.exists()))
+                    .then_some(p)
+            })
         }
     }
 
