@@ -1672,6 +1672,10 @@ impl Build {
                 if cfg!(target_os = "linux") {
                     libdir.push("targets");
                     libdir.push(format!("{}-linux", target.arch));
+                    if !libdir.exists() && target.arch == "aarch64" {
+                        libdir.pop();
+                        libdir.push("sbsa-linux");
+                    }
                     libdir.push("lib");
                     libtst = true;
                 } else if cfg!(target_env = "msvc") {
