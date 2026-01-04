@@ -3153,7 +3153,7 @@ impl Build {
         // If this is an exact path on the filesystem we don't want to do any
         // interpretation at all, just pass it on through. This'll hopefully get
         // us to support spaces-in-paths.
-        if let Some(exe) = check_exe(PathBuf::new(tool)) {
+        if let Some(exe) = check_exe(Path::new(tool).into()) {
             return Some((
                 exe,
                 self.rustc_wrapper_fallback(),
