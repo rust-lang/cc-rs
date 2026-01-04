@@ -3154,11 +3154,7 @@ impl Build {
         // interpretation at all, just pass it on through. This'll hopefully get
         // us to support spaces-in-paths.
         if let Some(exe) = check_exe(Path::new(tool).into()) {
-            return Some((
-                exe,
-                self.rustc_wrapper_fallback(),
-                Vec::new(),
-            ));
+            return Some((exe, self.rustc_wrapper_fallback(), Vec::new()));
         }
 
         // Ok now we want to handle a couple of scenarios. We'll assume from
@@ -4464,8 +4460,7 @@ fn check_disabled() -> Result<(), Error> {
 
 fn check_exe(mut exe: PathBuf) -> Option<PathBuf> {
     let exe_ext = std::env::consts::EXE_EXTENSION;
-    let check =
-        exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists());
+    let check = exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists());
     check.then_some(exe)
 }
 
