@@ -165,9 +165,8 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Zbranch-protection" | "-Cbranch-protection" => {
                 self.branch_protection = flag_not_empty(value)?;
             }
-            // https://doc.rust-lang.org/beta/unstable-book/compiler-flags/dwarf-version.html
-            // FIXME: Drop the -Z variant and update the doc link once the option is stabilized
-            "-Zdwarf-version" | "-Cdwarf-version" => {
+            // https://doc.rust-lang.org/beta/rustc/codegen-options/index.html#dwarf-version
+            "-Cdwarf-version" => {
                 self.dwarf_version = flag_not_empty_generic(flag, value.and_then(arg_to_u32))?;
             }
             // https://github.com/rust-lang/rust/issues/114903
@@ -447,7 +446,7 @@ mod tests {
             "-Crelocation-model=pic",
             "-Csoft-float=yes",
             "-Zbranch-protection=bti,pac-ret,leaf",
-            "-Zdwarf-version=5",
+            "-Cdwarf-version=5",
             "-Zstack-protector=strong",
             // Set flags we don't recognise but rustc supports next
             // rustc flags
