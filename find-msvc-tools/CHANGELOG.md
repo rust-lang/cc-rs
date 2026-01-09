@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.7](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.6...find-msvc-tools-v0.1.7) - 2026-01-09
+
+### Other
+
+- Fix tool existence check in find_tool method ([#1645](https://github.com/rust-lang/cc-rs/pull/1645))
+- Fix SdkInfo::find_tool to check for executable extension ([#1644](https://github.com/rust-lang/cc-rs/pull/1644))
+
 ## [0.1.6](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.5...find-msvc-tools-v0.1.6) - 2025-12-26
 
 ### Other
