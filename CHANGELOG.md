@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.52](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.51...cc-v1.2.52) - 2026-01-09
+
+### Other
+
+- Fix contradictory doc for CC compiler in crate doc ([#1650](https://github.com/rust-lang/cc-rs/pull/1650))
+- Have CUDA compilaion check for sbsa-linux when targeting aarch64. ([#1647](https://github.com/rust-lang/cc-rs/pull/1647))
+- Update link for -Cdwarf-version; Remove -Z (stabilized in 1.88) ([#1648](https://github.com/rust-lang/cc-rs/pull/1648))
+- Fix Build::env_tool to check for .exe on windows ([#1646](https://github.com/rust-lang/cc-rs/pull/1646))
+
 ## [1.2.51](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.50...cc-v1.2.51) - 2025-12-26
 
 ### Other
