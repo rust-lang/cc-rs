@@ -70,10 +70,8 @@
 //! * `CFLAGS` - a series of space separated flags passed to compilers. Note that
 //!   individual flags cannot currently contain spaces, so doing
 //!   something like: `-L=foo\ bar` is not possible.
-//! * `CC` - the actual C compiler used. Note that this is used as an exact
-//!   executable name, so (for example) no extra flags can be passed inside
-//!   this variable, and the builder must ensure that there aren't any
-//!   trailing spaces. This compiler must understand the `-c` flag. For
+//! * `CC` - the actual C compiler used. Note that this supports passing a known
+//!   wrapper via `sccache cc`. This compiler must understand the `-c` flag. For
 //!   certain `TARGET`s, it also is assumed to know about other flags (most
 //!   common is `-fPIC`).
 //!   ccache, distcc, sccache, icecc, cachepot and buildcache are supported,
