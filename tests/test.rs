@@ -650,11 +650,11 @@ fn gnu_apple_deployment_target() {
             .target(&target)
             .host(&"aarch64-apple-darwin")
             // Avoid dependency on environment in test.
-            .__set_env("MACOSX_DEPLOYMENT_TARGET", "10.12")
-            .__set_env("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
-            .__set_env("TVOS_DEPLOYMENT_TARGET", "10.0")
-            .__set_env("WATCHOS_DEPLOYMENT_TARGET", "5.0")
-            .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
+            .env("MACOSX_DEPLOYMENT_TARGET", "10.12")
+            .env("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
+            .env("TVOS_DEPLOYMENT_TARGET", "10.0")
+            .env("WATCHOS_DEPLOYMENT_TARGET", "5.0")
+            .env("XROS_DEPLOYMENT_TARGET", "1.0")
             .file("foo.c")
             .compile("foo");
 
@@ -682,7 +682,7 @@ fn macos_cpp_minimums() {
             .target(target)
             .host(target)
             .cpp(true)
-            .__set_env("MACOSX_DEPLOYMENT_TARGET", deployment_target)
+            .env("MACOSX_DEPLOYMENT_TARGET", deployment_target)
             .file("foo.c")
             .compile("foo");
 
@@ -713,7 +713,7 @@ fn macos_cpp_minimums() {
     test.gcc()
         .target(target)
         .host(target)
-        .__set_env("MACOSX_DEPLOYMENT_TARGET", "10.7")
+        .env("MACOSX_DEPLOYMENT_TARGET", "10.7")
         .file("foo.c")
         .compile("foo");
 
@@ -727,7 +727,7 @@ fn clang_apple_tvos() {
     let target = "aarch64-apple-tvos";
     let test = Test::clang();
     test.gcc()
-        .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
+        .env("TVOS_DEPLOYMENT_TARGET", "9.0")
         .target(target)
         .host(target)
         .file("foo.c")
@@ -752,7 +752,7 @@ fn clang_apple_mac_catalyst() {
     let test = Test::clang();
     test.gcc()
         .target("aarch64-apple-ios-macabi")
-        .__set_env("IPHONEOS_DEPLOYMENT_TARGET", "15.0")
+        .env("IPHONEOS_DEPLOYMENT_TARGET", "15.0")
         .file("foo.c")
         .compile("foo");
     let execution = test.cmd(0);
@@ -782,7 +782,7 @@ fn clang_apple_tvsimulator() {
 
     let test = Test::clang();
     test.gcc()
-        .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
+        .env("TVOS_DEPLOYMENT_TARGET", "9.0")
         .target(target)
         .host(target)
         .file("foo.c")
@@ -807,7 +807,7 @@ fn clang_apple_visionos() {
 
     let test = Test::clang();
     test.gcc()
-        .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
+        .env("XROS_DEPLOYMENT_TARGET", "1.0")
         .target("aarch64-apple-visionos")
         .file("foo.c")
         .compile("foo");
@@ -837,7 +837,7 @@ fn apple_sdkroot_wrong() {
     let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.platform";
     let test = Test::clang();
     test.gcc()
-        .__set_env("SDKROOT", wrong_sdkroot)
+        .env("SDKROOT", wrong_sdkroot)
         .target("aarch64-apple-ios")
         .file("foo.c")
         .compile("foo");
@@ -1044,7 +1044,7 @@ mod msvc_clang_cl_tests {
         //std::env::set_var("CC", "cl.exe");
         let compiler = test
             .gcc()
-            .__set_env("CC", "cl.exe")
+            .env("CC", "cl.exe")
             .prefer_clang_cl_over_msvc(true)
             .try_get_compiler()
             .expect("Failed to get compiler");

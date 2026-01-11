@@ -1391,13 +1391,13 @@ impl Build {
         self
     }
 
-    #[doc(hidden)]
-    pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
+    /// Set an environment variable for compiler invocations and other child processes.
+    pub fn env<K, V>(&mut self, key: K, val: V) -> &mut Build
     where
-        A: AsRef<OsStr>,
-        B: AsRef<OsStr>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
-        self.env.push((a.as_ref().into(), b.as_ref().into()));
+        self.env.push((key.as_ref().into(), val.as_ref().into()));
         self
     }
 }
