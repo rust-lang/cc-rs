@@ -110,8 +110,8 @@ impl Test {
             .opt_level(2)
             .debug(false)
             .out_dir(self.td.path())
-            .__set_env("PATH", self.path())
-            .__set_env("CC_SHIM_OUT_DIR", self.td.path());
+            .env("PATH", self.path())
+            .env("CC_SHIM_OUT_DIR", self.td.path());
         if self.msvc {
             cfg.compiler(self.td.path().join("cl"));
             cfg.archiver(self.td.path().join("lib.exe"));
