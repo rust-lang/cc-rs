@@ -1400,6 +1400,17 @@ impl Build {
         self.env.push((key.as_ref().into(), val.as_ref().into()));
         self
     }
+
+    // retained for backwards compatibility only
+    #[doc(hidden)]
+    #[deprecated = "use `env` instead"]
+    pub fn __set_env<K, V>(&mut self, key: K, val: V) -> &mut Build
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        self.env(key, val)
+    }
 }
 
 /// Invoke or fetch the compiler or archiver.
