@@ -2269,9 +2269,10 @@ impl Build {
                 cmd.push_cc_arg("-Brepro".into());
 
                 if clang_cl {
-                    if target.arch == "x86_64" {
+                    let is_cross = self.get_is_cross_compile()?;
+                    if !is_cross && target.arch == "x86_64" {
                         cmd.push_cc_arg("-m64".into());
-                    } else if target.arch == "x86" {
+                    } else if !is_cross && target.arch == "x86" {
                         cmd.push_cc_arg("-m32".into());
                         // See
                         // <https://learn.microsoft.com/en-us/cpp/build/reference/arch-x86?view=msvc-170>.
