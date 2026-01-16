@@ -1,6 +1,6 @@
 [package]
 name = "cc"
-version = "1.2.52"
+version = "1.2.53"
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-lang/cc-rs"
@@ -22,7 +22,7 @@ rust-version = "1.63"
 [dependencies]
 jobserver = { version = "0.1.30", default-features = false, optional = true }
 shlex = "1.3.0"
-find-msvc-tools = { version = "0.1.7", path = "find-msvc-tools" }
+find-msvc-tools = { version = "0.1.8", path = "find-msvc-tools" }
 
 [target.'cfg(unix)'.dependencies]
 # Don't turn on the feature "std" for this, see https://github.com/rust-lang/cargo/issues/4866
