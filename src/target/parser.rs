@@ -449,7 +449,6 @@ impl<'a> TargetInfo<'a> {
             abi = "";
         }
 
-
         Ok(Self {
             full_arch,
             arch,
