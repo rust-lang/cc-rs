@@ -296,6 +296,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("x86_64-unknown-illumos", "x86_64-pc-solaris"),
     ("x86_64-unknown-l4re-uclibc", "x86_64-unknown-l4re-gnu"),
     ("x86_64-unknown-linux-gnu", "x86_64-unknown-linux-gnu"),
+    ("x86_64-unknown-linux-gnuasan", "x86_64-unknown-linux-gnu"),
     ("x86_64-unknown-linux-gnux32", "x86_64-unknown-linux-gnux32"),
     ("x86_64-unknown-linux-musl", "x86_64-unknown-linux-musl"),
     ("x86_64-unknown-linux-none", "x86_64-unknown-linux-none"),
