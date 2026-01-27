@@ -18,7 +18,7 @@ use std::{
     env,
     ffi::{OsStr, OsString},
     ops::Deref,
-    path::PathBuf,
+    path::{Path, PathBuf},
     process::Command,
     sync::Arc,
 };
@@ -195,6 +195,46 @@ pub fn find_tool_with_env(full_arch: &str, tool: &str, env_getter: &dyn EnvGette
         .or_else(|| impl_::find_msvc_14(tool, target, env_getter))
 }
 
+/// An SDK found by [`find_windows_sdk`]
+#[derive(Default)]
+pub struct Sdk {
+    libs: Vec<PathBuf>,
+    path: Vec<PathBuf>,
+    include: Vec<PathBuf>,
+    version: String,
+}
+
+impl Sdk {
+    /// Directories containing static libraries (e.g. `.lib` files).
+    pub fn libs(&self) -> impl Iterator<Item = &Path> {
+        self.libs.iter().map(PathBuf::as_path)
+    }
+
+    /// Directories containing binaries (`.exe` and `.dll` files).
+    pub fn path(&self) -> impl Iterator<Item = &Path> {
+        self.path.iter().map(PathBuf::as_path)
+    }
+
+    /// Directories containing source headers (e.g. `.h` files)
+    pub fn include(&self) -> impl Iterator<Item = &Path> {
+        self.include.iter().map(PathBuf::as_path)
+    }
+
+    /// The Windows SDK version that was found.
+    pub fn sdk_version(&self) -> &str {
+        &self.version
+    }
+}
+
+/// Find the directories of the latest installed Windows SDK.
+///
+/// It's not necessary to call this if using [`find`] or [`find_tool`] as they will populate the relvant
+/// environment variables with the SDK directories.
+pub fn find_windows_sdk(full_arch: &str) -> Option<Sdk> {
+    let target = TargetArch::new(full_arch)?;
+    impl_::get_sdks(target, &StdEnvGetter)
+}
+
 /// A version of Visual Studio
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 #[non_exhaustive]
@@ -302,18 +342,11 @@ mod impl_ {
     use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Once;
 
-    use super::{EnvGetter, TargetArch};
+    use super::{EnvGetter, Sdk, TargetArch};
     use crate::Tool;
 
     struct MsvcTool {
         tool: PathBuf,
-        libs: Vec<PathBuf>,
-        path: Vec<PathBuf>,
-        include: Vec<PathBuf>,
-    }
-
-    #[derive(Default)]
-    struct SdkInfo {
         libs: Vec<PathBuf>,
         path: Vec<PathBuf>,
         include: Vec<PathBuf>,
@@ -392,7 +425,7 @@ mod impl_ {
             }
         }
 
-        fn add_sdk(&mut self, sdk_info: SdkInfo) {
+        fn add_sdk(&mut self, sdk_info: Sdk) {
             self.libs.extend(sdk_info.libs);
             self.path.extend(sdk_info.path);
             self.include.extend(sdk_info.include);
@@ -417,7 +450,7 @@ mod impl_ {
         }
     }
 
-    impl SdkInfo {
+    impl Sdk {
         fn find_tool(&self, tool: &str) -> Option<PathBuf> {
             self.path.iter().map(|p| p.join(tool)).find_map(|mut p| {
                 (p.exists() || (p.set_extension(env::consts::EXE_SUFFIX) && p.exists()))
@@ -958,7 +991,7 @@ mod impl_ {
         Some(tool.into_tool(env_getter))
     }
 
-    fn get_sdks(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<SdkInfo> {
+    pub(super) fn get_sdks(target: TargetArch, env_getter: &dyn EnvGetter) -> Option<Sdk> {
         let sub = target.as_vs_arch();
         let (ucrt, ucrt_version) = get_ucrt_dir()?;
 
@@ -969,7 +1002,7 @@ mod impl_ {
             _ => return None,
         };
 
-        let mut info = SdkInfo::default();
+        let mut info = Sdk::default();
 
         info.path
             .push(ucrt.join("bin").join(&ucrt_version).join(host));
@@ -989,6 +1022,7 @@ mod impl_ {
             info.include.push(sdk_include.join("cppwinrt"));
             info.include.push(sdk_include.join("winrt"));
             info.include.push(sdk_include.join("shared"));
+            info.version = version;
         } else if let Some(sdk) = get_sdk81_dir() {
             info.path.push(sdk.join("bin").join(host));
             let sdk_lib = sdk.join("lib").join("winv6.3");
@@ -997,6 +1031,7 @@ mod impl_ {
             info.include.push(sdk_include.join("um"));
             info.include.push(sdk_include.join("winrt"));
             info.include.push(sdk_include.join("shared"));
+            info.version = "8.1".into();
         }
 
         Some(info)
@@ -1018,12 +1053,7 @@ mod impl_ {
 
     // Given a possible MSVC installation directory, we look for the linker and
     // then add the MSVC library path.
-    fn get_tool(
-        tool: &str,
-        path: &Path,
-        target: TargetArch,
-        sdk_info: &SdkInfo,
-    ) -> Option<MsvcTool> {
+    fn get_tool(tool: &str, path: &Path, target: TargetArch, sdk_info: &Sdk) -> Option<MsvcTool> {
         bin_subdir(target)
             .into_iter()
             .map(|(sub, host)| {
@@ -1477,7 +1507,7 @@ mod impl_ {
 mod impl_ {
     use std::{env, ffi::OsStr, path::PathBuf};
 
-    use super::{EnvGetter, TargetArch};
+    use super::{EnvGetter, Sdk, TargetArch};
     use crate::Tool;
 
     /// Finding msbuild.exe tool under unix system is not currently supported.
@@ -1566,6 +1596,11 @@ mod impl_ {
 
     #[inline(always)]
     pub(super) fn get_ucrt_dir() -> Option<(PathBuf, String)> {
+        None
+    }
+
+    #[inline(always)]
+    pub(super) fn get_sdks(_target: TargetArch, _env_getter: &dyn EnvGetter) -> Option<Sdk> {
         None
     }
 }
