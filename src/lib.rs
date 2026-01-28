@@ -2127,6 +2127,7 @@ impl Build {
                     target.os != "windows"
                         && target.os != "none"
                         && target.os != "uefi"
+                        && target.os != "vita"
                         && target.arch != "wasm32"
                         && target.arch != "wasm64",
                 ) {
