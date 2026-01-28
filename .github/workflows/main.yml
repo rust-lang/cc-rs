@@ -232,7 +232,7 @@ jobs:
        - uses: Swatinem/rust-cache@v2
        - run: cargo test --workspace --release
          env:
-           RUSTCFLAGS: -C linker-plugin-lto
+           RUSTFLAGS: -C linker-plugin-lto
        # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
        - name: check clean Git workting tree
          uses: ./.github/actions/check-clean-git-working-tree
