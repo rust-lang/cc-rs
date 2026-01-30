@@ -1652,6 +1652,11 @@ impl Build {
                     ));
                 }
             }
+            // On aix we must also link libc++abi when using libc++
+            if self.get_target()?.os == "aix" {
+                self.cargo_output
+                    .print_metadata(&"cargo:rustc-link-lib=c++abi");
+            }
         }
 
         let cudart = match &self.cudart {
