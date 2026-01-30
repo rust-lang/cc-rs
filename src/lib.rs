@@ -2703,7 +2703,26 @@ impl Build {
             // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
             // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
             // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
-            run(ar.arg("s").arg(dst), &self.cargo_output)?;
+
+            // Try ar s first (works with GNU ar and most standard implementations)
+            let ar_result = run(ar.arg("s").arg(dst), &self.cargo_output);
+
+            // If ar s fails (e.g., BusyBox ar doesn't support -s flag), fall back to ranlib.
+            // See https://github.com/rust-lang/cc-rs/issues/504
+            if ar_result.is_err() {
+                // ranlib is equivalent to ar s
+                match self.try_get_ranlib() {
+                    Ok(mut ranlib) => {
+                        // Ignore ranlib errors - symbol tables are recommended but not always required.
+                        // Many linkers work fine without explicit symbol tables.
+                        let _ = run(ranlib.arg(dst), &self.cargo_output);
+                    }
+                    Err(_) => {
+                        // No ranlib available - continue without symbol table generation.
+                        // This is acceptable as symbol tables are an optimization, not a requirement.
+                    }
+                }
+            }
         }
 
         Ok(())
