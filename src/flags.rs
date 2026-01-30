@@ -21,6 +21,7 @@ pub(crate) struct RustcCodegenFlags<'a> {
     dwarf_version: Option<u32>,
     stack_protector: Option<&'a str>,
     linker_plugin_lto: Option<bool>,
+    target_cpu: Option<&'a str>,
 }
 
 impl<'this> RustcCodegenFlags<'this> {
@@ -174,6 +175,10 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Zstack-protector" | "-Cstack-protector" => {
                 self.stack_protector = flag_not_empty(value)?;
             }
+            // https://doc.rust-lang.org/beta/rustc/codegen-options/index.html#target-cpu
+            "-Ctarget-cpu" => {
+                self.target_cpu = flag_not_empty(value)?;
+            }
             _ => {}
         }
         Ok(())
@@ -296,6 +301,12 @@ impl<'this> RustcCodegenFlags<'this> {
                 if let Some(cc_flag) = cc_flag {
                     push_if_supported(cc_flag.into());
                 }
+            }
+            // Attempt to pass target-cpu as a clang/gcc -mcpu: The options are mostly the same,
+            // and push_if_supported excludes it if not supported
+            // TODO: this probably needs some mapping from Rust CPUs to gcc/clang values?
+            if let Some(value) = self.target_cpu {
+                push_if_supported(format!("-mcpu={value}").into());
             }
         }
 
@@ -535,6 +546,7 @@ mod tests {
             "-Csymbol-mangling-version=v0",
             "-Ctarget-cpu=native",
             "-Ctarget-feature=+sve",
+            "-Ctarget-cpu=neoverse-n1",
             // Unstable options
             "-Ztune-cpu=machine",
         ];
@@ -557,6 +569,7 @@ mod tests {
                 dwarf_version: Some(5),
                 stack_protector: Some("strong"),
                 linker_plugin_lto: Some(true),
+                target_cpu: Some("neoverse-n1"),
             },
         );
     }

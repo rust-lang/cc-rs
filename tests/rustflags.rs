@@ -44,4 +44,15 @@ fn inherits_rustflags() {
         .must_have("-msoft-float")
         .must_have("-gdwarf-5")
         .must_not_have("-fno-stack-protector");
+
+    // pass target-cpu as -mcpu to gcc/clang
+    std::env::set_var("CARGO_ENCODED_RUSTFLAGS", "-Ctarget-cpu=neoverse-n1");
+    // add the aarch64-linux-gnu-gcc shim to fake
+    let test = Test::gnu();
+    test.gcc()
+        .target("aarch64-unknown-linux-gnu")
+        .host("aarch64-unknown-linux-gnu")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-mcpu=neoverse-n1");
 }
