@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.55](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.54...cc-v1.2.55) - 2026-01-30
+
+### Other
+
+- Regenerate target info ([#1667](https://github.com/rust-lang/cc-rs/pull/1667))
+- Fix RUSTFLAGS typo in test-linker-plugin-lto ([#1665](https://github.com/rust-lang/cc-rs/pull/1665))
+- Disable PIC for armv7-sony-vita-newlibeabihf ([#1664](https://github.com/rust-lang/cc-rs/pull/1664))
+
 ## [1.2.54](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.53...cc-v1.2.54) - 2026-01-23
 
 ### Other
