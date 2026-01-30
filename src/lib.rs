@@ -1423,25 +1423,6 @@ impl Build {
         )
     }
 
-    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
-        let out_dir = self.get_out_dir()?;
-        let src = if self.cuda {
-            assert!(self.cpp);
-            out_dir.join("flag_check.cu")
-        } else if self.cpp {
-            out_dir.join("flag_check.cpp")
-        } else {
-            out_dir.join("flag_check.c")
-        };
-
-        if !src.exists() {
-            let mut f = fs::File::create(&src)?;
-            write!(f, "int main(void) {{ return 0; }}")?;
-        }
-
-        Ok(src)
-    }
-
     fn is_flag_supported_inner(
         &self,
         flag: &OsStr,
@@ -1465,7 +1446,6 @@ impl Build {
         }
 
         let out_dir = self.get_out_dir()?;
-        let src = self.ensure_check_file()?;
         let obj = out_dir.join("flag_check");
 
         let mut compiler = {
@@ -1497,6 +1477,14 @@ impl Build {
             // Avoid reporting that the arg is unsupported just because the
             // compiler complains that it wasn't used.
             compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
+            // Turn unknown warning options into errors so invalid -W flags are properly rejected
+            compiler.push_cc_arg("-Werror=unknown-warning-option".into());
+        }
+
+        if compiler.is_like_gnu() || compiler.is_like_clang() {
+            // Turn warnings into errors to ensure invalid flags are rejected
+            // (e.g., -std=c++11 for C code, invalid warning flags)
+            compiler.push_cc_arg("-Werror".into());
         }
 
         let mut cmd = compiler.to_command();
@@ -1520,13 +1508,10 @@ impl Build {
         // https://github.com/rust-lang/cc-rs/issues/1423
         cmd.arg("-c");
 
-        if compiler.supports_path_delimiter() {
-            cmd.arg("--");
-        }
-
-        cmd.arg(&src);
-
-        if compiler.is_like_msvc() {
+        // MSVC doesn't support stdin compilation, so use file-based approach for it
+        // For GCC/Clang, use stdin to support language-selection flags like -xassembler-with-cpp
+        // See: https://github.com/rust-lang/cc-rs/issues/359
+        let is_supported = if compiler.is_like_msvc() {
             // On MSVC we need to make sure the LIB directory is included
             // so the CRT can be found.
             for (key, value) in &tool.env {
@@ -1535,10 +1520,61 @@ impl Build {
                     break;
                 }
             }
-        }
 
-        let output = cmd.current_dir(out_dir).output()?;
-        let is_supported = output.status.success() && output.stderr.is_empty();
+            // Use file-based compilation for MSVC
+            let src = if self.cuda {
+                assert!(self.cpp);
+                out_dir.join("flag_check.cu")
+            } else if self.cpp {
+                out_dir.join("flag_check.cpp")
+            } else {
+                out_dir.join("flag_check.c")
+            };
+
+            if !src.exists() {
+                let mut f = fs::File::create(&src)?;
+                write!(f, "int main(void) {{ return 0; }}")?;
+            }
+
+            if compiler.supports_path_delimiter() {
+                cmd.arg("--");
+            }
+            cmd.arg(&src);
+
+            let output = cmd.current_dir(&out_dir).output()?;
+            output.status.success() && output.stderr.is_empty()
+        } else {
+            // Use stdin compilation for GCC/Clang
+            let flag_str = flag.to_string_lossy();
+            let is_language_flag = flag_str.starts_with("-x");
+
+            if !is_language_flag {
+                // For non-language-selection flags, explicitly specify the language
+                // to ensure proper validation (e.g., -std=c++11 should fail for C code)
+                if self.cpp {
+                    cmd.arg("-xc++");
+                } else if self.cuda {
+                    cmd.arg("-xcuda");
+                } else {
+                    cmd.arg("-xc");
+                }
+            }
+            // For language-selection flags (like -xassembler-with-cpp), don't specify
+            // a language - let the flag itself determine it
+
+            cmd.arg("-");
+
+            let mut child = cmd
+                .stdin(std::process::Stdio::piped())
+                .current_dir(&out_dir)
+                .spawn()?;
+
+            // Close stdin immediately (empty input is sufficient for flag validation)
+            drop(child.stdin.take());
+
+            let output = child.wait_with_output()?;
+            output.status.success() && output.stderr.is_empty()
+        };
 
         self.build_cache
             .known_flag_support_status_cache
