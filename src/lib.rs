@@ -3840,7 +3840,7 @@ impl Build {
                 _ => false,
             }
         }
-        if let Some(val) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
+        if let Some((_key, val)) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
             return Some(val.clone());
         }
         if let Some(val) = self.build_cache.env_cache.read().unwrap().get(v).cloned() {
