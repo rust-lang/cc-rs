@@ -3840,6 +3840,9 @@ impl Build {
                 _ => false,
             }
         }
+        if let Some(val) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
+            return Some(val.clone());
+        }
         if let Some(val) = self.build_cache.env_cache.read().unwrap().get(v).cloned() {
             return val;
         }
@@ -3849,12 +3852,7 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        let r = self
-            .env
-            .iter()
-            .find(|(k, _)| k.as_ref() == v)
-            .map(|(_, value)| value.clone())
-            .or_else(|| env::var_os(v).map(Arc::from));
+        let r = env::var_os(v).map(Arc::from);
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
