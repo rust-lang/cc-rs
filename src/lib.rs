@@ -1986,8 +1986,13 @@ impl Build {
             cmd.push_cc_arg(format!("-std{separator}{std}").into());
         }
         for directory in self.include_directories.iter() {
-            cmd.args.push("-I".into());
-            cmd.args.push(directory.as_os_str().into());
+            if cmd.is_like_clang_cl() {
+                cmd.args
+                    .push(format!("-Xclang=-I{}", directory.display()).into());
+            } else {
+                cmd.args.push("-I".into());
+                cmd.args.push(directory.as_os_str().into());
+            }
         }
         if self.warnings_into_errors {
             let warnings_to_errors_flag = cmd.family.warnings_to_errors_flag().into();
@@ -2599,7 +2604,11 @@ impl Build {
             .unwrap_or_else(|| self.cmd(tool));
         cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
-            cmd.arg("-I").arg(&**directory);
+            if self.prefer_clang_cl_over_msvc {
+                cmd.arg(format!("-Xclang=-I{}", directory.display()));
+            } else {
+                cmd.arg("-I").arg(&**directory);
+            }
         }
         if is_arm(&target) {
             if self.get_debug() {
