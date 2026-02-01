@@ -2269,11 +2269,15 @@ impl Build {
                 cmd.push_cc_arg("-Brepro".into());
 
                 if clang_cl {
-                    let is_cross = self.get_is_cross_compile()?;
-                    if !is_cross && target.arch == "x86_64" {
-                        cmd.push_cc_arg("-m64".into());
-                    } else if !is_cross && target.arch == "x86" {
-                        cmd.push_cc_arg("-m32".into());
+                    cmd.push_cc_arg(
+                        format!(
+                            "--target={}",
+                            target.llvm_target(&self.get_raw_target()?, None)
+                        )
+                        .into(),
+                    );
+
+                    if target.arch == "x86" {
                         // See
                         // <https://learn.microsoft.com/en-us/cpp/build/reference/arch-x86?view=msvc-170>.
                         //
@@ -2284,14 +2288,6 @@ impl Build {
                         // <https://github.com/microsoft/STL/issues/3922>, and -
                         // <https://github.com/microsoft/STL/pull/4741>.
                         cmd.push_cc_arg("-arch:SSE2".into());
-                    } else {
-                        cmd.push_cc_arg(
-                            format!(
-                                "--target={}",
-                                target.llvm_target(&self.get_raw_target()?, None)
-                            )
-                            .into(),
-                        );
                     }
                 } else if target.full_arch == "i586" {
                     cmd.push_cc_arg("-arch:IA32".into());
@@ -4406,7 +4402,7 @@ fn check_disabled() -> Result<(), Error> {
     if is_disabled() {
         return Err(Error::new(
             ErrorKind::Disabled,
-            "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable."
+            "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable.",
         ));
     }
     Ok(())
