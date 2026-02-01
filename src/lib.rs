@@ -2045,10 +2045,15 @@ impl Build {
             }
         }
         for (key, value) in self.definitions.iter() {
-            if let Some(ref value) = *value {
-                cmd.args.push(format!("-D{key}={value}").into());
+            let separator = if self.prefer_clang_cl_over_msvc {
+                " "
             } else {
-                cmd.args.push(format!("-D{key}").into());
+                ""
+            };
+            if let Some(ref value) = *value {
+                cmd.args.push(format!("-D{separator}{key}={value}").into());
+            } else {
+                cmd.args.push(format!("-D{separator}{key}").into());
             }
         }
 
@@ -2639,10 +2644,15 @@ impl Build {
             }
 
             for (key, value) in self.definitions.iter() {
-                if let Some(ref value) = *value {
-                    cmd.arg(format!("-D{key}={value}"));
+                let separator = if self.prefer_clang_cl_over_msvc {
+                    " "
                 } else {
-                    cmd.arg(format!("-D{key}"));
+                    ""
+                };
+                if let Some(ref value) = *value {
+                    cmd.arg(format!("-D{separator}{key}={value}"));
+                } else {
+                    cmd.arg(format!("-D{separator}{key}"));
                 }
             }
         }
