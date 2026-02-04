@@ -2026,6 +2026,12 @@ impl Build {
             self.add_inherited_rustflags(&mut cmd, &target)?;
         }
 
+        if let Some(sanitizer) = self.getenv("CARGO_CFG_SANITIZE") {
+            let mut sanitizer_flag = OsString::from("-fsanitize=");
+            sanitizer_flag.push(sanitizer);
+            cmd.args.push(sanitizer_flag);
+        }
+
         // Set flags configured in the builder (do this second-to-last, to allow these to override
         // everything above).
         for flag in self.flags.iter() {
