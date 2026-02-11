@@ -27,7 +27,7 @@ jobs:
       - name: Install rust
         # Install both MSRV and current nightly
         run: |
-          rustup toolchain install 1.63 stable nightly --no-self-update --profile minimal
+          rustup toolchain install 1.85 stable nightly --no-self-update --profile minimal
 
       - name: Create lockfile
         run: cargo update
