@@ -1386,8 +1386,17 @@ impl Build {
     /// Prefer to use clang-cl over msvc.
     ///
     /// This option defaults to `false`.
+    ///
+    /// This option is always overridden by the environment variable `CC_PREFER_CLANG_CL_OVER_MSVC`, if set
     pub fn prefer_clang_cl_over_msvc(&mut self, prefer_clang_cl_over_msvc: bool) -> &mut Build {
-        self.prefer_clang_cl_over_msvc = prefer_clang_cl_over_msvc;
+        match get_prefer_clang_cl_over_msvc_from_env() {
+            Some(b) => {
+                self.cargo_output.print_warning(&format_args!("`prefer_clang_cl_over_msvc` is overridden by {:?} to {:?}, the value set by this call is ignored", CC_PREFER_CLANG_CL_OVER_MSVC_ENV_VAR, b));
+            }
+            None => {
+                self.prefer_clang_cl_over_msvc = prefer_clang_cl_over_msvc;
+            }
+        }
         self
     }
 
@@ -2869,7 +2878,8 @@ impl Build {
         let target = self.get_target()?;
         let raw_target = self.get_raw_target()?;
 
-        let msvc = if self.prefer_clang_cl_over_msvc {
+        let prefer_clang_cl_over_msvc_env = get_prefer_clang_cl_over_msvc_from_env();
+        let msvc = if prefer_clang_cl_over_msvc_env.unwrap_or(self.prefer_clang_cl_over_msvc) {
             "clang-cl.exe"
         } else {
             "cl.exe"
@@ -4473,6 +4483,19 @@ fn check_exe(mut exe: PathBuf) -> Option<PathBuf> {
     let exe_ext = std::env::consts::EXE_EXTENSION;
     let check = exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists());
     check.then_some(exe)
+}
+
+const CC_PREFER_CLANG_CL_OVER_MSVC_ENV_VAR: &str = "CC_PREFER_CLANG_CL_OVER_MSVC";
+fn get_prefer_clang_cl_over_msvc_from_env() -> Option<bool> {
+    #[allow(clippy::disallowed_methods)]
+    match env::var_os(CC_PREFER_CLANG_CL_OVER_MSVC_ENV_VAR) {
+        None => None,
+        Some(v) => match v.to_str() {
+            Some("1") | Some("true") | Some("yes") => Some(true),
+            Some("0") | Some("false") | Some("no") => Some(false),
+            _ => None,
+        },
+    }
 }
 
 #[cfg(test)]
