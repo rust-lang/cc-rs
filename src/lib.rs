@@ -1391,14 +1391,25 @@ impl Build {
         self
     }
 
-    #[doc(hidden)]
-    pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
+    /// Set an environment variable for compiler invocations and other child processes.
+    pub fn env<K, V>(&mut self, key: K, val: V) -> &mut Build
     where
-        A: AsRef<OsStr>,
-        B: AsRef<OsStr>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
-        self.env.push((a.as_ref().into(), b.as_ref().into()));
+        self.env.push((key.as_ref().into(), val.as_ref().into()));
         self
+    }
+
+    // retained for backwards compatibility only
+    #[doc(hidden)]
+    #[deprecated = "use `env` instead"]
+    pub fn __set_env<K, V>(&mut self, key: K, val: V) -> &mut Build
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        self.env(key, val)
     }
 }
 
@@ -3826,6 +3837,9 @@ impl Build {
                 _ => false,
             }
         }
+        if let Some((_key, val)) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
+            return Some(val.clone());
+        }
         if let Some(val) = self.build_cache.env_cache.read().unwrap().get(v).cloned() {
             return val;
         }
@@ -3835,12 +3849,7 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        let r = self
-            .env
-            .iter()
-            .find(|(k, _)| k.as_ref() == v)
-            .map(|(_, value)| value.clone())
-            .or_else(|| env::var_os(v).map(Arc::from));
+        let r = env::var_os(v).map(Arc::from);
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
