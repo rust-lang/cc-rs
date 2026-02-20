@@ -364,7 +364,6 @@ type Env = Option<Arc<OsStr>>;
 
 #[derive(Debug, Default)]
 struct BuildCache {
-    env_cache: RwLock<HashMap<Box<str>, Env>>,
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
@@ -3840,9 +3839,7 @@ impl Build {
         if let Some((_key, val)) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
             return Some(val.clone());
         }
-        if let Some(val) = self.build_cache.env_cache.read().unwrap().get(v).cloned() {
-            return val;
-        }
+
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
         // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) && v != "PATH" {
@@ -3855,11 +3852,6 @@ impl Build {
             v,
             OptionOsStrDisplay(r.as_deref())
         ));
-        self.build_cache
-            .env_cache
-            .write()
-            .unwrap()
-            .insert(v.into(), r.clone());
         r
     }
 
