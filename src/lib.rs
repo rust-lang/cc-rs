@@ -3206,7 +3206,7 @@ impl Build {
             if let Some(compiler) = parts.next() {
                 return Some((
                     compiler.into(),
-                    Some(Arc::<OsStr>::from(OsStr::new(&maybe_wrapper))),
+                    Some(Cow::Owned(maybe_wrapper.into())),
                     parts.map(|s| s.to_string()).collect(),
                 ));
             }
@@ -4023,7 +4023,7 @@ impl Build {
             .apple_sdk_root_cache
             .write()
             .expect("apple_sdk_root_cache lock failed")
-            .insert(sdk.into(), sdk_path);
+            .insert(sdk.into(), sdk_path.clone());
         Ok(sdk_path)
     }
 
