@@ -3131,7 +3131,7 @@ impl Build {
     }
 
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
-    fn rustc_wrapper_fallback(&self) -> Option<Arc<OsStr>> {
+    fn rustc_wrapper_fallback(&self) -> Option<Cow<'_, OsStr>> {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
@@ -3900,7 +3900,7 @@ impl Build {
     }
 
     /// Get a single-valued environment variable with target variants.
-    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
+    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Cow<'_, OsStr>, Error> {
         // Take from first environment variable in the environment.
         let res = self
             .target_envs(env)?
@@ -3952,7 +3952,7 @@ impl Build {
         Ok(())
     }
 
-    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
+    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Cow<'_, OsStr>, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = self.getenv("SDKROOT") {
             let p = Path::new(&sdkroot);
@@ -4002,7 +4002,7 @@ impl Build {
                 ));
             }
         };
-        Ok(Arc::from(OsStr::new(sdk_path.trim())))
+        Ok(Cow::Owned(sdk_path.trim().into()))
     }
 
     fn apple_sdk_root(&self, target: &TargetInfo<'_>) -> Result<Arc<OsStr>, Error> {
@@ -4056,12 +4056,7 @@ impl Build {
         let deployment_from_env = |name: &str| -> Option<Arc<str>> {
             // note that self.env isn't hit in production codepaths, its mostly just for tests which don't
             // set the real env
-            self.env
-                .iter()
-                .find(|(k, _)| &**k == OsStr::new(name))
-                .map(|(_, v)| v)
-                .cloned()
-                .or_else(|| self.getenv(name))?
+            self.getenv(name)?
                 .to_str()
                 .map(Arc::from)
         };
@@ -4164,7 +4159,7 @@ impl Build {
         version
     }
 
-    fn wasm_musl_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn wasm_musl_sysroot(&self) -> Result<Cow<'_, OsStr>, Error> {
         if let Some(musl_sysroot_path) = self.getenv("WASM_MUSL_SYSROOT") {
             Ok(musl_sysroot_path)
         } else {
@@ -4175,7 +4170,7 @@ impl Build {
         }
     }
 
-    fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn wasi_sysroot(&self) -> Result<Cow<'_, OsStr>, Error> {
         if let Some(wasi_sysroot_path) = self.getenv("WASI_SYSROOT") {
             Ok(wasi_sysroot_path)
         } else {
@@ -4243,7 +4238,7 @@ impl Build {
 
         impl ::find_msvc_tools::EnvGetter for BuildEnvGetter<'_> {
             fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
-                self.0.getenv(name).map(::find_msvc_tools::Env::Arced)
+                self.0.getenv(name).map(Cow::into_owned).map(::find_msvc_tools::Env::Owned)
             }
         }
 
