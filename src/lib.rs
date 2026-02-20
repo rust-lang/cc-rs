@@ -360,8 +360,6 @@ struct CompilerFlag {
     flag: Box<OsStr>,
 }
 
-type Env = Option<Arc<OsStr>>;
-
 #[derive(Debug, Default)]
 struct BuildCache {
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
