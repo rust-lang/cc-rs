@@ -3149,7 +3149,7 @@ impl Build {
     }
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
-    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<Arc<OsStr>>, Vec<String>)> {
+    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<Cow<'_, OsStr>>, Vec<String>)> {
         let tool = self.getenv_with_target_prefixes(name).ok()?;
         let tool = tool.to_string_lossy();
         let tool = tool.trim();
@@ -4018,12 +4018,12 @@ impl Build {
         {
             return Ok(ret);
         }
-        let sdk_path = self.apple_sdk_root_inner(sdk)?;
+        let sdk_path = self.apple_sdk_root_inner(sdk)?.into();
         self.build_cache
             .apple_sdk_root_cache
             .write()
             .expect("apple_sdk_root_cache lock failed")
-            .insert(sdk.into(), sdk_path.clone());
+            .insert(sdk.into(), sdk_path);
         Ok(sdk_path)
     }
 
@@ -4056,9 +4056,7 @@ impl Build {
         let deployment_from_env = |name: &str| -> Option<Arc<str>> {
             // note that self.env isn't hit in production codepaths, its mostly just for tests which don't
             // set the real env
-            self.getenv(name)?
-                .to_str()
-                .map(Arc::from)
+            self.getenv(name)?.to_str().map(Arc::from)
         };
 
         // Determines if the acquired deployment target is too low to support modern C++ on some Apple platform.
@@ -4238,7 +4236,10 @@ impl Build {
 
         impl ::find_msvc_tools::EnvGetter for BuildEnvGetter<'_> {
             fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
-                self.0.getenv(name).map(Cow::into_owned).map(::find_msvc_tools::Env::Owned)
+                self.0
+                    .getenv(name)
+                    .map(Cow::into_owned)
+                    .map(::find_msvc_tools::Env::Owned)
             }
         }
 
