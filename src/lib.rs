@@ -3819,7 +3819,7 @@ impl Build {
     }
 
     #[allow(clippy::disallowed_methods)]
-    fn getenv(&self, v: &str) -> Option<Arc<OsStr>> {
+    fn getenv(&self, v: &str) -> Option<Cow<'_, OsStr>> {
         // Returns true for environment variables cargo sets for build scripts:
         // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
         //
@@ -3835,7 +3835,7 @@ impl Build {
             }
         }
         if let Some((_key, val)) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
-            return Some(val.clone());
+            return Some(Cow::Borrowed(val));
         }
 
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
@@ -3844,7 +3844,7 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        let r = env::var_os(v).map(Arc::from);
+        let r = env::var_os(v).map(Cow::Owned);
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
@@ -3861,7 +3861,7 @@ impl Build {
         }
     }
 
-    fn getenv_unwrap(&self, v: &str) -> Result<Arc<OsStr>, Error> {
+    fn getenv_unwrap(&self, v: &str) -> Result<Cow<'_, OsStr>, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
             None => Err(Error::new(
