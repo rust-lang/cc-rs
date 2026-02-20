@@ -4018,7 +4018,7 @@ impl Build {
         {
             return Ok(ret);
         }
-        let sdk_path = self.apple_sdk_root_inner(sdk)?.into();
+        let sdk_path: Arc<OsStr> = self.apple_sdk_root_inner(sdk)?.into();
         self.build_cache
             .apple_sdk_root_cache
             .write()
