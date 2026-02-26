@@ -360,11 +360,8 @@ struct CompilerFlag {
     flag: Box<OsStr>,
 }
 
-type Env = Option<Arc<OsStr>>;
-
 #[derive(Debug, Default)]
 struct BuildCache {
-    env_cache: RwLock<HashMap<Box<str>, Env>>,
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
@@ -1391,14 +1388,25 @@ impl Build {
         self
     }
 
-    #[doc(hidden)]
-    pub fn __set_env<A, B>(&mut self, a: A, b: B) -> &mut Build
+    /// Set an environment variable for compiler invocations and other child processes.
+    pub fn env<K, V>(&mut self, key: K, val: V) -> &mut Build
     where
-        A: AsRef<OsStr>,
-        B: AsRef<OsStr>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
     {
-        self.env.push((a.as_ref().into(), b.as_ref().into()));
+        self.env.push((key.as_ref().into(), val.as_ref().into()));
         self
+    }
+
+    // retained for backwards compatibility only
+    #[doc(hidden)]
+    #[deprecated = "use `env` instead"]
+    pub fn __set_env<K, V>(&mut self, key: K, val: V) -> &mut Build
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        self.env(key, val)
     }
 }
 
@@ -3123,7 +3131,7 @@ impl Build {
     }
 
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
-    fn rustc_wrapper_fallback(&self) -> Option<Arc<OsStr>> {
+    fn rustc_wrapper_fallback(&self) -> Option<Cow<'_, OsStr>> {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
@@ -3141,7 +3149,7 @@ impl Build {
     }
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
-    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<Arc<OsStr>>, Vec<String>)> {
+    fn env_tool(&self, name: &str) -> Option<(PathBuf, Option<Cow<'_, OsStr>>, Vec<String>)> {
         let tool = self.getenv_with_target_prefixes(name).ok()?;
         let tool = tool.to_string_lossy();
         let tool = tool.trim();
@@ -3198,7 +3206,7 @@ impl Build {
             if let Some(compiler) = parts.next() {
                 return Some((
                     compiler.into(),
-                    Some(Arc::<OsStr>::from(OsStr::new(&maybe_wrapper))),
+                    Some(Cow::Owned(maybe_wrapper.into())),
                     parts.map(|s| s.to_string()).collect(),
                 ));
             }
@@ -3811,7 +3819,7 @@ impl Build {
     }
 
     #[allow(clippy::disallowed_methods)]
-    fn getenv(&self, v: &str) -> Option<Arc<OsStr>> {
+    fn getenv(&self, v: &str) -> Option<Cow<'_, OsStr>> {
         // Returns true for environment variables cargo sets for build scripts:
         // https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts
         //
@@ -3826,31 +3834,22 @@ impl Build {
                 _ => false,
             }
         }
-        if let Some(val) = self.build_cache.env_cache.read().unwrap().get(v).cloned() {
-            return val;
+        if let Some((_key, val)) = self.env.iter().find(|(k, _)| k.as_ref() == v) {
+            return Some(Cow::Borrowed(val));
         }
+
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
         // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
         if self.emit_rerun_if_env_changed && !provided_by_cargo(v) && v != "PATH" {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        let r = self
-            .env
-            .iter()
-            .find(|(k, _)| k.as_ref() == v)
-            .map(|(_, value)| value.clone())
-            .or_else(|| env::var_os(v).map(Arc::from));
+        let r = env::var_os(v).map(Cow::Owned);
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
             OptionOsStrDisplay(r.as_deref())
         ));
-        self.build_cache
-            .env_cache
-            .write()
-            .unwrap()
-            .insert(v.into(), r.clone());
         r
     }
 
@@ -3862,7 +3861,7 @@ impl Build {
         }
     }
 
-    fn getenv_unwrap(&self, v: &str) -> Result<Arc<OsStr>, Error> {
+    fn getenv_unwrap(&self, v: &str) -> Result<Cow<'_, OsStr>, Error> {
         match self.getenv(v) {
             Some(s) => Ok(s),
             None => Err(Error::new(
@@ -3901,7 +3900,7 @@ impl Build {
     }
 
     /// Get a single-valued environment variable with target variants.
-    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
+    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Cow<'_, OsStr>, Error> {
         // Take from first environment variable in the environment.
         let res = self
             .target_envs(env)?
@@ -3953,7 +3952,7 @@ impl Build {
         Ok(())
     }
 
-    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
+    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Cow<'_, OsStr>, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = self.getenv("SDKROOT") {
             let p = Path::new(&sdkroot);
@@ -4003,7 +4002,7 @@ impl Build {
                 ));
             }
         };
-        Ok(Arc::from(OsStr::new(sdk_path.trim())))
+        Ok(Cow::Owned(sdk_path.trim().into()))
     }
 
     fn apple_sdk_root(&self, target: &TargetInfo<'_>) -> Result<Arc<OsStr>, Error> {
@@ -4019,7 +4018,7 @@ impl Build {
         {
             return Ok(ret);
         }
-        let sdk_path = self.apple_sdk_root_inner(sdk)?;
+        let sdk_path: Arc<OsStr> = self.apple_sdk_root_inner(sdk)?.into();
         self.build_cache
             .apple_sdk_root_cache
             .write()
@@ -4057,14 +4056,7 @@ impl Build {
         let deployment_from_env = |name: &str| -> Option<Arc<str>> {
             // note that self.env isn't hit in production codepaths, its mostly just for tests which don't
             // set the real env
-            self.env
-                .iter()
-                .find(|(k, _)| &**k == OsStr::new(name))
-                .map(|(_, v)| v)
-                .cloned()
-                .or_else(|| self.getenv(name))?
-                .to_str()
-                .map(Arc::from)
+            self.getenv(name)?.to_str().map(Arc::from)
         };
 
         // Determines if the acquired deployment target is too low to support modern C++ on some Apple platform.
@@ -4165,7 +4157,7 @@ impl Build {
         version
     }
 
-    fn wasm_musl_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn wasm_musl_sysroot(&self) -> Result<Cow<'_, OsStr>, Error> {
         if let Some(musl_sysroot_path) = self.getenv("WASM_MUSL_SYSROOT") {
             Ok(musl_sysroot_path)
         } else {
@@ -4176,7 +4168,7 @@ impl Build {
         }
     }
 
-    fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn wasi_sysroot(&self) -> Result<Cow<'_, OsStr>, Error> {
         if let Some(wasi_sysroot_path) = self.getenv("WASI_SYSROOT") {
             Ok(wasi_sysroot_path)
         } else {
@@ -4244,7 +4236,10 @@ impl Build {
 
         impl ::find_msvc_tools::EnvGetter for BuildEnvGetter<'_> {
             fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
-                self.0.getenv(name).map(::find_msvc_tools::Env::Arced)
+                self.0
+                    .getenv(name)
+                    .map(Cow::into_owned)
+                    .map(::find_msvc_tools::Env::Owned)
             }
         }
 
