@@ -1819,11 +1819,7 @@ impl Build {
         let mut cmd = if is_assembler_msvc {
             self.msvc_macro_assembler()?
         } else {
-            let mut cmd = compiler.to_command();
-            for (a, b) in self.env.iter() {
-                cmd.env(a, b);
-            }
-            cmd
+            compiler.to_command()
         };
         let is_arm = is_arm(&target);
         command_add_output_file(
@@ -1871,9 +1867,6 @@ impl Build {
     pub fn try_expand(&self) -> Result<Vec<u8>, Error> {
         let compiler = self.try_get_compiler()?;
         let mut cmd = compiler.to_command();
-        for (a, b) in self.env.iter() {
-            cmd.env(a, b);
-        }
         cmd.arg("-E");
 
         assert!(
@@ -2062,6 +2055,13 @@ impl Build {
             for arg in flags {
                 cmd.push_cc_arg(arg.into());
             }
+        }
+
+        // Set custom env vars that the user specified with `Build::env`.
+        //
+        // Do this last, to allow overwriting the other values above.
+        for (key, val) in &self.env {
+            cmd.env.push((key.into(), val.into()));
         }
 
         Ok(cmd)
