@@ -949,6 +949,17 @@ fn parent_dir_with_multiple_files() {
     }
 }
 
+#[test]
+fn cc_env_vars_not_overridable() {
+    let test = Test::gnu();
+    test.gcc()
+        .env("CC_FORCE_DISABLE", "1")
+        .file("foo.c")
+        .compile("foo");
+
+    // Compilation shouldn't fail here.
+}
+
 #[cfg(windows)]
 #[cfg(not(disable_clang_cl_tests))]
 mod msvc_clang_cl_tests {
