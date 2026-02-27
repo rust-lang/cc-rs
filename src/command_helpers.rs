@@ -16,7 +16,7 @@ use std::{
     },
 };
 
-use crate::{Error, ErrorKind, Object};
+use crate::{utilities::cargo_env_var_os, Error, ErrorKind, Object};
 
 #[derive(Clone, Debug)]
 pub(crate) struct CargoOutput {
@@ -308,11 +308,7 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
 
         // Make the dirname relative (if possible) to avoid full system paths influencing the sha
         // and making the output system-dependent
-        //
-        // NOTE: Here we allow using std::env::var (instead of Build::getenv) because
-        // CARGO_* variables always trigger a rebuild when changed
-        #[allow(clippy::disallowed_methods)]
-        let dirname = if let Some(root) = std::env::var_os("CARGO_MANIFEST_DIR") {
+        let dirname = if let Some(root) = cargo_env_var_os("CARGO_MANIFEST_DIR") {
             let root = root.to_string_lossy();
             Cow::Borrowed(dirname.strip_prefix(&*root).unwrap_or(&dirname))
         } else {

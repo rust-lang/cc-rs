@@ -17,6 +17,7 @@ fn main() {
     more_spaces();
     clang_cl();
     env_var_alternatives_override();
+    msvc_prefer_clang_cl_over_msvc_respects_explicit_cc_env();
 }
 
 fn ccache() {
@@ -162,4 +163,29 @@ fn env_var_alternatives_override() {
     env::set_var("CC_thumbv8m_main_none_eabi", &compiler5);
     let compiler = test.gcc().target("thumbv8m.main-none-eabi").get_compiler();
     assert_eq!(compiler.path(), Path::new(&compiler5));
+}
+
+#[test]
+fn msvc_prefer_clang_cl_over_msvc_respects_explicit_cc_env() {
+    if cfg!(any(not(windows), disable_clang_cl_tests)) {
+        return;
+    }
+
+    let test = Test::msvc_autodetect();
+
+    std::env::set_var("CC", "cl.exe");
+
+    let compiler = test
+        .gcc()
+        .prefer_clang_cl_over_msvc(true)
+        .try_get_compiler()
+        .expect("Failed to get compiler");
+
+    // The preference should not override explicit compiler setting
+    assert!(compiler.is_like_msvc(), "Should still be MSVC-like");
+    assert!(
+        !compiler.is_like_clang_cl(),
+        "Should NOT use clang-cl when CC is explicitly set to cl.exe, got {:?}",
+        compiler
+    );
 }

@@ -986,6 +986,19 @@ fn parent_dir_with_multiple_files() {
     }
 }
 
+#[test]
+fn cc_env_vars_not_overridable() {
+    reset_env();
+
+    let test = Test::gnu();
+    test.gcc()
+        .env("CC_FORCE_DISABLE", "1")
+        .file("foo.c")
+        .compile("foo");
+
+    // Compilation shouldn't fail here.
+}
+
 #[cfg(windows)]
 #[cfg(not(disable_clang_cl_tests))]
 mod msvc_clang_cl_tests {
@@ -1033,30 +1046,6 @@ mod msvc_clang_cl_tests {
             compiler.is_like_msvc(),
             "clang-cl should still be MSVC-like"
         );
-    }
-
-    #[test]
-    fn msvc_prefer_clang_cl_over_msvc_respects_explicit_cc_env() {
-        reset_env();
-
-        let test = Test::msvc_autodetect();
-
-        //std::env::set_var("CC", "cl.exe");
-        let compiler = test
-            .gcc()
-            .env("CC", "cl.exe")
-            .prefer_clang_cl_over_msvc(true)
-            .try_get_compiler()
-            .expect("Failed to get compiler");
-
-        // The preference should not override explicit compiler setting
-        assert!(compiler.is_like_msvc(), "Should still be MSVC-like");
-        assert!(
-            !compiler.is_like_clang_cl(),
-            "Should NOT use clang-cl when CC is explicitly set to cl.exe, got {:?}",
-            compiler
-        );
-        std::env::remove_var("CC"); // Clean up after test
     }
 
     #[test]
