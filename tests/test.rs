@@ -428,6 +428,48 @@ fn gnu_flag_if_supported_cpp() {
     test.cmd(0).must_have("-std=c++11");
 }
 
+// Regression test for issue #486
+// Tests that flag_if_supported works correctly with explicit host/target specification.
+// This ensures that when host and target are both specified (even if identical),
+// flag support detection works properly.
+#[cfg(not(windows))]
+#[test]
+fn gnu_flag_if_supported_cross_arch() {
+    reset_env();
+
+    let test = Test::gnu();
+    // Use same target for both host and target - follows pattern of other tests
+    // This tests the code path where explicit host/target are set
+    test.gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .file("foo.c")
+        .flag_if_supported("-Wall")
+        .flag_if_supported("-Wextra")
+        .compile("foo");
+
+    test.cmd(0).must_have("-Wall").must_have("-Wextra");
+}
+
+// Regression test for issue #486 (C++ variant)
+#[cfg(not(windows))]
+#[test]
+fn gnu_flag_if_supported_cross_arch_cpp() {
+    reset_env();
+
+    let test = Test::gnu();
+    test.gcc()
+        .cpp(true)
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .file("foo.cpp")
+        .flag_if_supported("-std=c++11")
+        .flag_if_supported("-Wall")
+        .compile("foo");
+
+    test.cmd(0).must_have("-std=c++11").must_have("-Wall");
+}
+
 #[test]
 fn gnu_static() {
     reset_env();
