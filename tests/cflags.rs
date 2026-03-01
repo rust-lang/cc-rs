@@ -3,9 +3,11 @@
 mod support;
 
 use crate::support::Test;
+use serial_test::serial;
 use std::env;
 
 #[test]
+#[serial]
 fn cflags() {
     gnu_no_warnings_if_cflags();
     cflags_order();
