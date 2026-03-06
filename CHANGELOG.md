@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.57](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.56...cc-v1.2.57) - 2026-03-06
+
+### Other
+
+- rename `__set_env` to `env` and make it un-hidden ([#1656](https://github.com/rust-lang/cc-rs/pull/1656))
+
 ## [1.2.56](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.55...cc-v1.2.56) - 2026-02-13
 
 ### Other
