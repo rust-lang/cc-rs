@@ -12,7 +12,7 @@ test = false
 
 [build-dependencies]
 cc = { path = "../.." }
-which = "^4.0"
+which = "^8.0"
 
 [features]
 parallel = ["cc/parallel"]
