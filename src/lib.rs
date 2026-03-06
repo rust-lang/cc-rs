@@ -1788,7 +1788,12 @@ impl Build {
     }
 
     fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
-        check_disabled()?;
+        if self.is_disabled() {
+            return Err(Error::new(
+                ErrorKind::Disabled,
+                "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable.",
+            ));
+        }
 
         #[cfg(feature = "parallel")]
         if objs.len() > 1 {
@@ -3854,9 +3859,11 @@ impl Build {
     }
 
     /// get boolean flag that is either true or false
-    fn getenv_boolean(&self, v: &str) -> bool {
-        match self.getenv(v) {
-            Some(s) => &*s != "0" && &*s != "false" && !s.is_empty(),
+    fn getenv_boolean(&self, key: &str) -> bool {
+        match self.getenv(key) {
+            // Set -> `true`, unless set to `""`, `"0"`, `"no"` `"false"`
+            Some(s) => &*s != "0" && &*s != "false" && &*s != "no" && !s.is_empty(),
+            // Not set -> default to `false`.
             None => false,
         }
     }
@@ -3939,6 +3946,11 @@ impl Build {
         }
 
         Ok(if any_set { Some(res) } else { None })
+    }
+
+    /// Returns true if `cc` has been disabled by `CC_FORCE_DISABLE`.
+    fn is_disabled(&self) -> bool {
+        self.getenv_boolean("CC_FORCE_DISABLE")
     }
 
     fn fix_env_for_apple_os(&self, cmd: &mut Command) -> Result<(), Error> {
@@ -4419,49 +4431,6 @@ impl AsmFileExt {
         }
         None
     }
-}
-
-/// Returns true if `cc` has been disabled by `CC_FORCE_DISABLE`.
-fn is_disabled() -> bool {
-    static CACHE: AtomicU8 = AtomicU8::new(0);
-
-    let val = CACHE.load(Relaxed);
-    // We manually cache the environment var, since we need it in some places
-    // where we don't have access to a `Build` instance.
-    #[allow(clippy::disallowed_methods)]
-    fn compute_is_disabled() -> bool {
-        match std::env::var_os("CC_FORCE_DISABLE") {
-            // Not set? Not disabled.
-            None => false,
-            // Respect `CC_FORCE_DISABLE=0` and some simple synonyms, otherwise
-            // we're disabled. This intentionally includes `CC_FORCE_DISABLE=""`
-            Some(v) => &*v != "0" && &*v != "false" && &*v != "no",
-        }
-    }
-    match val {
-        2 => true,
-        1 => false,
-        0 => {
-            let truth = compute_is_disabled();
-            let encoded_truth = if truth { 2u8 } else { 1 };
-            // Use compare_exchange to avoid race condition
-            let _ = CACHE.compare_exchange(0, encoded_truth, Relaxed, Relaxed);
-            truth
-        }
-        _ => unreachable!(),
-    }
-}
-
-/// Automates the `if is_disabled() { return error }` check and ensures
-/// we produce a consistent error message for it.
-fn check_disabled() -> Result<(), Error> {
-    if is_disabled() {
-        return Err(Error::new(
-            ErrorKind::Disabled,
-            "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable.",
-        ));
-    }
-    Ok(())
 }
 
 fn check_exe(mut exe: PathBuf) -> Option<PathBuf> {
