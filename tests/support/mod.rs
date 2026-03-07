@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 #![allow(clippy::disallowed_methods)]
 
+mod global_env;
+
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fs::{self, File};
@@ -10,11 +12,14 @@ use std::path::{Path, PathBuf};
 
 use tempfile::{Builder, TempDir};
 
+pub use self::global_env::GlobalEnv;
+
 pub struct Test {
     pub td: TempDir,
     pub gcc: PathBuf,
     pub msvc: bool,
     pub msvc_autodetect: bool,
+    pub env: GlobalEnv,
 }
 
 pub struct Execution {
@@ -22,7 +27,10 @@ pub struct Execution {
 }
 
 impl Test {
+    #[track_caller]
     pub fn new() -> Test {
+        let mut env = GlobalEnv::lock();
+
         // This is ugly: `sccache` needs to introspect the compiler it is
         // executing, as it adjusts its behavior depending on the
         // language/compiler. This crate's test driver uses mock compilers that
@@ -33,12 +41,18 @@ impl Test {
         // without setting an environment variable here and testing for it
         // there. Explicitly deasserting RUSTC_WRAPPER here seems to be the
         // lesser of the two evils.
-        env::remove_var("RUSTC_WRAPPER");
+        env.remove("RUSTC_WRAPPER");
 
         // cc-rs prefers these env vars to the wrappers. We set these in some tests, so unset them so the wrappers get used
-        env::remove_var("CC");
-        env::remove_var("CXX");
-        env::remove_var("AR");
+        env.remove("CC");
+        env.remove("CXX");
+        env.remove("AR");
+
+        // Some tests check that a flag is *not* present.  These tests might fail if the flag is set in the
+        // CFLAGS or CXXFLAGS environment variables.  This clears the CFLAGS and CXXFLAGS
+        // variables to make sure that the tests can run correctly.
+        env.set("CFLAGS", "");
+        env.set("CXXFLAGS", "");
 
         let mut gcc = env::current_exe().unwrap();
         gcc.pop();
@@ -50,20 +64,24 @@ impl Test {
             .tempdir_in(&gcc)
             .unwrap();
         gcc.push(format!("cc-shim{}", env::consts::EXE_SUFFIX));
+
         Test {
             td,
             gcc,
             msvc: false,
             msvc_autodetect: false,
+            env,
         }
     }
 
+    #[track_caller]
     pub fn gnu() -> Test {
         let t = Test::new();
         t.shim("cc").shim("c++").shim("ar");
         t
     }
 
+    #[track_caller]
     pub fn msvc() -> Test {
         let mut t = Test::new();
         t.shim("cl").shim("lib.exe");
@@ -72,6 +90,7 @@ impl Test {
     }
 
     // For msvc_autodetect, don't explicitly set the compiler - let the build system discover it
+    #[track_caller]
     pub fn msvc_autodetect() -> Test {
         let mut t = Test::new();
         t.shim("cl").shim("clang-cl.exe").shim("lib.exe");
@@ -79,6 +98,7 @@ impl Test {
         t
     }
 
+    #[track_caller]
     pub fn clang() -> Test {
         let t = Test::new();
         t.shim("clang").shim("clang++").shim("ar");
@@ -138,6 +158,7 @@ impl Test {
 }
 
 impl Execution {
+    #[track_caller]
     pub fn must_have<P: AsRef<OsStr>>(&self, p: P) -> &Execution {
         if !self.has(p.as_ref()) {
             panic!("didn't find {:?} in {:?}", p.as_ref(), self.args);
@@ -146,6 +167,7 @@ impl Execution {
         }
     }
 
+    #[track_caller]
     pub fn must_not_have<P: AsRef<OsStr>>(&self, p: P) -> &Execution {
         if self.has(p.as_ref()) {
             panic!("found {:?}", p.as_ref());
@@ -158,6 +180,7 @@ impl Execution {
         self.args.iter().any(|arg| OsStr::new(arg) == p)
     }
 
+    #[track_caller]
     pub fn must_have_in_order(&self, before: &str, after: &str) -> &Execution {
         let before_position = self
             .args
