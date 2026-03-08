@@ -224,7 +224,7 @@ jobs:
         run: |
           cargo test --no-run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       - name: Compile and Run tests
-        if: ! matrix.no_run
+        if: ${{ ! matrix.no_run }}
         run: |
           cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
           cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
