@@ -41,22 +41,18 @@ impl GlobalEnv {
 
         // Give a better error when calling `GlobalEnv::lock()` on the same
         // thread (which would deadlock).
-        let thread_lock = lock_ignore_poison(&THREAD_CURRENTLY_ACCESSING_ENV);
-        if let Some(thread_id) = *thread_lock {
+        if let Some(thread_id) = *lock_ignore_poison(&THREAD_CURRENTLY_ACCESSING_ENV) {
             assert_ne!(
                 thread_id,
                 std::thread::current().id(),
                 "called `GlobalEnv::lock()` on the same thread twice"
             );
         }
-        drop(thread_lock);
 
         // Acquire the global env lock. Probably waits for a long time while other tests execute.
         let lock = lock_ignore_poison(&GLOBAL_ENV);
 
-        let mut thread_lock = lock_ignore_poison(&THREAD_CURRENTLY_ACCESSING_ENV);
-        *thread_lock = Some(std::thread::current().id());
-        drop(thread_lock);
+        *lock_ignore_poison(&THREAD_CURRENTLY_ACCESSING_ENV) = Some(std::thread::current().id());
 
         Self {
             lock,
