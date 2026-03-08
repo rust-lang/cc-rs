@@ -4,18 +4,8 @@ use crate::support::Test;
 
 mod support;
 
-// Some tests check that a flag is *not* present.  These tests might fail if the flag is set in the
-// CFLAGS or CXXFLAGS environment variables.  This function clears the CFLAGS and CXXFLAGS
-// variables to make sure that the tests can run correctly.
-fn reset_env() {
-    std::env::set_var("CFLAGS", "");
-    std::env::set_var("CXXFLAGS", "");
-}
-
 #[test]
 fn gnu_smoke() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc().file("foo.c").compile("foo");
 
@@ -32,8 +22,6 @@ fn gnu_smoke() {
 
 #[test]
 fn gnu_opt_level_1() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc().opt_level(1).file("foo.c").compile("foo");
 
@@ -42,8 +30,6 @@ fn gnu_opt_level_1() {
 
 #[test]
 fn gnu_opt_level_s() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc().opt_level_str("s").file("foo.c").compile("foo");
 
@@ -67,6 +53,7 @@ fn gnu_debug() {
         .must_have("-g")
         .must_not_have("-g1")
         .must_have("-gdwarf-4");
+    drop(test);
 
     let test = Test::gnu();
     test.gcc()
@@ -127,8 +114,6 @@ fn gnu_debug_fp() {
 
 #[test]
 fn gnu_debug_nofp() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .target("x86_64-unknown-linux-none")
@@ -138,6 +123,7 @@ fn gnu_debug_nofp() {
         .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_not_have("-fno-omit-frame-pointer");
+    drop(test);
 
     let test = Test::gnu();
     test.gcc()
@@ -183,8 +169,6 @@ fn gnu_warnings_disabled() {
 
 #[test]
 fn gnu_extra_warnings0() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .warnings(true)
@@ -198,8 +182,6 @@ fn gnu_extra_warnings0() {
 
 #[test]
 fn gnu_extra_warnings1() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .warnings(false)
@@ -216,8 +198,6 @@ fn gnu_extra_warnings1() {
 
 #[test]
 fn gnu_warnings_overridable() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .warnings(true)
@@ -246,8 +226,6 @@ fn gnu_x86_64() {
 
 #[test]
 fn gnu_x86_64_no_pic() {
-    reset_env();
-
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("x86_64-{}", vendor);
         let test = Test::gnu();
@@ -323,8 +301,6 @@ fn gnu_aarch64_none_no_pic() {
 
 #[test]
 fn gnu_uefi_no_pic() {
-    reset_env();
-
     for arch in &["aarch64", "i686", "x86_64"] {
         let target = format!("{}-unknown-uefi", arch);
         let test = Test::gnu();
@@ -340,8 +316,6 @@ fn gnu_uefi_no_pic() {
 
 #[test]
 fn gnu_set_stdlib() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .cpp_set_stdlib(Some("foo"))
@@ -380,8 +354,6 @@ fn gnu_compile_assembly() {
 
 #[test]
 fn gnu_shared() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
@@ -394,8 +366,6 @@ fn gnu_shared() {
 
 #[test]
 fn gnu_flag_if_supported() {
-    reset_env();
-
     if cfg!(windows) {
         return;
     }
@@ -430,8 +400,6 @@ fn gnu_flag_if_supported_cpp() {
 
 #[test]
 fn gnu_static() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
@@ -460,8 +428,6 @@ fn gnu_std_c() {
 
 #[test]
 fn msvc_smoke() {
-    reset_env();
-
     let test = Test::msvc();
     test.gcc().file("foo.c").compile("foo");
 
@@ -477,8 +443,6 @@ fn msvc_smoke() {
 
 #[test]
 fn msvc_opt_level_0() {
-    reset_env();
-
     let test = Test::msvc();
     test.gcc().opt_level(0).file("foo.c").compile("foo");
 
@@ -643,18 +607,20 @@ fn gnu_apple_deployment_target() {
     ];
 
     for (target, os_version_flag) in cases {
-        let test = Test::gnu();
+        let mut test = Test::gnu();
+
+        // Avoid dependency on environment in test.
+        test.env.set("MACOSX_DEPLOYMENT_TARGET", "10.12");
+        test.env.set("IPHONEOS_DEPLOYMENT_TARGET", "10.0");
+        test.env.set("TVOS_DEPLOYMENT_TARGET", "10.0");
+        test.env.set("WATCHOS_DEPLOYMENT_TARGET", "5.0");
+        test.env.set("XROS_DEPLOYMENT_TARGET", "1.0");
+
         test.shim("fake-gcc")
             .gcc()
             .compiler("fake-gcc")
             .target(&target)
             .host(&"aarch64-apple-darwin")
-            // Avoid dependency on environment in test.
-            .env("MACOSX_DEPLOYMENT_TARGET", "10.12")
-            .env("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
-            .env("TVOS_DEPLOYMENT_TARGET", "10.0")
-            .env("WATCHOS_DEPLOYMENT_TARGET", "5.0")
-            .env("XROS_DEPLOYMENT_TARGET", "1.0")
             .file("foo.c")
             .compile("foo");
 
@@ -905,7 +871,6 @@ fn parent_dir_file_path() {
     // Ensures that files referenced with parent directory components (..)
     // have their object files placed within OUT_DIR, not in parent directories
 
-    reset_env();
     let test = Test::gnu();
 
     let intermediates = test
@@ -938,7 +903,6 @@ fn multiple_parent_dir_references() {
     // Test deeply nested parent directory references
     // e.g., ../../deep/path/../file.c
 
-    reset_env();
     let test = Test::gnu();
 
     let intermediates = test
@@ -964,7 +928,6 @@ fn parent_dir_with_multiple_files() {
     // Test that multiple files with parent directory references
     // all get properly contained in OUT_DIR
 
-    reset_env();
     let test = Test::gnu();
 
     let intermediates = test
@@ -989,12 +952,10 @@ fn parent_dir_with_multiple_files() {
 #[cfg(windows)]
 #[cfg(not(disable_clang_cl_tests))]
 mod msvc_clang_cl_tests {
-    use super::{reset_env, Test};
+    use super::Test;
 
     #[test]
     fn msvc_prefer_clang_cl_over_msvc_disabled_by_default() {
-        reset_env();
-
         let test = Test::msvc_autodetect();
 
         // When prefer_clang_cl_over_msvc is not called (default false), should use MSVC
@@ -1013,8 +974,6 @@ mod msvc_clang_cl_tests {
 
     #[test]
     fn msvc_prefer_clang_cl_over_msvc_enabled() {
-        reset_env();
-
         let test = Test::msvc_autodetect();
 
         let compiler = test
@@ -1037,14 +996,11 @@ mod msvc_clang_cl_tests {
 
     #[test]
     fn msvc_prefer_clang_cl_over_msvc_respects_explicit_cc_env() {
-        reset_env();
+        let mut test = Test::msvc_autodetect();
 
-        let test = Test::msvc_autodetect();
-
-        //std::env::set_var("CC", "cl.exe");
+        test.env.set("CC", "cl.exe");
         let compiler = test
             .gcc()
-            .env("CC", "cl.exe")
             .prefer_clang_cl_over_msvc(true)
             .try_get_compiler()
             .expect("Failed to get compiler");
@@ -1056,13 +1012,10 @@ mod msvc_clang_cl_tests {
             "Should NOT use clang-cl when CC is explicitly set to cl.exe, got {:?}",
             compiler
         );
-        std::env::remove_var("CC"); // Clean up after test
     }
 
     #[test]
     fn msvc_prefer_clang_cl_over_msvc_cpp_mode() {
-        reset_env();
-
         let test = Test::msvc_autodetect();
         let compiler = test
             .gcc()
