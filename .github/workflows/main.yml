@@ -1,5 +1,11 @@
 name: CI
-on: [push, pull_request]
+on:
+  # Every PR
+  pull_request:
+  push:
+    branches:
+    # Once merged into the head branch.
+    - main
 
 env:
   CARGO_INCREMENTAL: 0
