@@ -11,7 +11,7 @@ on:
       - 'src/target/**'
 
 jobs:
-  regenerate:
+  rustc_target_test:
     if: github.repository_owner == 'rust-lang'
     runs-on: ubuntu-latest
     steps:
