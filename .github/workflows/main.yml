@@ -290,9 +290,9 @@ jobs:
       - run: cargo update
       - uses: taiki-e/install-action@cargo-nextest
       - uses: Swatinem/rust-cache@v2
-      - run: cargo nextest run -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
-      - run: cargo nextest run -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
-      - run: cargo nextest run -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
@@ -312,16 +312,16 @@ jobs:
       - run: cargo update
       - uses: taiki-e/install-action@cargo-nextest
       - uses: Swatinem/rust-cache@v2
-      - run: cargo nextest run --no-run --target ${{ matrix.target }}
-      - run: cargo nextest run --no-run --target ${{ matrix.target }} --release
-      - run: cargo nextest run --no-run --target ${{ matrix.target }} --features parallel
+      - run: cargo test --no-run --target ${{ matrix.target }}
+      - run: cargo test --no-run --target ${{ matrix.target }} --release
+      - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
 
   test-wasi:
     name: Test wasm32-wasi* targets
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest LP
     strategy:
       matrix:
         target:
