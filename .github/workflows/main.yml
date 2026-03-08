@@ -71,42 +71,42 @@ jobs:
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios
-            no_run: --no-run
+            no_run: true
           - build: aarch64-ios-sim
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios-sim
-            no_run: --no-run
+            no_run: true
           - build: x86_64-ios-sim
             os: macos-latest
             rust: stable
             target: x86_64-apple-ios # Simulator
-            no_run: --no-run
+            no_run: true
           - build: aarch64-ios-macabi
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios-macabi
-            no_run: --no-run # FIXME(madsmtm): Fix running tests
+            no_run: true # FIXME(madsmtm): Fix running tests
           - build: x86_64-ios-macabi
             os: macos-latest
             rust: stable
             target: x86_64-apple-ios-macabi
-            no_run: --no-run # FIXME(madsmtm): Fix running tests
+            no_run: true # FIXME(madsmtm): Fix running tests
           - build: cross-macos-aarch64
             os: ubuntu-latest
             rust: stable
             target: aarch64-apple-darwin
-            no_run: --no-run
+            no_run: true
           - build: cross-ios-aarch64
             os: ubuntu-latest
             rust: stable
             target: aarch64-apple-ios
-            no_run: --no-run
+            no_run: true
           - build: cross-windows-aarch64
             os: windows-latest
             rust: stable
             target: aarch64-pc-windows-msvc
-            no_run: --no-run
+            no_run: true
           - build: windows-aarch64
             os: windows-11-arm
             rust: stable
@@ -115,7 +115,7 @@ jobs:
             os: windows-latest
             rust: beta
             target: arm64ec-pc-windows-msvc
-            no_run: --no-run
+            no_run: true
           - build: windows-arm64ec
             os: windows-11-arm
             rust: beta
@@ -219,9 +219,15 @@ jobs:
       - run: cargo update
       - uses: taiki-e/install-action@cargo-nextest
       - uses: Swatinem/rust-cache@v2
-      - run: |
-          cargo nextest run ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
-          cargo test --doc ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      - name: Compile tests but not run
+        if: matrix.no_run
+        run: |
+          cargo test --no-run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      - name: Compile and Run tests
+        if: ! matrix.no_run
+        run: |
+          cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+          cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
