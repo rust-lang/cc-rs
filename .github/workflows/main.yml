@@ -216,8 +216,11 @@ jobs:
       - name: setup dev environment
         uses: ilammy/msvc-dev-cmd@v1
         if: startsWith(matrix.build, 'windows-clang')
-      - run: cargo update
+
       - uses: taiki-e/install-action@cargo-nextest
+        if: ${{ ! matrix.no_run }}
+
+      - run: cargo update
       - uses: Swatinem/rust-cache@v2
       - name: Compile tests but not run
         if: matrix.no_run
@@ -243,8 +246,10 @@ jobs:
            rustup toolchain install stable --no-self-update --profile minimal
            rustup default stable
          shell: bash
-       - run: cargo update
+
        - uses: taiki-e/install-action@cargo-nextest
+
+       - run: cargo update
        - uses: Swatinem/rust-cache@v2
        - run: |
            cargo nextest run --workspace --release
@@ -288,7 +293,6 @@ jobs:
           rustup default nightly
         shell: bash
       - run: cargo update
-      - uses: taiki-e/install-action@cargo-nextest
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
@@ -310,7 +314,6 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: bash
       - run: cargo update
-      - uses: taiki-e/install-action@cargo-nextest
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
