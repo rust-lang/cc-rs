@@ -321,7 +321,7 @@ jobs:
 
   test-wasi:
     name: Test wasm32-wasi* targets
-    runs-on: ubuntu-latest LP
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         target:
