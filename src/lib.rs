@@ -3853,7 +3853,7 @@ impl Build {
         }
 
         // If not found in overrides, look up from environment.
-        Some(Cow::Owned(self.get_env(key)?))
+        self.get_env(key).map(Cow::Owned)
     }
 
     /// Get boolean flag that is either true or false.
