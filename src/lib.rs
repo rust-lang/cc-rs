@@ -1386,6 +1386,15 @@ impl Build {
     }
 
     /// Set an environment variable for compiler invocations and other child processes.
+    ///
+    /// `cc` reads a lot of different variables from the current process' environment. It currently
+    /// allows the following standard environment variables to be overwritten by this function:
+    /// - `SDKROOT`
+    /// - `*_DEPLOYMENT_TARGET`
+    /// - `WASI_SDK_ROOT`
+    ///
+    /// The logic here is "environment variables that the C compiler could itself reasonably have
+    /// read".
     pub fn env<K, V>(&mut self, key: K, val: V) -> &mut Build
     where
         K: AsRef<OsStr>,
