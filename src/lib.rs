@@ -4236,6 +4236,7 @@ impl Build {
         impl ::find_msvc_tools::EnvGetter for BuildEnvGetter<'_> {
             fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
                 // TODO: Should we allow overriding these with `Build::env`?
+                // <https://github.com/rust-lang/cc-rs/issues/1688>
                 self.0.get_env(name).map(::find_msvc_tools::Env::Owned)
             }
         }
