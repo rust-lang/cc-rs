@@ -1,6 +1,10 @@
-use std::{env, mem};
+use std::mem;
 
-use crate::{target::TargetInfo, utilities::OnceLock, Error, ErrorKind};
+use crate::{
+    target::TargetInfo,
+    utilities::{cargo_env_var, OnceLock},
+    Error, ErrorKind,
+};
 
 #[derive(Debug)]
 struct TargetInfoParserInner {
@@ -15,16 +19,7 @@ struct TargetInfoParserInner {
 impl TargetInfoParserInner {
     fn from_cargo_environment_variables() -> Result<Self, Error> {
         // `TARGET` must be present.
-        //
-        // No need to emit `rerun-if-env-changed` for this,
-        // as it is controlled by Cargo itself.
-        #[allow(clippy::disallowed_methods)]
-        let target_name = env::var("TARGET").map_err(|err| {
-            Error::new(
-                ErrorKind::EnvVarNotFound,
-                format!("failed reading TARGET: {err}"),
-            )
-        })?;
+        let target_name = cargo_env_var("TARGET")?;
 
         // Parse the full architecture name from the target name.
         let (full_arch, _rest) = target_name.split_once('-').ok_or(Error::new(
@@ -32,20 +27,18 @@ impl TargetInfoParserInner {
             format!("target `{target_name}` only had a single component (at least two required)"),
         ))?;
 
-        let cargo_env = |name, fallback: Option<&str>| -> Result<Box<str>, Error> {
-            // No need to emit `rerun-if-env-changed` for these,
-            // as they are controlled by Cargo itself.
-            #[allow(clippy::disallowed_methods)]
-            match env::var(name) {
-                Ok(var) => Ok(var.into_boxed_str()),
-                Err(err) => match fallback {
-                    Some(fallback) => Ok(fallback.into()),
-                    None => Err(Error::new(
-                        ErrorKind::EnvVarNotFound,
-                        format!("did not find fallback information for target `{target_name}`, and failed reading {name}: {err}"),
-                    )),
-                },
-            }
+        let cargo_env = |key, fallback: Option<&str>| match cargo_env_var(key) {
+            Ok(var) => Ok(var.into_boxed_str()),
+            Err(err) => match fallback {
+                Some(fallback) => Ok(fallback.into()),
+                None => Err(Error::new(
+                    ErrorKind::EnvVarNotFound,
+                    format!(
+                        "did not find fallback information for target `{target_name}`: {}",
+                        err.message
+                    ),
+                )),
+            },
         };
 
         // Prefer to use `CARGO_ENV_*` if set, since these contain the most
