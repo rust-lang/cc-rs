@@ -13,11 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Size archiver batches according to argument length not argument count ([#1689](https://github.com/rust-lang/cc-rs/pull/1689))
 - Improve the semantics of `Build::env` ([#1682](https://github.com/rust-lang/cc-rs/pull/1682))
-- Use cargo-nextest in main.yml ([#1686](https://github.com/rust-lang/cc-rs/pull/1686))
-- Update which requirement from ^4.0 to ^8.0 ([#1683](https://github.com/rust-lang/cc-rs/pull/1683))
-- Serialize tests that need environment variables ([#1685](https://github.com/rust-lang/cc-rs/pull/1685))
-- Rename job 'regenerate' to 'rustc_target_test' ([#1687](https://github.com/rust-lang/cc-rs/pull/1687))
-- Don't run CI twice on every PR ([#1684](https://github.com/rust-lang/cc-rs/pull/1684))
 - rename `__set_env` to `env` and make it un-hidden ([#1656](https://github.com/rust-lang/cc-rs/pull/1656))
 
 ## [1.2.56](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.55...cc-v1.2.56) - 2026-02-13
