@@ -2669,13 +2669,22 @@ impl Build {
         // Add objects to the archive in limited-length batches. This helps keep
         // the length of the command line within a reasonable length to avoid
         // blowing system limits on limiting platforms like Windows.
-        let objs: Vec<_> = objs
+        let mut objs = objs
             .iter()
             .map(|o| o.dst.as_path())
             .chain(self.objects.iter().map(std::ops::Deref::deref))
-            .collect();
-        for chunk in objs.chunks(100) {
-            self.assemble_progressive(dst, chunk)?;
+            .peekable();
+        let mut batch = Vec::new();
+        while objs.peek().is_some() {
+            let mut remaining_len = 4000;
+            while let Some(path) =
+                objs.next_if(|peek| batch.is_empty() || peek.as_os_str().len() <= remaining_len)
+            {
+                batch.push(path);
+                remaining_len = remaining_len.saturating_sub(path.as_os_str().len());
+            }
+            self.assemble_progressive(dst, &batch)?;
+            batch.clear();
         }
 
         if self.cuda && self.cuda_file_count() > 0 {
