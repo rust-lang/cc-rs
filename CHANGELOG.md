@@ -12,8 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - Size archiver batches according to argument length not argument count ([#1689](https://github.com/rust-lang/cc-rs/pull/1689))
-- Improve the semantics of `Build::env` ([#1682](https://github.com/rust-lang/cc-rs/pull/1682))
-- rename `__set_env` to `env` and make it un-hidden ([#1656](https://github.com/rust-lang/cc-rs/pull/1656))
+- New API `Build::env` for overriding `SDKROOT`, `*_DEPLOYMENT_TARGET` and `WASI_SDK_ROOT` ([#1656](https://github.com/rust-lang/cc-rs/pull/1656) [#1682](https://github.com/rust-lang/cc-rs/pull/1682))
 
 ## [1.2.56](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.55...cc-v1.2.56) - 2026-02-13
 
