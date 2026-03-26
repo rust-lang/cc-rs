@@ -156,6 +156,8 @@
 //!   require Visual Studio to be installed. `cc-rs` attempts to locate it, and
 //!   if it fails, `cl.exe` is expected to be available in `PATH`. This can be
 //!   set up by running the appropriate developer tools shell.
+//!    * When using `prefer_clang_cl_over_msvc`, make sure that the `C++ Clang compiler for Windows` component
+//!      is installed through the Visual Studio Installer, so that `cc-rs` can find `clang-cl.exe`.
 //! * Windows platforms targeting MinGW (e.g. your target name ends in `-gnu`)
 //!   require `cc` to be available in `PATH`. We recommend the
 //!   [MinGW-w64](https://www.mingw-w64.org/) distribution.
