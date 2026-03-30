@@ -438,7 +438,7 @@ impl<'a> TargetInfo<'a> {
             abi = "elfv2";
         }
 
-        if abi == "asan" {
+        if ["asan", "msan", "tsan"].contains(&abi) {
             abi = "";
         }
 
