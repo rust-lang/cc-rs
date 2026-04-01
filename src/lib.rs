@@ -2726,6 +2726,10 @@ impl Build {
             // the symbol table to archives since our construction command of
             // `cq` doesn't add it for us.
             let mut ar = self.try_get_archiver()?;
+            // Tell the OSX archiver to use zero for timestamps and other
+            // determinism-improving properties. See the comment in
+            // `assemble_progressive` for more details.
+            ar.env("ZERO_AR_DATE", "1");
 
             // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
             // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
