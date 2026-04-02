@@ -1046,3 +1046,12 @@ mod msvc_clang_cl_tests {
         );
     }
 }
+
+#[test]
+fn gnu_ar_deterministic_flag() {
+    let test = Test::gnu();
+    test.gcc().file("foo.c").compile("foo");
+
+    test.cmd(1).must_have("cqD");
+    test.cmd(2).must_have("sD");
+}

@@ -2671,6 +2671,13 @@ impl Build {
         // Add objects to the archive in limited-length batches. This helps keep
         // the length of the command line within a reasonable length to avoid
         // blowing system limits on limiting platforms like Windows.
+        //
+        // Optimistically try the `D` (deterministic) ar modifier, which zeros
+        // out timestamps, UIDs, and GIDs. If the archiver doesn't support it,
+        // we remember and stop trying for subsequent batches.
+        // (`None` -> haven't probed yet)
+        let mut deterministic_ar: Option<bool> = None;
+
         let mut objs = objs
             .iter()
             .map(|o| o.dst.as_path())
@@ -2685,7 +2692,7 @@ impl Build {
                 batch.push(path);
                 remaining_len = remaining_len.saturating_sub(path.as_os_str().len());
             }
-            self.assemble_progressive(dst, &batch)?;
+            self.assemble_progressive(dst, &batch, &mut deterministic_ar)?;
             batch.clear();
         }
 
@@ -2698,7 +2705,7 @@ impl Build {
             let mut nvcc = self.get_compiler().to_command();
             nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
             run(&mut nvcc, &self.cargo_output)?;
-            self.assemble_progressive(dst, &[dlink.as_path()])?;
+            self.assemble_progressive(dst, &[dlink.as_path()], &mut deterministic_ar)?;
         }
 
         let target = self.get_target()?;
@@ -2726,21 +2733,37 @@ impl Build {
             // the symbol table to archives since our construction command of
             // `cq` doesn't add it for us.
             let mut ar = self.try_get_archiver()?;
-            // Tell the OSX archiver to use zero for timestamps and other
-            // determinism-improving properties. See the comment in
-            // `assemble_progressive` for more details.
-            ar.env("ZERO_AR_DATE", "1");
-
             // NOTE: We add `s` even if flags were passed using $ARFLAGS/ar_flag, because `s`
             // here represents a _mode_, not an arbitrary flag. Further discussion of this choice
             // can be seen in https://github.com/rust-lang/cc-rs/pull/763.
-            run(ar.arg("s").arg(dst), &self.cargo_output)?;
+            match deterministic_ar {
+                Some(false) => {
+                    // See comment in `assemble_progressive` for more on ZERO_AR_DATE.
+                    ar.env("ZERO_AR_DATE", "1");
+                    run(ar.arg("s").arg(dst), &self.cargo_output)?;
+                }
+                Some(true) => {
+                    run(ar.arg("sD").arg(dst), &self.cargo_output)?;
+                }
+                None => {
+                    if run(ar.arg("sD").arg(dst), &self.cargo_output).is_err() {
+                        let mut ar = self.try_get_archiver()?;
+                        ar.env("ZERO_AR_DATE", "1");
+                        run(ar.arg("s").arg(dst), &self.cargo_output)?;
+                    }
+                }
+            }
         }
 
         Ok(())
     }
 
-    fn assemble_progressive(&self, dst: &Path, objs: &[&Path]) -> Result<(), Error> {
+    fn assemble_progressive(
+        &self,
+        dst: &Path,
+        objs: &[&Path],
+        deterministic_ar: &mut Option<bool>,
+    ) -> Result<(), Error> {
         let target = self.get_target()?;
 
         let (mut cmd, program, any_flags) = self.try_get_archiver_and_flags()?;
@@ -2790,7 +2813,25 @@ impl Build {
             // NOTE: We add cq here regardless of whether $ARFLAGS/ar_flag have been used because
             // it dictates the _mode_ ar runs in, which the setter of $ARFLAGS/ar_flag can't
             // dictate. See https://github.com/rust-lang/cc-rs/pull/763 for further discussion.
-            run(cmd.arg("cq").arg(dst).args(objs), &self.cargo_output)?;
+            match *deterministic_ar {
+                Some(false) => {
+                    run(cmd.arg("cq").arg(dst).args(objs), &self.cargo_output)?;
+                }
+                Some(true) => {
+                    run(cmd.arg("cqD").arg(dst).args(objs), &self.cargo_output)?;
+                }
+                None => {
+                    // Probe: try `D` and remember the result for later batches.
+                    if run(cmd.arg("cqD").arg(dst).args(objs), &self.cargo_output).is_ok() {
+                        *deterministic_ar = Some(true);
+                    } else {
+                        *deterministic_ar = Some(false);
+                        let (mut cmd, _, _) = self.try_get_archiver_and_flags()?;
+                        cmd.env("ZERO_AR_DATE", "1");
+                        run(cmd.arg("cq").arg(dst).args(objs), &self.cargo_output)?;
+                    }
+                }
+            }
         }
 
         Ok(())
