@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - Regenerate target info ([#1698](https://github.com/rust-lang/cc-rs/pull/1698))
-- Fix target abi parsing dor sanitiser targets ([#1695](https://github.com/rust-lang/cc-rs/pull/1695))
+- Fix target abi parsing for sanitiser targets ([#1695](https://github.com/rust-lang/cc-rs/pull/1695))
 
 ## [1.2.58](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.57...cc-v1.2.58) - 2026-03-27
 
