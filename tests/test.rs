@@ -1,5 +1,8 @@
 #![allow(clippy::disallowed_methods)]
 
+use std::env;
+use std::process::Command;
+
 use crate::support::Test;
 
 mod support;
@@ -1054,4 +1057,52 @@ fn gnu_ar_deterministic_flag() {
 
     test.cmd(1).must_have("cqD");
     test.cmd(2).must_have("sD");
+}
+
+#[test]
+fn gnu_ar_deterministic_flag_fallback() {
+    let test = Test::gnu();
+    test.gcc()
+        .env("CC_SHIM_FAIL_IF_ARG", "cqD")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0).must_have("foo.c");
+    test.cmd(1).must_have("cqD");
+    // fallback to `ar cq` without D
+    test.cmd(2).must_have("cq").must_not_have("cqD");
+    test.cmd(3).must_have("s").must_not_have("sD");
+}
+
+/// Stderr from a failed `ar D` probe
+/// should not be forwarded as `cargo:warning=`.
+///
+/// This test runs the build in a subprocess so we
+/// can capture and assert on the actual stdout output.
+#[test]
+fn gnu_ar_probe_failure_no_warning() {
+    // When invoked as subprocess, perform the build and return.
+    if env::var_os("__CC_TEST_AR_PROBE_STDERR").is_some() {
+        let test = Test::gnu();
+        test.gcc()
+            .env("CC_SHIM_FAIL_IF_ARG", "cqD")
+            .file("foo.c")
+            .compile("foo");
+        return;
+    }
+
+    let output = Command::new(env::current_exe().unwrap())
+        .env("__CC_TEST_AR_PROBE_STDERR", "1")
+        .args(["--exact", "gnu_ar_probe_failure_no_warning", "--nocapture"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "subprocess failed: {:?}", output);
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // The shim writes "simulated failure for arg 'cqD'" to stderr on probe failure.
+    assert!(
+        !stdout.contains("simulated failure"),
+        "probe stderr should not appear as cargo:warning=, got:\n{}",
+        stdout
+    );
 }

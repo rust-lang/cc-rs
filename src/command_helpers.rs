@@ -345,6 +345,40 @@ pub(crate) fn run(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<(), E
     wait_on_child(cmd, &mut child, cargo_output)
 }
 
+/// Like [`run`], but stderr is only forwarded as `cargo:warning=` when the
+/// command succeeds. On failure, stderr is silently discarded.
+///
+/// Useful for probe commands where failure is expected and the error
+/// message is not actionable.
+pub(crate) fn run_silent_on_error(
+    cmd: &mut Command,
+    cargo_output: &CargoOutput,
+) -> Result<(), Error> {
+    let Output {
+        status,
+        stdout: _,
+        stderr,
+    } = spawn_and_wait_for_output(cmd, cargo_output)?;
+
+    cargo_output.print_debug(&status);
+
+    if status.success() {
+        if cargo_output.warnings {
+            stderr
+                .split(|&b| b == b'\n')
+                .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+                .filter(|line| !line.is_empty())
+                .for_each(write_warning);
+        }
+        Ok(())
+    } else {
+        Err(Error::new(
+            ErrorKind::ToolExecError,
+            format!("command did not execute successfully (status code {status}): {cmd:?}"),
+        ))
+    }
+}
+
 pub(crate) fn spawn_and_wait_for_output(
     cmd: &mut Command,
     cargo_output: &CargoOutput,
