@@ -1101,8 +1101,8 @@ fn gnu_ar_probe_failure_no_warning() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     // The shim writes "simulated failure for arg 'cqD'" to stderr on probe failure.
     assert!(
-        stdout.contains("simulated failure"),
-        "expected probe stderr to be forwarded, got:\n{}",
+        !stdout.contains("simulated failure"),
+        "probe stderr should not appear as cargo:warning=, got:\n{}",
         stdout
     );
 }

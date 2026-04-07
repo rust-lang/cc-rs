@@ -2746,7 +2746,7 @@ impl Build {
                     run(ar.arg("sD").arg(dst), &self.cargo_output)?;
                 }
                 None => {
-                    if run(ar.arg("sD").arg(dst), &self.cargo_output).is_err() {
+                    if run_silent_on_error(ar.arg("sD").arg(dst), &self.cargo_output).is_err() {
                         let mut ar = self.try_get_archiver()?;
                         ar.env("ZERO_AR_DATE", "1");
                         run(ar.arg("s").arg(dst), &self.cargo_output)?;
@@ -2822,7 +2822,9 @@ impl Build {
                 }
                 None => {
                     // Probe: try `D` and remember the result for later batches.
-                    if run(cmd.arg("cqD").arg(dst).args(objs), &self.cargo_output).is_ok() {
+                    if run_silent_on_error(cmd.arg("cqD").arg(dst).args(objs), &self.cargo_output)
+                        .is_ok()
+                    {
                         *deterministic_ar = Some(true);
                     } else {
                         *deterministic_ar = Some(false);
