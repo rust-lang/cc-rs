@@ -366,6 +366,7 @@ pub(crate) fn run_silent_on_error(
         if cargo_output.warnings {
             stderr
                 .split(|&b| b == b'\n')
+                .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
                 .filter(|line| !line.is_empty())
                 .for_each(write_warning);
         }
