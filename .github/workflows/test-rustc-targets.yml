@@ -10,12 +10,16 @@ on:
     paths:
       - 'src/target/**'
 
+permissions: {}
+
 jobs:
   rustc_target_test:
     if: github.repository_owner == 'rust-lang'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # Required to add issue comment
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: true
 
@@ -24,7 +28,7 @@ jobs:
           rustup toolchain install nightly --no-self-update --profile minimal
           rustup default nightly
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
 
       - name: Test with `RUSTFLAGS=--cfg=rustc_target_test cargo test --lib`
         id: test

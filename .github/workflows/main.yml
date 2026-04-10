@@ -16,6 +16,8 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   test:
     name: Test
@@ -157,7 +159,9 @@ jobs:
             CC: clang-cl
             CXX: clang-cl
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - run: curl -vv https://static.rust-lang.org/dist/channel-rust-1.87.0.toml.sha256
         shell: bash
       - name: Install Rust (rustup)
@@ -214,14 +218,16 @@ jobs:
           UPPERCASE_TARGET_NAME=$(echo "${{ matrix.target }}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${UPPERCASE_TARGET_NAME}_LINKER=rust-lld" >> $GITHUB_ENV
       - name: setup dev environment
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: startsWith(matrix.build, 'windows-clang')
 
-      - uses: taiki-e/install-action@cargo-nextest
+      - uses: taiki-e/install-action@97a5807a604e12de3a13b52d868ebecaeeea757c # v2.75.4
         if: ${{ ! matrix.no_run }}
+        with:
+          tool: cargo-nextest
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Compile tests but not run
         if: matrix.no_run
         run: |
@@ -239,7 +245,9 @@ jobs:
      name: Test linker-plugin-lto
      runs-on: ubuntu-latest
      steps:
-       - uses: actions/checkout@v6
+       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+         with:
+           persist-credentials: false
        - name: Install Rust (rustup)
          run: |
            set -euxo pipefail
@@ -247,10 +255,12 @@ jobs:
            rustup default stable
          shell: bash
 
-       - uses: taiki-e/install-action@cargo-nextest
+       - uses: taiki-e/install-action@97a5807a604e12de3a13b52d868ebecaeeea757c # v2.75.4
+         with:
+           tool: cargo-nextest
 
        - run: cargo update
-       - uses: Swatinem/rust-cache@v2
+       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
        - run: |
            cargo nextest run --workspace --release
          env:
@@ -284,7 +294,9 @@ jobs:
           - aarch64-apple-visionos
           - aarch64-apple-visionos-sim
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install Rust (rustup)
         run: |
           set -euxo pipefail
@@ -293,7 +305,7 @@ jobs:
           rustup default nightly
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
@@ -308,13 +320,15 @@ jobs:
       matrix:
         target: [wasm32-unknown-unknown]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install Rust (rustup)
         run: |
           rustup target add ${{ matrix.target }}
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
@@ -334,7 +348,9 @@ jobs:
     env:
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install Rust (rustup)
         run: |
           rustup toolchain install nightly --no-self-update --profile minimal --target $TARGET
@@ -362,7 +378,7 @@ jobs:
           echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           env-vars: "WASI_TOOLCHAIN_VERSION"
           cache-all-crates: "true"
@@ -378,7 +394,9 @@ jobs:
     name: Test CUDA support
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install cuda-minimal-build-11-8
         working-directory: ${{ runner.temp }}
         shell: bash
@@ -390,8 +408,10 @@ jobs:
           sudo apt-get -y install cuda-minimal-build-11-8
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
-      - uses: taiki-e/install-action@cargo-nextest
-      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@97a5807a604e12de3a13b52d868ebecaeeea757c # v2.75.4
+        with:
+          tool: cargo-nextest
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Test 'cudart' feature
         shell: bash
         run: |
@@ -411,7 +431,9 @@ jobs:
     env:
       MSRV: 1.63.0
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: |
           rustup toolchain install $MSRV --no-self-update --profile minimal
@@ -420,7 +442,7 @@ jobs:
         shell: bash
       - name: Create Cargo.lock with minimal version
         run: cargo +nightly update -Zminimal-versions
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked
       - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked --all-features
 
@@ -428,13 +450,15 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: |
           rustup toolchain install stable --no-self-update --profile minimal --component clippy
           rustup default stable
         shell: bash
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo clippy --no-deps
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -444,22 +468,26 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: |
           rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
           rustup default stable
         shell: bash
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo fmt -- --check
 
   semver-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
       - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@v2
+        uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2.9
         with:
           release-type: minor
 
