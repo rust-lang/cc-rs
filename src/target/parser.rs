@@ -222,6 +222,7 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
         "sgx" => ("sgx", ""),
         "threads" => ("threads", ""),
         "mlibc" => ("mlibc", ""),
+        "relibc" => ("relibc", ""),
 
         // ABIs
         "abi64" => ("", "abi64"),
