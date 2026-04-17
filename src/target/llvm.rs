@@ -89,8 +89,8 @@ impl TargetInfo<'_> {
         };
         let version = version.unwrap_or("");
         let env = match self.env {
-            "newlib" | "nto70" | "nto71" | "nto71_iosock" | "p1" | "p2" | "relibc" | "sgx"
-            | "uclibc" => "",
+            "newlib" | "nto70" | "nto71" | "nto71_iosock" | "p1" | "p2" | "p3" | "relibc"
+            | "sgx" | "uclibc" => "",
             "sim" => "simulator",
             env => env,
         };
