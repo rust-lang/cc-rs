@@ -34,7 +34,7 @@ pub(crate) enum OutputKind {
     Forward,
     /// Discard the output ([`Stdio::null()`])
     Discard,
-    /// Capture the result (`[Stdio::piped()`])
+    /// Capture the result ([`Stdio::piped()`])
     Capture,
 }
 
