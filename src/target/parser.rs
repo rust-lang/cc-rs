@@ -168,6 +168,7 @@ fn parse_arch(full_arch: &str) -> Option<&str> {
         arch if arch.starts_with("nvptx") => "nvptx",
 
         arch if arch.starts_with("bpf") => "bpf", // bpfeb | bpfel
+        arch if arch.starts_with("sh4") => "sh4", // sh4 | sh4-unknown-linux-gnu | sh4-unknown-redox
 
         // https://github.com/bytecodealliance/wasmtime/tree/v30.0.1/pulley
         arch if arch.starts_with("pulley64") => "pulley64",
