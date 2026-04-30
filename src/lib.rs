@@ -2161,15 +2161,6 @@ impl Build {
                         cmd.push_cc_arg("-fno-plt".into());
                     }
                 }
-                if target.arch == "wasm32" || target.arch == "wasm64" {
-                    // WASI does not support exceptions yet.
-                    // https://github.com/WebAssembly/exception-handling
-                    //
-                    // `rustc` also defaults to (currently) disable exceptions
-                    // on all WASM targets:
-                    // <https://github.com/rust-lang/rust/blob/1.82.0/compiler/rustc_target/src/spec/base/wasm.rs#L72-L77>
-                    cmd.push_cc_arg("-fno-exceptions".into());
-                }
 
                 if target.os == "wasi" {
                     // Link clang sysroot
