@@ -225,6 +225,7 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
         // Environments
         "msvc" => ("msvc", ""),
         "ohos" => ("ohos", ""),
+        "pauthtest" => ("pauthtest", ""),
         "qnx700" => ("nto70", ""),
         "qnx710_iosock" => ("nto71_iosock", ""),
         "qnx710" => ("nto71", ""),

@@ -1668,6 +1668,14 @@ impl Build {
                     ));
                 }
             }
+            // Pauthtest needs LLVM's libc++, libc++abi provided by the sysroot.
+            if target.env == "pauthtest" {
+                let pauthtest_sysroot = self.pauthtest_sysroot()?;
+                self.cargo_output.print_metadata(&format_args!(
+                    "cargo:rustc-flags=-L {}/lib -lc++ -lc++abi",
+                    Path::new(&pauthtest_sysroot).display(),
+                ));
+            }
         }
 
         let cudart = match &self.cudart {
@@ -2288,6 +2296,34 @@ impl Build {
                             format!("--sysroot={}", Path::new(&musl_sysroot).display()).into(),
                         );
                         cmd.push_cc_arg("-pthread".into());
+                    } else if target.env == "pauthtest" {
+                        let pauthtest_sysroot = self.pauthtest_sysroot()?;
+                        let pauthtest_resource_dir = self.pauthtest_resource_dir()?;
+                        cmd.push_cc_arg(
+                            format!("--sysroot={}", Path::new(&pauthtest_sysroot).display()).into(),
+                        );
+                        cmd.push_cc_arg(
+                            format!(
+                                "-resource-dir={}",
+                                Path::new(&pauthtest_resource_dir).display()
+                            )
+                            .into(),
+                        );
+                        cmd.push_cc_arg("-march=armv8.3-a+pauth".into());
+                        if self.cpp && self.cpp_set_stdlib.is_none() {
+                            cmd.push_cc_arg("-stdlib=libc++".into());
+                            cmd.push_cc_arg(
+                                format!(
+                                    "-I{}/include/c++/v1",
+                                    Path::new(&pauthtest_sysroot).display()
+                                )
+                                .into(),
+                            );
+
+                            cmd.push_cc_arg(
+                                format!("-L{}/lib", Path::new(&pauthtest_sysroot).display()).into(),
+                            );
+                        }
                     }
                     // Pass `--target` with the LLVM target to configure Clang for cross-compiling.
                     //
@@ -2965,7 +3001,7 @@ impl Build {
             // and many modern illumos distributions today ship GCC as "gcc" without
             // also making it available as "cc".
             Cow::Borrowed(Path::new(gnu))
-        } else if self.prefer_clang() {
+        } else if self.prefer_clang() || target.env == "pauthtest" {
             self.which(Path::new(clang), None)
                 .map(Cow::Owned)
                 .unwrap_or(fallback)
@@ -3196,6 +3232,23 @@ impl Build {
                 .print_warning(&"GNU compiler is not supported for this target");
         }
 
+        if target.env == "pauthtest" {
+            match tool.family {
+                ToolFamily::Clang { .. } => {}
+                _ => {
+                    return Err(Error::new(
+                        ErrorKind::ToolNotFound,
+                        format!(
+                            "target '{}' requires a Clang-based toolchain, but found {:?} ({})",
+                            raw_target,
+                            tool.family,
+                            tool.path.display()
+                        ),
+                    ));
+                }
+            }
+        }
+
         Ok(tool)
     }
 
@@ -3313,6 +3366,7 @@ impl Build {
                         || target.os == "aix"
                         || (target.os == "linux" && target.env == "ohos")
                         || target.os == "wasi"
+                        || target.env == "pauthtest"
                     {
                         Ok(Some(Cow::Borrowed(Path::new("c++"))))
                     } else if target.os == "android" {
@@ -4327,6 +4381,36 @@ impl Build {
         }
 
         clang.into()
+    }
+
+    fn pauthtest_sysroot(&self) -> Result<OsString, Error> {
+        if let Some(pauthtest_sysroot) = self.get_env("PAUTHTEST_SYSROOT") {
+            Ok(pauthtest_sysroot)
+        } else {
+            let target = self.get_raw_target()?;
+            Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!(
+                    "Environment variable PAUTHTEST_SYSROOT not defined for the {} target. Please consult target's platform support document for instructions on how to obtain the sysroot and then setup the environment variable PAUTHTEST_SYSROOT.",
+                    target
+                ),
+            ))
+        }
+    }
+
+    fn pauthtest_resource_dir(&self) -> Result<OsString, Error> {
+        if let Some(pauthtest_resource_dir) = self.get_env("PAUTHTEST_RESOURCE_DIR") {
+            Ok(pauthtest_resource_dir)
+        } else {
+            let target = self.get_raw_target()?;
+            Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!(
+                    "Environment variable PAUTHTEST_RESOURCE_DIR not defined for the {} target. Please consult target's platform support document for instructions on how to obtain the sysroot and then setup the environment variable PAUTHTEST_RESOURCE_DIR.",
+                    target
+                ),
+            ))
+        }
     }
 }
 
