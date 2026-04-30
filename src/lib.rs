@@ -3611,6 +3611,7 @@ impl Build {
                     "aarch64-unknown-helenos" => Some("aarch64-helenos"),
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
                     "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
+                    "aarch64-unknown-linux-relibc" => Some("aarch64-linux-relibc"),
                     "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
                     "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
@@ -3740,6 +3741,9 @@ impl Build {
                     ]), // explicit None if not found, so caller knows to fall back
                     "x86_64-unknown-linux-musl" => {
                         self.find_working_gnu_prefix(&["x86_64-linux-musl", "musl"])
+                    }
+                    "x86_64-unknown-linux-relibc" => {
+                        self.find_working_gnu_prefix(&["x86_64-linux-relibc", "relibc"])
                     }
                     "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
                     "xtensa-esp32-espidf"
