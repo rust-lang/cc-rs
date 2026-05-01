@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.62](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.61...cc-v1.2.62) - 2026-05-01
+
+### Other
+
+- Add relibc env ([#1710](https://github.com/rust-lang/cc-rs/pull/1710))
+- recognize sh4 architecture in parse_arch() ([#1712](https://github.com/rust-lang/cc-rs/pull/1712))
+
 ## [1.2.61](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.60...cc-v1.2.61) - 2026-04-24
 
 ### Other
