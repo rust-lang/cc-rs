@@ -6,23 +6,17 @@
 
 /// An iterator that takes an input string and splits it into the words using the same syntax as
 /// the POSIX shell.
+///
+/// If the input ends while inside a quotation or right after an unescaped backslash, the
+/// in-progress token is dropped and iteration ends.
 pub struct Shlex<'a> {
     in_iter: core::slice::Iter<'a, u8>,
-    /// The number of newlines read so far, plus one.
-    pub line_no: usize,
-    /// An input string is erroneous if it ends while inside a quotation or right after an
-    /// unescaped backslash.  Since Iterator does not have a mechanism to return an error, if that
-    /// happens, Shlex just throws out the last token, ends the iteration, and sets 'had_error' to
-    /// true; best to check it after you're done iterating.
-    pub had_error: bool,
 }
 
 impl<'a> Shlex<'a> {
     pub fn new(in_str: &'a str) -> Self {
         Shlex {
             in_iter: in_str.as_bytes().iter(),
-            line_no: 1,
-            had_error: false,
         }
     }
 
@@ -31,17 +25,14 @@ impl<'a> Shlex<'a> {
         loop {
             match ch as char {
                 '"' => if let Err(()) = self.parse_double(&mut result) {
-                    self.had_error = true;
                     return None;
                 },
                 '\'' => if let Err(()) = self.parse_single(&mut result) {
-                    self.had_error = true;
                     return None;
                 },
                 '\\' => if let Some(ch2) = self.next_char() {
                     if ch2 != '\n' as u8 { result.push(ch2); }
                 } else {
-                    self.had_error = true;
                     return None;
                 },
                 ' ' | '\t' | '\n' => { break; },
@@ -93,9 +84,7 @@ impl<'a> Shlex<'a> {
     }
 
     fn next_char(&mut self) -> Option<u8> {
-        let res = self.in_iter.next().copied();
-        if res == Some(b'\n') { self.line_no += 1; }
-        res
+        self.in_iter.next().copied()
     }
 }
 
@@ -132,33 +121,36 @@ pub fn split(in_str: &str) -> Shlex<'_> {
     Shlex::new(in_str)
 }
 
+/// Test corpus from upstream shlex 1.3.0. Inputs that upstream marked as erroneous
+/// (`Option::None`) all produce no tokens here, because the in-progress token is dropped
+/// when the parser hits an unterminated quote or trailing backslash.
 #[cfg(test)]
-static SPLIT_TEST_ITEMS: &'static [(&'static str, Option<&'static [&'static str]>)] = &[
-    ("foo$baz", Some(&["foo$baz"])),
-    ("foo baz", Some(&["foo", "baz"])),
-    ("foo\"bar\"baz", Some(&["foobarbaz"])),
-    ("foo \"bar\"baz", Some(&["foo", "barbaz"])),
-    ("   foo \nbar", Some(&["foo", "bar"])),
-    ("foo\\\nbar", Some(&["foobar"])),
-    ("\"foo\\\nbar\"", Some(&["foobar"])),
-    ("'baz\\$b'", Some(&["baz\\$b"])),
-    ("'baz\\\''", None),
-    ("\\", None),
-    ("\"\\", None),
-    ("'\\", None),
-    ("\"", None),
-    ("'", None),
-    ("foo #bar\nbaz", Some(&["foo", "baz"])),
-    ("foo #bar", Some(&["foo"])),
-    ("foo#bar", Some(&["foo#bar"])),
-    ("foo\"#bar", None),
-    ("'\\n'", Some(&["\\n"])),
-    ("'\\\\n'", Some(&["\\\\n"])),
+static SPLIT_TEST_ITEMS: &'static [(&'static str, &'static [&'static str])] = &[
+    ("foo$baz", &["foo$baz"]),
+    ("foo baz", &["foo", "baz"]),
+    ("foo\"bar\"baz", &["foobarbaz"]),
+    ("foo \"bar\"baz", &["foo", "barbaz"]),
+    ("   foo \nbar", &["foo", "bar"]),
+    ("foo\\\nbar", &["foobar"]),
+    ("\"foo\\\nbar\"", &["foobar"]),
+    ("'baz\\$b'", &["baz\\$b"]),
+    ("'baz\\\''", &[]),
+    ("\\", &[]),
+    ("\"\\", &[]),
+    ("'\\", &[]),
+    ("\"", &[]),
+    ("'", &[]),
+    ("foo #bar\nbaz", &["foo", "baz"]),
+    ("foo #bar", &["foo"]),
+    ("foo#bar", &["foo#bar"]),
+    ("foo\"#bar", &[]),
+    ("'\\n'", &["\\n"]),
+    ("'\\\\n'", &["\\\\n"]),
 ];
 
 #[cfg(test)]
 mod tests {
-    use super::{Shlex, SPLIT_TEST_ITEMS};
+    use super::SPLIT_TEST_ITEMS;
 
     fn split(s: &str) -> Vec<String> {
         super::split(s).collect()
@@ -166,33 +158,13 @@ mod tests {
 
     #[test]
     fn test_split() {
-        for &(input, output) in SPLIT_TEST_ITEMS {
-            let mut sh = Shlex::new(input);
-            let res: Vec<String> = sh.by_ref().collect();
-            match output {
-                Some(expected) => {
-                    assert!(!sh.had_error, "input {:?}: unexpected error", input);
-                    assert_eq!(
-                        res,
-                        expected.iter().map(|&x| x.to_owned()).collect::<Vec<_>>(),
-                        "input {:?}",
-                        input,
-                    );
-                }
-                None => {
-                    assert!(sh.had_error, "input {:?}: expected error", input);
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_lineno() {
-        let mut sh = Shlex::new("\nfoo\nbar");
-        while let Some(word) = sh.next() {
-            if word == "bar" {
-                assert_eq!(sh.line_no, 3);
-            }
+        for &(input, expected) in SPLIT_TEST_ITEMS {
+            assert_eq!(
+                split(input),
+                expected.iter().map(|&x| x.to_owned()).collect::<Vec<_>>(),
+                "input {:?}",
+                input,
+            );
         }
     }
 
@@ -201,6 +173,16 @@ mod tests {
         assert_eq!(split("foo bar baz"), vec!["foo", "bar", "baz"]);
         assert_eq!(split("  foo\tbar\n baz "), vec!["foo", "bar", "baz"]);
         assert_eq!(split(""), Vec::<String>::new());
+    }
+
+    #[test]
+    fn newline_separates_and_skips_leading() {
+        // Replaces upstream `test_lineno`, which used the same input ("\nfoo\nbar") to verify
+        // that `sh.line_no == 3` after consuming the two `\n` bytes. We removed the `line_no`
+        // counter as dead code, so we can no longer assert the count itself; instead we
+        // assert the externally-observable consequence of those `\n` bytes — the leading one
+        // is skipped and the middle one acts as a word separator, yielding ["foo", "bar"].
+        assert_eq!(split("\nfoo\nbar"), vec!["foo", "bar"]);
     }
 
     #[test]
