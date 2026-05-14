@@ -24,21 +24,38 @@ impl<'a> Shlex<'a> {
         let mut result: Vec<u8> = Vec::new();
         loop {
             match ch as char {
-                '"' => if let Err(()) = self.parse_double(&mut result) {
-                    return None;
-                },
-                '\'' => if let Err(()) = self.parse_single(&mut result) {
-                    return None;
-                },
-                '\\' => if let Some(ch2) = self.next_char() {
-                    if ch2 != '\n' as u8 { result.push(ch2); }
-                } else {
-                    return None;
-                },
-                ' ' | '\t' | '\n' => { break; },
-                _ => { result.push(ch as u8); },
+                '"' => {
+                    if let Err(()) = self.parse_double(&mut result) {
+                        return None;
+                    }
+                }
+                '\'' => {
+                    if let Err(()) = self.parse_single(&mut result) {
+                        return None;
+                    }
+                }
+                '\\' => {
+                    if let Some(ch2) = self.next_char() {
+                        // `\<newline>` is a line continuation.
+                        if ch2 != b'\n' {
+                            result.push(ch2);
+                        }
+                    } else {
+                        return None;
+                    }
+                }
+                ' ' | '\t' | '\n' => {
+                    break;
+                }
+                _ => {
+                    result.push(ch);
+                }
             }
-            if let Some(ch2) = self.next_char() { ch = ch2; } else { break; }
+            if let Some(ch2) = self.next_char() {
+                ch = ch2;
+            } else {
+                break;
+            }
         }
         Some(result)
     }
@@ -50,19 +67,28 @@ impl<'a> Shlex<'a> {
                     '\\' => {
                         if let Some(ch3) = self.next_char() {
                             match ch3 as char {
-                                // \$ => $
-                                '$' | '`' | '"' | '\\' => { result.push(ch3); },
-                                // \<newline> => nothing
-                                '\n' => {},
-                                // \x => =x
-                                _ => { result.push('\\' as u8); result.push(ch3); }
+                                // `\$`, `` \` ``, `\"`, `\\` escape the next character.
+                                '$' | '`' | '"' | '\\' => {
+                                    result.push(ch3);
+                                }
+                                // `\<newline>` is a line continuation.
+                                '\n' => {}
+                                // Any other escape preserves the backslash.
+                                _ => {
+                                    result.push(b'\\');
+                                    result.push(ch3);
+                                }
                             }
                         } else {
                             return Err(());
                         }
-                    },
-                    '"' => { return Ok(()); },
-                    _ => { result.push(ch2); },
+                    }
+                    '"' => {
+                        return Ok(());
+                    }
+                    _ => {
+                        result.push(ch2);
+                    }
                 }
             } else {
                 return Err(());
@@ -74,8 +100,12 @@ impl<'a> Shlex<'a> {
         loop {
             if let Some(ch2) = self.next_char() {
                 match ch2 as char {
-                    '\'' => { return Ok(()); },
-                    _ => { result.push(ch2); },
+                    '\'' => {
+                        return Ok(());
+                    }
+                    _ => {
+                        result.push(ch2);
+                    }
                 }
             } else {
                 return Err(());
@@ -92,25 +122,34 @@ impl<'a> Iterator for Shlex<'a> {
     type Item = String;
     fn next(&mut self) -> Option<String> {
         if let Some(mut ch) = self.next_char() {
-            // skip initial whitespace
+            // Skip leading whitespace and line comments.
             loop {
                 match ch as char {
-                    ' ' | '\t' | '\n' => {},
+                    ' ' | '\t' | '\n' => {}
                     '#' => {
                         while let Some(ch2) = self.next_char() {
-                            if ch2 as char == '\n' { break; }
+                            if ch2 as char == '\n' {
+                                break;
+                            }
                         }
-                    },
-                    _ => { break; }
+                    }
+                    _ => {
+                        break;
+                    }
                 }
-                if let Some(ch2) = self.next_char() { ch = ch2; } else { return None; }
+                if let Some(ch2) = self.next_char() {
+                    ch = ch2;
+                } else {
+                    return None;
+                }
             }
             self.parse_word(ch).map(|byte_word| {
                 // Safety: input is &str (valid UTF-8) and parse_word only treats ASCII bytes
                 // specially, so the resulting Vec<u8> is also valid UTF-8.
                 unsafe { String::from_utf8_unchecked(byte_word) }
             })
-        } else { // no initial character
+        } else {
+            // no initial character
             None
         }
     }
