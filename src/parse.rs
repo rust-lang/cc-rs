@@ -1,8 +1,13 @@
 //! POSIX-shell-style word splitter for `*FLAGS` environment variables.
 //!
-//! Adapted from the [`shlex`](https://crates.io/crates/shlex/1.3.0) crate
-//! (1.3.0), iterator path only.
-//! Copyright 2015 Nicholas Allegra (comex). MIT or Apache-2.0.
+//! Adapted from the iterator path of [`shlex`](https://crates.io/crates/shlex/1.3.0)
+//! v1.3.0 ([`bytes::Shlex`](https://github.com/comex/rust-shlex/blob/v1.3.0/src/bytes.rs)
+//! and the str wrapper in [`lib.rs`](https://github.com/comex/rust-shlex/blob/v1.3.0/src/lib.rs)).
+//!
+//! Copyright 2015 Nicholas Allegra (comex).
+//! Licensed under the Apache License, Version 2.0 <https://www.apache.org/licenses/LICENSE-2.0>
+//! or the MIT license <https://opensource.org/licenses/MIT>, at your option. This file
+//! may not be copied, modified, or distributed except according to those terms.
 
 /// An iterator that takes an input string and splits it into the words using the same syntax as
 /// the POSIX shell.
