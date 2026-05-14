@@ -219,7 +219,7 @@ mod tests {
         // Replaces upstream `test_lineno`, which used the same input ("\nfoo\nbar") to verify
         // that `sh.line_no == 3` after consuming the two `\n` bytes. We removed the `line_no`
         // counter as dead code, so we can no longer assert the count itself; instead we
-        // assert the externally-observable consequence of those `\n` bytes — the leading one
+        // assert the externally-observable consequence of those `\n` bytes: the leading one
         // is skipped and the middle one acts as a word separator, yielding ["foo", "bar"].
         assert_eq!(split("\nfoo\nbar"), vec!["foo", "bar"]);
     }
