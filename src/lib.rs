@@ -251,10 +251,11 @@ use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::{Arc, RwLock};
 
-use shlex::Shlex;
-
 #[cfg(feature = "parallel")]
 mod parallel;
+
+mod parse;
+use self::parse::Shlex;
 
 mod target;
 use self::target::*;
@@ -1361,7 +1362,8 @@ impl Build {
         self
     }
 
-    /// Configure whether *FLAGS variables are parsed using `shlex`, similarly to `make` and
+    /// Configure whether *FLAGS variables are parsed using shell-style word
+    /// splitting (with quote and backslash handling), similarly to `make` and
     /// `cmake`.
     ///
     /// This option defaults to `false`.

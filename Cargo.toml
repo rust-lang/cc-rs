@@ -21,7 +21,6 @@ rust-version = "1.63"
 
 [dependencies]
 jobserver = { version = "0.1.30", default-features = false, optional = true }
-shlex = "1.3.0"
 find-msvc-tools = { version = "0.1.9", path = "find-msvc-tools" }
 
 [target.'cfg(unix)'.dependencies]
