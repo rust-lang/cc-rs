@@ -1598,6 +1598,12 @@ impl Build {
         self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
 
         let target = self.get_target()?;
+        if target.abi == "pauthtest" {
+            self.cargo_output.print_warning(
+                &"cc-rs should not be used with `pauthtest` target: it only builds \
+                static libraries, while `pauthtest` requires shared objects.",
+            );
+        }
         if target.env == "msvc" {
             let compiler = self.get_base_compiler()?;
             let atlmfc_lib = compiler
