@@ -2012,7 +2012,19 @@ impl Build {
         // then we set them only if the environment doesn't already have
         // CFLAGS/CXXFLAGS, since those variables presumably already contain
         // the desired set of warnings flags.
-        let envflags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" })?;
+        let envflags = {
+            let compiler_env_flags = self.envflags(if self.cpp { "CXXFLAGS" } else { "CFLAGS" })?;
+            let ldflags = self.envflags("LDFLAGS")?;
+            match (compiler_env_flags, ldflags) {
+                (Some(mut a), Some(b)) => {
+                    a.extend(b);
+                    Some(a)
+                }
+                (None, None) => None,
+                (x @ Some(_), None) | (None, x @ Some(_)) => x,
+            }
+        };
+
         match self.warnings {
             Some(true) => {
                 let wflags = cmd.family.warnings_flags().into();
