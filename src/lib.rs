@@ -70,6 +70,8 @@
 //! * `CFLAGS` - a series of space separated flags passed to compilers. Note that
 //!   individual flags cannot currently contain spaces, so doing
 //!   something like: `-L=foo\ bar` is not possible.
+//! * `LDFLAGS` - similar to CFLAGS, usually contains additional arguments to linker,
+//!   but through compiler driver command line. It will be appended after CFLAGS
 //! * `CC` - the actual C compiler used. Note that this supports passing a known
 //!   wrapper via `sccache cc`. This compiler must understand the `-c` flag. For
 //!   certain `TARGET`s, it also is assumed to know about other flags (most
