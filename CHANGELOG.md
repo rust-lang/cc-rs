@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.63](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.62...cc-v1.2.63) - 2026-05-29
+
+### Other
+
+- Update shlex requirement from 1.3.0 to 2.0.1 ([#1736](https://github.com/rust-lang/cc-rs/pull/1736))
+
 ## [1.2.62](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.61...cc-v1.2.62) - 2026-05-08
 
 ### Other
