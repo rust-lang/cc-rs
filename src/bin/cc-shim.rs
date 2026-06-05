@@ -86,7 +86,7 @@ fn main() -> ExitCode {
 
     // Allow tests to make the shim fail when a specific arg is present.
     if let Some(fail_arg) = env::var("CC_SHIM_FAIL_IF_ARG").ok() {
-        if args.clone().any(|a| a == &fail_arg) {
+        if args.any(|a| a == &fail_arg) {
             eprintln!("{program}: simulated failure for arg '{fail_arg}'");
             return ExitCode::FAILURE;
         }
