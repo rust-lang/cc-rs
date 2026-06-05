@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- Update rusqlite requirement from 0.39.0 to 0.40.0 ([#1744](https://github.com/rust-lang/cc-rs/pull/1744))
 - Add default compiler prefixes for thumbv7a/thumbv7r/thumbv8r bare-metal targets ([#1742](https://github.com/rust-lang/cc-rs/pull/1742))
 
 ## [1.2.63](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.62...cc-v1.2.63) - 2026-05-29
