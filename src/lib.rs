@@ -2444,9 +2444,15 @@ impl Build {
                     cmd.args.push("-Wl,-melf_i386".into());
                 }
 
+                //
+                // Arm Target Details
+                //
+
+                // Set Float ABI for all Arm bare-metal targets using EABIHF
                 if target.arch == "arm" && target.os == "none" && target.abi == "eabihf" {
                     cmd.args.push("-mfloat-abi=hard".into())
                 }
+                // Set -mthumb for all Thumb targets
                 if target.full_arch.starts_with("thumb") {
                     cmd.args.push("-mthumb".into());
                 }
