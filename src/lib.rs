@@ -2521,6 +2521,16 @@ impl Build {
                         cmd.args.push("-mfpu=vfpv3-d16".into());
                     }
                 }
+                // Armv8-R targets
+                if target.full_arch.starts_with("armv8r")
+                    || target.full_arch.starts_with("thumbv8r")
+                {
+                    cmd.args.push("-march=armv8-r".into());
+                    if target.abi == "eabihf" {
+                        cmd.args.push("-mfpu=fp-armv8".into())
+                    }
+                }
+
                 if target.arch == "riscv32" || target.arch == "riscv64" {
                     // get the 32i/32imac/32imc/64gc/64imac/... part
                     let arch = &target.full_arch[5..];
