@@ -2485,29 +2485,26 @@ impl Build {
                         cmd.args.push("-mfpu=fpv5-sp-d16".into())
                     }
                 }
-                if target.full_arch.starts_with("armebv7r") | target.full_arch.starts_with("armv7r")
+                // ARMv7-R targets
+                if target.full_arch.starts_with("armebv7r")
+                    || target.full_arch.starts_with("armv7r")
+                    || target.full_arch.starts_with("thumbv7r")
                 {
                     if target.full_arch.starts_with("armeb") {
                         cmd.args.push("-mbig-endian".into());
-                    } else {
-                        cmd.args.push("-mlittle-endian".into());
                     }
-
-                    // ARM mode
-                    cmd.args.push("-marm".into());
-
-                    // R Profile
                     cmd.args.push("-march=armv7-r".into());
-
                     if target.abi == "eabihf" {
                         // lowest common denominator FPU
                         // (see Cortex-R4 technical reference manual)
                         cmd.args.push("-mfpu=vfpv3-d16".into())
                     }
                 }
-                if target.full_arch.starts_with("armv7a") {
+                // Armv7-A targets
+                if target.full_arch.starts_with("armv7a")
+                    || target.full_arch.starts_with("thumbv7a")
+                {
                     cmd.args.push("-march=armv7-a".into());
-
                     if target.abi == "eabihf" {
                         // lowest common denominator FPU
                         cmd.args.push("-mfpu=vfpv3-d16".into());
