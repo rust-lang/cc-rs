@@ -2485,6 +2485,17 @@ impl Build {
                         cmd.args.push("-mfpu=fpv5-sp-d16".into())
                     }
                 }
+                // ARMv6 targets
+                if target.full_arch.starts_with("armv6")
+                    || (target.full_arch.starts_with("thumbv6")
+                        && !target.full_arch.starts_with("thumbv6m"))
+                {
+                    cmd.args.push("-march=armv6".into());
+                    if target.abi == "eabihf" {
+                        // lowest common denominator FPU
+                        cmd.args.push("-mfpu=vfpv2".into());
+                    }
+                }
                 // ARMv7-R targets
                 if target.full_arch.starts_with("armebv7r")
                     || target.full_arch.starts_with("armv7r")
