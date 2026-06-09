@@ -2456,25 +2456,31 @@ impl Build {
                 if target.full_arch.starts_with("thumb") {
                     cmd.args.push("-mthumb".into());
                 }
+                // Armv6-M targets (no FPU available)
                 if target.full_arch.starts_with("thumbv6m") {
+                    // ARMv6S-M is an old name for "ARMv6-M with SVC support"
+                    // before SVC support became mandatory. Some versions of GAS care
+                    // about the difference.
                     cmd.args.push("-march=armv6s-m".into());
                 }
+                // Armv7-M targets (no FPU available)
+                if target.full_arch.starts_with("thumbv7m") {
+                    cmd.args.push("-march=armv7-m".into());
+                }
+                // Armv7E-M targets
                 if target.full_arch.starts_with("thumbv7em") {
                     cmd.args.push("-march=armv7e-m".into());
-
                     if target.abi == "eabihf" {
                         cmd.args.push("-mfpu=fpv4-sp-d16".into())
                     }
                 }
-                if target.full_arch.starts_with("thumbv7m") {
-                    cmd.args.push("-march=armv7-m".into());
-                }
+                // Armv8-M Baseline (no FPU available)
                 if target.full_arch.starts_with("thumbv8m.base") {
                     cmd.args.push("-march=armv8-m.base".into());
                 }
+                // Armv8-M Mainline targets
                 if target.full_arch.starts_with("thumbv8m.main") {
                     cmd.args.push("-march=armv8-m.main".into());
-
                     if target.abi == "eabihf" {
                         cmd.args.push("-mfpu=fpv5-sp-d16".into())
                     }
