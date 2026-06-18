@@ -186,6 +186,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("powerpc64-ibm-aix", "powerpc64-ibm-aix"),
     ("powerpc64-unknown-freebsd", "powerpc64-unknown-freebsd"),
     ("powerpc64-unknown-linux-gnu", "powerpc64-unknown-linux-gnu"),
+    ("powerpc64-unknown-linux-gnuelfv2", "powerpc64-unknown-linux-gnu"),
     ("powerpc64-unknown-linux-musl", "powerpc64-unknown-linux-musl"),
     ("powerpc64-unknown-openbsd", "powerpc64-unknown-openbsd"),
     ("powerpc64-wrs-vxworks", "powerpc64-unknown-linux-gnu"),
