@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.65](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.64...cc-v1.2.65) - 2026-06-19
+
+### Other
+
+- Regenerate target info ([#1763](https://github.com/rust-lang/cc-rs/pull/1763))
+
 ## [1.2.64](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.63...cc-v1.2.64) - 2026-06-12
 
 ### Other
