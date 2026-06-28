@@ -74,7 +74,7 @@
 //!   wrapper via `sccache cc`. This compiler must understand the `-c` flag. For
 //!   certain `TARGET`s, it also is assumed to know about other flags (most
 //!   common is `-fPIC`).
-//!   ccache, distcc, sccache, icecc, cachepot and buildcache are supported,
+//!   ccache, distcc, sccache, icecc, cachepot, buildcache and kache are supported,
 //!   for sccache, simply set `CC` to `sccache cc`.
 //!   For other custom `CC` wrapper, just set `CC_KNOWN_WRAPPER_CUSTOM`
 //!   to the custom wrapper used in `CC`.
@@ -101,8 +101,9 @@
 //! * `RUSTC_WRAPPER` - If set, the specified command will be prefixed to the compiler
 //!   command. This is useful for projects that want to use
 //!   [sccache](https://github.com/mozilla/sccache),
-//!   [buildcache](https://gitlab.com/bits-n-bites/buildcache), or
-//!   [cachepot](https://github.com/paritytech/cachepot).
+//!   [buildcache](https://gitlab.com/bits-n-bites/buildcache),
+//!   [cachepot](https://github.com/paritytech/cachepot), or
+//!   [kache](https://github.com/kunobi-ninja/kache).
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
 //! to be inspected, for example via the `Build::try_flags_from_environment`
@@ -3225,7 +3226,7 @@ impl Build {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
-        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot", "buildcache"];
+        const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot", "buildcache", "kache"];
 
         let rustc_wrapper = cargo_env_var_os("RUSTC_WRAPPER")?;
         let wrapper_path = Path::new(&rustc_wrapper);
@@ -3282,6 +3283,7 @@ impl Build {
             "icecc",
             "cachepot",
             "buildcache",
+            "kache",
         ];
         let custom_wrapper = self.get_env("CC_KNOWN_WRAPPER_CUSTOM");
         if custom_wrapper.is_some() {
