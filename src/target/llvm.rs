@@ -83,8 +83,8 @@ impl TargetInfo<'_> {
             "visionos" => "xros",
             "uefi" => "windows",
             "solid_asp3" | "horizon" | "teeos" | "nuttx" | "espidf" => "none",
-            "nto" => "unknown",    // FIXME
-            "trusty" => "unknown", // FIXME
+            "qnx" | "nto" => "unknown", // LLVM doesn't know about QNX
+            "trusty" => "unknown",      // FIXME
             os => os,
         };
         let version = version.unwrap_or("");

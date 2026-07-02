@@ -228,7 +228,6 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
         "qnx700" => ("nto70", ""),
         "qnx710_iosock" => ("nto71_iosock", ""),
         "qnx710" => ("nto71", ""),
-        "qnx800" => ("nto80", ""),
         "sgx" => ("sgx", ""),
         "threads" => ("threads", ""),
         "mlibc" => ("mlibc", ""),
