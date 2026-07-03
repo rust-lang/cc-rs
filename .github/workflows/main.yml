@@ -361,7 +361,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          VERSION="$(gh release list --repo $REPO -L 1 --json tagName --jq '.[]|.tagName')"
+          VERSION="$(gh release list --exclude-pre-releases --repo $REPO -L 1 --json tagName --jq '.[]|.tagName')"
           echo "WASI_TOOLCHAIN_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install wasi-sdk
