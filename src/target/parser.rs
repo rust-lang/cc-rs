@@ -222,6 +222,9 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
             ("newlib", env_and_abi.strip_prefix("newlib").unwrap())
         }
 
+        // target that enables arm's pointer authentication
+        "pauthtest" => ("musl", "pauthtest"),
+
         // Environments
         "msvc" => ("msvc", ""),
         "ohos" => ("ohos", ""),
@@ -410,6 +413,7 @@ impl<'a> TargetInfo<'a> {
             // https://github.com/rust-lang/compiler-team/issues/850.
             "wali" => "unknown",
             "lynx" => "unknown",
+            "oe" => "unknown",
             // Some Linux distributions set their name as the target vendor,
             // so we have to assume that it can be an arbitary string.
             vendor => vendor,
