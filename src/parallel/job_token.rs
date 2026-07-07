@@ -245,7 +245,7 @@ mod inprocess_jobserver {
             loop {
                 let res = self
                     .0
-                    .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
+                    .try_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
 
                 if res.is_ok() {
                     break JobToken::new();
