@@ -243,6 +243,7 @@ mod inprocess_jobserver {
 
         pub(super) async fn acquire(&self) -> JobToken {
             loop {
+                #[allow(deprecated)]
                 let res = self
                     .0
                     .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));
