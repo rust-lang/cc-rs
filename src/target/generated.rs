@@ -217,6 +217,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("riscv32imc-esp-espidf", "riscv32"),
     ("riscv32imc-unknown-none-elf", "riscv32"),
     ("riscv32imc-unknown-nuttx-elf", "riscv32"),
+    ("riscv32imfc-unknown-none-elf", "riscv32"),
     ("riscv64-linux-android", "riscv64-linux-android"),
     ("riscv64-oe-linux-gnu", "riscv64-oe-linux-gnu"),
     ("riscv64-wrs-vxworks", "riscv64-unknown-linux-gnu"),
