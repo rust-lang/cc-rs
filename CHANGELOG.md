@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.67](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.66...cc-v1.2.67) - 2026-07-11
+
+### Other
+
+- Bump taiki-e/install-action from 2.81.8 to 2.82.8 ([#1786](https://github.com/rust-lang/cc-rs/pull/1786))
+- Fix clippy warning ([#1788](https://github.com/rust-lang/cc-rs/pull/1788))
+- Regenerate target info ([#1785](https://github.com/rust-lang/cc-rs/pull/1785))
+- Add missing todo for deprecated API
+- Add support for `aarch64-unknown-linux-pauthtest` target ([#1713](https://github.com/rust-lang/cc-rs/pull/1713))
+- Fix nightly compilation error ([#1783](https://github.com/rust-lang/cc-rs/pull/1783))
+
 ## [1.2.66](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.65...cc-v1.2.66) - 2026-07-05
 
 ### Other
