@@ -420,6 +420,7 @@ pub struct Build {
     shell_escaped_flags: Option<bool>,
     build_cache: Arc<BuildCache>,
     inherit_rustflags: bool,
+    inherit_trim_paths: bool,
     prefer_clang_cl_over_msvc: bool,
 }
 
@@ -549,6 +550,7 @@ impl Build {
             shell_escaped_flags: None,
             build_cache: Arc::default(),
             inherit_rustflags: true,
+            inherit_trim_paths: true,
             prefer_clang_cl_over_msvc: false,
         }
     }
@@ -1380,6 +1382,29 @@ impl Build {
         self
     }
 
+    /// Configure whether cc should automatically inherit path remap rules
+    /// from cargo's [`trim-paths`] profile setting,
+    /// and translate them into `-fmacro-prefix-map`/ `-fdebug-prefix-map` flags.
+    ///
+    /// This option defaults to `true`.
+    ///
+    /// This option doesn't support Windows MSVC cl.exe yet.
+    /// Only clang and GCC are supported.
+    ///
+    /// <div class="warning">
+    ///
+    /// [`trim-paths`] is currently an unstable cargo feature,
+    /// only available on nightly with `-Ztrim-paths`.
+    /// The contract around this option may change as the cargo feature evolves.
+    ///
+    /// </div>
+    ///
+    /// [`trim-paths`]: https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#profile-trim-paths-option
+    pub fn inherit_trim_paths(&mut self, inherit_trim_paths: bool) -> &mut Build {
+        self.inherit_trim_paths = inherit_trim_paths;
+        self
+    }
+
     /// Prefer to use clang-cl over msvc.
     ///
     /// This option defaults to `false`.
@@ -1495,6 +1520,7 @@ impl Build {
                 .cpp(self.cpp)
                 .cuda(self.cuda)
                 .inherit_rustflags(false)
+                .inherit_trim_paths(false)
                 .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
             if let Some(target) = &self.target {
                 cfg.target(target);
@@ -2053,6 +2079,11 @@ impl Build {
         // Add cc flags inherited from matching rustc flags.
         if self.inherit_rustflags {
             self.add_inherited_rustflags(&mut cmd, &target)?;
+        }
+
+        // Add path remap flags inherited from cargo's `-Ztrim-paths`.
+        if self.inherit_trim_paths {
+            self.add_trim_paths_flags(&mut cmd)?;
         }
 
         // Set flags configured in the builder (do this second-to-last, to allow these to override
@@ -2665,6 +2696,74 @@ impl Build {
         let env = env_os.to_string_lossy();
         let codegen_flags = RustcCodegenFlags::parse(&env)?;
         codegen_flags.cc_flags(self, cmd, target);
+        Ok(())
+    }
+
+    /// Translate cargo's `-Ztrim-paths` remap rules into compiler flags.
+    ///
+    /// [`trim-paths`]: https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#profile-trim-paths-option
+    fn add_trim_paths_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+        // MSVC has no equivalent of the `-f*-prefix-map` flag family.
+        // Left out until there is demand for it.
+        if cmd.is_like_msvc() {
+            return Ok(());
+        }
+        let scope = match cargo_env_var_os("CARGO_TRIM_PATHS_SCOPE") {
+            Some(scope) => scope,
+            None => return Ok(()),
+        };
+        let remap = match cargo_env_var_os("CARGO_TRIM_PATHS_REMAP") {
+            Some(remap) => remap,
+            None => return Ok(()),
+        };
+
+        // * `macro` scope -> `-fmacro-prefix-map`
+        // * `object` scope -> `-fmacro-prefix-map` + `-fdebug-prefix-map`
+        // * `all` scope -> both
+        // * `diagnostics` and `none` scopes have no C equivalent
+        let mut macro_scope = false;
+        let mut object_scope = false;
+        for scope in scope.to_string_lossy().split(',') {
+            match scope {
+                "all" => {
+                    macro_scope = true;
+                    object_scope = true;
+                    break;
+                }
+                // `__FILE__` and friends
+                "macro" => macro_scope = true,
+                // Everything embedded in object files.
+                // rustc defines this scope as macro + debuginfo.
+                // Both `__FILE__` strings and debug info end up in the object,
+                // so the C analogue must remap both as well.
+                "object" => {
+                    macro_scope = true;
+                    object_scope = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if !macro_scope && !object_scope {
+            return Ok(());
+        }
+
+        for pair in env::split_paths(&remap) {
+            let pair = pair.as_os_str();
+            if pair.is_empty() {
+                continue;
+            }
+            if macro_scope {
+                let mut flag = OsString::from("-fmacro-prefix-map=");
+                flag.push(pair);
+                cmd.push_cc_arg(flag);
+            }
+            if object_scope {
+                let mut flag = OsString::from("-fdebug-prefix-map=");
+                flag.push(pair);
+                cmd.push_cc_arg(flag);
+            }
+        }
         Ok(())
     }
 
