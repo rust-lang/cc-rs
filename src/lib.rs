@@ -360,6 +360,11 @@ struct CompilerFlag {
     flag: Box<OsStr>,
 }
 
+enum PrefixMapFlag {
+    Macro,
+    Debug,
+}
+
 #[derive(Debug, Default)]
 struct BuildCache {
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
@@ -2083,7 +2088,7 @@ impl Build {
 
         // Add path remap flags inherited from cargo's `-Ztrim-paths`.
         if self.inherit_trim_paths {
-            self.add_trim_paths_flags(&mut cmd)?;
+            self.add_trim_paths_flags(&mut cmd, &target)?;
         }
 
         // Set flags configured in the builder (do this second-to-last, to allow these to override
@@ -2702,7 +2707,7 @@ impl Build {
     /// Translate cargo's `-Ztrim-paths` remap rules into compiler flags.
     ///
     /// [`trim-paths`]: https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#profile-trim-paths-option
-    fn add_trim_paths_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
+    fn add_trim_paths_flags(&self, cmd: &mut Tool, target: &TargetInfo<'_>) -> Result<(), Error> {
         // MSVC has no equivalent of the `-f*-prefix-map` flag family.
         // Left out until there is demand for it.
         if cmd.is_like_msvc() {
@@ -2744,6 +2749,12 @@ impl Build {
                 _ => {}
             }
         }
+
+        let macro_scope =
+            macro_scope && self.probe_prefix_map_flag(PrefixMapFlag::Macro, cmd, target);
+        let object_scope =
+            object_scope && self.probe_prefix_map_flag(PrefixMapFlag::Debug, cmd, target);
+
         if !macro_scope && !object_scope {
             return Ok(());
         }
@@ -2765,6 +2776,45 @@ impl Build {
             }
         }
         Ok(())
+    }
+
+    /// Check if `-f*-prefix-map` flag is supported.
+    ///
+    /// * `-fdebug-prefix-map`: supported since GCC 4.3 (2008-03), Clang 3.8 (2016-03):
+    ///   * <https://gcc.gnu.org/onlinedocs/gcc-4.3.0/gcc/Debugging-Options.html>
+    ///   * <https://github.com/llvm/llvm-project/commit/436256a71316a1e6ad68ebee8439c88d75>
+    /// * `-fmacro-prefix-map`: supported since GCC 8.1 (2018-05), Clang 10.0 (2020-03)
+    ///   * <https://gcc.gnu.org/onlinedocs/gcc-8.1.0/gcc/Option-Summary.html>
+    ///   * <https://releases.llvm.org/10.0.0/tools/clang/docs/ReleaseNotes.html>
+    fn probe_prefix_map_flag(
+        &self,
+        flag: PrefixMapFlag,
+        cmd: &Tool,
+        target: &TargetInfo<'_>,
+    ) -> bool {
+        let (flag, unsupported_warning) = match flag {
+            PrefixMapFlag::Macro => (
+                "-fmacro-prefix-map",
+                "paths embedded by macros will not be remapped",
+            ),
+            PrefixMapFlag::Debug => (
+                "-fdebug-prefix-map",
+                "paths embedded in debug info will not be remapped",
+            ),
+        };
+        let probe = format!("{flag}=/probe=/probe");
+        let supported = self
+            .is_flag_supported_inner(OsStr::new(&probe), cmd, target)
+            .unwrap_or(false);
+
+        if !supported {
+            self.cargo_output.print_warning(&format_args!(
+                "{flag} is not supported by {:?}, {unsupported_warning}",
+                cmd.path()
+            ));
+        }
+
+        supported
     }
 
     fn msvc_macro_assembler(&self) -> Result<Command, Error> {
