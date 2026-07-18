@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.67...cc-v1.3.0) - 2026-07-18
+
+### Added
+
+- inherit path remap rules from cargo trim-paths ([#1794](https://github.com/rust-lang/cc-rs/pull/1794))
+
 ## [1.2.67](https://github.com/rust-lang/cc-rs/compare/cc-v1.2.66...cc-v1.2.67) - 2026-07-11
 
 ### Other
