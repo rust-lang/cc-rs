@@ -178,9 +178,15 @@ fn clang_cl_scope_all() {
         .file("foo.c")
         .compile("foo");
 
-    let cmd = test.cmd(1);
+    // clang-cl forwards Clang driver options through `/clang:<arg>`:
+    // https://releases.llvm.org/8.0.0/tools/clang/docs/UsersManual.html#the-clang-option
+    test.cmd(0)
+        .must_have("/clang:-fmacro-prefix-map=/probe=/probe");
+    test.cmd(1)
+        .must_have("/clang:-fdebug-prefix-map=/probe=/probe");
+
+    let cmd = test.cmd(2);
     for flag in MACRO_FLAGS.iter().chain(OBJECT_FLAGS) {
-        cmd.must_not_have(flag)
-            .must_not_have(format!("/clang:{flag}"));
+        cmd.must_not_have(flag).must_have(format!("/clang:{flag}"));
     }
 }

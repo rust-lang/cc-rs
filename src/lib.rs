@@ -2708,9 +2708,9 @@ impl Build {
     ///
     /// [`trim-paths`]: https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#profile-trim-paths-option
     fn add_trim_paths_flags(&self, cmd: &mut Tool, target: &TargetInfo<'_>) -> Result<(), Error> {
-        // MSVC has no equivalent of the `-f*-prefix-map` flag family.
-        // Left out until there is demand for it.
-        if cmd.is_like_msvc() {
+        // Native MSVC has no documented equivalent of the `-f*-prefix-map` flag family.
+        // clang-cl parses Clang driver options when wrapped in `/clang:`.
+        if cmd.is_like_msvc() && !cmd.is_like_clang_cl() {
             return Ok(());
         }
         let scope = match cargo_env_var_os("CARGO_TRIM_PATHS_SCOPE") {
@@ -2759,18 +2759,28 @@ impl Build {
             return Ok(());
         }
 
+        // clang-cl parses Clang driver options when wrapped in `/clang:`.
+        // <https://clang.llvm.org/docs/UsersManual.html#the-clang-option>
+        let clang_driver = if cmd.is_like_clang_cl() {
+            "/clang:"
+        } else {
+            ""
+        };
+
         for pair in env::split_paths(&remap) {
             let pair = pair.as_os_str();
             if pair.is_empty() {
                 continue;
             }
             if macro_scope {
-                let mut flag = OsString::from("-fmacro-prefix-map=");
+                let mut flag = OsString::from(clang_driver);
+                flag.push("-fmacro-prefix-map=");
                 flag.push(pair);
                 cmd.push_cc_arg(flag);
             }
             if object_scope {
-                let mut flag = OsString::from("-fdebug-prefix-map=");
+                let mut flag = OsString::from(clang_driver);
+                flag.push("-fdebug-prefix-map=");
                 flag.push(pair);
                 cmd.push_cc_arg(flag);
             }
@@ -2801,6 +2811,13 @@ impl Build {
                 "-fdebug-prefix-map",
                 "paths embedded in debug info will not be remapped",
             ),
+        };
+        // clang-cl parses Clang driver options when wrapped in `/clang:`.
+        // <https://clang.llvm.org/docs/UsersManual.html#the-clang-option>
+        let flag = if cmd.is_like_clang_cl() {
+            format!("/clang:{flag}")
+        } else {
+            flag.to_owned()
         };
         let probe = format!("{flag}=/probe=/probe");
         let supported = self
