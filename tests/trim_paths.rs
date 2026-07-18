@@ -10,11 +10,14 @@
 mod support;
 
 use crate::support::Test;
+use std::env;
+use std::ffi::OsString;
+use std::path::Path;
 
-// `<from>=<to>` pairs as cargo passes them (`;` on Windows though not supported in cc-rs yet)
-
-const REMAP: &str =
-    "/path/to/pkg=foo-0.1.0:/path/to/sysroot/lib/rustlib/src/rust=/rustc/1234567890abcdef";
+const REMAP_PAIRS: &[&str] = &[
+    "/path/to/pkg=foo-0.1.0",
+    "/path/to/sysroot/lib/rustlib/src/rust=/rustc/1234567890abcdef",
+];
 
 const MACRO_FLAGS: &[&str] = &[
     "-fmacro-prefix-map=/path/to/pkg=foo-0.1.0",
@@ -26,11 +29,15 @@ const OBJECT_FLAGS: &[&str] = &[
     "-fdebug-prefix-map=/path/to/sysroot/lib/rustlib/src/rust=/rustc/1234567890abcdef",
 ];
 
+fn remap() -> OsString {
+    env::join_paths(REMAP_PAIRS.iter().map(Path::new)).unwrap()
+}
+
 #[test]
 fn scope_all() {
     let mut test = Test::gnu();
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", REMAP);
+    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -44,7 +51,7 @@ fn scope_all() {
 fn scope_macro() {
     let mut test = Test::gnu();
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "macro");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", REMAP);
+    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -61,7 +68,7 @@ fn scope_macro() {
 fn scope_object() {
     let mut test = Test::gnu();
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "object");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", REMAP);
+    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -80,7 +87,7 @@ fn scope_object() {
 fn scope_macro_and_diagnostics() {
     let mut test = Test::gnu();
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "diagnostics,macro");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", REMAP);
+    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -98,7 +105,7 @@ fn scope_macro_and_diagnostics() {
 fn scope_none() {
     let mut test = Test::gnu();
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "none");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", REMAP);
+    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -128,7 +135,7 @@ fn no_env_vars() {
 fn opt_out() {
     let mut test = Test::gnu();
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", REMAP);
+    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc()
         .inherit_trim_paths(false)
