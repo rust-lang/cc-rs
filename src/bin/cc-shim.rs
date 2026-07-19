@@ -15,10 +15,22 @@ fn main() -> ExitCode {
     let mut args = args.iter();
     let program = args.next().expect("Unexpected empty args");
 
-    let out_dir = PathBuf::from(
-        env::var_os("CC_SHIM_OUT_DIR")
-            .unwrap_or_else(|| panic!("{}: CC_SHIM_OUT_DIR not found", program)),
-    );
+    let out_dir = env::var_os("CC_SHIM_OUT_DIR")
+        .map(PathBuf::from)
+        .or_else(|| {
+            // Flag probes use a fresh `Build`, so they don't inherit the
+            // test-only `CC_SHIM_OUT_DIR`. `is_flag_supported_inner` runs
+            // them with `out_dir` as their working directory, so we can
+            // record their arguments there.
+            //
+            // We only use this fallback for `-c` the compile-only flag probe
+            // in this flow. Family detection uses `-E` without `-c` and
+            // it must keep failing.
+            args.clone()
+                .any(|arg| arg == "-c")
+                .then(|| env::current_dir().expect("failed to get probe working directory"))
+        })
+        .unwrap_or_else(|| panic!("{}: CC_SHIM_OUT_DIR not found", program));
 
     // Find the first nonexistent candidate file to which the program's args can be written.
     let candidate = (0..).find_map(|i| {
