@@ -6,9 +6,13 @@ updates:
   directory: "/"
   schedule:
     interval: "daily"
+  cooldown:
+    default-days: 7
 - package-ecosystem: cargo
   directory: "/"
   schedule:
     interval: daily
     time: "08:00"
   open-pull-requests-limit: 10
+  cooldown:
+    default-days: 7

@@ -134,6 +134,18 @@ fn main() {
             .arg("/fsrc/NMakefile")
             .env("OUT_DIR", &out)
             .env("CC_FRONTEND", cc_frontend)
+            .env(
+                "EXTRA_CFLAGS",
+                if arch == "arm64ec" { "-arm64EC" } else { "" },
+            )
+            .env(
+                "EXTRA_LIBFLAGS",
+                if arch == "arm64ec" {
+                    "-machine:arm64ec"
+                } else {
+                    ""
+                },
+            )
             .status()
             .unwrap();
         assert!(status.success());
@@ -161,6 +173,9 @@ fn main() {
             !has_spectre(&target),
             "LIB should not use spectre-mitigated libs when VSCMD_ARG_VCVARS_SPECTRE is not set"
         );
+
+        // Test that we can find tools in the Windows SDK too.
+        cc::windows_registry::find_tool(&target, "rc.exe").unwrap();
     }
 
     // This tests whether we  can build a library but not link it to the main

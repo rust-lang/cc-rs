@@ -1,21 +1,14 @@
 #![allow(clippy::disallowed_methods)]
 
+use std::env;
+use std::process::Command;
+
 use crate::support::Test;
 
 mod support;
 
-// Some tests check that a flag is *not* present.  These tests might fail if the flag is set in the
-// CFLAGS or CXXFLAGS environment variables.  This function clears the CFLAGS and CXXFLAGS
-// variables to make sure that the tests can run correctly.
-fn reset_env() {
-    std::env::set_var("CFLAGS", "");
-    std::env::set_var("CXXFLAGS", "");
-}
-
 #[test]
 fn gnu_smoke() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc().file("foo.c").compile("foo");
 
@@ -32,8 +25,6 @@ fn gnu_smoke() {
 
 #[test]
 fn gnu_opt_level_1() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc().opt_level(1).file("foo.c").compile("foo");
 
@@ -42,8 +33,6 @@ fn gnu_opt_level_1() {
 
 #[test]
 fn gnu_opt_level_s() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc().opt_level_str("s").file("foo.c").compile("foo");
 
@@ -63,7 +52,11 @@ fn gnu_debug() {
         .debug(true)
         .file("foo.c")
         .compile("foo");
-    test.cmd(0).must_have("-gdwarf-4");
+    test.cmd(0)
+        .must_have("-g")
+        .must_not_have("-g1")
+        .must_have("-gdwarf-4");
+    drop(test);
 
     let test = Test::gnu();
     test.gcc()
@@ -71,7 +64,31 @@ fn gnu_debug() {
         .debug(true)
         .file("foo.c")
         .compile("foo");
-    test.cmd(0).must_have("-gdwarf-2");
+    test.cmd(0)
+        .must_have("-g")
+        .must_not_have("-g1")
+        .must_have("-gdwarf-2");
+}
+
+#[test]
+fn gnu_debug_limited() {
+    let test = Test::gnu();
+    test.gcc().debug_str("limited").file("foo.c").compile("foo");
+    test.cmd(0).must_not_have("-g").must_have("-g1");
+}
+
+#[test]
+fn gnu_debug_none() {
+    let test = Test::gnu();
+    test.gcc().debug_str("none").file("foo.c").compile("foo");
+    test.cmd(0).must_not_have("-g").must_not_have("-g1");
+}
+
+#[test]
+fn gnu_debug_unknown() {
+    let test = Test::gnu();
+    test.gcc().debug_str("99").file("foo.c").compile("foo");
+    test.cmd(0).must_have("-g").must_not_have("-g1");
 }
 
 #[test]
@@ -100,8 +117,6 @@ fn gnu_debug_fp() {
 
 #[test]
 fn gnu_debug_nofp() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .target("x86_64-unknown-linux-none")
@@ -111,6 +126,7 @@ fn gnu_debug_nofp() {
         .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_not_have("-fno-omit-frame-pointer");
+    drop(test);
 
     let test = Test::gnu();
     test.gcc()
@@ -147,9 +163,15 @@ fn gnu_warnings() {
 }
 
 #[test]
-fn gnu_extra_warnings0() {
-    reset_env();
+fn gnu_warnings_disabled() {
+    let test = Test::gnu();
+    test.gcc().warnings(false).file("foo.c").compile("foo");
 
+    test.cmd(0).must_have("-w").must_not_have("-Wall");
+}
+
+#[test]
+fn gnu_extra_warnings0() {
     let test = Test::gnu();
     test.gcc()
         .warnings(true)
@@ -163,8 +185,6 @@ fn gnu_extra_warnings0() {
 
 #[test]
 fn gnu_extra_warnings1() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .warnings(false)
@@ -173,13 +193,14 @@ fn gnu_extra_warnings1() {
         .file("foo.c")
         .compile("foo");
 
-    test.cmd(0).must_not_have("-Wall").must_have("-Wextra");
+    test.cmd(0)
+        .must_have("-w")
+        .must_not_have("-Wall")
+        .must_have("-Wextra");
 }
 
 #[test]
 fn gnu_warnings_overridable() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .warnings(true)
@@ -208,8 +229,6 @@ fn gnu_x86_64() {
 
 #[test]
 fn gnu_x86_64_no_pic() {
-    reset_env();
-
     for vendor in &["unknown-linux-gnu", "apple-darwin"] {
         let target = format!("x86_64-{}", vendor);
         let test = Test::gnu();
@@ -285,8 +304,6 @@ fn gnu_aarch64_none_no_pic() {
 
 #[test]
 fn gnu_uefi_no_pic() {
-    reset_env();
-
     for arch in &["aarch64", "i686", "x86_64"] {
         let target = format!("{}-unknown-uefi", arch);
         let test = Test::gnu();
@@ -302,8 +319,6 @@ fn gnu_uefi_no_pic() {
 
 #[test]
 fn gnu_set_stdlib() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .cpp_set_stdlib(Some("foo"))
@@ -342,8 +357,6 @@ fn gnu_compile_assembly() {
 
 #[test]
 fn gnu_shared() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
@@ -356,8 +369,6 @@ fn gnu_shared() {
 
 #[test]
 fn gnu_flag_if_supported() {
-    reset_env();
-
     if cfg!(windows) {
         return;
     }
@@ -392,8 +403,6 @@ fn gnu_flag_if_supported_cpp() {
 
 #[test]
 fn gnu_static() {
-    reset_env();
-
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
@@ -422,8 +431,6 @@ fn gnu_std_c() {
 
 #[test]
 fn msvc_smoke() {
-    reset_env();
-
     let test = Test::msvc();
     test.gcc().file("foo.c").compile("foo");
 
@@ -439,8 +446,6 @@ fn msvc_smoke() {
 
 #[test]
 fn msvc_opt_level_0() {
-    reset_env();
-
     let test = Test::msvc();
     test.gcc().opt_level(0).file("foo.c").compile("foo");
 
@@ -504,6 +509,14 @@ fn msvc_std_c() {
     test.gcc().file("foo.c").std("c11").compile("foo");
 
     test.cmd(0).must_have("-std:c11");
+}
+
+#[test]
+fn msvc_warnings_disabled() {
+    let test = Test::msvc();
+    test.gcc().warnings(false).file("foo.c").compile("foo");
+
+    test.cmd(0).must_have("-W0").must_not_have("-W4");
 }
 
 // Disable this test with the parallel feature because the execution
@@ -597,18 +610,20 @@ fn gnu_apple_deployment_target() {
     ];
 
     for (target, os_version_flag) in cases {
-        let test = Test::gnu();
+        let mut test = Test::gnu();
+
+        // Avoid dependency on environment in test.
+        test.env.set("MACOSX_DEPLOYMENT_TARGET", "10.12");
+        test.env.set("IPHONEOS_DEPLOYMENT_TARGET", "10.0");
+        test.env.set("TVOS_DEPLOYMENT_TARGET", "10.0");
+        test.env.set("WATCHOS_DEPLOYMENT_TARGET", "5.0");
+        test.env.set("XROS_DEPLOYMENT_TARGET", "1.0");
+
         test.shim("fake-gcc")
             .gcc()
             .compiler("fake-gcc")
             .target(&target)
             .host(&"aarch64-apple-darwin")
-            // Avoid dependency on environment in test.
-            .__set_env("MACOSX_DEPLOYMENT_TARGET", "10.12")
-            .__set_env("IPHONEOS_DEPLOYMENT_TARGET", "10.0")
-            .__set_env("TVOS_DEPLOYMENT_TARGET", "10.0")
-            .__set_env("WATCHOS_DEPLOYMENT_TARGET", "5.0")
-            .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
             .file("foo.c")
             .compile("foo");
 
@@ -636,7 +651,7 @@ fn macos_cpp_minimums() {
             .target(target)
             .host(target)
             .cpp(true)
-            .__set_env("MACOSX_DEPLOYMENT_TARGET", deployment_target)
+            .env("MACOSX_DEPLOYMENT_TARGET", deployment_target)
             .file("foo.c")
             .compile("foo");
 
@@ -667,7 +682,7 @@ fn macos_cpp_minimums() {
     test.gcc()
         .target(target)
         .host(target)
-        .__set_env("MACOSX_DEPLOYMENT_TARGET", "10.7")
+        .env("MACOSX_DEPLOYMENT_TARGET", "10.7")
         .file("foo.c")
         .compile("foo");
 
@@ -681,7 +696,7 @@ fn clang_apple_tvos() {
     let target = "aarch64-apple-tvos";
     let test = Test::clang();
     test.gcc()
-        .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
+        .env("TVOS_DEPLOYMENT_TARGET", "9.0")
         .target(target)
         .host(target)
         .file("foo.c")
@@ -706,7 +721,7 @@ fn clang_apple_mac_catalyst() {
     let test = Test::clang();
     test.gcc()
         .target("aarch64-apple-ios-macabi")
-        .__set_env("IPHONEOS_DEPLOYMENT_TARGET", "15.0")
+        .env("IPHONEOS_DEPLOYMENT_TARGET", "15.0")
         .file("foo.c")
         .compile("foo");
     let execution = test.cmd(0);
@@ -736,7 +751,7 @@ fn clang_apple_tvsimulator() {
 
     let test = Test::clang();
     test.gcc()
-        .__set_env("TVOS_DEPLOYMENT_TARGET", "9.0")
+        .env("TVOS_DEPLOYMENT_TARGET", "9.0")
         .target(target)
         .host(target)
         .file("foo.c")
@@ -761,7 +776,7 @@ fn clang_apple_visionos() {
 
     let test = Test::clang();
     test.gcc()
-        .__set_env("XROS_DEPLOYMENT_TARGET", "1.0")
+        .env("XROS_DEPLOYMENT_TARGET", "1.0")
         .target("aarch64-apple-visionos")
         .file("foo.c")
         .compile("foo");
@@ -788,10 +803,10 @@ fn apple_sdkroot_wrong() {
         return;
     }
 
-    let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk";
+    let wrong_sdkroot = "/Library/Developer/CommandLineTools/SDKs/MacOSX.platform";
     let test = Test::clang();
     test.gcc()
-        .__set_env("SDKROOT", wrong_sdkroot)
+        .env("SDKROOT", wrong_sdkroot)
         .target("aarch64-apple-ios")
         .file("foo.c")
         .compile("foo");
@@ -850,4 +865,244 @@ fn clang_android() {
         test.gcc().target(target).file("foo.c").compile("foo");
         test.cmd(0).must_not_have("--target=arm-linux-androideabi");
     }
+}
+
+#[test]
+fn parent_dir_file_path() {
+    // Regression test for issue #172
+    // https://github.com/rust-lang/cc-rs/issues/172
+    // Ensures that files referenced with parent directory components (..)
+    // have their object files placed within OUT_DIR, not in parent directories
+
+    let test = Test::gnu();
+
+    let intermediates = test
+        .gcc()
+        .file("../external_lib/test.c")
+        .compile_intermediates();
+
+    // Verify we got an object file back
+    assert_eq!(
+        intermediates.len(),
+        1,
+        "Expected exactly one intermediate object file"
+    );
+
+    let obj_path = &intermediates[0];
+    let out_dir = test.td.path();
+
+    // Verify the object file is actually within OUT_DIR
+    assert!(
+        obj_path.starts_with(out_dir),
+        "Object file {:?} is not within OUT_DIR {:?}. This indicates the file path \
+         with parent directory components (..) caused the object file to escape OUT_DIR.",
+        obj_path,
+        out_dir
+    );
+}
+
+#[test]
+fn multiple_parent_dir_references() {
+    // Test deeply nested parent directory references
+    // e.g., ../../deep/path/../file.c
+
+    let test = Test::gnu();
+
+    let intermediates = test
+        .gcc()
+        .file("a/b/c/../../b/c/deep.c")
+        .compile_intermediates();
+
+    assert_eq!(intermediates.len(), 1);
+    let obj_path = &intermediates[0];
+    let out_dir = test.td.path();
+
+    // Must be within OUT_DIR
+    assert!(
+        obj_path.starts_with(out_dir),
+        "Object file with multiple parent refs {:?} escaped OUT_DIR {:?}",
+        obj_path,
+        out_dir
+    );
+}
+
+#[test]
+fn parent_dir_with_multiple_files() {
+    // Test that multiple files with parent directory references
+    // all get properly contained in OUT_DIR
+
+    let test = Test::gnu();
+
+    let intermediates = test
+        .gcc()
+        .file("src1/../src1/file1.c")
+        .file("src2/../src2/file2.c")
+        .compile_intermediates();
+
+    assert_eq!(intermediates.len(), 2, "Expected two object files");
+
+    let out_dir = test.td.path();
+    for obj_path in &intermediates {
+        assert!(
+            obj_path.starts_with(out_dir),
+            "Object file {:?} is not within OUT_DIR {:?}",
+            obj_path,
+            out_dir
+        );
+    }
+}
+
+#[test]
+fn cc_env_vars_not_overridable() {
+    let test = Test::gnu();
+    test.gcc()
+        .env("CC_FORCE_DISABLE", "1")
+        .file("foo.c")
+        .compile("foo");
+
+    // Compilation shouldn't fail here.
+}
+
+#[cfg(windows)]
+#[cfg(not(disable_clang_cl_tests))]
+mod msvc_clang_cl_tests {
+    use super::Test;
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_disabled_by_default() {
+        let test = Test::msvc_autodetect();
+
+        // When prefer_clang_cl_over_msvc is not called (default false), should use MSVC
+        let compiler = test
+            .gcc()
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        // By default, should be using MSVC (cl.exe) and NOT clang-cl
+        assert!(compiler.is_like_msvc(), "Should use MSVC by default");
+        assert!(
+            !compiler.is_like_clang_cl(),
+            "Should not use clang-cl by default"
+        );
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_enabled() {
+        let test = Test::msvc_autodetect();
+
+        let compiler = test
+            .gcc()
+            // When prefer_clang_cl_over_msvc is true, should use clang-cl.exe
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        assert!(
+            compiler.is_like_clang_cl(),
+            "clang-cl.exe should be identified as clang-cl-like, got {:?}",
+            compiler
+        );
+        assert!(
+            compiler.is_like_msvc(),
+            "clang-cl should still be MSVC-like"
+        );
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_respects_explicit_cc_env() {
+        let mut test = Test::msvc_autodetect();
+
+        test.env.set("CC", "cl.exe");
+        let compiler = test
+            .gcc()
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        // The preference should not override explicit compiler setting
+        assert!(compiler.is_like_msvc(), "Should still be MSVC-like");
+        assert!(
+            !compiler.is_like_clang_cl(),
+            "Should NOT use clang-cl when CC is explicitly set to cl.exe, got {:?}",
+            compiler
+        );
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_cpp_mode() {
+        let test = Test::msvc_autodetect();
+        let compiler = test
+            .gcc()
+            .cpp(true)
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        // Verify clang-cl.exe works correctly in C++ mode
+        assert!(
+            compiler.is_like_clang_cl(),
+            "clang-cl.exe should be identified as clang-cl-like in C++ mode"
+        );
+        assert!(
+            compiler.is_like_msvc(),
+            "clang-cl should still be MSVC-like in C++ mode"
+        );
+    }
+}
+
+#[test]
+fn gnu_ar_deterministic_flag() {
+    let test = Test::gnu();
+    test.gcc().file("foo.c").compile("foo");
+
+    test.cmd(1).must_have("cqD");
+    test.cmd(2).must_have("sD");
+}
+
+#[test]
+fn gnu_ar_deterministic_flag_fallback() {
+    let test = Test::gnu();
+    test.gcc()
+        .env("CC_SHIM_FAIL_IF_ARG", "cqD")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0).must_have("foo.c");
+    test.cmd(1).must_have("cqD");
+    // fallback to `ar cq` without D
+    test.cmd(2).must_have("cq").must_not_have("cqD");
+    test.cmd(3).must_have("s").must_not_have("sD");
+}
+
+/// Stderr from a failed `ar D` probe
+/// should not be forwarded as `cargo:warning=`.
+///
+/// This test runs the build in a subprocess so we
+/// can capture and assert on the actual stdout output.
+#[test]
+fn gnu_ar_probe_failure_no_warning() {
+    // When invoked as subprocess, perform the build and return.
+    if env::var_os("__CC_TEST_AR_PROBE_STDERR").is_some() {
+        let test = Test::gnu();
+        test.gcc()
+            .env("CC_SHIM_FAIL_IF_ARG", "cqD")
+            .file("foo.c")
+            .compile("foo");
+        return;
+    }
+
+    let output = Command::new(env::current_exe().unwrap())
+        .env("__CC_TEST_AR_PROBE_STDERR", "1")
+        .args(["--exact", "gnu_ar_probe_failure_no_warning", "--nocapture"])
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "subprocess failed: {:?}", output);
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // The shim writes "simulated failure for arg 'cqD'" to stderr on probe failure.
+    assert!(
+        !stdout.contains("simulated failure"),
+        "probe stderr should not appear as cargo:warning=, got:\n{}",
+        stdout
+    );
 }

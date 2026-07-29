@@ -3,17 +3,12 @@
 mod support;
 
 use crate::support::Test;
-use std::env;
 
 #[test]
-fn cflags() {
-    gnu_no_warnings_if_cflags();
-    cflags_order();
-}
-
 fn gnu_no_warnings_if_cflags() {
-    env::set_var("CFLAGS", "-arbitrary");
-    let test = Test::gnu();
+    let mut test = Test::gnu();
+    test.env.set("CFLAGS", "-arbitrary");
+
     test.gcc().file("foo.c").compile("foo");
 
     test.cmd(0).must_not_have("-Wall").must_not_have("-Wextra");
@@ -25,17 +20,19 @@ fn gnu_no_warnings_if_cflags() {
 /// 2. Rustflags.
 /// 3. Builder flags.
 /// 4. Environment flags.
+#[test]
 fn cflags_order() {
+    let mut test = Test::gnu();
+
     // FIXME(madsmtm): Re-enable once `is_flag_supported` works in CI regardless of `target`.
-    // unsafe { std::env::set_var("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5") };
+    // test.env.set("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5");
 
-    unsafe { env::set_var("CFLAGS", "-Larbitrary1") };
-    unsafe { env::set_var("HOST_CFLAGS", "-Larbitrary2") };
-    unsafe { env::set_var("TARGET_CFLAGS", "-Larbitrary2") };
-    unsafe { env::set_var("CFLAGS_x86_64_unknown_none", "-Larbitrary3") };
-    unsafe { env::set_var("CFLAGS_x86_64-unknown-none", "-Larbitrary4") };
+    test.env.set("CFLAGS", "-Larbitrary1");
+    test.env.set("HOST_CFLAGS", "-Larbitrary2");
+    test.env.set("TARGET_CFLAGS", "-Larbitrary2");
+    test.env.set("CFLAGS_x86_64_unknown_none", "-Larbitrary3");
+    test.env.set("CFLAGS_x86_64-unknown-none", "-Larbitrary4");
 
-    let test = Test::gnu();
     test.gcc()
         .target("x86_64-unknown-none")
         .static_flag(true)

@@ -1,8 +1,6 @@
 name: Publish release
 
-permissions:
-  pull-requests: write
-  contents: write
+permissions: {}
 
 on:
   push:
@@ -14,17 +12,24 @@ jobs:
     if: github.repository_owner == 'rust-lang'
     name: Release-plz release
     runs-on: ubuntu-latest
+    environment: publish
+    permissions:
+      pull-requests: write
+      contents: write
+      id-token: write     # Required for OIDC token exchange
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e97e2d8cc328f1b50210efc529dca0028893a2d9 # v1
+        with:
+          toolchain: stable
       - name: Run release-plz
-        uses: MarcoIeni/release-plz-action@v0.5
+        uses: release-plz/action@2eb1d8bcb770b4c48ccfaad919734b38b51958c9 # v0.5.131
         with:
           command: release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

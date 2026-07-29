@@ -21,6 +21,13 @@ impl TargetInfo<'_> {
         if rustc_target == "armv7-apple-ios" {
             // FIXME(madsmtm): Unnecessary once we bump MSRV to Rust 1.74
             return Cow::Borrowed("armv7-apple-ios");
+        } else if rustc_target == "aarch64-unknown-linux-pauthtest" {
+            // `aarch64-unknown-linux-pauthtest` rustc target sets both
+            // environment and abi (to `musl` and `pauthtest` respectively`).
+            // However, the abi field exists mainly for `cfg(...)` evaluation in
+            // Rust, not for generating the actual LLVM triple. The logic of:
+            // `arch-vendor-os-env+abi` does not applay here.
+            return Cow::Borrowed("aarch64-unknown-linux-pauthtest");
         } else if self.os == "uefi" {
             // Override the UEFI LLVM targets.
             //
@@ -83,21 +90,22 @@ impl TargetInfo<'_> {
             "visionos" => "xros",
             "uefi" => "windows",
             "solid_asp3" | "horizon" | "teeos" | "nuttx" | "espidf" => "none",
-            "nto" => "unknown",    // FIXME
-            "trusty" => "unknown", // FIXME
+            "qnx" | "nto" => "unknown", // LLVM doesn't know about QNX
+            "trusty" => "unknown",      // FIXME
             os => os,
         };
         let version = version.unwrap_or("");
         let env = match self.env {
             "newlib" | "nto70" | "nto71" | "nto71_iosock" | "p1" | "p2" | "relibc" | "sgx"
             | "uclibc" => "",
+            "sim" => "simulator",
             env => env,
         };
         let abi = match self.abi {
-            "sim" => "simulator",
             "llvm" | "softfloat" | "uwp" | "vec-extabi" => "",
             "ilp32" => "_ilp32",
             "abi64" => "",
+            "elfv1" | "elfv2" => "",
             abi => abi,
         };
         Cow::Owned(match (vendor, env, abi) {
@@ -191,8 +199,8 @@ mod tests {
                 arch: "aarch64",
                 vendor: "apple",
                 os: "ios",
-                env: "",
-                abi: "sim",
+                env: "sim",
+                abi: "",
             }
             .llvm_target("aarch64-apple-ios-sim", Some("14.0")),
             "arm64-apple-ios14.0-simulator"

@@ -1,6 +1,10 @@
-use std::env;
+use std::mem;
 
-use crate::{target::TargetInfo, utilities::OnceLock, Error, ErrorKind};
+use crate::{
+    target::TargetInfo,
+    utilities::{cargo_env_var, OnceLock},
+    Error, ErrorKind,
+};
 
 #[derive(Debug)]
 struct TargetInfoParserInner {
@@ -15,16 +19,7 @@ struct TargetInfoParserInner {
 impl TargetInfoParserInner {
     fn from_cargo_environment_variables() -> Result<Self, Error> {
         // `TARGET` must be present.
-        //
-        // No need to emit `rerun-if-env-changed` for this,
-        // as it is controlled by Cargo itself.
-        #[allow(clippy::disallowed_methods)]
-        let target_name = env::var("TARGET").map_err(|err| {
-            Error::new(
-                ErrorKind::EnvVarNotFound,
-                format!("failed reading TARGET: {err}"),
-            )
-        })?;
+        let target_name = cargo_env_var("TARGET")?;
 
         // Parse the full architecture name from the target name.
         let (full_arch, _rest) = target_name.split_once('-').ok_or(Error::new(
@@ -32,20 +27,18 @@ impl TargetInfoParserInner {
             format!("target `{target_name}` only had a single component (at least two required)"),
         ))?;
 
-        let cargo_env = |name, fallback: Option<&str>| -> Result<Box<str>, Error> {
-            // No need to emit `rerun-if-env-changed` for these,
-            // as they are controlled by Cargo itself.
-            #[allow(clippy::disallowed_methods)]
-            match env::var(name) {
-                Ok(var) => Ok(var.into_boxed_str()),
-                Err(err) => match fallback {
-                    Some(fallback) => Ok(fallback.into()),
-                    None => Err(Error::new(
-                        ErrorKind::EnvVarNotFound,
-                        format!("did not find fallback information for target `{target_name}`, and failed reading {name}: {err}"),
-                    )),
-                },
-            }
+        let cargo_env = |key, fallback: Option<&str>| match cargo_env_var(key) {
+            Ok(var) => Ok(var.into_boxed_str()),
+            Err(err) => match fallback {
+                Some(fallback) => Ok(fallback.into()),
+                None => Err(Error::new(
+                    ErrorKind::EnvVarNotFound,
+                    format!(
+                        "did not find fallback information for target `{target_name}`: {}",
+                        err.message
+                    ),
+                )),
+            },
         };
 
         // Prefer to use `CARGO_ENV_*` if set, since these contain the most
@@ -67,12 +60,24 @@ impl TargetInfoParserInner {
         let arch = cargo_env("CARGO_CFG_TARGET_ARCH", ft.map(|t| t.arch))?;
         let vendor = cargo_env("CARGO_CFG_TARGET_VENDOR", ft.map(|t| t.vendor))?;
         let os = cargo_env("CARGO_CFG_TARGET_OS", ft.map(|t| t.os))?;
-        let env = cargo_env("CARGO_CFG_TARGET_ENV", ft.map(|t| t.env))?;
+        let mut env = cargo_env("CARGO_CFG_TARGET_ENV", ft.map(|t| t.env))?;
         // `target_abi` was stabilized in Rust 1.78, which is higher than our
         // MSRV, so it may not always be available; In that case, fall back to
         // `""`, which is _probably_ correct for unknown target names.
-        let abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi))
+        let mut abi = cargo_env("CARGO_CFG_TARGET_ABI", ft.map(|t| t.abi))
             .unwrap_or_else(|_| String::default().into_boxed_str());
+
+        // Remove `macabi` and `sim` from `target_abi` (if present), it's been moved to `target_env`.
+        // TODO: Remove once MSRV is bumped to 1.91 and `rustc` removes these from `target_abi`.
+        if matches!(&*abi, "macabi" | "sim") {
+            debug_assert!(
+                matches!(&*env, "" | "macabi" | "sim"),
+                "env/abi mismatch: {:?}, {:?}",
+                env,
+                abi,
+            );
+            env = mem::replace(&mut abi, String::default().into_boxed_str());
+        }
 
         Ok(Self {
             full_arch: full_arch.to_string().into_boxed_str(),
@@ -163,6 +168,7 @@ fn parse_arch(full_arch: &str) -> Option<&str> {
         arch if arch.starts_with("nvptx") => "nvptx",
 
         arch if arch.starts_with("bpf") => "bpf", // bpfeb | bpfel
+        arch if arch.starts_with("sh4") => "sh4", // sh4 | sh4-unknown-linux-gnu | sh4-unknown-redox
 
         // https://github.com/bytecodealliance/wasmtime/tree/v30.0.1/pulley
         arch if arch.starts_with("pulley64") => "pulley64",
@@ -216,24 +222,27 @@ fn parse_envabi(last_component: &str) -> Option<(&str, &str)> {
             ("newlib", env_and_abi.strip_prefix("newlib").unwrap())
         }
 
+        // target that enables arm's pointer authentication
+        "pauthtest" => ("musl", "pauthtest"),
+
         // Environments
         "msvc" => ("msvc", ""),
         "ohos" => ("ohos", ""),
         "qnx700" => ("nto70", ""),
         "qnx710_iosock" => ("nto71_iosock", ""),
         "qnx710" => ("nto71", ""),
-        "qnx800" => ("nto80", ""),
         "sgx" => ("sgx", ""),
         "threads" => ("threads", ""),
         "mlibc" => ("mlibc", ""),
+        "relibc" => ("relibc", ""),
 
         // ABIs
         "abi64" => ("", "abi64"),
         "abiv2" => ("", "spe"),
         "eabi" => ("", "eabi"),
         "eabihf" => ("", "eabihf"),
-        "macabi" => ("", "macabi"),
-        "sim" => ("", "sim"),
+        "macabi" => ("macabi", ""),
+        "sim" => ("sim", ""),
         "softfloat" => ("", "softfloat"),
         "spe" => ("", "spe"),
         "x32" => ("", "x32"),
@@ -263,6 +272,17 @@ impl<'a> TargetInfo<'a> {
                 os: "linux",
                 env: "",
                 abi: "",
+            });
+        }
+
+        if target == "armv7a-vex-v5" {
+            return Ok(Self {
+                full_arch: "armv7a",
+                arch: "arm",
+                vendor: "vex",
+                os: "vexos",
+                env: "v5",
+                abi: "eabihf",
             });
         }
 
@@ -344,7 +364,7 @@ impl<'a> TargetInfo<'a> {
         match target {
             // Actually simulator targets.
             "i386-apple-ios" | "x86_64-apple-ios" | "x86_64-apple-tvos" => {
-                abi = "sim";
+                env = "sim";
             }
             // Name should've contained `muslabi64`.
             "mips64-openwrt-linux-musl" => {
@@ -393,6 +413,7 @@ impl<'a> TargetInfo<'a> {
             // https://github.com/rust-lang/compiler-team/issues/850.
             "wali" => "unknown",
             "lynx" => "unknown",
+            "oe" => "unknown",
             // Some Linux distributions set their name as the target vendor,
             // so we have to assume that it can be an arbitary string.
             vendor => vendor,
@@ -420,6 +441,10 @@ impl<'a> TargetInfo<'a> {
         .contains(&target)
         {
             abi = "elfv2";
+        }
+
+        if ["asan", "msan", "tsan"].contains(&abi) {
+            abi = "";
         }
 
         Ok(Self {
@@ -529,6 +554,11 @@ mod tests {
             }
         }
 
+        if matches!(target.abi, "macabi" | "sim") {
+            assert_eq!(target.env, target.abi);
+            target.abi = "";
+        }
+
         target
     }
 
@@ -580,5 +610,31 @@ mod tests {
         if has_failure {
             panic!("failed comparing targets");
         }
+    }
+
+    #[test]
+    fn parses_apple_envs_correctly() {
+        assert_eq!(
+            TargetInfo::from_rustc_target("aarch64-apple-ios-macabi").unwrap(),
+            TargetInfo {
+                full_arch: "aarch64",
+                arch: "aarch64",
+                vendor: "apple",
+                os: "ios",
+                env: "macabi",
+                abi: "",
+            }
+        );
+        assert_eq!(
+            TargetInfo::from_rustc_target("aarch64-apple-ios-sim").unwrap(),
+            TargetInfo {
+                full_arch: "aarch64",
+                arch: "aarch64",
+                vendor: "apple",
+                os: "ios",
+                env: "sim",
+                abi: "",
+            }
+        );
     }
 }

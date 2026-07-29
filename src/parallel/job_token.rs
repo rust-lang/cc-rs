@@ -218,14 +218,11 @@ mod inherited_jobserver {
 mod inprocess_jobserver {
     use super::JobToken;
 
-    use crate::parallel::async_executor::YieldOnce;
+    use crate::{parallel::async_executor::YieldOnce, utilities::cargo_env_var_os};
 
-    use std::{
-        env::var,
-        sync::atomic::{
-            AtomicU32,
-            Ordering::{AcqRel, Acquire},
-        },
+    use std::sync::atomic::{
+        AtomicU32,
+        Ordering::{AcqRel, Acquire},
     };
 
     pub(crate) struct JobServer(AtomicU32);
@@ -236,9 +233,8 @@ mod inprocess_jobserver {
             // just fall back to the number of cores on the local machine, or a reasonable
             // default if that cannot be determined.
 
-            let parallelism = var("NUM_JOBS")
-                .ok()
-                .and_then(|j| j.parse::<u32>().ok())
+            let parallelism = cargo_env_var_os("NUM_JOBS")
+                .and_then(|j| j.to_str()?.parse::<u32>().ok())
                 .or_else(|| Some(std::thread::available_parallelism().ok()?.get() as u32))
                 .unwrap_or(4);
 
@@ -247,6 +243,8 @@ mod inprocess_jobserver {
 
         pub(super) async fn acquire(&self) -> JobToken {
             loop {
+                // TODO: use try_fetch once msrv bump to 1.95
+                #[allow(deprecated)]
                 let res = self
                     .0
                     .fetch_update(AcqRel, Acquire, |tokens| tokens.checked_sub(1));

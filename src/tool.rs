@@ -1,10 +1,9 @@
 use crate::{
-    command_helpers::{run_output, spawn, CargoOutput},
+    command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput},
     run,
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
 };
-use std::io::Read;
 use std::{
     borrow::Cow,
     collections::HashMap,
@@ -12,7 +11,7 @@ use std::{
     ffi::{OsStr, OsString},
     io::Write,
     path::{Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Command, Output, Stdio},
     sync::RwLock,
 };
 
@@ -40,6 +39,23 @@ pub struct Tool {
 }
 
 impl Tool {
+    pub(crate) fn from_find_msvc_tools(tool: ::find_msvc_tools::Tool) -> Self {
+        let mut cc_tool = Self::with_family(
+            tool.path().into(),
+            ToolFamily::Msvc {
+                clang_cl: tool.is_clang_cl(),
+            },
+        );
+
+        cc_tool.env = tool
+            .env()
+            .into_iter()
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+
+        cc_tool
+    }
+
     pub(crate) fn new(
         path: PathBuf,
         cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
@@ -205,18 +221,14 @@ impl Tool {
             // But with clang-cl it can be part of stderr instead and exit with a
             // non-zero exit code.
             let mut captured_cargo_output = compiler_detect_output.clone();
-            captured_cargo_output.output = OutputKind::Capture;
             captured_cargo_output.warnings = true;
-            let mut child = spawn(&mut cmd, &captured_cargo_output)?;
+            let Output {
+                status,
+                stdout,
+                stderr,
+            } = spawn_and_wait_for_output(&mut cmd, &captured_cargo_output)?;
 
-            let mut out = vec![];
-            let mut err = vec![];
-            child.stdout.take().unwrap().read_to_end(&mut out)?;
-            child.stderr.take().unwrap().read_to_end(&mut err)?;
-
-            let status = child.wait()?;
-
-            let stdout = if [&out, &err]
+            let stdout = if [&stdout, &stderr]
                 .iter()
                 .any(|o| String::from_utf8_lossy(o).contains("-Wslash-u-filename"))
             {
@@ -234,7 +246,7 @@ impl Tool {
                     ));
                 }
 
-                out
+                stdout
             };
 
             let stdout = String::from_utf8_lossy(&stdout);
@@ -349,7 +361,7 @@ impl Tool {
     /// Don't push optimization arg if it conflicts with existing args.
     pub(crate) fn push_opt_unless_duplicate(&mut self, flag: OsString) {
         if self.is_duplicate_opt_arg(&flag) {
-            eprintln!("Info: Ignoring duplicate arg {:?}", &flag);
+            eprintln!("Info: Ignoring duplicate arg {:?}", flag);
         } else {
             self.push_cc_arg(flag);
         }
@@ -371,16 +383,12 @@ impl Tool {
         };
         cmd.args(&self.cc_wrapper_args);
 
-        let value = self
-            .args
-            .iter()
-            .filter(|a| !self.removed_args.contains(a))
-            .collect::<Vec<_>>();
-        cmd.args(&value);
+        cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
 
         for (k, v) in self.env.iter() {
             cmd.env(k, v);
         }
+
         cmd
     }
 
@@ -496,17 +504,46 @@ pub enum ToolFamily {
 
 impl ToolFamily {
     /// What the flag to request debug info for this family of tools look like
-    pub(crate) fn add_debug_flags(&self, cmd: &mut Tool, dwarf_version: Option<u32>) {
+    pub(crate) fn add_debug_flags(
+        &self,
+        cmd: &mut Tool,
+        debug_opt: &str,
+        dwarf_version: Option<u32>,
+    ) {
         match *self {
             ToolFamily::Msvc { .. } => {
                 cmd.push_cc_arg("-Z7".into());
             }
             ToolFamily::Gnu | ToolFamily::Clang { .. } => {
-                cmd.push_cc_arg(
-                    dwarf_version
-                        .map_or_else(|| "-g".into(), |v| format!("-gdwarf-{v}"))
-                        .into(),
-                );
+                match debug_opt {
+                    // From https://doc.rust-lang.org/cargo/reference/profiles.html#debug
+                    "" | "0" | "false" | "none" => {
+                        debug_assert!(
+                            false,
+                            "earlier check should have avoided calling add_debug_flags"
+                        );
+                    }
+
+                    // line-directives-only is LLVM-specific; for GCC we have to treat it like "1"
+                    "line-directives-only" if cmd.is_like_clang() => {
+                        cmd.push_cc_arg("-gline-directives-only".into());
+                    }
+                    // Clang has -gline-tables-only, but it's an alias for -g1 anyway.
+                    // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-gline-tables-only
+                    "1" | "limited" | "line-tables-only" | "line-directives-only" => {
+                        cmd.push_cc_arg("-g1".into());
+                    }
+                    "2" | "true" | "full" => {
+                        cmd.push_cc_arg("-g".into());
+                    }
+                    _ => {
+                        // Err on the side of including too much info rather than too little.
+                        cmd.push_cc_arg("-g".into());
+                    }
+                }
+                if let Some(v) = dwarf_version {
+                    cmd.push_cc_arg(format!("-gdwarf-{v}").into());
+                }
             }
         }
     }
@@ -526,6 +563,13 @@ impl ToolFamily {
         match *self {
             ToolFamily::Msvc { .. } => "-W4",
             ToolFamily::Gnu | ToolFamily::Clang { .. } => "-Wall",
+        }
+    }
+
+    pub(crate) fn warnings_suppression_flags(&self) -> &'static str {
+        match *self {
+            ToolFamily::Msvc { .. } => "-W0",
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => "-w",
         }
     }
 

@@ -54,7 +54,7 @@ pub fn bytes_available(stderr: &mut ChildStderr) -> Result<usize, Error> {
     let mut bytes_available = 0;
     #[cfg(windows)]
     {
-        use crate::windows::windows_sys::PeekNamedPipe;
+        use ::find_msvc_tools::windows_sys::PeekNamedPipe;
         use std::os::windows::io::AsRawHandle;
         use std::ptr::null_mut;
         if unsafe {

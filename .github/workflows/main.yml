@@ -1,5 +1,11 @@
 name: CI
-on: [push, pull_request]
+on:
+  # Every PR
+  pull_request:
+  push:
+    branches:
+    # Once merged into the head branch.
+    - main
 
 env:
   CARGO_INCREMENTAL: 0
@@ -9,6 +15,8 @@ env:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
+
+permissions: {}
 
 jobs:
   test:
@@ -54,57 +62,66 @@ jobs:
             rust: stable
             target: i686-unknown-linux-gnu
           - build: aarch64-macos
-            os: macos-14
+            os: macos-latest
             rust: stable
             target: aarch64-apple-darwin
           - build: x86_64-macos
-            os: macos-13 # x86
+            os: macos-latest
             rust: stable
             target: x86_64-apple-darwin
           - build: aarch64-ios
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios
-            no_run: --no-run
+            no_run: true
           - build: aarch64-ios-sim
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios-sim
-            no_run: --no-run
+            no_run: true
           - build: x86_64-ios-sim
-            os: macos-13 # x86
+            os: macos-latest
             rust: stable
             target: x86_64-apple-ios # Simulator
-            no_run: --no-run
+            no_run: true
           - build: aarch64-ios-macabi
             os: macos-latest
             rust: stable
             target: aarch64-apple-ios-macabi
-            no_run: --no-run # FIXME(madsmtm): Fix running tests
+            no_run: true # FIXME(madsmtm): Fix running tests
           - build: x86_64-ios-macabi
-            os: macos-13 # x86
+            os: macos-latest
             rust: stable
             target: x86_64-apple-ios-macabi
-            no_run: --no-run # FIXME(madsmtm): Fix running tests
+            no_run: true # FIXME(madsmtm): Fix running tests
           - build: cross-macos-aarch64
             os: ubuntu-latest
             rust: stable
             target: aarch64-apple-darwin
-            no_run: --no-run
+            no_run: true
           - build: cross-ios-aarch64
             os: ubuntu-latest
             rust: stable
             target: aarch64-apple-ios
-            no_run: --no-run
+            no_run: true
           - build: cross-windows-aarch64
             os: windows-latest
             rust: stable
             target: aarch64-pc-windows-msvc
-            no_run: --no-run
+            no_run: true
           - build: windows-aarch64
             os: windows-11-arm
             rust: stable
             target: aarch64-pc-windows-msvc
+          - build: cross-windows-arm64ec
+            os: windows-latest
+            rust: beta
+            target: arm64ec-pc-windows-msvc
+            no_run: true
+          - build: windows-arm64ec
+            os: windows-11-arm
+            rust: beta
+            target: arm64ec-pc-windows-msvc
           - build: cross-win64
             os: windows-11-arm
             rust: stable
@@ -142,7 +159,11 @@ jobs:
             CC: clang-cl
             CXX: clang-cl
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: curl -vv https://static.rust-lang.org/dist/channel-rust-1.87.0.toml.sha256
+        shell: bash
       - name: Install Rust (rustup)
         run: |
           set -euxo pipefail
@@ -197,14 +218,56 @@ jobs:
           UPPERCASE_TARGET_NAME=$(echo "${{ matrix.target }}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${UPPERCASE_TARGET_NAME}_LINKER=rust-lld" >> $GITHUB_ENV
       - name: setup dev environment
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: startsWith(matrix.build, 'windows-clang')
+
+      - uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+        if: ${{ ! matrix.no_run }}
+        with:
+          tool: cargo-nextest
+
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test ${{ matrix.no_run }} --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - name: Compile tests but not run
+        if: matrix.no_run
+        run: |
+          cargo test --no-run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      - name: Compile and Run tests
+        if: ${{ ! matrix.no_run }}
+        run: |
+          cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+          cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
+
+  test-linker-plugin-lto:
+     name: Test linker-plugin-lto
+     runs-on: ubuntu-latest
+     steps:
+       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+         with:
+           persist-credentials: false
+       - name: Install Rust (rustup)
+         run: |
+           set -euxo pipefail
+           rustup toolchain install stable --no-self-update --profile minimal
+           rustup default stable
+         shell: bash
+
+       - uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+         with:
+           tool: cargo-nextest
+
+       - run: cargo update
+       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+       - run: |
+           cargo nextest run --workspace --release
+         env:
+           RUSTFLAGS: -C linker-plugin-lto
+       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+       - name: check clean Git workting tree
+         uses: ./.github/actions/check-clean-git-working-tree
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-build-std:
@@ -226,11 +289,14 @@ jobs:
           - x86_64-apple-watchos-sim
           # FIXME(madsmtm): needs deployment target
           # - arm64_32-apple-watchos
-          - armv7k-apple-watchos
+          # FIXME(nobodyxu): https://github.com/rust-lang/rust/issues/147776
+          # - armv7k-apple-watchos
           - aarch64-apple-visionos
           - aarch64-apple-visionos-sim
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust (rustup)
         run: |
           set -euxo pipefail
@@ -239,7 +305,7 @@ jobs:
           rustup default nightly
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
@@ -254,13 +320,15 @@ jobs:
       matrix:
         target: [wasm32-unknown-unknown]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust (rustup)
         run: |
           rustup target add ${{ matrix.target }}
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
@@ -268,13 +336,21 @@ jobs:
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
 
-  test-wasm32-wasip1-thread:
-    name: Test wasm32-wasip1-thread
+  test-wasi:
+    name: Test wasm32-wasi* targets
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        target:
+        - wasm32-wasip1
+        - wasm32-wasip2
+        - wasm32-wasip1-threads
     env:
-      TARGET: wasm32-wasip1-threads
+      TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust (rustup)
         run: |
           rustup toolchain install nightly --no-self-update --profile minimal --target $TARGET
@@ -285,7 +361,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          VERSION="$(gh release list --repo $REPO -L 1 --json tagName --jq '.[]|.tagName')"
+          VERSION="$(gh release list --exclude-pre-releases --repo $REPO -L 1 --json tagName --jq '.[]|.tagName')"
           echo "WASI_TOOLCHAIN_VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Install wasi-sdk
@@ -299,18 +375,16 @@ jobs:
           wget "https://github.com/$REPO/releases/download/${VERSION}/${FILE}"
           sudo dpkg -i "${FILE}"
           WASI_SDK_PATH="/opt/wasi-sdk"
-          CC="${WASI_SDK_PATH}/bin/clang"
           echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
-          echo "CC=$CC" >> "$GITHUB_ENV"
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
         with:
           env-vars: "WASI_TOOLCHAIN_VERSION"
           cache-all-crates: "true"
 
       - name: Run tests
-        run: cargo +nightly build -p $TARGET-test --target $TARGET
+        run: cargo +nightly build -p wasi-test --target $TARGET
 
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -320,7 +394,9 @@ jobs:
     name: Test CUDA support
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install cuda-minimal-build-11-8
         working-directory: ${{ runner.temp }}
         shell: bash
@@ -330,13 +406,17 @@ jobs:
           sudo dpkg -i cuda-keyring_1.0-1_all.deb
           sudo apt-get update
           sudo apt-get -y install cuda-minimal-build-11-8
+          echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
-      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+        with:
+          tool: cargo-nextest
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - name: Test 'cudart' feature
         shell: bash
         run: |
-          PATH="/usr/local/cuda/bin:$PATH" cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
-          PATH="/usr/local/cuda/bin:$PATH" CXX=clang++ cargo test --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
+          cargo nextest run --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
+          CXX=clang++ cargo nextest run --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
@@ -351,7 +431,9 @@ jobs:
     env:
       MSRV: 1.85.0
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: |
           rustup toolchain install $MSRV --no-self-update --profile minimal
@@ -360,7 +442,7 @@ jobs:
         shell: bash
       - name: Create Cargo.lock with minimal version
         run: cargo +nightly update -Zminimal-versions
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo check --lib -p cc --locked
       - run: cargo check --lib -p cc --locked --all-features
 
@@ -368,13 +450,15 @@ jobs:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: |
-          rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
+          rustup toolchain install stable --no-self-update --profile minimal --component clippy
           rustup default stable
         shell: bash
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo clippy --no-deps
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -384,31 +468,38 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Install Rust
         run: |
           rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
           rustup default stable
         shell: bash
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
       - run: cargo fmt -- --check
 
   semver-checks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Check semver
-        uses: obi1kenobi/cargo-semver-checks-action@v2
+        uses: obi1kenobi/cargo-semver-checks-action@6b69fcf40e9b5fb17adeb57e4b6ecd020649a239 # v2.9
+        with:
+          release-type: minor
 
   # Dummy job to have a stable name for the "all tests pass" requirement
   tests-pass:
     name: Tests pass
     needs:
       - test
+      - test-linker-plugin-lto
       - check-build-std
       - check-wasm
-      - test-wasm32-wasip1-thread
+      - test-wasi
       - cuda
       - msrv
       - clippy

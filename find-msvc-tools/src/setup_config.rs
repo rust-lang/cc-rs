@@ -8,7 +8,7 @@
 #![allow(bad_style)]
 #![allow(unused)]
 
-use crate::windows::{
+use crate::{
     com::{BStr, ComPtr},
     winapi::{
         IUnknown, IUnknownVtbl, Interface, LCID, LPCOLESTR, LPCWSTR, LPFILETIME, LPSAFEARRAY,
