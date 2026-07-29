@@ -7,15 +7,13 @@
 
 #![allow(bad_style, clippy::upper_case_acronyms)]
 
-use std::os::raw;
-
 pub type wchar_t = u16;
 
 pub use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY};
 
 pub type REFIID = *const IID;
 pub type IID = GUID;
-pub type ULONG = raw::c_ulong;
+pub type ULONG = core::ffi::c_ulong;
 pub type DWORD = u32;
 pub type LPFILETIME = *mut FILETIME;
 pub type OLECHAR = WCHAR;
@@ -139,7 +137,7 @@ RIDL! {#[uuid(0x00000000, 0x0000, 0x0000, 0xc0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x
 interface IUnknown(IUnknownVtbl) {
     fn QueryInterface(
         riid: REFIID,
-        ppvObject: *mut *mut raw::c_void,
+        ppvObject: *mut *mut core::ffi::c_void,
     ) -> HRESULT,
     fn AddRef() -> ULONG,
     fn Release() -> ULONG,

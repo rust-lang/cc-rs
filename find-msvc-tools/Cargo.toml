@@ -8,7 +8,7 @@ documentation = "https://docs.rs/find-msvc-tools"
 description = "Find windows-specific tools, read MSVC versions from the registry and from COM interfaces"
 keywords = ["build-dependencies"]
 categories = ["development-tools::build-utils"]
-rust-version = "1.63"
+rust-version = "1.64.0"
 
 
 [dependencies]
