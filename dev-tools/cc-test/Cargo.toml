@@ -5,8 +5,8 @@ edition.workspace = true
 publish = false
 
 [lib]
-name = "cc_test"
 doctest = false
+name = "cc_test"
 test = false
 
 [build-dependencies]

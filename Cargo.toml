@@ -3,28 +3,28 @@ name = "cc"
 version = "1.4.0"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/rust-lang/cc-rs"
-homepage = "https://github.com/rust-lang/cc-rs"
-documentation = "https://docs.rs/cc"
 description = """
 A build-time dependency for Cargo build scripts to assist in invoking the native
 C compiler to compile native C code into a static archive to be linked into Rust
 code.
 """
-keywords = ["build-dependencies"]
+documentation = "https://docs.rs/cc"
 readme = "README.md"
+homepage = "https://github.com/rust-lang/cc-rs"
+repository = "https://github.com/rust-lang/cc-rs"
+license = "MIT OR Apache-2.0"
+keywords = ["build-dependencies"]
 categories = ["development-tools::build-utils"]
 # The binary target is only used by tests.
-exclude = ["/.github", "tests", "src/bin"]
+exclude = ["/.github", "src/bin", "tests"]
 
 [workspace]
 members = [
-    "find-msvc-tools",
     "dev-tools/cc-test",
     "dev-tools/gen-target-info",
     "dev-tools/gen-windows-sys-binding",
     "dev-tools/wasi-test",
+    "find-msvc-tools",
 ]
 
 [workspace.package]
@@ -32,9 +32,12 @@ edition = "2021"
 rust-version = "1.64.0"
 
 [dependencies]
+find-msvc-tools = { path = "find-msvc-tools", version = "0.1.9" }
 jobserver = { version = "0.1.30", default-features = false, optional = true }
 shlex = "2.0.1"
-find-msvc-tools = { version = "0.1.9", path = "find-msvc-tools" }
+
+[dev-dependencies]
+tempfile = "3"
 
 [target.'cfg(unix)'.dependencies]
 # Don't turn on the feature "std" for this, see https://github.com/rust-lang/cargo/issues/4866
@@ -42,21 +45,17 @@ find-msvc-tools = { version = "0.1.9", path = "find-msvc-tools" }
 libc = { version = "0.2.62", default-features = false, optional = true }
 
 [features]
-parallel = ["dep:libc", "dep:jobserver"]
 # This is a placeholder feature for people who incorrectly used `cc` with `features = ["jobserver"]`
 # so that they aren't broken. This has never enabled `parallel`, so we won't do that.
 jobserver = []
-
-[dev-dependencies]
-tempfile = "3"
-
-[patch.crates-io]
-cc = { path = "." }
+parallel = ["dep:jobserver", "dep:libc"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
 
-[profile.release]
-opt-level = 3 # Or "s" or "z" for different optimization goals
-lto = true
+[patch.crates-io]
+cc = { path = "." }
 
+[profile.release]
+opt-level = 3  # Or "s" or "z" for different optimization goals
+lto = true

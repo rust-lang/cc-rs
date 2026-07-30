@@ -3,13 +3,12 @@ name = "find-msvc-tools"
 version = "0.1.9"
 edition.workspace = true
 rust-version.workspace = true
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/rust-lang/cc-rs"
-documentation = "https://docs.rs/find-msvc-tools"
 description = "Find windows-specific tools, read MSVC versions from the registry and from COM interfaces"
+documentation = "https://docs.rs/find-msvc-tools"
+repository = "https://github.com/rust-lang/cc-rs"
+license = "MIT OR Apache-2.0"
 keywords = ["build-dependencies"]
 categories = ["development-tools::build-utils"]
 
 [lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
-
