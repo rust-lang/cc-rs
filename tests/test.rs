@@ -101,6 +101,7 @@ fn gnu_debug_fp_auto() {
         .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_have("-fno-omit-frame-pointer");
+    test.cmd(0).must_have("-mno-omit-leaf-frame-pointer");
 }
 
 #[test]
@@ -113,6 +114,7 @@ fn gnu_debug_fp() {
         .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_have("-fno-omit-frame-pointer");
+    test.cmd(0).must_have("-mno-omit-leaf-frame-pointer");
 }
 
 #[test]
@@ -126,6 +128,7 @@ fn gnu_debug_nofp() {
         .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_not_have("-fno-omit-frame-pointer");
+    test.cmd(0).must_not_have("-mno-omit-leaf-frame-pointer");
     drop(test);
 
     let test = Test::gnu();
@@ -137,6 +140,7 @@ fn gnu_debug_nofp() {
         .compile("foo");
     test.cmd(0).must_have("-gdwarf-4");
     test.cmd(0).must_not_have("-fno-omit-frame-pointer");
+    test.cmd(0).must_not_have("-mno-omit-leaf-frame-pointer");
 }
 
 #[test]
