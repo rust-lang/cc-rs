@@ -244,15 +244,13 @@ impl<'this> RustcCodegenFlags<'this> {
                 }
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-omit-frame-pointer
-            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fomit-frame-pointer
+            // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-momit-leaf-frame-pointer
             // https://gcc.gnu.org/onlinedocs/gcc/Optimize-Options.html#index-fomit-frame-pointer
             if let Some(value) = self.force_frame_pointers {
-                let cc_flag = if value {
-                    "-fno-omit-frame-pointer"
-                } else {
-                    "-fomit-frame-pointer"
-                };
-                push_if_supported(cc_flag.into());
+                if value {
+                    push_if_supported("-fno-omit-frame-pointer".into());
+                    push_if_supported("-mno-omit-leaf-frame-pointer".into());
+                }
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mno-red-zone
             // https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html#index-mno-red-zone

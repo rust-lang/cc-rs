@@ -10,6 +10,7 @@ fn sanity() {
     test.gcc().file("foo.c").compile("foo");
     test.cmd(0)
         .must_not_have("-fno-omit-frame-pointer")
+        .must_not_have("-mno-omit-leaf-frame-pointer")
         .must_not_have("-mcmodel=small")
         .must_not_have("-msoft-float")
         .must_not_have("-fstack-protector-strong");
@@ -26,6 +27,7 @@ fn inherits_rustflags() {
     test.gcc().file("foo.c").compile("foo");
     test.cmd(0)
         .must_have("-fno-omit-frame-pointer")
+        .must_have("-mno-omit-leaf-frame-pointer")
         .must_have("-mcmodel=small")
         .must_have("-msoft-float")
         .must_have("-gdwarf-5")
@@ -43,6 +45,7 @@ fn no_stack_protector() {
     test.gcc().file("foo.c").compile("foo");
     test.cmd(0)
         .must_have("-fno-omit-frame-pointer")
+        .must_have("-mno-omit-leaf-frame-pointer")
         .must_have("-mcmodel=small")
         .must_have("-msoft-float")
         .must_have("-gdwarf-5")
