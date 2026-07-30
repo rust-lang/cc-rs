@@ -560,7 +560,7 @@ mod impl_ {
         target: TargetArch,
         version: &'static str,
         env_getter: &dyn EnvGetter,
-    ) -> Box<Iterator<Item = PathBuf>> {
+    ) -> Box<dyn Iterator<Item = PathBuf>> {
         let instances = if let Some(instances) = vs15plus_instances(target, env_getter) {
             instances
         } else {
