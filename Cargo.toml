@@ -3,7 +3,6 @@ name = "cc"
 version = "1.4.0"
 edition.workspace = true
 rust-version.workspace = true
-authors = ["Alex Crichton <alex@alexcrichton.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-lang/cc-rs"
 homepage = "https://github.com/rust-lang/cc-rs"
