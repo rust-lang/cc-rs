@@ -1,6 +1,8 @@
 [package]
 name = "cc"
 version = "1.4.0"
+edition.workspace = true
+rust-version.workspace = true
 authors = ["Alex Crichton <alex@alexcrichton.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/rust-lang/cc-rs"
@@ -16,6 +18,17 @@ readme = "README.md"
 categories = ["development-tools::build-utils"]
 # The binary target is only used by tests.
 exclude = ["/.github", "tests", "src/bin"]
+
+[workspace]
+members = [
+    "find-msvc-tools",
+    "dev-tools/cc-test",
+    "dev-tools/gen-target-info",
+    "dev-tools/gen-windows-sys-binding",
+    "dev-tools/wasi-test",
+]
+
+[workspace.package]
 edition = "2021"
 rust-version = "1.64.0"
 
@@ -37,15 +50,6 @@ jobserver = []
 
 [dev-dependencies]
 tempfile = "3"
-
-[workspace]
-members = [
-    "find-msvc-tools",
-    "dev-tools/cc-test",
-    "dev-tools/gen-target-info",
-    "dev-tools/gen-windows-sys-binding",
-    "dev-tools/wasi-test",
-]
 
 [patch.crates-io]
 cc = { path = "." }
