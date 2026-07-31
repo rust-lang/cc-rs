@@ -5,6 +5,6 @@ edition.workspace = true
 publish = false
 
 [dependencies]
-windows-bindgen = "0.66"
-tempfile = "3"
 regex = "1"
+tempfile = "3"
+windows-bindgen = "0.66"
