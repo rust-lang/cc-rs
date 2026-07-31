@@ -1,5 +1,8 @@
 //! This test is in its own module because it modifies the environment and would affect other tests
 //! when run in parallel with them.
+
+#![allow(deprecated)]
+
 mod support;
 
 use crate::support::Test;
