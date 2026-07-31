@@ -102,7 +102,7 @@ macro_rules! RIDL {
             type Target = $pinterface;
             #[inline]
             fn deref(&self) -> &$pinterface {
-                unsafe { &*(self as *const $interface as *const $pinterface) }
+                unsafe { &*(self as *const Self).cast() }
             }
         }
     );
