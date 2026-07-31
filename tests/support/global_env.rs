@@ -1,3 +1,5 @@
+#![allow(unused_unsafe)]
+
 use std::{
     env,
     ffi::{OsStr, OsString},
