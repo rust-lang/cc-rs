@@ -111,7 +111,10 @@ macro_rules! RIDL {
     )+}) => (
         impl $interface {
             $(#[inline] pub unsafe fn $method(&self, $($p: $t,)*) -> $rtr {
-                ((*self.lpVtbl).$method)(self as *const _ as *mut _, $($p,)*)
+                ((*self.lpVtbl).$method)(
+                    (self as *const Self).cast_mut(),
+                    $($p,)*
+                )
             })+
         }
     );

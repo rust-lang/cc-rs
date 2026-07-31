@@ -34,6 +34,7 @@ rust-version = "1.65.0"
 [workspace.lints.clippy]
 borrow_as_ptr = "warn"
 ptr_as_ptr = "warn"
+ptr_cast_constness = "warn"
 
 [workspace.lints.rust]
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
