@@ -54,20 +54,14 @@ impl Test {
         env.set("CFLAGS", "");
         env.set("CXXFLAGS", "");
 
-        let mut gcc = env::current_exe().unwrap();
-        gcc.pop();
-        if gcc.ends_with("deps") {
-            gcc.pop();
-        }
         let td = Builder::new()
             .prefix("cc-shim-test")
-            .tempdir_in(&gcc)
+            .tempdir_in(env!("CARGO_TARGET_TMPDIR"))
             .unwrap();
-        gcc.push(format!("cc-shim{}", env::consts::EXE_SUFFIX));
 
         Test {
             td,
-            gcc,
+            gcc: env!("CARGO_BIN_EXE_CC_SHIM"),
             msvc: false,
             msvc_autodetect: false,
             env,
