@@ -32,6 +32,7 @@ edition = "2021"
 rust-version = "1.64.0"
 
 [workspace.lints.clippy]
+borrow_as_ptr = "warn"
 ptr_as_ptr = "warn"
 
 [workspace.lints.rust]
