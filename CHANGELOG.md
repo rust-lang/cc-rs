@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.0...cc-v1.4.1) - 2026-07-31
+
+### Fixed
+
+- fix `-Cforce-frame-pointers`'s corresponding `CFLAGS` ([#1814](https://github.com/rust-lang/cc-rs/pull/1814))
+
+### Other
+
+- do not inherit rust-version for dev-tools ([#1815](https://github.com/rust-lang/cc-rs/pull/1815))
+- add toml formatting rules ([#1816](https://github.com/rust-lang/cc-rs/pull/1816))
+- *(cargo)* remove deprecated package authors field ([#1812](https://github.com/rust-lang/cc-rs/pull/1812))
+- workspace inheritance for edition and rust-version ([#1813](https://github.com/rust-lang/cc-rs/pull/1813))
+- update edition to 2021 ([#1811](https://github.com/rust-lang/cc-rs/pull/1811))
+- Use constant for MSRV in mod read of gen-target-info ([#1810](https://github.com/rust-lang/cc-rs/pull/1810))
+- update rust-version to 1.64 ([#1808](https://github.com/rust-lang/cc-rs/pull/1808))
+
 ## [1.4.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.3.0...cc-v1.4.0) - 2026-07-24
 
 ### Added

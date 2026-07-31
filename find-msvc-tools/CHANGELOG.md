@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.10](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.9...find-msvc-tools-v0.1.10) - 2026-07-31
+
+### Other
+
+- workspace inheritance for edition and rust-version ([#1813](https://github.com/rust-lang/cc-rs/pull/1813))
+- update edition to 2021 ([#1811](https://github.com/rust-lang/cc-rs/pull/1811))
+- update rust-version to 1.64 ([#1808](https://github.com/rust-lang/cc-rs/pull/1808))
+
 ## [0.1.9](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.8...find-msvc-tools-v0.1.9) - 2026-01-30
 
 ### Other
