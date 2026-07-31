@@ -61,7 +61,7 @@ impl Test {
 
         Test {
             td,
-            gcc: env::var_os("CARGO_BIN_EXE_CC_SHIM").unwrap().into(),
+            gcc: env::var_os("CARGO_BIN_EXE_cc-shim").unwrap().into(),
             msvc: false,
             msvc_autodetect: false,
             env,
