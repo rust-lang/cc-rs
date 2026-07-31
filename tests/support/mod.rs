@@ -56,12 +56,12 @@ impl Test {
 
         let td = Builder::new()
             .prefix("cc-shim-test")
-            .tempdir_in(env!("CARGO_TARGET_TMPDIR"))
+            .tempdir_in(env::var("CARGO_TARGET_TMPDIR").unwrap())
             .unwrap();
 
         Test {
             td,
-            gcc: env!("CARGO_BIN_EXE_CC_SHIM"),
+            gcc: env::var("CARGO_BIN_EXE_CC_SHIM").unwrap(),
             msvc: false,
             msvc_autodetect: false,
             env,
