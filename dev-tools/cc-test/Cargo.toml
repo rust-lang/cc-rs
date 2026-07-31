@@ -16,3 +16,6 @@ which = "8.0"
 [features]
 parallel = ["cc/parallel"]
 test_cuda = []
+
+[lints]
+workspace = true
