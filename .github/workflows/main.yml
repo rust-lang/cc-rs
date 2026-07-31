@@ -228,6 +228,9 @@ jobs:
 
       - run: cargo update
       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - name: Build and run binaries and teats
+        run: |
+          cargo build --bins --tests --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       - name: Compile tests but not run
         if: matrix.no_run
         run: |
