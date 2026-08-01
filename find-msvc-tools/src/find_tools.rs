@@ -753,7 +753,7 @@ mod impl_ {
                 let tool = tool_from_vs15plus_instance(tool, target, &instance_path, env_getter)?;
                 Some((version, tool))
             })
-            .max_by(|(a_version, _), (b_version, _)| a_version.cmp(b_version))
+            .max_by_key(|(version, _)| *version)
             .map(|(_version, tool)| tool)
     }
 
@@ -941,8 +941,8 @@ mod impl_ {
                             (name, version)
                         })
                     })
-                    .max_by(|(_, a), (_, b)| a.cmp(b))
-                    .map(|(version, _)| version);
+                    .max_by_key(|(_, version)| *version)
+                    .map(|(name, _)| name);
             }
             version_path.push(version_file);
             File::open(version_path).ok()?
