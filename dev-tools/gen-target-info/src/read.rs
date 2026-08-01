@@ -2,7 +2,7 @@ use std::process;
 
 use crate::{RustcTargetSpecs, TargetSpec};
 
-const MSRV: &'static str = "+1.64";
+const MSRV: &str = "+1.64";
 
 pub fn get_targets_msrv() -> Vec<u8> {
     let mut cmd = process::Command::new("rustc");

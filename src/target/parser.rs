@@ -460,6 +460,7 @@ impl<'a> TargetInfo<'a> {
 
 #[cfg(test)]
 #[allow(unexpected_cfgs)]
+#[allow(clippy::disallowed_methods)]
 mod tests {
     use std::process::Command;
 

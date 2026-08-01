@@ -24,6 +24,7 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
     Ok(())
 }
 
+#[allow(clippy::disallowed_methods)]
 fn main() {
     // Primarily use information from nightly.
     let mut target_specs = get_target_specs_from_json(std::env::var("RUSTC").ok());
