@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 #![allow(clippy::disallowed_methods)]
 
 use std::env;
