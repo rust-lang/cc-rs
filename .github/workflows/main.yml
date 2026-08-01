@@ -231,10 +231,10 @@ jobs:
       - name: Build and run binaries and tests
         run: |
           cargo build --bins --tests --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
-      - name: Compile tests but not run
+      - name: Compile all test targets but not run
         if: matrix.no_run
         run: |
-          cargo test --no-run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+          cargo test --no-run --workspace --all-targets --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       - name: Compile and Run tests
         if: ${{ ! matrix.no_run }}
         run: |
