@@ -221,13 +221,13 @@ jobs:
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: startsWith(matrix.build, 'windows-clang')
 
-      - uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         if: ${{ ! matrix.no_run }}
         with:
           tool: cargo-nextest
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - name: Build and run binaries and tests
         run: |
           cargo build --bins --tests --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
@@ -258,12 +258,12 @@ jobs:
            rustup default stable
          shell: bash
 
-       - uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+       - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
          with:
            tool: cargo-nextest
 
        - run: cargo update
-       - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
        - run: |
            cargo nextest run --workspace --release
          env:
@@ -308,7 +308,7 @@ jobs:
           rustup default nightly
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
@@ -331,7 +331,7 @@ jobs:
           rustup target add ${{ matrix.target }}
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
@@ -409,7 +409,7 @@ jobs:
           echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           env-vars: "WASI_TOOLCHAIN_VERSION"
           cache-all-crates: "true"
@@ -439,10 +439,10 @@ jobs:
           sudo apt-get -y install cuda-minimal-build-11-8
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
-      - uses: taiki-e/install-action@c93ccc03e00cd0e08e494f5fd058a6c55a6a1907 # v2.82.8
+      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - name: Test 'cudart' feature
         shell: bash
         run: |
@@ -473,7 +473,7 @@ jobs:
         shell: bash
       - name: Create Cargo.lock with minimal version
         run: cargo +nightly update -Zminimal-versions
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked
       - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked --all-features
 
@@ -489,7 +489,7 @@ jobs:
           rustup toolchain install stable --no-self-update --profile minimal --component clippy
           rustup default stable
         shell: bash
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo clippy --no-deps
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -507,7 +507,7 @@ jobs:
           rustup toolchain install stable --no-self-update --profile minimal --component rustfmt
           rustup default stable
         shell: bash
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo fmt -- --check
 
   semver-checks:
