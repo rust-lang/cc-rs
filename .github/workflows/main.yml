@@ -468,14 +468,15 @@ jobs:
       - name: Install Rust
         run: |
           rustup toolchain install $MSRV --no-self-update --profile minimal
-          rustup toolchain install nightly --no-self-update --profile minimal
           rustup default $MSRV
-        shell: bash
-      - name: Create Cargo.lock with minimal version
-        run: cargo +nightly update -Zminimal-versions
+      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+        with:
+          tool: |
+            cargo-hack
+            cargo-minimal-versions
+          fallback: none
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
-      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked
-      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo check --lib -p cc --locked --all-features
+      - run: env -u CARGO_REGISTRIES_CRATES_IO_PROTOCOL cargo minimal-versions check --workspace --all-targets --feature-powerset --ignore-private
 
   clippy:
     name: Clippy
