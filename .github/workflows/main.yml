@@ -360,7 +360,7 @@ jobs:
           rustup default nightly
         shell: bash
       - run: cargo update
-      - uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }}
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }} --release
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
