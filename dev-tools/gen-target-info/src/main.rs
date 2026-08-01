@@ -24,11 +24,12 @@ fn generate_target_mapping(f: &mut File, target_specs: &RustcTargetSpecs) -> std
     Ok(())
 }
 
-#[allow(clippy::disallowed_methods)]
 fn main() {
     // Primarily use information from nightly.
+    #[allow(clippy::disallowed_methods)]
     let mut target_specs = get_target_specs_from_json(std::env::var("RUSTC").ok());
     // Next, read from MSRV to support old, removed targets.
+    #[allow(clippy::disallowed_methods)]
     if std::env::var("CC_RS_MSRV")
         .unwrap_or("1".to_string())
         .parse::<u32>()
