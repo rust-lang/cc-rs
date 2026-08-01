@@ -580,8 +580,8 @@ fn gnu_apple_arch() {
         test.shim("fake-gcc")
             .gcc()
             .compiler("fake-gcc")
-            .target(&target)
-            .host(&"aarch64-apple-darwin")
+            .target(target)
+            .host("aarch64-apple-darwin")
             .file("foo.c")
             .compile("foo");
 
@@ -627,8 +627,8 @@ fn gnu_apple_deployment_target() {
         test.shim("fake-gcc")
             .gcc()
             .compiler("fake-gcc")
-            .target(&target)
-            .host(&"aarch64-apple-darwin")
+            .target(target)
+            .host("aarch64-apple-darwin")
             .file("foo.c")
             .compile("foo");
 
