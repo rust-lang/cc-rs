@@ -3859,6 +3859,7 @@ impl Build {
                     "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
                     "aarch64-unknown-helenos" => Some("aarch64-helenos"),
                     "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
+                    "aarch64_be-unknown-linux-gnu" => Some("aarch64_be-linux-gnu"),
                     "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
                     "aarch64-unknown-linux-relibc" => Some("aarch64-linux-relibc"),
                     "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
