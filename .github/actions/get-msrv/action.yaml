@@ -1,0 +1,12 @@
+name: "Get msrv"
+
+runs:
+  using: "composite"
+  steps:
+    - name: get msrv
+      shell: bash
+      run: |
+        cargo metadata --no-deps --format-version 1 \
+        | jq -r '.packages[] | select(.name == "cc") | .rust_version | split(".") | if length == 2 then . + ["0"] else . end | join(".")' \
+        | xargs -0 printf "MSRV=%s" \
+        | tee "$GITHUB_ENV"
