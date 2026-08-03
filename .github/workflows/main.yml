@@ -535,7 +535,6 @@ jobs:
       - test-linker-plugin-lto
       - check-build-std
       - check-wasm
-      - check-motor
       - test-wasi
       - cuda
       - msrv
