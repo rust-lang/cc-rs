@@ -29,10 +29,12 @@ jobs:
         run: |
           git checkout -b regenerate-target-info-${{ github.run_id }}
 
+      - name: Get msrv
+        uses: ./.github/actions/get-msrv
+
       - name: Install rust
-        # Install both MSRV and current nightly
         run: |
-          rustup toolchain install 1.63 stable nightly --no-self-update --profile minimal
+          rustup toolchain install $MSRV stable nightly --no-self-update --profile minimal
 
       - name: Create lockfile
         run: cargo update
