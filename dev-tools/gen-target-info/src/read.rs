@@ -2,11 +2,15 @@ use std::process;
 
 use crate::{RustcTargetSpecs, TargetSpec};
 
-const MSRV: &str = "+1.64";
+#[allow(clippy::disallowed_methods)]
+fn get_msrv_toolchain() -> String {
+    let msrv = std::env::var("MSRV").unwrap();
+    format("+{msrv})
+}
 
 pub fn get_targets_msrv() -> Vec<u8> {
     let mut cmd = process::Command::new("rustc");
-    cmd.args([MSRV, "--print", "target-list"]);
+    cmd.args([&get_msrv_toolchain(), "--print", "target-list"]);
     cmd.stdout(process::Stdio::piped());
     cmd.stderr(process::Stdio::inherit());
 
@@ -22,7 +26,7 @@ pub fn get_targets_msrv() -> Vec<u8> {
 pub fn get_target_spec_from_msrv(target: &str) -> TargetSpec {
     let mut cmd = process::Command::new("rustc");
     cmd.args([
-        MSRV,
+        &get_msrv_toolchain(),
         "-Zunstable-options",
         "--print",
         "target-spec-json",
