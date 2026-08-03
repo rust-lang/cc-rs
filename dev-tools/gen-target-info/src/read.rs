@@ -5,7 +5,7 @@ use crate::{RustcTargetSpecs, TargetSpec};
 #[allow(clippy::disallowed_methods)]
 fn get_msrv_toolchain() -> String {
     let msrv = std::env::var("MSRV").unwrap();
-    format("+{msrv}")
+    format!("+{msrv}")
 }
 
 pub fn get_targets_msrv() -> Vec<u8> {
