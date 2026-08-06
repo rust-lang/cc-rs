@@ -275,9 +275,17 @@ impl<'a> TargetInfo<'a> {
             });
         }
 
-        if target == "armv7a-vex-v5" {
+        let mut components = target.split('-');
+
+        // Insist that the target name contains at least a valid architecture.
+        let full_arch = components.next().ok_or(Error::new(
+            ErrorKind::InvalidTarget,
+            "target was empty".to_string(),
+        ))?;
+
+        if target == "armv7a-vex-v5" || target == "thumbv7a-vex-v5" {
             return Ok(Self {
-                full_arch: "armv7a",
+                full_arch,
                 arch: "arm",
                 vendor: "vex",
                 os: "vexos",
@@ -286,13 +294,6 @@ impl<'a> TargetInfo<'a> {
             });
         }
 
-        let mut components = target.split('-');
-
-        // Insist that the target name contains at least a valid architecture.
-        let full_arch = components.next().ok_or(Error::new(
-            ErrorKind::InvalidTarget,
-            "target was empty".to_string(),
-        ))?;
         let arch = parse_arch(full_arch).ok_or_else(|| {
             Error::new(
                 ErrorKind::UnknownTarget,
