@@ -2264,7 +2264,19 @@ impl Build {
 
         if self.get_force_frame_pointer() {
             let family = cmd.family;
-            family.add_force_frame_pointer(cmd);
+            match family {
+                ToolFamily::Gnu | ToolFamily::Clang { .. } => {
+                    cmd.push_cc_arg("-fno-omit-frame-pointer".into());
+                    let flag = OsString::from("-mno-omit-leaf-frame-pointer");
+                    if self
+                        .is_flag_supported_inner(&flag, cmd, target)
+                        .unwrap_or(false)
+                    {
+                        cmd.push_cc_arg(flag);
+                    }
+                }
+                _ => (),
+            }
         }
 
         if !cmd.is_like_msvc() {
