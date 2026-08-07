@@ -148,7 +148,10 @@ fn gnu_debug_nofp() {
 fn gnu_arm_neon_is_vfpv3_not_vfpv4() {
     for (target, prefix) in [
         ("thumbv7neon-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
-        ("thumbv7neon-unknown-linux-musleabihf", "arm-linux-musleabihf"),
+        (
+            "thumbv7neon-unknown-linux-musleabihf",
+            "arm-linux-musleabihf",
+        ),
         ("armv7neon-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
     ] {
         let test = Test::gnu();
