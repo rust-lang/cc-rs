@@ -11,10 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- run clippy on more targets ([#1831](https://github.com/rust-lang/cc-rs/pull/1831))
 - Refactor max_by to max_by_key for clarity ([#1828](https://github.com/rust-lang/cc-rs/pull/1828))
-- Reformat Cargo.toml ([#1817](https://github.com/rust-lang/cc-rs/pull/1817))
-- workspace inheritance for edition and rust-version ([#1813](https://github.com/rust-lang/cc-rs/pull/1813))
 - update edition to 2021 ([#1811](https://github.com/rust-lang/cc-rs/pull/1811))
 - update rust-version to 1.64 ([#1808](https://github.com/rust-lang/cc-rs/pull/1808))
 
