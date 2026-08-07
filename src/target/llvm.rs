@@ -275,6 +275,7 @@ mod tests {
     #[test]
     #[ignore = "not yet done"]
     fn llvm_for_all_rustc_targets() {
+        #[allow(clippy::disallowed_methods)]
         let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
 
         let target_list = Command::new(&rustc)
