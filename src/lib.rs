@@ -2478,7 +2478,7 @@ impl Build {
                 }
 
                 if target.full_arch.contains("neon") {
-                    cmd.args.push("-mfpu=neon-vfpv4".into());
+                    cmd.args.push("-mfpu=neon".into());
                 }
 
                 if target.full_arch == "armv4t" && target.os == "linux" {
