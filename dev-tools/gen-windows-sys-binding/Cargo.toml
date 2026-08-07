@@ -8,3 +8,6 @@ publish = false
 regex = "1.9"
 tempfile = "3"
 windows-bindgen = "0.66"
+
+[lints]
+workspace = true

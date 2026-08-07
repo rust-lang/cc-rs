@@ -6,3 +6,6 @@ publish = false
 
 [dependencies]
 rusqlite = { version = "0.40.0", features = ["bundled"] }
+
+[lints]
+workspace = true

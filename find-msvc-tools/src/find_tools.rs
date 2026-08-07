@@ -356,7 +356,7 @@ mod impl_ {
 
     impl LibraryHandle {
         fn new(name: &[u8]) -> Option<Self> {
-            let handle = unsafe { LoadLibraryA(name.as_ptr() as _) };
+            let handle = unsafe { LoadLibraryA(name.as_ptr().cast()) };
             (!handle.is_null()).then_some(Self(handle))
         }
 
@@ -369,7 +369,7 @@ mod impl_ {
         ///
         /// The function returned cannot be used after the handle is dropped.
         unsafe fn get_proc_address<F>(&self, name: &[u8]) -> Option<F> {
-            let symbol = GetProcAddress(self.0, name.as_ptr() as _);
+            let symbol = GetProcAddress(self.0, name.as_ptr().cast());
             symbol.map(|symbol| mem::transmute_copy(&symbol))
         }
     }
