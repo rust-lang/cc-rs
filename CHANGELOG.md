@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.0...cc-v1.4.1) - 2026-08-07
+
+### Fixed
+
+- fix typo teats -> tests ([#1824](https://github.com/rust-lang/cc-rs/pull/1824))
+- fix `-Cforce-frame-pointers`'s corresponding `CFLAGS` ([#1814](https://github.com/rust-lang/cc-rs/pull/1814))
+
+### Other
+
+- Fix parsing of thumbv7a-vex-v5 ([#1840](https://github.com/rust-lang/cc-rs/pull/1840))
+- Regenerate target info ([#1839](https://github.com/rust-lang/cc-rs/pull/1839))
+- Read msrv from Cargo.toml ([#1837](https://github.com/rust-lang/cc-rs/pull/1837))
+- add `aarch64_be` to `prefix_for_target` ([#1835](https://github.com/rust-lang/cc-rs/pull/1835))
+- allow flaky failure of check-motor ([#1836](https://github.com/rust-lang/cc-rs/pull/1836))
+- compile all test targets for cross builds ([#1833](https://github.com/rust-lang/cc-rs/pull/1833))
+- run clippy on more targets ([#1831](https://github.com/rust-lang/cc-rs/pull/1831))
+- fix for minimal-versions ([#1825](https://github.com/rust-lang/cc-rs/pull/1825))
+- update Swatinem/rust-cache ([#1830](https://github.com/rust-lang/cc-rs/pull/1830))
+- Use lp64d ABI for Managarm riscv64 ([#1829](https://github.com/rust-lang/cc-rs/pull/1829))
+- update github actions ([#1826](https://github.com/rust-lang/cc-rs/pull/1826))
+- Refactor max_by to max_by_key for clarity ([#1828](https://github.com/rust-lang/cc-rs/pull/1828))
+- Make cc work on Motor OS ([#1822](https://github.com/rust-lang/cc-rs/pull/1822))
+- fix needless_borrow lint ([#1827](https://github.com/rust-lang/cc-rs/pull/1827))
+- fix compilation on Rust 1.64 ([#1823](https://github.com/rust-lang/cc-rs/pull/1823))
+- Reformat Cargo.toml ([#1817](https://github.com/rust-lang/cc-rs/pull/1817))
+- *(test)* stop assuming about target dir layout ([#1821](https://github.com/rust-lang/cc-rs/pull/1821))
+- do not inherit rust-version for dev-tools ([#1815](https://github.com/rust-lang/cc-rs/pull/1815))
+- add toml formatting rules ([#1816](https://github.com/rust-lang/cc-rs/pull/1816))
+- *(cargo)* remove deprecated package authors field ([#1812](https://github.com/rust-lang/cc-rs/pull/1812))
+- workspace inheritance for edition and rust-version ([#1813](https://github.com/rust-lang/cc-rs/pull/1813))
+- update edition to 2021 ([#1811](https://github.com/rust-lang/cc-rs/pull/1811))
+- Use constant for MSRV in mod read of gen-target-info ([#1810](https://github.com/rust-lang/cc-rs/pull/1810))
+- update rust-version to 1.64 ([#1808](https://github.com/rust-lang/cc-rs/pull/1808))
+
 ## [1.4.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.3.0...cc-v1.4.0) - 2026-07-24
 
 ### Added

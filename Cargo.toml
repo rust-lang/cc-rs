@@ -1,6 +1,6 @@
 [package]
 name = "cc"
-version = "1.4.0"
+version = "1.4.1"
 edition.workspace = true
 rust-version.workspace = true
 description = """
@@ -32,7 +32,7 @@ edition = "2021"
 rust-version = "1.64.0"
 
 [dependencies]
-find-msvc-tools = { path = "find-msvc-tools", version = "0.1.9" }
+find-msvc-tools = { path = "find-msvc-tools", version = "0.1.10" }
 jobserver = { version = "0.1.30", default-features = false, optional = true }
 shlex = "2.0.1"
 
