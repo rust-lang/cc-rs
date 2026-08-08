@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.2](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.1...cc-v1.4.2) - 2026-08-08
+
+### Fixed
+
+- Infer NEON, not VFPv4, from `neon` in the target name ([#1843](https://github.com/rust-lang/cc-rs/pull/1843))
+
+### Other
+
+- do not emit -mno-omit-leaf-frame-pointer if unsupported ([#1845](https://github.com/rust-lang/cc-rs/pull/1845))
+
 ## [1.4.1](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.0...cc-v1.4.1) - 2026-08-07
 
 ### Fixed
