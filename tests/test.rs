@@ -145,6 +145,27 @@ fn gnu_debug_nofp() {
 }
 
 #[test]
+fn gnu_arm_neon_is_vfpv3_not_vfpv4() {
+    for (target, prefix) in [
+        ("thumbv7neon-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+        (
+            "thumbv7neon-unknown-linux-musleabihf",
+            "arm-linux-musleabihf",
+        ),
+        ("armv7neon-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+    ] {
+        let test = Test::gnu();
+        test.shim(&format!("{prefix}-gcc"))
+            .shim(&format!("{prefix}-ar"));
+        test.gcc().target(target).file("foo.c").compile("foo");
+        test.cmd(0)
+            .must_have("-mfpu=neon")
+            .must_not_have("-mfpu=neon-vfpv4");
+        drop(test);
+    }
+}
+
+#[test]
 fn gnu_warnings_into_errors() {
     let test = Test::gnu();
     test.gcc()
