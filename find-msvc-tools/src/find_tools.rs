@@ -12,6 +12,7 @@
 //! 1. On Windows host, probe the Windows Registry if needed;
 //! 2. On non-Windows host, check specified environment variables.
 
+#![allow(missing_docs)]
 #![allow(clippy::upper_case_acronyms)]
 
 use std::{

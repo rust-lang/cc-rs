@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 extern "C" {
     pub fn foo() -> i32;
 

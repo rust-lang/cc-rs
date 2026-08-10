@@ -236,7 +236,6 @@
 //! files if the sources are unchanged.
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
-#![warn(missing_docs)]
 #![warn(clippy::disallowed_methods)]
 
 use std::borrow::Cow;

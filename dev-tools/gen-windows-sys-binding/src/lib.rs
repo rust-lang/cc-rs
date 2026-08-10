@@ -1,6 +1,8 @@
 //! Adapted from
 //! <https://github.com/rust-lang/rust/blob/master/src/tools/generate-windows-sys/src/main.rs>
 
+#![allow(missing_docs)]
+
 use std::{
     fs,
     io::{BufWriter, Write as _},

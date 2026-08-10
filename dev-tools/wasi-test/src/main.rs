@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use rusqlite::{Connection, Result};
 
 #[derive(Debug)]
