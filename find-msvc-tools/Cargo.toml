@@ -10,5 +10,5 @@ license = "MIT OR Apache-2.0"
 keywords = ["build-dependencies"]
 categories = ["development-tools::build-utils"]
 
-[lints.rust]
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
+[lints]
+workspace = true

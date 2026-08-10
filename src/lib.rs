@@ -2701,10 +2701,9 @@ impl Build {
         cmd: &mut Tool,
         target: &TargetInfo<'_>,
     ) -> Result<(), Error> {
-        let env_os = match cargo_env_var_os("CARGO_ENCODED_RUSTFLAGS") {
-            Some(env) => env,
+        let Some(env_os) = cargo_env_var_os("CARGO_ENCODED_RUSTFLAGS") else {
             // No encoded RUSTFLAGS -> nothing to do
-            None => return Ok(()),
+            return Ok(());
         };
 
         let env = env_os.to_string_lossy();
@@ -2722,13 +2721,11 @@ impl Build {
         if cmd.is_like_msvc() && !cmd.is_like_clang_cl() {
             return Ok(());
         }
-        let scope = match cargo_env_var_os("CARGO_TRIM_PATHS_SCOPE") {
-            Some(scope) => scope,
-            None => return Ok(()),
+        let Some(scope) = cargo_env_var_os("CARGO_TRIM_PATHS_SCOPE") else {
+            return Ok(());
         };
-        let remap = match cargo_env_var_os("CARGO_TRIM_PATHS_REMAP") {
-            Some(remap) => remap,
-            None => return Ok(()),
+        let Some(remap) = cargo_env_var_os("CARGO_TRIM_PATHS_REMAP") else {
+            return Ok(());
         };
 
         // * `macro` scope -> `-fmacro-prefix-map`
@@ -4327,14 +4324,11 @@ impl Build {
             &self.cargo_output,
         )?;
 
-        let sdk_path = match String::from_utf8(sdk_path) {
-            Ok(p) => p,
-            Err(_) => {
-                return Err(Error::new(
-                    ErrorKind::IOError,
-                    "Unable to determine Apple SDK path.",
-                ));
-            }
+        let Ok(sdk_path) = String::from_utf8(sdk_path) else {
+            return Err(Error::new(
+                ErrorKind::IOError,
+                "Unable to determine Apple SDK path.",
+            ));
         };
         Ok(Cow::Owned(sdk_path.trim().into()))
     }
