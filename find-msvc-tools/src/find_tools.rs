@@ -133,7 +133,7 @@ impl EnvGetter for StdEnvGetter {
 /// as found in the current `PATH`. If that fails, it will attempt to locate
 /// the newest MSVC toolset in the newest installed version of Visual Studio.
 /// To limit the search to a specific version of the MSVC toolset, set the
-/// VCToolsVersion environment variable to the desired version (e.g. "14.44.35207").
+/// `VCToolsVersion` environment variable to the desired version (e.g. "14.44.35207").
 ///
 /// Note that this function always returns `None` for non-MSVC targets (if a
 /// full target name was specified).

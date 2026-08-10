@@ -1,5 +1,5 @@
 //! Adapted from
-//! https://github.com/rust-lang/rust/blob/master/src/tools/generate-windows-sys/src/main.rs
+//! <https://github.com/rust-lang/rust/blob/master/src/tools/generate-windows-sys/src/main.rs>
 
 use std::{
     fs,
