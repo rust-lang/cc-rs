@@ -221,7 +221,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: startsWith(matrix.build, 'windows-clang')
 
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
         if: ${{ ! matrix.no_run }}
         with:
           tool: cargo-nextest
@@ -258,7 +258,7 @@ jobs:
            rustup default stable
          shell: bash
 
-       - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+       - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
          with:
            tool: cargo-nextest
 
@@ -439,7 +439,7 @@ jobs:
           sudo apt-get -y install cuda-minimal-build-11-8
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
         with:
           tool: cargo-nextest
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
@@ -469,7 +469,7 @@ jobs:
         run: |
           rustup toolchain install $MSRV --no-self-update --profile minimal
           rustup default $MSRV
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
         with:
           tool: |
             cargo-hack
@@ -494,7 +494,7 @@ jobs:
           rustup toolchain install stable --no-self-update --profile minimal --component clippy
           rustup default stable
         shell: bash
-      - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
+      - uses: taiki-e/install-action@67729d5c413db75907f0ad1e39bb04b9c868ff60 # v2.85.7
         with:
           tool: |
             cargo-hack
