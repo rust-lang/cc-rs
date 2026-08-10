@@ -236,7 +236,6 @@
 //! files if the sources are unchanged.
 
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
-#![warn(clippy::disallowed_methods)]
 
 use std::borrow::Cow;
 use std::collections::HashMap;
