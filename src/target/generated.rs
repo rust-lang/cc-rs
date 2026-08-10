@@ -26,6 +26,7 @@ pub(crate) const LLVM_TARGETS: &[(&str, &str)] = &[
     ("aarch64-unknown-helenos", "aarch64-unknown-helenos"),
     ("aarch64-unknown-hermit", "aarch64-unknown-hermit"),
     ("aarch64-unknown-illumos", "aarch64-unknown-solaris2.11"),
+    ("aarch64-unknown-l4re-uclibc", "aarch64-unknown-l4re-uclibc"),
     ("aarch64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"),
     ("aarch64-unknown-linux-gnu_ilp32", "aarch64-unknown-linux-gnu_ilp32"),
     ("aarch64-unknown-linux-musl", "aarch64-unknown-linux-musl"),
