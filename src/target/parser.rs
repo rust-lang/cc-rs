@@ -577,6 +577,7 @@ mod tests {
         ignore = "must enable explicitly with --cfg=rustc_target_test"
     )]
     fn parse_rustc_targets() {
+        #[allow(clippy::disallowed_methods)]
         let rustc = std::env::var("RUSTC").unwrap_or_else(|_| "rustc".to_string());
 
         let target_list = Command::new(&rustc)
