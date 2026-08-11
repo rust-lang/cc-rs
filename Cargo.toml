@@ -11,10 +11,10 @@ code.
 documentation = "https://docs.rs/cc"
 readme = "README.md"
 homepage = "https://github.com/rust-lang/cc-rs"
-repository = "https://github.com/rust-lang/cc-rs"
-license = "MIT OR Apache-2.0"
-keywords = ["build-dependencies"]
-categories = ["development-tools::build-utils"]
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 # The binary target is only used by tests.
 exclude = ["/.github", "src/bin", "tests"]
 
@@ -30,6 +30,10 @@ members = [
 [workspace.package]
 edition = "2021"
 rust-version = "1.65.0"
+repository = "https://github.com/rust-lang/cc-rs"
+license = "MIT OR Apache-2.0"
+keywords = ["build-dependencies"]
+categories = ["development-tools::build-utils"]
 
 [workspace.lints.clippy]
 borrow_as_ptr = "warn"

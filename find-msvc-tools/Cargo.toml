@@ -5,10 +5,10 @@ edition.workspace = true
 rust-version.workspace = true
 description = "Find windows-specific tools, read MSVC versions from the registry and from COM interfaces"
 documentation = "https://docs.rs/find-msvc-tools"
-repository = "https://github.com/rust-lang/cc-rs"
-license = "MIT OR Apache-2.0"
-keywords = ["build-dependencies"]
-categories = ["development-tools::build-utils"]
+repository.workspace = true
+license.workspace = true
+keywords.workspace = true
+categories.workspace = true
 
 [lints]
 workspace = true
