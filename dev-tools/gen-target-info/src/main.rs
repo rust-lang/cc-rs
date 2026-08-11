@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::io::Write as _;
 use std::{fs::File, io::BufRead};
 

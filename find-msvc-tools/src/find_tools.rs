@@ -12,6 +12,7 @@
 //! 1. On Windows host, probe the Windows Registry if needed;
 //! 2. On non-Windows host, check specified environment variables.
 
+#![allow(missing_docs)]
 #![allow(clippy::upper_case_acronyms)]
 
 use std::{
@@ -133,7 +134,7 @@ impl EnvGetter for StdEnvGetter {
 /// as found in the current `PATH`. If that fails, it will attempt to locate
 /// the newest MSVC toolset in the newest installed version of Visual Studio.
 /// To limit the search to a specific version of the MSVC toolset, set the
-/// VCToolsVersion environment variable to the desired version (e.g. "14.44.35207").
+/// `VCToolsVersion` environment variable to the desired version (e.g. "14.44.35207").
 ///
 /// Note that this function always returns `None` for non-MSVC targets (if a
 /// full target name was specified).
@@ -561,9 +562,7 @@ mod impl_ {
         version: &'static str,
         env_getter: &dyn EnvGetter,
     ) -> Box<dyn Iterator<Item = PathBuf>> {
-        let instances = if let Some(instances) = vs15plus_instances(target, env_getter) {
-            instances
-        } else {
+        let Some(instances) = vs15plus_instances(target, env_getter) else {
             return Box::new(iter::empty());
         };
         Box::new(instances.into_iter().filter_map(move |instance| {
@@ -1255,10 +1254,7 @@ mod impl_ {
             let val = subkey
                 .to_str()
                 .and_then(|s| s.trim_start_matches('v').replace('.', "").parse().ok());
-            let val = match val {
-                Some(s) => s,
-                None => continue,
-            };
+            let Some(val) = val else { continue };
             if val > max_vers {
                 if let Ok(k) = key.open(&subkey) {
                     max_vers = val;

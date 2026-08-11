@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use std::env;
 use std::ffi::OsString;
 use std::path::Path;

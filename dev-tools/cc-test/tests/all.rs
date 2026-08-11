@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 use cc_test::*;
 
 #[link(name = "OptLinkage", kind = "static")]

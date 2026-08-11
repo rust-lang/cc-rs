@@ -1,4 +1,6 @@
+#![allow(missing_docs)]
 #![cfg(not(windows))]
+
 use crate::support::Test;
 mod support;
 

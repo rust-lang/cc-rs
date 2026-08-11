@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 mod target_specs;
 pub use target_specs::*;
 

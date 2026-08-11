@@ -1,3 +1,4 @@
+#![allow(missing_docs)]
 #![allow(clippy::disallowed_methods)]
 
 use std::env;

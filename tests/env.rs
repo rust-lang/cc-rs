@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 mod support;
 use std::{path::PathBuf, process::Command};
 

@@ -1,3 +1,5 @@
+#![allow(missing_docs)]
+
 mod support;
 
 use crate::support::Test;
