@@ -32,9 +32,11 @@ jobs:
       - name: Get msrv
         uses: ./.github/actions/get-msrv
 
-      - name: Install rust
-        run: |
-          rustup toolchain install $MSRV stable nightly --no-self-update --profile minimal
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+          toolchain: ${{ env.MSRV }}, stable, nightly
 
       - name: Create lockfile
         run: cargo update

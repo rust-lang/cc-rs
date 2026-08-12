@@ -23,10 +23,12 @@ jobs:
         with:
           persist-credentials: true
 
-      - name: Install current nightly Rust
-        run: |
-          rustup toolchain install nightly --no-self-update --profile minimal
-          rustup default nightly
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
+        with:
+          cache: false
+          toolchain: nightly
+
       - run: cargo update
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
 
