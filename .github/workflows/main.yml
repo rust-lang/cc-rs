@@ -226,7 +226,7 @@ jobs:
           tool: cargo-nextest
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Build and run binaries and tests
         run: |
           cargo build --bins --tests --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
@@ -262,7 +262,7 @@ jobs:
            tool: cargo-nextest
 
        - run: cargo update
-       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
        - run: |
            cargo nextest run --workspace --release
          env:
@@ -306,7 +306,7 @@ jobs:
           components: rust-src
           toolchain: nightly
       - run: cargo update
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
@@ -331,7 +331,7 @@ jobs:
           target: ${{ matrix.target }}
           toolchain: stable
       - run: cargo update
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
@@ -359,7 +359,7 @@ jobs:
           components: rust-src
           toolchain: nightly
       - run: cargo update
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }}
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }} --release
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
@@ -410,7 +410,7 @@ jobs:
           echo "WASI_SDK_PATH=$WASI_SDK_PATH" >> "$GITHUB_ENV"
 
       - run: cargo update
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           env-vars: "WASI_TOOLCHAIN_VERSION"
           cache-all-crates: "true"
@@ -443,7 +443,7 @@ jobs:
       - uses: taiki-e/install-action@6a1bd70eaac3c8bdf093356838d7ee09fda951cf # v2.85.5
         with:
           tool: cargo-nextest
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - name: Test 'cudart' feature
         shell: bash
         run: |
@@ -477,7 +477,7 @@ jobs:
             cargo-hack
             cargo-minimal-versions
           fallback: none
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo minimal-versions check --workspace --all-targets --feature-powerset --ignore-private
 
   clippy:
@@ -502,7 +502,7 @@ jobs:
           tool: |
             cargo-hack
           fallback: none
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo hack clippy --no-deps --workspace --all-targets --feature-powerset --ignore-private -- -D warnings
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -521,7 +521,7 @@ jobs:
           cache: false
           components: rustfmt
           toolchain: stable
-      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo fmt -- --check
 
   semver-checks:
