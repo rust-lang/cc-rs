@@ -11,14 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- add loongarch64 assembly shim ([#1855](https://github.com/rust-lang/cc-rs/pull/1855))
-- *(deps)* bump Swatinem/rust-cache from 2.9.1 to 2.9.2 ([#1853](https://github.com/rust-lang/cc-rs/pull/1853))
-- replace rustup installation with actions-rust-lang/setup-rust-toolchain ([#1852](https://github.com/rust-lang/cc-rs/pull/1852))
-- use workspace inheritance ([#1850](https://github.com/rust-lang/cc-rs/pull/1850))
-- convert to workspace lints ([#1849](https://github.com/rust-lang/cc-rs/pull/1849))
 - Update MSRV to 1.65 ([#1834](https://github.com/rust-lang/cc-rs/pull/1834))
 - Regenerate target info ([#1848](https://github.com/rust-lang/cc-rs/pull/1848))
-- run clippy in more cases ([#1832](https://github.com/rust-lang/cc-rs/pull/1832))
 
 ## [1.4.2](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.1...cc-v1.4.2) - 2026-08-08
 
