@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.11](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.10...find-msvc-tools-v0.1.11) - 2026-08-14
+
+### Other
+
+- use workspace inheritance ([#1850](https://github.com/rust-lang/cc-rs/pull/1850))
+- convert to workspace lints ([#1849](https://github.com/rust-lang/cc-rs/pull/1849))
+- Update MSRV to 1.65 ([#1834](https://github.com/rust-lang/cc-rs/pull/1834))
+
 ## [0.1.10](https://github.com/rust-lang/cc-rs/compare/find-msvc-tools-v0.1.9...find-msvc-tools-v0.1.10) - 2026-08-07
 
 ### Other
