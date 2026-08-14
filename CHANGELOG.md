@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.3](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.2...cc-v1.4.3) - 2026-08-14
+
+### Other
+
+- Update MSRV to 1.65 ([#1834](https://github.com/rust-lang/cc-rs/pull/1834))
+- Regenerate target info ([#1848](https://github.com/rust-lang/cc-rs/pull/1848))
+
 ## [1.4.2](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.1...cc-v1.4.2) - 2026-08-08
 
 ### Fixed
