@@ -2397,11 +2397,8 @@ impl Build {
                     // So instead, we pass the deployment target with `-m*-version-min=`, and only
                     // pass it here on visionOS and Mac Catalyst where that option does not exist:
                     // https://github.com/rust-lang/cc-rs/issues/1383
-                    let version = if target.os == "visionos" || target.env == "macabi" {
-                        Some(self.apple_deployment_target(target))
-                    } else {
-                        None
-                    };
+                    let version = (target.os == "visionos" || target.env == "macabi")
+                        .then(|| self.apple_deployment_target(target));
 
                     let clang_target =
                         target.llvm_target(&self.get_raw_target()?, version.as_deref());
@@ -3476,11 +3473,9 @@ impl Build {
         let wrapper_path = Path::new(&rustc_wrapper);
         let wrapper_stem = wrapper_path.file_stem()?;
 
-        if VALID_WRAPPERS.contains(&wrapper_stem.to_str()?) {
-            Some(Cow::Owned(rustc_wrapper))
-        } else {
-            None
-        }
+        VALID_WRAPPERS
+            .contains(&wrapper_stem.to_str()?)
+            .then_some(Cow::Owned(rustc_wrapper))
     }
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
@@ -3565,11 +3560,10 @@ impl Build {
             Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
             None => {
                 if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
-                    if stdlib.is_empty() {
-                        Ok(None)
-                    } else {
-                        Ok(Some(Cow::Owned(Path::new(&stdlib).to_owned())))
-                    }
+                    Ok((!stdlib.is_empty())
+                        .then_some(stdlib)
+                        .map(PathBuf::from)
+                        .map(Cow::from))
                 } else {
                     let target = self.get_target()?;
                     if target.env == "msvc" {
