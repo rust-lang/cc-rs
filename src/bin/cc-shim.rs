@@ -59,7 +59,7 @@ fn out_file(program: &str) -> Option<PathBuf> {
 }
 
 /// Record the args passed to the command, if this invocation records at all.
-fn record(program: &str, args: &[&String]) {
+fn record(program: &str, args: &[String]) {
     let Some(candidate) = out_file(program) else {
         return;
     };
@@ -96,12 +96,10 @@ fn record(program: &str, args: &[&String]) {
 }
 
 fn main() -> ExitCode {
-    let args = env::args().collect::<Vec<_>>();
-    let mut args = args.iter();
-    let program = args.next().expect("Unexpected empty args");
-    let args = args.collect::<Vec<_>>();
+    let argv = env::args().collect::<Vec<_>>();
+    let (program, args) = argv.split_first().expect("Unexpected empty args");
 
-    record(program, &args);
+    record(program, args);
 
     // Compiler family detection preprocesses a probe file with `-E` and reads
     // the family out of the expansion. The shim is not a preprocessor and

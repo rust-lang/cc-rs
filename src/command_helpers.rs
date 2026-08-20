@@ -348,7 +348,7 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
 /// test shim records one only when a test names its class. See
 /// [`set_probe_env`] and `src/bin/cc-shim.rs`.
 #[derive(Clone, Copy, Debug)]
-pub(crate) enum ProbeKind {
+enum ProbeKind {
     /// Working out a compiler's [`ToolFamily`](crate::ToolFamily).
     FamilyDetection,
     /// Checking whether a compiler accepts a flag.
@@ -385,7 +385,7 @@ impl ProbeKind {
 /// test-only, like `CC_SHIM_OUT_DIR`, and so are documented in
 /// `src/bin/cc-shim.rs` rather than in the table of public variables in
 /// `src/lib.rs`.
-pub(crate) fn set_probe_env<K, V>(cmd: &mut Command, env: &[(K, V)], kind: ProbeKind)
+fn set_probe_env<K, V>(cmd: &mut Command, env: &[(K, V)], kind: ProbeKind)
 where
     K: AsRef<OsStr>,
     V: AsRef<OsStr>,
@@ -542,5 +542,41 @@ pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAd
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(dst);
+    }
+}
+
+/// Naming the two probe classes at the call site, so a caller does not have
+/// to reach for [`ProbeKind`] to say which one it means.
+pub(crate) trait CommandExt {
+    /// Apply `Build::env` to a compiler family detection probe.
+    fn set_family_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>;
+
+    /// Apply `Build::env` to an `is_flag_supported` probe.
+    fn set_flag_supported_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>;
+}
+
+impl CommandExt for Command {
+    fn set_family_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        set_probe_env(self, env, ProbeKind::FamilyDetection);
+        self
+    }
+
+    fn set_flag_supported_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        set_probe_env(self, env, ProbeKind::FlagSupportCheck);
+        self
     }
 }

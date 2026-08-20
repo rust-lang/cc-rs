@@ -420,24 +420,18 @@ fn gnu_flag_if_supported() {
 /// <https://github.com/rust-lang/cc-rs/issues/1859>
 #[test]
 fn probe_env_overrides() {
-    let test = Test::gnu();
+    let mut test = Test::gnu();
+    test.collect_family_detection_probes()
+        .collect_flag_supported_probes();
     test.gcc()
-        .env(
-            "CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION",
-            test.probe_out_files(&["family-probe"]),
-        )
-        .env(
-            "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
-            test.probe_out_files(&["flag-probe"]),
-        )
         .flag_if_supported("-Wprobed")
         .file("foo.c")
         .compile("foo");
 
     // Both probes went to the shim this `PATH` resolves `cc` to, rather than to
     // whatever compiler the ambient environment happens to have.
-    test.probe_cmd("family-probe").must_have("-E");
-    test.probe_cmd("flag-probe")
+    test.get_family_detection_probes(0).must_have("-E");
+    test.get_flag_supported_probes(0)
         .must_have("-Wprobed")
         .must_have("-c");
 

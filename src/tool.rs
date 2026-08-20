@@ -1,7 +1,5 @@
 use crate::{
-    command_helpers::{
-        run_output, set_probe_env, spawn_and_wait_for_output, CargoOutput, ProbeKind,
-    },
+    command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
     Error, ErrorKind, OutputKind,
@@ -133,7 +131,7 @@ impl Tool {
     ) -> Self {
         /// Set up a compiler family detection probe to run in `env`.
         fn probe<'cmd>(cmd: &'cmd mut Command, env: &BuildEnv) -> &'cmd mut Command {
-            set_probe_env(cmd, env, ProbeKind::FamilyDetection);
+            cmd.set_family_detection_env(env);
             cmd
         }
 

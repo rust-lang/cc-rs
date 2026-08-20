@@ -172,13 +172,10 @@ fn clang_cl_scope_all() {
     test.shim("clang-cl.exe");
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
     test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.collect_flag_supported_probes();
     let mut build = test.gcc();
     build
         .compiler(test.td.path().join("clang-cl.exe"))
-        .env(
-            "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
-            test.probe_out_files(&["macro-probe", "debug-probe"]),
-        )
         .file("foo.c")
         .compile("foo");
 
@@ -186,9 +183,9 @@ fn clang_cl_scope_all() {
     // https://releases.llvm.org/8.0.0/tools/clang/docs/UsersManual.html#the-clang-option
     // The two probes that establish this are recorded where this test asked for
     // them, so the compile it is really asserting on is still `cmd(0)`.
-    test.probe_cmd("macro-probe")
+    test.get_flag_supported_probes(0)
         .must_have("/clang:-fmacro-prefix-map=/probe=/probe");
-    test.probe_cmd("debug-probe")
+    test.get_flag_supported_probes(1)
         .must_have("/clang:-fdebug-prefix-map=/probe=/probe");
 
     let cmd = test.cmd(0);

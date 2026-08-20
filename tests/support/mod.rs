@@ -20,7 +20,17 @@ pub struct Test {
     pub msvc: bool,
     pub msvc_autodetect: bool,
     pub env: GlobalEnv,
+    family_detection_probes: bool,
+    flag_supported_probes: bool,
 }
+
+/// Files the shim records cc's own probing invocations in, per probe class.
+///
+/// A build can run a class more than once, so each class gets several slots,
+/// filled in the order the probes run.
+const FAMILY_DETECTION_PROBES: &str = "family-detection-probe";
+const FLAG_SUPPORTED_PROBES: &str = "flag-supported-probe";
+const PROBE_SLOTS: usize = 4;
 
 pub struct Execution {
     pub args: Vec<String>,
@@ -65,6 +75,8 @@ impl Test {
             msvc: false,
             msvc_autodetect: false,
             env,
+            family_detection_probes: false,
+            flag_supported_probes: false,
         }
     }
 
@@ -126,6 +138,18 @@ impl Test {
             .out_dir(self.td.path())
             .env("PATH", self.path())
             .env("CC_SHIM_OUT_DIR", self.td.path());
+        if self.family_detection_probes {
+            cfg.env(
+                "CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION",
+                self.probe_out_files(FAMILY_DETECTION_PROBES),
+            );
+        }
+        if self.flag_supported_probes {
+            cfg.env(
+                "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
+                self.probe_out_files(FLAG_SUPPORTED_PROBES),
+            );
+        }
         if self.msvc {
             cfg.compiler(self.td.path().join("cl"));
             cfg.archiver(self.td.path().join("lib.exe"));
@@ -148,17 +172,40 @@ impl Test {
         self.execution(self.td.path().join(format!("out{}", i)))
     }
 
-    /// Declare where the shim should record one class of cc's own probing
-    /// invocations, for a `CC_SHIM_OUT_FILES_FOR_*` variable: a
-    /// `PATH`-separated list of files under this test's temp dir, filled in the
-    /// order the probes run.
-    pub fn probe_out_files(&self, names: &[&str]) -> OsString {
-        env::join_paths(names.iter().map(|name| self.td.path().join(name))).unwrap()
+    /// Record cc's own compiler family detection probes, so
+    /// [`Test::get_family_detection_probes`] can read them back. Probe classes a
+    /// test does not ask for record nothing and so cannot shift the `out{i}`
+    /// numbering [`Test::cmd`] uses.
+    pub fn collect_family_detection_probes(&mut self) -> &mut Self {
+        self.family_detection_probes = true;
+        self
     }
 
-    /// Read back a probe recording declared with [`Test::probe_out_files`].
-    pub fn probe_cmd(&self, name: &str) -> Execution {
-        self.execution(self.td.path().join(name))
+    /// Record cc's own `is_flag_supported` probes, so
+    /// [`Test::get_flag_supported_probes`] can read them back.
+    pub fn collect_flag_supported_probes(&mut self) -> &mut Self {
+        self.flag_supported_probes = true;
+        self
+    }
+
+    /// Read back the `i`-th family detection probe recorded after
+    /// [`Test::collect_family_detection_probes`].
+    pub fn get_family_detection_probes(&self, i: usize) -> Execution {
+        self.execution(self.probe_slot(FAMILY_DETECTION_PROBES, i))
+    }
+
+    /// Read back the `i`-th flag support probe recorded after
+    /// [`Test::collect_flag_supported_probes`].
+    pub fn get_flag_supported_probes(&self, i: usize) -> Execution {
+        self.execution(self.probe_slot(FLAG_SUPPORTED_PROBES, i))
+    }
+
+    fn probe_slot(&self, class: &str, i: usize) -> PathBuf {
+        self.td.path().join(format!("{class}{i}"))
+    }
+
+    fn probe_out_files(&self, class: &str) -> OsString {
+        env::join_paths((0..PROBE_SLOTS).map(|i| self.probe_slot(class, i))).unwrap()
     }
 
     #[track_caller]

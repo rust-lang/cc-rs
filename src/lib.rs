@@ -1529,9 +1529,7 @@ impl Build {
             // being built with: a bare compiler name resolves through this
             // `PATH`, not the ambient one. Also share the caches, so that a
             // compiler family already worked out is not worked out again.
-            for (key, value) in self.env.iter() {
-                cfg.env(key, value);
-            }
+            cfg.env.clone_from(&self.env);
             cfg.build_cache = Arc::clone(&self.build_cache);
             if let Some(target) = &self.target {
                 cfg.target(target);
@@ -1554,7 +1552,7 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        set_probe_env(&mut cmd, &self.env, ProbeKind::FlagSupportCheck);
+        cmd.set_flag_supported_env(&self.env);
         command_add_output_file(
             &mut cmd,
             &obj,
