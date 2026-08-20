@@ -22,6 +22,7 @@ pub struct Test {
     pub env: GlobalEnv,
     family_detection_probes: bool,
     flag_supported_probes: bool,
+    ar_detection_probes: bool,
 }
 
 /// Files the shim records cc's own probing invocations in, per probe class.
@@ -30,6 +31,7 @@ pub struct Test {
 /// filled in the order the probes run.
 const FAMILY_DETECTION_PROBES: &str = "family-detection-probe";
 const FLAG_SUPPORTED_PROBES: &str = "flag-supported-probe";
+const AR_DETECTION_PROBES: &str = "ar-detection-probe";
 const PROBE_SLOTS: usize = 4;
 
 pub struct Execution {
@@ -77,6 +79,7 @@ impl Test {
             env,
             family_detection_probes: false,
             flag_supported_probes: false,
+            ar_detection_probes: false,
         }
     }
 
@@ -150,6 +153,12 @@ impl Test {
                 self.probe_out_files(FLAG_SUPPORTED_PROBES),
             );
         }
+        if self.ar_detection_probes {
+            cfg.env(
+                "CC_SHIM_OUT_FILES_FOR_AR_DETECTION",
+                self.probe_out_files(AR_DETECTION_PROBES),
+            );
+        }
         if self.msvc {
             cfg.compiler(self.td.path().join("cl"));
             cfg.archiver(self.td.path().join("lib.exe"));
@@ -198,6 +207,19 @@ impl Test {
     /// [`Test::collect_flag_supported_probes`].
     pub fn get_flag_supported_probes(&self, i: usize) -> Execution {
         self.execution(self.probe_slot(FLAG_SUPPORTED_PROBES, i))
+    }
+
+    /// Record cc's Android `llvm-ar` probe, so
+    /// [`Test::get_ar_detection_probes`] can read it back.
+    pub fn collect_ar_detection_probes(&mut self) -> &mut Self {
+        self.ar_detection_probes = true;
+        self
+    }
+
+    /// Read back the `i`-th archiver detection probe recorded after
+    /// [`Test::collect_ar_detection_probes`].
+    pub fn get_ar_detection_probes(&self, i: usize) -> Execution {
+        self.execution(self.probe_slot(AR_DETECTION_PROBES, i))
     }
 
     fn probe_slot(&self, class: &str, i: usize) -> PathBuf {

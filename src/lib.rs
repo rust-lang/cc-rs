@@ -3737,7 +3737,13 @@ impl Build {
             None => {
                 if target.os == "android" {
                     name = format!("llvm-{tool}").into();
-                    match Command::new(&name).arg("--version").status() {
+                    // This probe decides which archiver the build uses, so it has
+                    // to run in the environment the build was configured with: a
+                    // bare name resolves through `Build::env`'s `PATH`, not the
+                    // ambient one.
+                    let mut probe = Command::new(&name);
+                    probe.arg("--version").set_ar_detection_env(&self.env);
+                    match probe.status() {
                         Ok(status) if status.success() => (),
                         _ => {
                             // FIXME: Use parsed target.
