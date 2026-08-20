@@ -353,6 +353,8 @@ enum ProbeKind {
     FamilyDetection,
     /// Checking whether a compiler accepts a flag.
     FlagSupportCheck,
+    /// Working out whether an Android NDK ships `llvm-ar` under that name.
+    ArDetection,
 }
 
 impl ProbeKind {
@@ -361,6 +363,7 @@ impl ProbeKind {
         match self {
             Self::FamilyDetection => "CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION",
             Self::FlagSupportCheck => "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
+            Self::ArDetection => "CC_SHIM_OUT_FILES_FOR_AR_DETECTION",
         }
     }
 }
@@ -559,6 +562,12 @@ pub(crate) trait CommandExt {
     where
         K: AsRef<OsStr>,
         V: AsRef<OsStr>;
+
+    /// Apply `Build::env` to the Android `llvm-ar` probe.
+    fn set_ar_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>;
 }
 
 impl CommandExt for Command {
@@ -577,6 +586,15 @@ impl CommandExt for Command {
         V: AsRef<OsStr>,
     {
         set_probe_env(self, env, ProbeKind::FlagSupportCheck);
+        self
+    }
+
+    fn set_ar_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
+    where
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        set_probe_env(self, env, ProbeKind::ArDetection);
         self
     }
 }
