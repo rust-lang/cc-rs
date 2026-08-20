@@ -168,8 +168,8 @@ impl Test {
     /// cc's own probing invocations are not recorded unless a test asks for
     /// them by name with [`Test::probe_out_files`], so this numbering covers
     /// the compile and archive commands only.
-    pub fn cmd(&self, i: u32) -> Execution {
-        self.execution(self.td.path().join(format!("out{}", i)))
+    pub fn cmd(&self, i: usize) -> Execution {
+        self.execution(self.probe_slot("out", i))
     }
 
     /// Record cc's own compiler family detection probes, so

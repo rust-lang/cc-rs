@@ -129,15 +129,11 @@ impl Tool {
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
-        /// Set up a compiler family detection probe to run in `env`.
-        fn probe<'cmd>(cmd: &'cmd mut Command, env: &BuildEnv) -> &'cmd mut Command {
-            cmd.set_family_detection_env(env);
-            cmd
-        }
-
         fn is_zig_cc(path: &Path, env: &BuildEnv, cargo_output: &CargoOutput) -> bool {
             run_output(
-                probe(Command::new(path).arg("--version"), env),
+                Command::new(path)
+                    .arg("--version")
+                    .set_family_detection_env(env),
                 // tool detection issues should always be shown as warnings
                 cargo_output,
             )
@@ -163,10 +159,11 @@ impl Tool {
             // https://gitlab.kitware.com/cmake/cmake/-/blob/69a2eeb9dff5b60f2f1e5b425002a0fd45b7cadb/Modules/CMakeDetermineCompilerId.cmake#L267-271
             // stdin is set to null to ensure that the help output is never paginated.
             let accepts_cl_style_flags = run(
-                probe(
-                    Command::new(path).args(args).arg("-?").stdin(Stdio::null()),
-                    env,
-                ),
+                Command::new(path)
+                    .args(args)
+                    .arg("-?")
+                    .stdin(Stdio::null())
+                    .set_family_detection_env(env),
                 &{
                     // the errors are not errors!
                     let mut cargo_output = cargo_output.clone();
@@ -243,7 +240,7 @@ impl Tool {
             compiler_detect_output.warnings = compiler_detect_output.debug;
 
             let mut cmd = Command::new(path);
-            probe(cmd.arg("-E").arg(tmp.path()), env);
+            cmd.arg("-E").arg(tmp.path()).set_family_detection_env(env);
 
             // The -Wslash-u-filename warning is normally part of stdout.
             // But with clang-cl it can be part of stderr instead and exit with a
@@ -261,7 +258,11 @@ impl Tool {
                 .any(|o| String::from_utf8_lossy(o).contains("-Wslash-u-filename"))
             {
                 run_output(
-                    probe(Command::new(path).arg("-E").arg("--").arg(tmp.path()), env),
+                    Command::new(path)
+                        .arg("-E")
+                        .arg("--")
+                        .arg(tmp.path())
+                        .set_family_detection_env(env),
                     &compiler_detect_output,
                 )?
             } else {
