@@ -139,10 +139,33 @@ impl Test {
         env::join_paths(path).unwrap()
     }
 
+    /// Read back the `i`-th invocation a build actually performed.
+    ///
+    /// cc's own probing invocations are not recorded unless a test asks for
+    /// them by name with [`Test::probe_out_files`], so this numbering covers
+    /// the compile and archive commands only.
     pub fn cmd(&self, i: u32) -> Execution {
+        self.execution(self.td.path().join(format!("out{}", i)))
+    }
+
+    /// Declare where the shim should record one class of cc's own probing
+    /// invocations, for a `CC_SHIM_OUT_FILES_FOR_*` variable: a
+    /// `PATH`-separated list of files under this test's temp dir, filled in the
+    /// order the probes run.
+    pub fn probe_out_files(&self, names: &[&str]) -> OsString {
+        env::join_paths(names.iter().map(|name| self.td.path().join(name))).unwrap()
+    }
+
+    /// Read back a probe recording declared with [`Test::probe_out_files`].
+    pub fn probe_cmd(&self, name: &str) -> Execution {
+        self.execution(self.td.path().join(name))
+    }
+
+    #[track_caller]
+    fn execution(&self, path: PathBuf) -> Execution {
         let mut s = String::new();
-        File::open(self.td.path().join(format!("out{}", i)))
-            .unwrap()
+        File::open(&path)
+            .unwrap_or_else(|e| panic!("no recording at {}: {}", path.display(), e))
             .read_to_string(&mut s)
             .unwrap();
         Execution {

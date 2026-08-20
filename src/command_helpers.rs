@@ -3,7 +3,7 @@
 use std::{
     borrow::Cow,
     collections::hash_map,
-    ffi::OsString,
+    ffi::{OsStr, OsString},
     fmt::Display,
     fs,
     hash::Hasher,
@@ -338,6 +338,70 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
     }
 
     Ok(objects)
+}
+
+/// Which of cc's own probing invocations a [`Command`] is being set up for.
+///
+/// A probe is not a command the caller asked cc to run: it is how cc works out
+/// what the compiler it was handed can do. Which probes run, and how many of
+/// them, depends on the compiler, the target and cc's internal caching, so the
+/// test shim records one only when a test names its class. See
+/// [`set_probe_env`] and `src/bin/cc-shim.rs`.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum ProbeKind {
+    /// Working out a compiler's [`ToolFamily`](crate::ToolFamily).
+    FamilyDetection,
+    /// Checking whether a compiler accepts a flag.
+    FlagSupportCheck,
+}
+
+impl ProbeKind {
+    /// The test-only variable naming where the shim should record this class.
+    const fn out_files_var(self) -> &'static str {
+        match self {
+            Self::FamilyDetection => "CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION",
+            Self::FlagSupportCheck => "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
+        }
+    }
+}
+
+/// Apply [`Build::env`](crate::Build::env) to one of cc's own probing
+/// invocations.
+///
+/// A probe is a child process like any other, so it gets the environment the
+/// caller configured - `PATH` above all, without which a probe resolves a bare
+/// compiler name such as `cc` against the ambient environment rather than the
+/// one the compile commands run in, and answers a question about a different
+/// compiler than the one being built with (rust-lang/cc-rs#1859).
+///
+/// The `CC_SHIM_OUT_FILES_FOR_*` variables are the exception, and a third
+/// category beside the two that [`Build::env`](crate::Build::env) already
+/// distinguishes: they are set through `Build::env` but read by cc itself, and
+/// rewritten for exactly one child. cc renames the one matching `kind` to
+/// `CC_SHIM_OUT_FILES` and otherwise clears it, and clears `CC_SHIM_OUT_DIR`
+/// either way, instead of copying `Build::env` over blindly. A probe a test did
+/// not ask about then records nothing at all, rather than taking an `out{i}`
+/// slot and shifting the invocations the test is asserting on. They are
+/// test-only, like `CC_SHIM_OUT_DIR`, and so are documented in
+/// `src/bin/cc-shim.rs` rather than in the table of public variables in
+/// `src/lib.rs`.
+pub(crate) fn set_probe_env<K, V>(cmd: &mut Command, env: &[(K, V)], kind: ProbeKind)
+where
+    K: AsRef<OsStr>,
+    V: AsRef<OsStr>,
+{
+    for (key, value) in env {
+        cmd.env(key.as_ref(), value.as_ref());
+    }
+
+    cmd.env_remove("CC_SHIM_OUT_DIR");
+    match env
+        .iter()
+        .find(|(key, _)| key.as_ref() == OsStr::new(kind.out_files_var()))
+    {
+        Some((_, value)) => cmd.env("CC_SHIM_OUT_FILES", value.as_ref()),
+        None => cmd.env_remove("CC_SHIM_OUT_FILES"),
+    };
 }
 
 pub(crate) fn run(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<(), Error> {

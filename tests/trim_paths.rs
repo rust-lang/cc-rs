@@ -175,17 +175,23 @@ fn clang_cl_scope_all() {
     let mut build = test.gcc();
     build
         .compiler(test.td.path().join("clang-cl.exe"))
+        .env(
+            "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
+            test.probe_out_files(&["macro-probe", "debug-probe"]),
+        )
         .file("foo.c")
         .compile("foo");
 
     // clang-cl forwards Clang driver options through `/clang:<arg>`:
     // https://releases.llvm.org/8.0.0/tools/clang/docs/UsersManual.html#the-clang-option
-    test.cmd(0)
+    // The two probes that establish this are recorded where this test asked for
+    // them, so the compile it is really asserting on is still `cmd(0)`.
+    test.probe_cmd("macro-probe")
         .must_have("/clang:-fmacro-prefix-map=/probe=/probe");
-    test.cmd(1)
+    test.probe_cmd("debug-probe")
         .must_have("/clang:-fdebug-prefix-map=/probe=/probe");
 
-    let cmd = test.cmd(2);
+    let cmd = test.cmd(0);
     for flag in MACRO_FLAGS.iter().chain(OBJECT_FLAGS) {
         cmd.must_not_have(flag).must_have(format!("/clang:{flag}"));
     }
