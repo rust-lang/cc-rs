@@ -396,23 +396,48 @@ fn gnu_shared() {
 
 #[test]
 fn gnu_flag_if_supported() {
-    if cfg!(windows) {
-        return;
-    }
     let test = Test::gnu();
     test.gcc()
         .file("foo.c")
         .flag("-v")
+        // The probe runs against the shim on this `PATH`, so tell the shim to
+        // reject one flag and stand in for a compiler that does not know it.
+        // Before this was hermetic the probe reached whatever compiler the
+        // machine happened to have, and the test had to skip Windows.
+        .env("CC_SHIM_FAIL_IF_ARG", "-Wflag-does-not-exist")
         .flag_if_supported("-Wall")
         .flag_if_supported("-Wflag-does-not-exist")
-        .flag_if_supported("-std=c++11")
         .compile("foo");
 
     test.cmd(0)
         .must_have("-v")
         .must_have("-Wall")
-        .must_not_have("-Wflag-does-not-exist")
-        .must_not_have("-std=c++11");
+        .must_not_have("-Wflag-does-not-exist");
+}
+
+/// cc's own probing invocations run in the environment `Build::env` sets up,
+/// and record only the class of probe a test asks for by name.
+/// <https://github.com/rust-lang/cc-rs/issues/1859>
+#[test]
+fn probe_env_overrides() {
+    let mut test = Test::gnu();
+    test.collect_family_detection_probes()
+        .collect_flag_supported_probes();
+    test.gcc()
+        .flag_if_supported("-Wprobed")
+        .file("foo.c")
+        .compile("foo");
+
+    // Both probes went to the shim this `PATH` resolves `cc` to, rather than to
+    // whatever compiler the ambient environment happens to have.
+    test.get_family_detection_probes(0).must_have("-E");
+    test.get_flag_supported_probes(0)
+        .must_have("-Wprobed")
+        .must_have("-c");
+
+    // Neither took an `out{i}` slot, so the compile is still the first
+    // invocation however many probes cc decided to run.
+    test.cmd(0).must_have("foo.c").must_have("-Wprobed");
 }
 
 #[cfg(not(windows))]

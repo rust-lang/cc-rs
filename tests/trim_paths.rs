@@ -172,6 +172,7 @@ fn clang_cl_scope_all() {
     test.shim("clang-cl.exe");
     test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
     test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.collect_flag_supported_probes();
     let mut build = test.gcc();
     build
         .compiler(test.td.path().join("clang-cl.exe"))
@@ -180,12 +181,14 @@ fn clang_cl_scope_all() {
 
     // clang-cl forwards Clang driver options through `/clang:<arg>`:
     // https://releases.llvm.org/8.0.0/tools/clang/docs/UsersManual.html#the-clang-option
-    test.cmd(0)
+    // The two probes that establish this are recorded where this test asked for
+    // them, so the compile it is really asserting on is still `cmd(0)`.
+    test.get_flag_supported_probes(0)
         .must_have("/clang:-fmacro-prefix-map=/probe=/probe");
-    test.cmd(1)
+    test.get_flag_supported_probes(1)
         .must_have("/clang:-fdebug-prefix-map=/probe=/probe");
 
-    let cmd = test.cmd(2);
+    let cmd = test.cmd(0);
     for flag in MACRO_FLAGS.iter().chain(OBJECT_FLAGS) {
         cmd.must_not_have(flag).must_have(format!("/clang:{flag}"));
     }
