@@ -896,14 +896,20 @@ fn clang_android() {
     // we use "clang" and set the target correctly.
     #[cfg(windows)]
     {
-        let test = Test::new();
+        let mut test = Test::new();
         test.shim("clang").shim("llvm-ar");
+        test.collect_ar_detection_probes();
         test.gcc()
             .target(target)
             .host("x86_64-pc-windows-msvc")
             .file("foo.c")
             .compile("foo");
         test.cmd(0).must_have("--target=arm-linux-androideabi");
+
+        // The NDK probe runs in the environment `Build::env` set up, so it
+        // finds the `llvm-ar` this test put on `PATH` rather than falling
+        // back to a target-prefixed name that is not there.
+        test.get_ar_detection_probes(0).must_have("--version");
     }
 
     // On non-Windows, we do use the shims, so make sure that we use the shim
