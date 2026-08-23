@@ -562,19 +562,21 @@ mod impl_ {
         version: &'static str,
         env_getter: &dyn EnvGetter,
     ) -> Box<dyn Iterator<Item = PathBuf>> {
-        let Some(instances) = vs15plus_instances(target, env_getter) else {
-            return Box::new(iter::empty());
-        };
-        Box::new(instances.into_iter().filter_map(move |instance| {
-            let installation_name = instance.installation_name()?;
-            if installation_name.starts_with(&format!("VisualStudio/{}.", version))
-                || installation_name.starts_with(&format!("VisualStudioPreview/{}.", version))
-            {
-                Some(instance.installation_path()?)
-            } else {
-                None
-            }
-        }))
+        Box::new(
+            vs15plus_instances(target, env_getter)
+                .into_iter()
+                .flatten()
+                .filter_map(move |instance| {
+                    instance
+                        .installation_name()
+                        .filter(|name| {
+                            ["VisualStudio", "VisualStudioPreview"]
+                                .into_iter()
+                                .any(|kind| name.starts_with(&format!("{kind}/{version}.")))
+                        })
+                        .and_then(|_| instance.installation_path())
+                }),
+        )
     }
 
     fn find_tool_in_vs16plus_path(
@@ -864,11 +866,10 @@ mod impl_ {
         // We use the first available host architecture that can build for the target
         let (host_path, host) = hosts.iter().find_map(|&x| {
             let candidate = path.join("bin").join(format!("Host{}", x));
-            if candidate.join(target_dir).exists() {
-                Some((candidate, x))
-            } else {
-                None
-            }
+            candidate
+                .join(target_dir)
+                .exists()
+                .then_some((candidate, x))
         })?;
         // This is the path to the toolchain for a particular target, running
         // on a given host
@@ -963,12 +964,10 @@ mod impl_ {
 
     fn atl_paths(target: TargetArch, path: &Path) -> Option<(PathBuf, PathBuf)> {
         let atl_path = path.join("atlmfc");
-        let sub = target.as_vs_arch();
-        if atl_path.exists() {
-            Some((atl_path.join("lib").join(sub), atl_path.join("include")))
-        } else {
-            None
-        }
+        atl_path.exists().then(|| {
+            let sub = target.as_vs_arch();
+            (atl_path.join("lib").join(sub), atl_path.join("include"))
+        })
     }
 
     // For MSVC 14 we need to find the Universal CRT as well as either

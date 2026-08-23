@@ -46,16 +46,12 @@ fn out_file(program: &str) -> Option<PathBuf> {
 
     let out_dir = PathBuf::from(env::var_os(OUT_DIR)?);
     // Find the first nonexistent candidate file to which the program's args can be written.
-    Some((0..).find_map(|i| {
-        let candidate = out_dir.join(format!("out{i}"));
-
-        if candidate.exists() {
-            // If the file exists, commands have already run. Try again.
-            None
-        } else {
-            Some(candidate)
-        }
-    }).unwrap_or_else(|| panic!("Cannot find the first nonexistent candidate file to which the program's args can be written under out_dir '{}'", out_dir.display())))
+    Some(
+        (0..)
+            .map(|i| out_dir.join(format!("out{i}")))
+            .find(|candidate| !candidate.exists())
+            .unwrap_or_else(|| panic!("Cannot find the first nonexistent candidate file to which the program's args can be written under out_dir '{}'", out_dir.display()))
+    )
 }
 
 /// Record the args passed to the command, if this invocation records at all.
