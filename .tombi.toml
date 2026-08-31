@@ -1,6 +1,6 @@
 [format.rules]
 indent-width = 4
-string-quote-style = "preserve"
+key-quote-style = "single"
 
 [[schemas]]
 toml-version = "v1.0.0"

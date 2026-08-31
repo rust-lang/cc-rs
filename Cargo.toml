@@ -45,7 +45,7 @@ ptr_cast_constness = "warn"
 
 [workspace.lints.rust]
 missing_docs = "warn"
-unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
+unexpected_cfgs = { level = "allow", check-cfg = ["cfg(disable_clang_cl_tests)"] }
 
 [dependencies]
 find-msvc-tools = { path = "find-msvc-tools", version = "0.1.11" }
