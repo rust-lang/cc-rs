@@ -125,6 +125,16 @@ impl Test {
     }
 
     pub fn gcc(&self) -> cc::Build {
+        let mut cfg = self.gcc_without_out_dir();
+        cfg.out_dir(self.td.path());
+        cfg
+    }
+
+    /// Like [`Self::gcc`], but does not set [`cc::Build::out_dir`].
+    ///
+    /// Flag-support probes must still work when `OUT_DIR` is unset, as in
+    /// rustc bootstrap which is not a Cargo build script.
+    pub fn gcc_without_out_dir(&self) -> cc::Build {
         let mut cfg = cc::Build::new();
         let target = if self.msvc || self.msvc_autodetect {
             "x86_64-pc-windows-msvc"
@@ -138,7 +148,6 @@ impl Test {
             .host(target)
             .opt_level(2)
             .debug(false)
-            .out_dir(self.td.path())
             .env("PATH", self.path())
             .env("CC_SHIM_OUT_DIR", self.td.path());
         if self.family_detection_probes {

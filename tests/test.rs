@@ -415,6 +415,38 @@ fn gnu_flag_if_supported() {
         .must_not_have("-Wflag-does-not-exist");
 }
 
+/// `flag_if_supported` must probe even when `OUT_DIR` is unset.
+/// <https://github.com/rust-lang/cc-rs/issues/1765>
+#[test]
+fn flag_if_supported_without_out_dir() {
+    let mut test = Test::gnu();
+    test.env.remove("OUT_DIR");
+    test.collect_flag_supported_probes();
+
+    let compiler = test
+        .gcc_without_out_dir()
+        .env("CC_SHIM_FAIL_IF_ARG", "-Wflag-does-not-exist")
+        .flag_if_supported("-Wall")
+        .flag_if_supported("-Wflag-does-not-exist")
+        .try_get_compiler()
+        .expect("try_get_compiler should succeed without OUT_DIR");
+
+    assert!(
+        compiler.args().iter().any(|a| a == "-Wall"),
+        "supported flag should be applied without OUT_DIR, args: {:?}",
+        compiler.args()
+    );
+    assert!(
+        !compiler.args().iter().any(|a| a == "-Wflag-does-not-exist"),
+        "unsupported flag should still be rejected without OUT_DIR, args: {:?}",
+        compiler.args()
+    );
+
+    test.get_flag_supported_probes(0)
+        .must_have("-Wall")
+        .must_have("-c");
+}
+
 /// cc's own probing invocations run in the environment `Build::env` sets up,
 /// and record only the class of probe a test asks for by name.
 /// <https://github.com/rust-lang/cc-rs/issues/1859>
