@@ -1491,7 +1491,9 @@ impl Build {
     }
 
     fn write_flag_check_src(file: &mut fs::File) -> io::Result<()> {
-        write!(file, "int main(void) {{ return 0; }}")
+        write!(file, "int main(void) {{ return 0; }}")?;
+        file.flush()?;
+        file.sync_data()
     }
 
     fn ensure_check_file(&self) -> Result<PathBuf, Error> {
@@ -1533,8 +1535,6 @@ impl Build {
                 Self::write_flag_check_src(&mut tmp_file)?;
                 // Close the handle before invoking the compiler; Windows
                 // cannot open a file that another handle still holds.
-                tmp_file.flush()?;
-                tmp_file.sync_data()?;
                 drop(tmp_file);
 
                 let mut tmp_obj = crate::tempfile::NamedTempfile::new(&dir, "flag_check")?;
