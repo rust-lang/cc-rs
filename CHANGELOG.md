@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Probe flag support without `OUT_DIR` via tempfile, so `flag_if_supported` no longer silently drops flags outside Cargo build scripts
+- Probe flag support without `OUT_DIR` via tempfile, so `flag_if_supported` no longer silently drops flags outside Cargo build scripts ([#1875](https://github.com/rust-lang/cc-rs/pull/1875))
 
 ## [1.4.4](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.3...cc-v1.4.4) - 2026-08-21
 

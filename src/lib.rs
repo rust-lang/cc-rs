@@ -1445,6 +1445,19 @@ impl Build {
     }
 }
 
+/// Source, object, and working directory for an `is_flag_supported` probe.
+///
+/// Tempfiles, when used, are removed when this value is dropped.
+struct FlagSupportProbeFiles<'a> {
+    dir: Cow<'a, Path>,
+    src: PathBuf,
+    obj: PathBuf,
+    _temp_files: Option<(
+        crate::tempfile::NamedTempfile,
+        crate::tempfile::NamedTempfile,
+    )>,
+}
+
 /// Invoke or fetch the compiler or archiver.
 impl Build {
     /// Run the compiler to test if it accepts the given flag.
@@ -1466,23 +1479,79 @@ impl Build {
         )
     }
 
-    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
-        let out_dir = self.get_out_dir()?;
-        let src = if self.cuda {
+    fn flag_check_src_name(&self) -> &'static str {
+        if self.cuda {
             assert!(self.cpp);
-            out_dir.join("flag_check.cu")
+            "flag_check.cu"
         } else if self.cpp {
-            out_dir.join("flag_check.cpp")
+            "flag_check.cpp"
         } else {
-            out_dir.join("flag_check.c")
-        };
+            "flag_check.c"
+        }
+    }
+
+    fn write_flag_check_src(file: &mut fs::File) -> io::Result<()> {
+        write!(file, "int main(void) {{ return 0; }}")
+    }
+
+    fn ensure_check_file(&self) -> Result<PathBuf, Error> {
+        let src = self.get_out_dir()?.join(self.flag_check_src_name());
 
         if !src.exists() {
             let mut f = fs::File::create(&src)?;
-            write!(f, "int main(void) {{ return 0; }}")?;
+            Self::write_flag_check_src(&mut f)?;
         }
 
         Ok(src)
+    }
+
+    /// Directory, source, and object for a flag-support probe.
+    ///
+    /// Cargo build scripts have `OUT_DIR`; reuse `flag_check.c` there so
+    /// probes stay cheap. Callers such as rustc bootstrap do not, and
+    /// treating a missing dir as "unsupported" silently drops flags.
+    /// Fall back to unique tempfiles instead of a shared name in `/tmp`.
+    fn flag_support_probe_files(&self) -> Result<FlagSupportProbeFiles<'_>, Error> {
+        match self.get_out_dir() {
+            Ok(dir) => {
+                let src = self.ensure_check_file()?;
+                let obj = dir.join("flag_check");
+                Ok(FlagSupportProbeFiles {
+                    dir,
+                    src,
+                    obj,
+                    _temp_files: None,
+                })
+            }
+            Err(_) => {
+                let dir = env::temp_dir();
+                fs::create_dir_all(&dir)?;
+
+                let mut tmp_src =
+                    crate::tempfile::NamedTempfile::new(&dir, self.flag_check_src_name())?;
+                let mut tmp_file = tmp_src.take_file().unwrap();
+                Self::write_flag_check_src(&mut tmp_file)?;
+                // Close the handle before invoking the compiler; Windows
+                // cannot open a file that another handle still holds.
+                tmp_file.flush()?;
+                tmp_file.sync_data()?;
+                drop(tmp_file);
+
+                let mut tmp_obj = crate::tempfile::NamedTempfile::new(&dir, "flag_check")?;
+                // Same as the source file: the compiler must be able to
+                // overwrite this path, so drop the open handle first.
+                drop(tmp_obj.take_file());
+
+                let src = tmp_src.path().to_owned();
+                let obj = tmp_obj.path().to_owned();
+                Ok(FlagSupportProbeFiles {
+                    dir: Cow::Owned(dir),
+                    src,
+                    obj,
+                    _temp_files: Some((tmp_src, tmp_obj)),
+                })
+            }
+        }
     }
 
     fn is_flag_supported_inner(
@@ -1507,51 +1576,7 @@ impl Build {
             return Ok(is_supported);
         }
 
-        // Cargo build scripts have `OUT_DIR`; reuse `flag_check.c` there so
-        // probes stay cheap. Callers such as rustc bootstrap do not, and
-        // treating a missing dir as "unsupported" silently drops flags.
-        // Fall back to unique tempfiles instead of a shared name in `/tmp`.
-        // Held until `cmd.output()` returns so Drop can remove the temp files.
-        let mut temp_files = None;
-        let (out_dir, src, obj) = match self.get_out_dir() {
-            Ok(out_dir) => {
-                let src = self.ensure_check_file()?;
-                let obj = out_dir.join("flag_check");
-                (out_dir, src, obj)
-            }
-            Err(_) => {
-                let tmp_dir = env::temp_dir();
-                fs::create_dir_all(&tmp_dir)?;
-
-                let suffix = if self.cuda {
-                    assert!(self.cpp);
-                    "flag_check.cu"
-                } else if self.cpp {
-                    "flag_check.cpp"
-                } else {
-                    "flag_check.c"
-                };
-
-                let mut tmp_src = crate::tempfile::NamedTempfile::new(&tmp_dir, suffix)?;
-                let mut tmp_file = tmp_src.take_file().unwrap();
-                tmp_file.write_all(b"int main(void) { return 0; }")?;
-                // Close the handle before invoking the compiler; Windows
-                // cannot open a file that another handle still holds.
-                tmp_file.flush()?;
-                tmp_file.sync_data()?;
-                drop(tmp_file);
-
-                let mut tmp_obj = crate::tempfile::NamedTempfile::new(&tmp_dir, "flag_check")?;
-                // Same as the source file: the compiler must be able to
-                // overwrite this path, so drop the open handle first.
-                drop(tmp_obj.take_file());
-
-                let src = tmp_src.path().to_owned();
-                let obj = tmp_obj.path().to_owned();
-                temp_files = Some((tmp_src, tmp_obj));
-                (Cow::Owned(tmp_dir), src, obj)
-            }
-        };
+        let probe = self.flag_support_probe_files()?;
 
         let mut compiler = {
             let mut cfg = Build::new();
@@ -1562,7 +1587,7 @@ impl Build {
                 .debug(false)
                 .cpp(self.cpp)
                 .cuda(self.cuda)
-                .out_dir(&*out_dir)
+                .out_dir(&*probe.dir)
                 .inherit_rustflags(false)
                 .inherit_trim_paths(false)
                 .emit_rerun_if_env_changed(self.emit_rerun_if_env_changed);
@@ -1597,7 +1622,7 @@ impl Build {
         cmd.set_flag_supported_env(&self.env);
         command_add_output_file(
             &mut cmd,
-            &obj,
+            &probe.obj,
             CmdAddOutputFileArgs {
                 cuda: self.cuda,
                 is_assembler_msvc: false,
@@ -1619,7 +1644,7 @@ impl Build {
             cmd.arg("--");
         }
 
-        cmd.arg(&src);
+        cmd.arg(&probe.src);
 
         if compiler.is_like_msvc() {
             // On MSVC we need to make sure the LIB directory is included
@@ -1632,11 +1657,11 @@ impl Build {
             }
         }
 
-        cmd.current_dir(out_dir);
+        cmd.current_dir(&*probe.dir);
         self.cargo_output
             .print_debug(&format_args!("running: {cmd:?}"));
         let output = cmd.output()?;
-        drop(temp_files);
+        drop(probe);
         let is_supported = output.status.success() && output.stderr.is_empty();
 
         self.build_cache
