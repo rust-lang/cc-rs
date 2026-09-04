@@ -1,6 +1,6 @@
 [package]
 name = "find-msvc-tools"
-version = "0.1.11"
+version = "0.1.12"
 edition.workspace = true
 rust-version.workspace = true
 description = "Find windows-specific tools, read MSVC versions from the registry and from COM interfaces"
