@@ -508,8 +508,8 @@ jobs:
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
 
-  rustfmt:
-    name: Rustfmt
+  check-format:
+    name: Check formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -521,8 +521,12 @@ jobs:
           cache: false
           components: rustfmt
           toolchain: stable
+      - uses: tombi-toml/setup-tombi@df58d64dbb5163ba3413f0b75b4251e3fb5d250d # v1.2.51
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo fmt -- --check
+      - name: Check Rust formatting
+        run: cargo fmt -- --check
+      - name: Check TOML formatting
+        run: tombi format --check
 
   semver-checks:
     runs-on: ubuntu-latest
@@ -548,7 +552,7 @@ jobs:
       - cuda
       - msrv
       - clippy
-      - rustfmt
+      - check-format
       - semver-checks
     if: always() # always run even if dependencies fail
     runs-on: ubuntu-latest
