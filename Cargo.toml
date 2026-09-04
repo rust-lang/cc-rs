@@ -1,6 +1,6 @@
 [package]
 name = "cc"
-version = "1.4.4"
+version = "1.4.5"
 edition.workspace = true
 rust-version.workspace = true
 description = """
@@ -48,7 +48,7 @@ missing_docs = "warn"
 unexpected_cfgs = { level = "allow", check-cfg = ['cfg(disable_clang_cl_tests)'] }
 
 [dependencies]
-find-msvc-tools = { path = "find-msvc-tools", version = "0.1.11" }
+find-msvc-tools = { path = "find-msvc-tools", version = "0.1.12" }
 jobserver = { version = "0.1.30", default-features = false, optional = true }
 shlex = "2.0.1"
 
