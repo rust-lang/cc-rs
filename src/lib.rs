@@ -4857,10 +4857,23 @@ impl AsmFileExt {
     }
 }
 
-fn check_exe(mut exe: PathBuf) -> Option<PathBuf> {
+fn check_exe(exe: PathBuf) -> Option<PathBuf> {
+    if exe.exists() {
+        return Some(exe);
+    }
     let exe_ext = std::env::consts::EXE_EXTENSION;
-    let check = exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists());
-    check.then_some(exe)
+    if exe_ext.is_empty() {
+        return None;
+    }
+    // TODO: Replace the code below with `exe.add_extension(exe_ext)` when MSRV supports it.
+    let _ = exe.file_name()?;
+    let with_ext = {
+        let mut buf = exe.into_os_string();
+        buf.push(".");
+        buf.push(exe_ext);
+        PathBuf::from(buf)
+    };
+    with_ext.exists().then_some(with_ext)
 }
 
 #[cfg(test)]
