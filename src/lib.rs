@@ -4859,7 +4859,12 @@ impl AsmFileExt {
 
 fn check_exe(mut exe: PathBuf) -> Option<PathBuf> {
     let exe_ext = std::env::consts::EXE_EXTENSION;
-    let check = exe.exists() || (!exe_ext.is_empty() && exe.set_extension(exe_ext) && exe.exists());
+    // TODO: Should we just append exe_extension, in case you have something like /path/to/cc.foo?
+    let check = exe.exists()
+        || (!exe_ext.is_empty()
+            && exe.extension().is_none()
+            && exe.set_extension(exe_ext)
+            && exe.exists());
     check.then_some(exe)
 }
 
