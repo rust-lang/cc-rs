@@ -1,7 +1,7 @@
 #![allow(missing_docs)]
 
 use std::env;
-use std::ffi::OsString;
+use std::ffi::{OsStr, OsString};
 use std::path::Path;
 
 mod support;
@@ -120,6 +120,9 @@ fn clang_cl() {
             assert_eq!(compiler.path(), Path::new(&*bin));
             assert!(compiler.is_like_msvc());
             assert!(compiler.is_like_clang_cl());
+            let cmd = compiler.to_command();
+            let args = cmd.get_args().collect::<Vec<_>>();
+            assert!(args.contains(&OsStr::new("--driver-mode=cl")), "{args:?}");
         };
         test_compiler(test.gcc());
     }
