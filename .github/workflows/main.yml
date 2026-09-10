@@ -201,13 +201,13 @@ jobs:
         if: matrix.build == 'mingw32'
         shell: pwsh
         run: |
-          # Locate the true 32-bit gcc installed by MSYS2
-          $gcc32 = (Get-Command gcc.exe -All | Where-Object { $_.Source -match 'mingw32' } | Select-Object -First 1).Source
+          $msysRoot = "${{ steps.msys2.outputs.msys2-location }}"
+          $binDir = Join-Path $msysRoot "mingw32\bin"
+          $gcc32 = Join-Path $binDir "gcc.exe"
           if (-not $gcc32) {
             throw "Could not find 32-bit mingw32 gcc.exe in PATH"
           }
 
-          $binDir = Split-Path $gcc32
           Write-Host "32-bit MinGW directory: $binDir"
 
           # Prepend the 32-bit path to GITHUB_PATH so it supersedes C:\mingw64
