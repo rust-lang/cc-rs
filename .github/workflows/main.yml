@@ -189,14 +189,21 @@ jobs:
         env:
           CC: ${{ matrix.CC }}
           CXX: ${{ matrix.CXX }}
-      - name: Add i686-w64-mingw32-gcc
+      - name: Install 32-bit MinGW toolchain
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: false
+          install: mingw-w64-i686-gcc
+          path-type: inherit
+        if: matrix.build == 'mingw32'
+      - name: Configure 32-bit MinGW environment
+        if: matrix.build == 'mingw32'
         shell: pwsh
         run: |
           echo "C:\msys64\mingw32\bin" >> $env:GITHUB_PATH
-          if (Test-Path "C:\msys64\mingw32\bin\gcc.exe") {
-            Copy-Item "C:\msys64\mingw32\bin\gcc.exe" "C:\msys64\mingw32\bin\i686-w64-mingw32-gcc.exe" -Force
-          }
-        if: matrix.build == 'mingw32'
+          echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=C:\msys64\mingw32\bin\gcc.exe" >> $env:GITHUB_ENV
+          echo "CC_i686_pc_windows_gnu=C:\msys64\mingw32\bin\gcc.exe" >> $env:GITHUB_ENV
       - name: Install llvm tools (for llvm-ar)
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
         run: sudo apt-get install llvm
