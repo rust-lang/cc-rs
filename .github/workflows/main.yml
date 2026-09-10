@@ -40,7 +40,7 @@ jobs:
             win64,
             mingw32,
             mingw64,
-            windows-2022,
+            windows-latest,
           ]
         cargo_flags: ['', '--release', '--features parallel']
         include:
@@ -126,7 +126,7 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: win32
-            os: windows-2022
+            os: windows-latest
             rust: stable-i686-msvc
             target: i686-pc-windows-msvc
           - build: win64
@@ -134,25 +134,25 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: mingw32
-            os: windows-2022
-            rust: stable-i686-gnu
+            os: windows-latest
+            rust: stable
             target: i686-pc-windows-gnu
           - build: mingw64
             os: windows-latest
-            rust: stable-x86_64-gnu
+            rust: stable
             target: x86_64-pc-windows-gnu
-          - build: windows-2022
-            os: windows-2022
-            rust: stable-x86_64
+          - build: windows-latest
+            os: windows-latest
+            rust: stable
             target: x86_64-pc-windows-msvc
           - build: windows-clang
-            os: windows-2022
+            os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
             CC: clang
             CXX: clang++
           - build: windows-clang-cl
-            os: windows-2022
+            os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
             CC: clang-cl
@@ -305,6 +305,7 @@ jobs:
           cache: false
           components: rust-src
           toolchain: nightly
+          target: ${{ matrix.target }}
       - run: cargo update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
@@ -358,6 +359,7 @@ jobs:
           cache: false
           components: rust-src
           toolchain: nightly
+          target: ${{ matrix.target }}
       - run: cargo update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }}
@@ -424,7 +426,7 @@ jobs:
 
   cuda:
     name: Test CUDA support
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
