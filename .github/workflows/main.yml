@@ -40,7 +40,7 @@ jobs:
             win64,
             mingw32,
             mingw64,
-            windows-2022,
+            windows-latest,
           ]
         cargo_flags: ['', '--release', '--features parallel']
         include:
@@ -126,33 +126,33 @@ jobs:
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: win32
-            os: windows-2022
-            rust: stable-i686-msvc
+            os: windows-latest
+            rust: stable
             target: i686-pc-windows-msvc
           - build: win64
             os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
           - build: mingw32
-            os: windows-2022
-            rust: stable-i686-gnu
+            os: windows-latest
+            rust: stable
             target: i686-pc-windows-gnu
           - build: mingw64
             os: windows-latest
-            rust: stable-x86_64-gnu
+            rust: stable
             target: x86_64-pc-windows-gnu
-          - build: windows-2022
-            os: windows-2022
-            rust: stable-x86_64
+          - build: windows-latest
+            os: windows-latest
+            rust: stable
             target: x86_64-pc-windows-msvc
           - build: windows-clang
-            os: windows-2022
+            os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
             CC: clang
             CXX: clang++
           - build: windows-clang-cl
-            os: windows-2022
+            os: windows-latest
             rust: stable
             target: x86_64-pc-windows-msvc
             CC: clang-cl
@@ -161,8 +161,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - run: curl -vv https://static.rust-lang.org/dist/channel-rust-1.87.0.toml.sha256
-        shell: bash
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
         with:
@@ -189,6 +187,34 @@ jobs:
         env:
           CC: ${{ matrix.CC }}
           CXX: ${{ matrix.CXX }}
+      - name: Install 32-bit MinGW toolchain
+        id: msys2
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW32
+          update: false
+          install: mingw-w64-i686-gcc
+          path-type: inherit
+        if: matrix.build == 'mingw32'
+      - name: Configure 32-bit MinGW environment
+        if: matrix.build == 'mingw32'
+        shell: pwsh
+        run: |
+          $msysRoot = "${{ steps.msys2.outputs.msys2-location }}"
+          $binDir = Join-Path $msysRoot "mingw32\bin"
+          $gcc32 = Join-Path $binDir "gcc.exe"
+          if (-not $gcc32) {
+            throw "Could not find 32-bit mingw32 gcc.exe in PATH"
+          }
+
+          Write-Host "32-bit MinGW directory: $binDir"
+
+          # Prepend the 32-bit path to GITHUB_PATH so it supersedes C:\mingw64
+          echo "$binDir" >> $env:GITHUB_PATH
+
+          # Set the target-specific linker and C compiler variables
+          echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=$gcc32" >> $env:GITHUB_ENV
+          echo "CC_i686_pc_windows_gnu=$gcc32" >> $env:GITHUB_ENV
       - name: Install llvm tools (for llvm-ar)
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
         run: sudo apt-get install llvm
@@ -424,7 +450,7 @@ jobs:
 
   cuda:
     name: Test CUDA support
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -432,12 +458,15 @@ jobs:
       - name: Install cuda-minimal-build-11-8
         working-directory: ${{ runner.temp }}
         shell: bash
-        run: |
-          # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
-          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
-          sudo dpkg -i cuda-keyring_1.0-1_all.deb
+        run: |    
+          # Fetch the keyring matching Ubuntu 24.04
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
-          sudo apt-get -y install cuda-minimal-build-11-8
+
+          # Install modern CUDA minimal build (native GCC 13 support)
+          sudo apt-get -y install cuda-minimal-build-12-6
+
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
       - uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2.87.2
