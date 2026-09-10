@@ -189,13 +189,13 @@ jobs:
         env:
           CC: ${{ matrix.CC }}
           CXX: ${{ matrix.CXX }}
-      - name: Setup MinGW32
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW32
-          update: false
-          install: mingw-w64-i686-gcc
-          path-type: inherit
+      - name: Add i686-w64-mingw32-gcc
+        shell: pwsh
+        run: |
+          echo "C:\msys64\mingw32\bin" >> $env:GITHUB_PATH
+          if (Test-Path "C:\msys64\mingw32\bin\gcc.exe") {
+            Copy-Item "C:\msys64\mingw32\bin\gcc.exe" "C:\msys64\mingw32\bin\i686-w64-mingw32-gcc.exe" -Force
+          }
         if: matrix.build == 'mingw32'
       - name: Install llvm tools (for llvm-ar)
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
