@@ -201,9 +201,8 @@ jobs:
         if: matrix.build == 'mingw32'
         shell: pwsh
         run: |
-          echo "C:\msys64\mingw32\bin" >> $env:GITHUB_PATH
-          echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=C:\msys64\mingw32\bin\gcc.exe" >> $env:GITHUB_ENV
-          echo "CC_i686_pc_windows_gnu=C:\msys64\mingw32\bin\gcc.exe" >> $env:GITHUB_ENV
+          echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=gcc.exe" >> $env:GITHUB_ENV
+          echo "CC_i686_pc_windows_gnu=gcc.exe" >> $env:GITHUB_ENV
       - name: Install llvm tools (for llvm-ar)
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
         run: sudo apt-get install llvm
