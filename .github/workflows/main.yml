@@ -127,7 +127,7 @@ jobs:
             target: x86_64-pc-windows-msvc
           - build: win32
             os: windows-latest
-            rust: stable-i686-msvc
+            rust: stable
             target: i686-pc-windows-msvc
           - build: win64
             os: windows-latest
@@ -305,7 +305,6 @@ jobs:
           cache: false
           components: rust-src
           toolchain: nightly
-          target: ${{ matrix.target }}
       - run: cargo update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
@@ -434,12 +433,15 @@ jobs:
       - name: Install cuda-minimal-build-11-8
         working-directory: ${{ runner.temp }}
         shell: bash
-        run: |
-          # https://developer.nvidia.com/cuda-downloads?target_os=Linux&target_arch=x86_64&Distribution=Ubuntu&target_version=20.04&target_type=deb_network
-          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2004/x86_64/cuda-keyring_1.0-1_all.deb
-          sudo dpkg -i cuda-keyring_1.0-1_all.deb
+        run: |    
+          # Fetch the keyring matching Ubuntu 24.04
+          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+          sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
-          sudo apt-get -y install cuda-minimal-build-11-8
+
+          # Install modern CUDA minimal build (native GCC 13 support)
+          sudo apt-get -y install cuda-minimal-build-12-6
+
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
       - uses: taiki-e/install-action@1ed6d7be6168f6c9046541087ff549b6bc581fdf # v2.87.2
