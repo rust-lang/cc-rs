@@ -201,8 +201,21 @@ jobs:
         if: matrix.build == 'mingw32'
         shell: pwsh
         run: |
-          echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=gcc.exe" >> $env:GITHUB_ENV
-          echo "CC_i686_pc_windows_gnu=gcc.exe" >> $env:GITHUB_ENV
+          # Locate the true 32-bit gcc installed by MSYS2
+          $gcc32 = (Get-Command gcc.exe -All | Where-Object { $_.Source -match 'mingw32' } | Select-Object -First 1).Source
+          if (-not $gcc32) {
+            throw "Could not find 32-bit mingw32 gcc.exe in PATH"
+          }
+
+          $binDir = Split-Path $gcc32
+          Write-Host "32-bit MinGW directory: $binDir"
+
+          # Prepend the 32-bit path to GITHUB_PATH so it supersedes C:\mingw64
+          echo "$binDir" >> $env:GITHUB_PATH
+
+          # Set the target-specific linker and C compiler variables
+          echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=$gcc32" >> $env:GITHUB_ENV
+          echo "CC_i686_pc_windows_gnu=$gcc32" >> $env:GITHUB_ENV
       - name: Install llvm tools (for llvm-ar)
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
         run: sudo apt-get install llvm
