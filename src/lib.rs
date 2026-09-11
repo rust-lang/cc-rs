@@ -1817,6 +1817,10 @@ impl Build {
                 } else if cfg!(target_env = "msvc") {
                     libdir.push("lib");
                     match target.arch {
+                        "aarch64" => {
+                            libdir.push("arm64");
+                            libtst = true;
+                        }
                         "x86_64" => {
                             libdir.push("x64");
                             libtst = true;
