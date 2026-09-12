@@ -35,7 +35,7 @@ pub fn generate_bindings() {
         "--sys",
         "--out",
         temp_file.path().to_str().unwrap(),
-        "--filter",
+        "--filter-file",
         &filter,
     ]);
 
