@@ -7,7 +7,7 @@ publish = false
 [dependencies]
 regex = "1.9"
 tempfile = "3"
-windows-bindgen = "0.66"
+windows-bindgen = "0.100"
 
 [lints]
 workspace = true
