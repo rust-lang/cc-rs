@@ -1,16 +1,8 @@
-Windows.Win32.Foundation.FILETIME
-Windows.Win32.Foundation.WIN32_ERROR
-Windows.Win32.Foundation.WIN32_ERROR
-Windows.Win32.Foundation.HRESULT
-Windows.Win32.Foundation.HRESULT
-Windows.Win32.Foundation.BOOL
-Windows.Win32.Foundation.HANDLE
-Windows.Win32.Foundation.WAIT_EVENT
-Windows.Win32.Foundation.WAIT_EVENT
-Windows.Win32.Foundation.WAIT_EVENT
-Windows.Win32.Foundation.WAIT_EVENT
+Windows.Win32.Foundation
 
 Windows.Win32.System.LibraryLoader.FreeLibrary
+Windows.Win32.System.LibraryLoader.GetProcAddress
+Windows.Win32.System.LibraryLoader.LoadLibraryA
 
 Windows.Win32.System.Ole.SysFreeString
 Windows.Win32.System.Ole.SysStringLen
@@ -22,30 +14,24 @@ Windows.Win32.System.Com.COINIT
 Windows.Win32.System.Com.CoCreateInstance
 Windows.Win32.System.Com.CoInitializeEx
 
-Windows.Win32.System.LibraryLoader.GetProcAddress
-Windows.Win32.System.LibraryLoader.LoadLibraryA
-
 Windows.Win32.System.Pipes.PeekNamedPipe
 
+Windows.Win32.System.Registry.HKEY
+Windows.Win32.System.Registry.REG_SAM_FLAGS
+Windows.Win32.System.Registry.REG_VALUE_TYPE
 Windows.Win32.System.Registry.RegCloseKey
 Windows.Win32.System.Registry.RegEnumKeyExW
 Windows.Win32.System.Registry.RegOpenKeyExW
 Windows.Win32.System.Registry.RegQueryValueExW
-Windows.Win32.System.Registry.HKEY
-Windows.Win32.System.Registry.HKEY
-Windows.Win32.System.Registry.REG_SAM_FLAGS
-Windows.Win32.System.Registry.REG_SAM_FLAGS
-Windows.Win32.System.Registry.REG_VALUE_TYPE
 
-Windows.Win32.System.SystemInformation.IMAGE_FILE_MACHINE
+Windows.Win32.Storage.FileSystem.FILE_FLAGS_AND_ATTRIBUTES
+
 Windows.Win32.System.SystemInformation.GetMachineTypeAttributes
+Windows.Win32.System.SystemInformation.IMAGE_FILE_MACHINE
 Windows.Win32.System.SystemInformation.MACHINE_ATTRIBUTES
 
-Windows.Win32.Storage.FileSystem.FILE_FLAGS_AND_ATTRIBUTE
-
+Windows.Win32.System.Threading.OpenSemaphoreA
 Windows.Win32.System.Threading.ReleaseSemaphore
-Windows.Win32.System.Threading.WaitForSingleObject
 Windows.Win32.System.Threading.SEMAPHORE_ACCESS_RIGHTS
 Windows.Win32.System.Threading.THREAD_ACCESS_RIGHTS
-Windows.Win32.System.Threading.OpenSemaphoreA
-
+Windows.Win32.System.Threading.WaitForSingleObject
