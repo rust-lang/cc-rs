@@ -1,49 +1,51 @@
-FILETIME
-ERROR_NO_MORE_ITEMS
-ERROR_SUCCESS
-SysFreeString
-SysStringLen
-S_FALSE
-S_OK
-FALSE
-HANDLE
-WAIT_OBJECT_0
-WAIT_TIMEOUT
-WAIT_FAILED
-WAIT_ABANDONED
-FreeLibrary
+Windows.Win32.Foundation.FILETIME
+Windows.Win32.Foundation.WIN32_ERROR
+Windows.Win32.Foundation.WIN32_ERROR
+Windows.Win32.Foundation.HRESULT
+Windows.Win32.Foundation.HRESULT
+Windows.Win32.Foundation.BOOL
+Windows.Win32.Foundation.HANDLE
+Windows.Win32.Foundation.WAIT_EVENT
+Windows.Win32.Foundation.WAIT_EVENT
+Windows.Win32.Foundation.WAIT_EVENT
+Windows.Win32.Foundation.WAIT_EVENT
 
-SAFEARRAY
-SAFEARRAYBOUND
-CLSCTX_ALL
-COINIT_MULTITHREADED
-CoCreateInstance
-CoInitializeEx
+Windows.Win32.System.LibraryLoader.FreeLibrary
 
-GetProcAddress
-LoadLibraryA
+Windows.Win32.System.Ole.SysFreeString
+Windows.Win32.System.Ole.SysStringLen
+Windows.Win32.System.Ole.SAFEARRAY
+Windows.Win32.System.Ole.SAFEARRAYBOUND
 
-PeekNamedPipe
+Windows.Win32.System.Com.CLSCTX
+Windows.Win32.System.Com.COINIT
+Windows.Win32.System.Com.CoCreateInstance
+Windows.Win32.System.Com.CoInitializeEx
 
-RegCloseKey
-RegEnumKeyExW
-RegOpenKeyExW
-RegQueryValueExW
-HKEY
-HKEY_LOCAL_MACHINE
-KEY_READ
-KEY_WOW64_32KEY
-REG_SZ
+Windows.Win32.System.LibraryLoader.GetProcAddress
+Windows.Win32.System.LibraryLoader.LoadLibraryA
 
-IMAGE_FILE_MACHINE_AMD64
+Windows.Win32.System.Pipes.PeekNamedPipe
 
-FILE_ATTRIBUTE_TEMPORARY
+Windows.Win32.System.Registry.RegCloseKey
+Windows.Win32.System.Registry.RegEnumKeyExW
+Windows.Win32.System.Registry.RegOpenKeyExW
+Windows.Win32.System.Registry.RegQueryValueExW
+Windows.Win32.System.Registry.HKEY
+Windows.Win32.System.Registry.HKEY
+Windows.Win32.System.Registry.REG_SAM_FLAGS
+Windows.Win32.System.Registry.REG_SAM_FLAGS
+Windows.Win32.System.Registry.REG_VALUE_TYPE
 
-GetMachineTypeAttributes
-ReleaseSemaphore
-WaitForSingleObject
-SEMAPHORE_MODIFY_STATE
-THREAD_SYNCHRONIZE
-UserEnabled
+Windows.Win32.System.SystemInformation.IMAGE_FILE_MACHINE
+Windows.Win32.System.SystemInformation.GetMachineTypeAttributes
+Windows.Win32.System.SystemInformation.MACHINE_ATTRIBUTES
 
-OpenSemaphoreA
+Windows.Win32.Storage.FileSystem.FILE_FLAGS_AND_ATTRIBUTE
+
+Windows.Win32.System.Threading.ReleaseSemaphore
+Windows.Win32.System.Threading.WaitForSingleObject
+Windows.Win32.System.Threading.SEMAPHORE_ACCESS_RIGHTS
+Windows.Win32.System.Threading.THREAD_ACCESS_RIGHTS
+Windows.Win32.System.Threading.OpenSemaphoreA
+
