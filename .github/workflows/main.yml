@@ -497,32 +497,23 @@ jobs:
         x86_64-pc-windows-gnu
         x86_64-pc-windows-msvc
         x86_64-unknown-linux-gnu
-
+      # TODO(MSRV>=1.70): Remove once sparse is enabled by default.
+      CARGO_REGISTRIES_CRATES_IO_PROTOCOL: sparse
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Get msrv
-        uses: ./.github/actions/get-msrv
-      - name: Install Rust
-        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
-        with:
-          cache: false
-          target: ${{ env.TARGETS }}
-          toolchain: ${{ env.MSRV }}
       - uses: taiki-e/install-action@3f74d7c16a4242f1c95561e98edc25d36adb4375 # v2.87.12
         with:
           tool: |
             cargo-hack
             cargo-minimal-versions
           fallback: none
-      # Cache the crates.io registry because older Cargo versions do not support the sparse registry protocol.
-      # TODO: Consider whether this is necessary once the MSRV is >= 1.68.
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: |
           cargo minimal-versions check \
             --workspace \
             --feature-powerset \
+            --rust-version \
             --ignore-private \
             $(printf '%s\n' "$TARGETS" | xargs -n1 printf -- '--target %s ')
 
