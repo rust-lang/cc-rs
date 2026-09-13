@@ -1,6 +1,6 @@
 [package]
 name = "cc"
-version = "1.4.5"
+version = "1.4.6"
 edition.workspace = true
 rust-version.workspace = true
 description = """
