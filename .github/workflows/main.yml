@@ -485,11 +485,9 @@ jobs:
 
   msrv:
     name: MSRV
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ubuntu-latest
+    # TODO: switch to a matrix build once the MSRV is >= 1.68, which supports Cargo's sparse registry protocol.
+    # Without it, each job would cache the Git-based crates.io index, each adding ~690 MB to the GitHub Actions cache.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -500,15 +498,24 @@ jobs:
         uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
         with:
           cache: false
+          target: |
+            aarch64-apple-darwin
+            wasm32-unknown-unknown
+            x86_64-pc-windows-msvc
+            x86_64-unknown-linux-gnu
           toolchain: ${{ env.MSRV }}
       - uses: taiki-e/install-action@e67fa11c4b9316fa714ddf0abed07a0c3143b95b # v2.87.4
         with:
-          tool: |
-            cargo-hack
-            cargo-minimal-versions
+          tool: cargo-hack
           fallback: none
+      # Cache the crates.io registry because older Cargo versions do not support the sparse registry protocol.
+      # This can be removed once the MSRV is >= 1.68.
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
-      - run: cargo minimal-versions check --workspace --all-targets --feature-powerset --ignore-private
+      - run: RUSTC_BOOTSTRAP=1 cargo -Zminimal-versions generate-lockfile
+      - run: cargo hack check --locked --workspace --all-targets --feature-powerset --ignore-private --target aarch64-apple-darwin
+      - run: cargo hack check --locked --workspace --all-targets --feature-powerset --ignore-private --target wasm32-unknown-unknown
+      - run: cargo hack check --locked --workspace --all-targets --feature-powerset --ignore-private --target x86_64-pc-windows-msvc
+      - run: cargo hack check --locked --workspace --all-targets --feature-powerset --ignore-private --target x86_64-unknown-linux-gnu
 
   clippy:
     name: Clippy
