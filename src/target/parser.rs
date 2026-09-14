@@ -439,7 +439,9 @@ impl<'a> TargetInfo<'a> {
             "powerpc64-unknown-linux-gnu",
             "powerpc64-wrs-vxworks",
             "powerpc64-sony-ps3",
-        ].contains(&target) {
+        ]
+        .contains(&target)
+        {
             abi = "elfv1";
         }
         if [
