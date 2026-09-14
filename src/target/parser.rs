@@ -383,6 +383,9 @@ impl<'a> TargetInfo<'a> {
             "armv7-unknown-linux-ohos" | "armv7-unknown-trusty" => {
                 abi = "eabi";
             }
+            "sparc-unknown-linux-gnu" => {
+                abi = "v8plus";
+            }
             _ => {}
         }
 
@@ -432,7 +435,11 @@ impl<'a> TargetInfo<'a> {
         if vendor == "uwp" {
             abi = "uwp";
         }
-        if ["powerpc64-unknown-linux-gnu", "powerpc64-wrs-vxworks"].contains(&target) {
+        if [
+            "powerpc64-unknown-linux-gnu",
+            "powerpc64-wrs-vxworks",
+            "powerpc64-sony-ps3",
+        ].contains(&target) {
             abi = "elfv1";
         }
         if [
