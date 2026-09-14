@@ -177,6 +177,10 @@ fn parse_arch(full_arch: &str) -> Option<&str> {
         // https://github.com/Clever-ISA/Clever-ISA
         arch if arch.starts_with("clever") => "clever",
 
+        // https://github.com/llvm-z80/rust-z80
+        "z80" => "z80",
+        "sm83" => "sm83",
+
         "sparc" | "sparcv7" | "sparcv8" => "sparc",
         "sparc64" | "sparcv9" => "sparc64",
 
