@@ -31,12 +31,8 @@ pub fn generate_bindings() {
 
     // Generate bindings.
     windows_bindgen::bindgen([
-        "--flat",
-        "--sys",
-        "--no-deps",
         "--out",
         temp_file.path().to_str().unwrap(),
-        "--filter",
         "--etc",
         &filter,
     ]);
