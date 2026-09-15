@@ -314,16 +314,12 @@ pub(crate) fn objects_from_files(files: &[Arc<Path>], dst: &Path) -> Result<Vec<
             cargo_env_var_os(var).and_then(|root| {
                 dirname
                     .strip_prefix(&*root.to_string_lossy())
-                    .map(str::to_owned)
+                    .map(|rel| Cow::Owned(rel.to_owned()))
             })
         };
-        let dirname = if let Some(rel) = strip_root("OUT_DIR") {
-            Cow::Owned(rel)
-        } else if let Some(rel) = strip_root("CARGO_MANIFEST_DIR") {
-            Cow::Owned(rel)
-        } else {
-            dirname
-        };
+        let dirname = strip_root("OUT_DIR")
+            .or_else(|| strip_root("CARGO_MANIFEST_DIR"))
+            .unwrap_or(dirname);
 
         hasher.write(dirname.as_bytes());
         if let Some(extension) = file.extension() {
