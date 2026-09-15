@@ -1043,6 +1043,30 @@ fn parent_dir_with_multiple_files() {
 }
 
 #[test]
+fn out_dir_source_object_name_does_not_depend_on_build_path() {
+    // Regression test for issue #1901
+    // https://github.com/rust-lang/cc-rs/issues/1901
+    // The object file name for a source under OUT_DIR must not change when
+    // OUT_DIR moves, or the build path ends up in the output.
+
+    fn object_name(mut test: Test) -> std::ffi::OsString {
+        let out_dir = test.td.path().to_path_buf();
+        test.env.set("OUT_DIR", &out_dir);
+        let intermediates = test
+            .gcc()
+            .file(out_dir.join("gen.c"))
+            .compile_intermediates();
+        assert_eq!(intermediates.len(), 1);
+        intermediates[0].file_name().unwrap().to_os_string()
+    }
+
+    // Each Test gets its own tempdir, so the two OUT_DIRs differ.
+    let first = object_name(Test::gnu());
+    let second = object_name(Test::gnu());
+    assert_eq!(first, second, "object name depends on OUT_DIR location");
+}
+
+#[test]
 fn cc_env_vars_not_overridable() {
     let test = Test::gnu();
     test.gcc()
