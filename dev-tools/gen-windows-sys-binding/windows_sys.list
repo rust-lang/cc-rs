@@ -39,6 +39,6 @@ GetMachineTypeAttributes
 ReleaseSemaphore
 WaitForSingleObject
 SEMAPHORE_MODIFY_STATE
-SYNCHRONIZE
+THREAD_ACCESS_RIGHTS
 UserEnabled
 OpenSemaphoreA
