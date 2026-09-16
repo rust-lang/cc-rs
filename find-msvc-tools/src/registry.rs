@@ -63,7 +63,7 @@ impl RegistryKey {
                 self.raw(),
                 key.as_ptr(),
                 0,
-                KEY_READ | KEY_WOW64_32KEY,
+                (KEY_READ | KEY_WOW64_32KEY).try_into().unwrap(),
                 &mut ret,
             )
         };
