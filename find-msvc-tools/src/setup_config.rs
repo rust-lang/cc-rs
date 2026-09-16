@@ -167,7 +167,7 @@ impl SetupConfiguration {
             CoCreateInstance(
                 &CLSID_SetupConfiguration,
                 null_mut(),
-                CLSCTX_ALL,
+                CLSCTX_ALL.try_into().unwrap(),
                 &ISetupConfiguration::uuidof(),
                 &mut obj,
             )
