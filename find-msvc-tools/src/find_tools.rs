@@ -393,7 +393,12 @@ mod impl_ {
                 .get_proc_address::<GetMachineTypeAttributesFuncType>(b"GetMachineTypeAttributes\0")
         }?;
         let mut attributes = Default::default();
-        if unsafe { get_machine_type_attributes(IMAGE_FILE_MACHINE_AMD64, &mut attributes) } == S_OK
+        if unsafe {
+            get_machine_type_attributes(
+                IMAGE_FILE_MACHINE_AMD64.try_into().unwrap(),
+                &mut attributes,
+            )
+        } == S_OK
         {
             Some((attributes & UserEnabled) != 0)
         } else {
