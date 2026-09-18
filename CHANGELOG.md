@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.7](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.6...cc-v1.4.7) - 2026-09-18
+
+### Fixed
+
+- strip OUT_DIR from the object file name hash too ([#1902](https://github.com/rust-lang/cc-rs/pull/1902))
+- *(deps)* update minimal-versions for wasi ([#1899](https://github.com/rust-lang/cc-rs/pull/1899))
+- search_is_some clippy lint ([#1903](https://github.com/rust-lang/cc-rs/pull/1903))
+
+### Other
+
+- *(deps)* bump release-plz/action from 0.5.135 to 0.5.136 ([#1921](https://github.com/rust-lang/cc-rs/pull/1921))
+- Regenerate target info ([#1924](https://github.com/rust-lang/cc-rs/pull/1924))
+- Regenerate windows sys bindings ([#1926](https://github.com/rust-lang/cc-rs/pull/1926))
+- Fix clippy warning of autogen windows_sys bindjngs ([#1920](https://github.com/rust-lang/cc-rs/pull/1920))
+- Regenerate windows sys bindings ([#1919](https://github.com/rust-lang/cc-rs/pull/1919))
+- Fix use of windows_bindgen::bindgen ([#1914](https://github.com/rust-lang/cc-rs/pull/1914))
+- *(deps)* bump taiki-e/install-action from 2.87.4 to 2.87.9 ([#1915](https://github.com/rust-lang/cc-rs/pull/1915))
+- use cargo-minimal-versions again ([#1910](https://github.com/rust-lang/cc-rs/pull/1910))
+- *(deps)* bump tombi-toml/setup-tombi from 1.5.3 to 1.5.4 ([#1916](https://github.com/rust-lang/cc-rs/pull/1916))
+- *(deps)* bump release-plz/action from 0.5.134 to 0.5.135 ([#1917](https://github.com/rust-lang/cc-rs/pull/1917))
+- *(deps)* bump tombi-toml/setup-tombi from 1.5.2 to 1.5.3 ([#1913](https://github.com/rust-lang/cc-rs/pull/1913))
+- *(deps)* bump release-plz/action from 0.5.133 to 0.5.134 ([#1912](https://github.com/rust-lang/cc-rs/pull/1912))
+- Fix target info parsing ([#1911](https://github.com/rust-lang/cc-rs/pull/1911))
+- rename clippy.toml ([#1909](https://github.com/rust-lang/cc-rs/pull/1909))
+- Add Z80 and SM83 target support ([#1900](https://github.com/rust-lang/cc-rs/pull/1900))
+- *(deps)* bump actions-rust-lang/setup-rust-toolchain from 1.17.0 to 2.0.0 ([#1906](https://github.com/rust-lang/cc-rs/pull/1906))
+- *(deps)* bump tombi-toml/setup-tombi from 1.5.1 to 1.5.2 ([#1907](https://github.com/rust-lang/cc-rs/pull/1907))
+- *(deps)* bump release-plz/action from 0.5.132 to 0.5.133 ([#1908](https://github.com/rust-lang/cc-rs/pull/1908))
+
 ## [1.4.6](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.5...cc-v1.4.6) - 2026-09-11
 
 ### Fixed
