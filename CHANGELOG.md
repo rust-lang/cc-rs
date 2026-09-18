@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.7](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.6...cc-v1.4.7) - 2026-09-18
+
+### Fixed
+
+- strip OUT_DIR from the object file name hash too ([#1902](https://github.com/rust-lang/cc-rs/pull/1902))
+- search_is_some clippy lint ([#1903](https://github.com/rust-lang/cc-rs/pull/1903))
+
+### Other
+
+- Regenerate target info ([#1924](https://github.com/rust-lang/cc-rs/pull/1924))
+- Regenerate windows sys bindings ([#1919](https://github.com/rust-lang/cc-rs/pull/1919))
+- Fix target info parsing ([#1911](https://github.com/rust-lang/cc-rs/pull/1911))
+- Add Z80 and SM83 target support ([#1900](https://github.com/rust-lang/cc-rs/pull/1900))
+
 ## [1.4.6](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.5...cc-v1.4.6) - 2026-09-11
 
 ### Fixed
