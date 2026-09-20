@@ -98,7 +98,7 @@ macro_rules! RIDL {
         RIDL!{@uuid $interface $($uuid),+}
     );
     (@deref $interface:ident $pinterface:ident) => (
-        impl ::std::ops::Deref for $interface {
+        impl ::core::ops::Deref for $interface {
             type Target = $pinterface;
             #[inline]
             fn deref(&self) -> &$pinterface {

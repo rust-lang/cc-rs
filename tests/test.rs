@@ -910,7 +910,7 @@ fn clang_apple_mac_catalyst() {
     if !output.status.success() {
         return;
     }
-    let sdkroot = std::str::from_utf8(&output.stdout).unwrap().trim();
+    let sdkroot = core::str::from_utf8(&output.stdout).unwrap().trim();
 
     let test = Test::clang();
     test.gcc()
@@ -1008,7 +1008,7 @@ fn apple_sdkroot_wrong() {
     dbg!(test.cmd(0).args);
 
     test.cmd(0)
-        .must_have(std::str::from_utf8(&output.stdout).unwrap().trim());
+        .must_have(core::str::from_utf8(&output.stdout).unwrap().trim());
     test.cmd(0).must_not_have(wrong_sdkroot);
 }
 
