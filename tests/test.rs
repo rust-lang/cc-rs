@@ -606,8 +606,8 @@ fn msvc_cpp_cc_source_not_treated_as_object() {
     // `-Tp` it emits D9024 and treats the file as an object input, so the
     // `-Fo` output (e.g. `*-mimalloc-static.o`) is never generated.
     // libmimalloc-sys 0.1.49 writes `OUT_DIR/mimalloc-static.cc` when
-    // `cpp(true)` on MSVC. Use per-file `-Tp` rather than `/TP`, which would
-    // compile every following input as C++.
+    // `cpp(true)` on MSVC. Use per-file `-Tp` only for `.cc` rather than `/TP`,
+    // which would compile every following input as C++.
 
     let test = Test::msvc();
     let src = test.td.path().join("mimalloc-static.cc");
@@ -657,6 +657,52 @@ fn msvc_cpp_cc_source_not_treated_as_object() {
             .any(|arg| arg.ends_with("mimalloc-static.o") && !arg.starts_with("-Fo")),
         "object output path must not appear as a source: {compile_args:?}"
     );
+}
+
+#[test]
+fn msvc_cpp_does_not_pass_tp_for_c_or_cpp() {
+    // `-Tp` is only required for `.cc`. Passing it (or `/TP`) for `.c` would
+    // compile C as C++.
+    let test = Test::msvc();
+    let c_src = test.td.path().join("foo.c");
+    let cpp_src = test.td.path().join("bar.cpp");
+    test.gcc()
+        .cpp(true)
+        .file(&c_src)
+        .file(&cpp_src)
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have(&c_src)
+        .must_not_have("-Tp")
+        .must_not_have("/Tp")
+        .must_not_have("-TP");
+    test.cmd(1)
+        .must_have(&cpp_src)
+        .must_not_have("-Tp")
+        .must_not_have("/Tp")
+        .must_not_have("-TP");
+}
+
+#[test]
+fn clang_cl_cpp_cc_does_not_use_tp() {
+    // clang-cl recognizes `.cc` and uses `--` as a path delimiter. `-Tp` must
+    // not be passed after `--`, and is not needed before it.
+    let test = Test::msvc();
+    test.shim("clang-cl");
+    let src = test.td.path().join("mimalloc-static.cc");
+    test.gcc()
+        .compiler(test.td.path().join("clang-cl"))
+        .cpp(true)
+        .file(&src)
+        .compile_intermediates();
+
+    test.cmd(0)
+        .must_have(&src)
+        .must_have("--")
+        .must_not_have("-Tp")
+        .must_not_have("/Tp")
+        .must_not_have("-TP");
 }
 
 #[test]

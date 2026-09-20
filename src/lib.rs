@@ -867,10 +867,11 @@ impl Build {
     /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
     ///    `None` for MSVC and `stdc++` for anything else.
     ///
-    /// On MSVC this also passes `-Tp` immediately before each source file, so
-    /// inputs such as `.cc` are compiled as C++ rather than assumed to be
+    /// On MSVC this also passes `-Tp` immediately before each `.cc` source file
+    /// to ensure that they are compiled as C++ rather than assumed to be
     /// object files. The per-file form is used instead of `/TP`, which would
-    /// compile every following input as C++.
+    /// compile every following input as C++. clang-cl recognizes `.cc` itself
+    /// and is not passed `-Tp`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
         self
@@ -1997,11 +1998,12 @@ impl Build {
         Ok(cmd)
     }
 
-    /// Append a source path to `cmd`, using MSVC's per-file `-Tp` when compiling
-    /// C++ so unrecognized extensions such as `.cc` are not treated as objects.
+    /// Append a source path to `cmd`, using MSVC's per-file `-Tp` for `.cc`
+    /// sources so they are not treated as objects.
     ///
     /// `-Tp` applies only to the immediately following file, unlike `/TP` which
     /// would compile every subsequent input as C++ (including C sources).
+    /// clang-cl recognizes `.cc` and is not passed `-Tp` (it uses `--` instead).
     fn add_compile_source_arg(
         &self,
         cmd: &mut Command,
@@ -2009,13 +2011,18 @@ impl Build {
         src: &Path,
         is_assembler_msvc: bool,
     ) {
-        if self.cpp && compiler.is_like_msvc() && !is_assembler_msvc {
+        if self.cpp
+            && src.extension() == Some(OsStr::new("cc"))
+            && matches!(compiler.family, ToolFamily::Msvc { clang_cl: false })
+        {
             // MSVC recognizes only `.c` / `.cpp` / `.cxx` as source. A `.cc`
             // file (mimalloc 0.1.52 writes `OUT_DIR/mimalloc-static.cc`) is
             // assumed to be an object unless `-Tp` forces C++ compilation
             // (#1877).
             cmd.arg("-Tp");
-        } else if compiler.supports_path_delimiter() && !is_assembler_msvc {
+        }
+
+        if compiler.supports_path_delimiter() && !is_assembler_msvc {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
             // common `/Users/...` paths as the `/U` flag and triggering
