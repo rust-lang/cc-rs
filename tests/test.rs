@@ -523,7 +523,9 @@ fn msvc_smoke() {
         .must_have("foo.c")
         .must_not_have("-Z7")
         .must_have("-c")
-        .must_have("-MD");
+        .must_have("-MD")
+        .must_not_have("-Tp")
+        .must_not_have("-TP");
     test.cmd(1)
         .must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
 }
@@ -593,6 +595,114 @@ fn msvc_std_c() {
     test.gcc().file("foo.c").std("c11").compile("foo");
 
     test.cmd(0).must_have("-std:c11");
+}
+
+#[test]
+fn msvc_cpp_cc_source_not_treated_as_object() {
+    // Regression test for issue #1877
+    // https://github.com/rust-lang/cc-rs/issues/1877
+    //
+    // MSVC does not recognize `.cc` as C++ (only `.cpp` / `.cxx`). Without
+    // `-Tp` it emits D9024 and treats the file as an object input, so the
+    // `-Fo` output (e.g. `*-mimalloc-static.o`) is never generated.
+    // libmimalloc-sys 0.1.49 writes `OUT_DIR/mimalloc-static.cc` when
+    // `cpp(true)` on MSVC. Use per-file `-Tp` only for `.cc` rather than `/TP`,
+    // which would compile every following input as C++.
+
+    let test = Test::msvc();
+    let src = test.td.path().join("mimalloc-static.cc");
+    let intermediates = test
+        .gcc()
+        .cpp(true)
+        .std("c++17")
+        .file(&src)
+        .compile_intermediates();
+
+    assert_eq!(intermediates.len(), 1);
+    assert!(
+        intermediates[0]
+            .file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.ends_with("mimalloc-static.o")),
+        "object output should be derived from the `.cc` source, got {:?}",
+        intermediates[0]
+    );
+
+    test.cmd(0)
+        .must_have("-Tp")
+        .must_not_have("-TP")
+        .must_have("-std:c++17")
+        .must_have("-c")
+        .must_have(&src);
+
+    let compile_args = &test.cmd(0).args;
+    let src_pos = compile_args
+        .iter()
+        .position(|arg| std::path::Path::new(arg) == src.as_path())
+        .expect("`.cc` source should be passed to the compiler");
+    assert_eq!(
+        compile_args[src_pos - 1],
+        "-Tp",
+        "`.cc` must be the immediate argument to `-Tp`, not a positional object: {compile_args:?}"
+    );
+    assert!(
+        compile_args
+            .iter()
+            .any(|arg| arg.starts_with("-Fo") && arg.ends_with("mimalloc-static.o")),
+        "object output should be the `-Fo` destination: {compile_args:?}"
+    );
+    assert!(
+        !compile_args
+            .iter()
+            .any(|arg| arg.ends_with("mimalloc-static.o") && !arg.starts_with("-Fo")),
+        "object output path must not appear as a source: {compile_args:?}"
+    );
+}
+
+#[test]
+fn msvc_cpp_does_not_pass_tp_for_c_or_cpp() {
+    // `-Tp` is only required for `.cc`. Passing it (or `/TP`) for `.c` would
+    // compile C as C++.
+    let test = Test::msvc();
+    let c_src = test.td.path().join("foo.c");
+    let cpp_src = test.td.path().join("bar.cpp");
+    test.gcc()
+        .cpp(true)
+        .file(&c_src)
+        .file(&cpp_src)
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have(&c_src)
+        .must_not_have("-Tp")
+        .must_not_have("/Tp")
+        .must_not_have("-TP");
+    test.cmd(1)
+        .must_have(&cpp_src)
+        .must_not_have("-Tp")
+        .must_not_have("/Tp")
+        .must_not_have("-TP");
+}
+
+#[test]
+fn clang_cl_cpp_cc_does_not_use_tp() {
+    // clang-cl recognizes `.cc` and uses `--` as a path delimiter. `-Tp` must
+    // not be passed after `--`, and is not needed before it.
+    let test = Test::msvc();
+    test.shim("clang-cl");
+    let src = test.td.path().join("mimalloc-static.cc");
+    test.gcc()
+        .compiler(test.td.path().join("clang-cl"))
+        .cpp(true)
+        .file(&src)
+        .compile_intermediates();
+
+    test.cmd(0)
+        .must_have(&src)
+        .must_have("--")
+        .must_not_have("-Tp")
+        .must_not_have("/Tp")
+        .must_not_have("-TP");
 }
 
 #[test]

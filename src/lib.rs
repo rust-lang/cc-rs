@@ -866,6 +866,12 @@ impl Build {
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
     /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
     ///    `None` for MSVC and `stdc++` for anything else.
+    ///
+    /// On MSVC this also passes `-Tp` immediately before each `.cc` source file
+    /// to ensure that they are compiled as C++ rather than assumed to be
+    /// object files. The per-file form is used instead of `/TP`, which would
+    /// compile every following input as C++. clang-cl recognizes `.cc` itself
+    /// and is not passed `-Tp`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
         self
@@ -1983,6 +1989,39 @@ impl Build {
             cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
         }
 
+        self.add_compile_source_arg(&mut cmd, &compiler, &obj.src, is_assembler_msvc);
+
+        if cfg!(target_os = "macos") {
+            self.fix_env_for_apple_os(&mut cmd)?;
+        }
+
+        Ok(cmd)
+    }
+
+    /// Append a source path to `cmd`, using MSVC's per-file `-Tp` for `.cc`
+    /// sources so they are not treated as objects.
+    ///
+    /// `-Tp` applies only to the immediately following file, unlike `/TP` which
+    /// would compile every subsequent input as C++ (including C sources).
+    /// clang-cl recognizes `.cc` and is not passed `-Tp` (it uses `--` instead).
+    fn add_compile_source_arg(
+        &self,
+        cmd: &mut Command,
+        compiler: &Tool,
+        src: &Path,
+        is_assembler_msvc: bool,
+    ) {
+        if self.cpp
+            && src.extension() == Some(OsStr::new("cc"))
+            && matches!(compiler.family, ToolFamily::Msvc { clang_cl: false })
+        {
+            // MSVC recognizes only `.c` / `.cpp` / `.cxx` as source. A `.cc`
+            // file (mimalloc 0.1.52 writes `OUT_DIR/mimalloc-static.cc`) is
+            // assumed to be an object unless `-Tp` forces C++ compilation
+            // (#1877).
+            cmd.arg("-Tp");
+        }
+
         if compiler.supports_path_delimiter() && !is_assembler_msvc {
             // #513: For `clang-cl`, separate flags/options from the input file.
             // When cross-compiling macOS -> Windows, this avoids interpreting
@@ -1990,13 +2029,7 @@ impl Build {
             // `-Wslash-u-filename` warning.
             cmd.arg("--");
         }
-        cmd.arg(&obj.src);
-
-        if cfg!(target_os = "macos") {
-            self.fix_env_for_apple_os(&mut cmd)?;
-        }
-
-        Ok(cmd)
+        cmd.arg(src);
     }
 
     /// This will return a result instead of panicking; see [`Self::expand()`] for
@@ -2018,15 +2051,9 @@ impl Build {
             .find_map(AsmFileExt::from_path)
             .is_some();
 
-        if compiler.family == (ToolFamily::Msvc { clang_cl: true }) && !is_asm {
-            // #513: For `clang-cl`, separate flags/options from the input file.
-            // When cross-compiling macOS -> Windows, this avoids interpreting
-            // common `/Users/...` paths as the `/U` flag and triggering
-            // `-Wslash-u-filename` warning.
-            cmd.arg("--");
+        for src in self.files.iter().map(std::ops::Deref::deref) {
+            self.add_compile_source_arg(&mut cmd, &compiler, src, is_asm);
         }
-
-        cmd.args(self.files.iter().map(std::ops::Deref::deref));
 
         run_output(&mut cmd, &self.cargo_output)
     }

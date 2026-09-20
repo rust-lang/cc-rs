@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Pass `-Tp` immediately before `.cc` sources on MSVC (not clang-cl) when compiling C++ so they are not treated as object files ([#1877](https://github.com/rust-lang/cc-rs/issues/1877))
+
 ## [1.4.7](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.6...cc-v1.4.7) - 2026-09-18
 
 ### Fixed
