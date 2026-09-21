@@ -29,7 +29,7 @@ impl Future for YieldOnce {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<()> {
-        let flag = &mut std::pin::Pin::into_inner(self).0;
+        let flag = &mut core::pin::Pin::into_inner(self).0;
         if !*flag {
             *flag = true;
             Poll::Pending

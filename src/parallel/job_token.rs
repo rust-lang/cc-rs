@@ -1,4 +1,4 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::{utilities::OnceLock, Error};
 
@@ -220,7 +220,7 @@ mod inprocess_jobserver {
 
     use crate::{parallel::async_executor::YieldOnce, utilities::cargo_env_var_os};
 
-    use std::sync::atomic::{
+    use core::sync::atomic::{
         AtomicU32,
         Ordering::{AcqRel, Acquire},
     };

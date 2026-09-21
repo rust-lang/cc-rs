@@ -1986,7 +1986,7 @@ impl Build {
             cmd.arg("--device-c");
         }
         if is_asm {
-            cmd.args(self.asm_flags.iter().map(std::ops::Deref::deref));
+            cmd.args(self.asm_flags.iter().map(core::ops::Deref::deref));
         }
 
         self.add_compile_source_arg(&mut cmd, &compiler, &obj.src, is_assembler_msvc);
@@ -2047,7 +2047,7 @@ impl Build {
         let is_asm = self
             .files
             .iter()
-            .map(std::ops::Deref::deref)
+            .map(core::ops::Deref::deref)
             .find_map(AsmFileExt::from_path)
             .is_some();
 
@@ -3021,7 +3021,7 @@ impl Build {
         let mut objs = objs
             .iter()
             .map(|o| o.dst.as_path())
-            .chain(self.objects.iter().map(std::ops::Deref::deref))
+            .chain(self.objects.iter().map(core::ops::Deref::deref))
             .peekable();
         let mut batch = Vec::new();
         while objs.peek().is_some() {
@@ -4490,7 +4490,7 @@ impl Build {
             )
             .ok()?;
 
-            Some(Arc::from(std::str::from_utf8(&version).ok()?.trim()))
+            Some(Arc::from(core::str::from_utf8(&version).ok()?.trim()))
         };
 
         let deployment_from_env = |name: &str| -> Option<Arc<str>> {
@@ -4655,7 +4655,7 @@ impl Build {
         .ok()?;
         // clang driver appears to be forcing UTF-8 output even on Windows,
         // hence from_utf8 is assumed to be usable in all cases.
-        let search_dirs = std::str::from_utf8(&search_dirs).ok()?;
+        let search_dirs = core::str::from_utf8(&search_dirs).ok()?;
         for dirs in search_dirs.split(['\r', '\n']) {
             if let Some(path) = dirs.strip_prefix("programs: =") {
                 return self.which(prog, Some(OsStr::new(path)));
