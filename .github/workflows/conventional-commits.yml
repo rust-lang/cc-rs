@@ -1,0 +1,40 @@
+name: Conventional Commits
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: {}
+
+jobs:
+  pr-title:
+    name: PR title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          # Conventional Commits 1.0.0 subject:
+          #   type(scope)?!?: description
+          # Types are lowercase; release-plz.toml parsers are case-sensitive.
+          # PR title only — squash-merge subjects are what the changelog sees.
+          title="${TITLE#"${TITLE%%[![:space:]]*}"}"
+          title="${title%"${title##*[![:space:]]}"}"
+          pattern='^[a-z][a-z0-9]*(\([^)]+\))?(!)?: .+'
+          if [[ "${title}" =~ ${pattern} ]]; then
+            echo "PR title is a Conventional Commits subject:"
+            echo "  ${title}"
+            exit 0
+          fi
+          echo "PR title is not a Conventional Commits subject:"
+          echo "  ${TITLE}"
+          echo
+          echo "Use a title like:"
+          echo "  feat: add foo"
+          echo "  fix(msvc): handle bar"
+          echo "  ci(deps): bump actions/checkout"
+          echo
+          echo "See CONTRIBUTING.md and https://www.conventionalcommits.org/en/v1.0.0/"
+          exit 1
