@@ -11,6 +11,25 @@ environment variables and will build code appropriately.
 Refer to the [documentation](https://docs.rs/cc) for detailed usage
 instructions.
 
+## Testing
+
+On macOS, install the
+[Xcode Command Line Tools](https://developer.apple.com/documentation/xcode/installing-the-command-line-tools#Install-the-Command-Line-Tools-package-in-Terminal)
+before developing or running tests:
+
+```sh
+xcode-select --install
+```
+
+Apple targets locate an SDK through `xcrun` and `SDKROOT`. If `cargo test`
+fails with `xcrun: SDK "appletvos" cannot be located` (or a similar SDK lookup
+error), export the macOS SDK path and run the tests again:
+
+```sh
+export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
+cargo test
+```
+
 ## License
 
 This project is licensed under either of

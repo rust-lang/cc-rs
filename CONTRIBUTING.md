@@ -18,6 +18,9 @@ into a Rust crate.
   cargo fmt -- --check
   ```
 
+  On macOS, `cargo test` may need the Xcode Command Line Tools and `SDKROOT`;
+  see [Testing](README.md#testing).
+
   CI additionally runs Clippy, the MSRV toolchain (see `rust-version` in
   `Cargo.toml`), and `tombi format --check` for TOML.
 - Keep diffs focused. Do not reformat unrelated code.
