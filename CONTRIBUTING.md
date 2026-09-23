@@ -71,10 +71,3 @@ are skipped the same way.
 
 Other Conventional Commits types (`docs:`, `test:`, `perf:`, `build:`, …) are
 fine; they land under **Other** unless they match a row above.
-
-## License
-
-This project is dual-licensed Apache-2.0 OR MIT. Unless you state otherwise,
-contributions are dual-licensed the same way, without additional terms — see
-the Contribution section in [README.md](README.md). There is no separate DCO
-sign-off.
