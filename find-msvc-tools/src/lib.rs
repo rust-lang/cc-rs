@@ -15,6 +15,7 @@ pub mod windows_link;
 #[doc(hidden)]
 pub mod windows_sys;
 #[cfg(windows)]
+#[allow(clippy::style)]
 pub(crate) mod windows_sys_bindings;
 
 #[cfg(windows)]

@@ -10,20 +10,16 @@
 
 windows_link::link!("ole32.dll" "system" fn CoCreateInstance(rclsid : *const GUID, punkouter : *mut core::ffi::c_void, dwclscontext : u32, riid : *const GUID, ppv : *mut *mut core::ffi::c_void) -> HRESULT);
 windows_link::link!("ole32.dll" "system" fn CoInitializeEx(pvreserved : *const core::ffi::c_void, dwcoinit : u32) -> HRESULT);
-windows_link::link!("kernel32.dll" "system" fn FreeLibrary(hlibmodule : HMODULE) -> BOOL);
 windows_link::link!("kernel32.dll" "system" fn GetMachineTypeAttributes(machine : u16, machinetypeattributes : *mut MACHINE_ATTRIBUTES) -> HRESULT);
 windows_link::link!("kernel32.dll" "system" fn GetProcAddress(hmodule : HMODULE, lpprocname : PCSTR) -> FARPROC);
 windows_link::link!("kernel32.dll" "system" fn LoadLibraryA(lplibfilename : PCSTR) -> HMODULE);
-windows_link::link!("kernel32.dll" "system" fn OpenSemaphoreA(dwdesiredaccess : u32, binherithandle : BOOL, lpname : PCSTR) -> HANDLE);
 windows_link::link!("kernel32.dll" "system" fn PeekNamedPipe(hnamedpipe : HANDLE, lpbuffer : *mut core::ffi::c_void, nbuffersize : u32, lpbytesread : *mut u32, lptotalbytesavail : *mut u32, lpbytesleftthismessage : *mut u32) -> BOOL);
 windows_link::link!("advapi32.dll" "system" fn RegCloseKey(hkey : HKEY) -> LSTATUS);
 windows_link::link!("advapi32.dll" "system" fn RegEnumKeyExW(hkey : HKEY, dwindex : u32, lpname : PWSTR, lpcchname : *mut u32, lpreserved : *const u32, lpclass : PWSTR, lpcchclass : *mut u32, lpftlastwritetime : *mut FILETIME) -> LSTATUS);
 windows_link::link!("advapi32.dll" "system" fn RegOpenKeyExW(hkey : HKEY, lpsubkey : PCWSTR, uloptions : u32, samdesired : REGSAM, phkresult : *mut HKEY) -> LSTATUS);
 windows_link::link!("advapi32.dll" "system" fn RegQueryValueExW(hkey : HKEY, lpvaluename : PCWSTR, lpreserved : *const u32, lptype : *mut u32, lpdata : *mut u8, lpcbdata : *mut u32) -> LSTATUS);
-windows_link::link!("kernel32.dll" "system" fn ReleaseSemaphore(hsemaphore : HANDLE, lreleasecount : i32, lppreviouscount : *mut i32) -> BOOL);
 windows_link::link!("oleaut32.dll" "system" fn SysFreeString(bstrstring : BSTR));
 windows_link::link!("oleaut32.dll" "system" fn SysStringLen(pbstr : BSTR) -> u32);
-windows_link::link!("kernel32.dll" "system" fn WaitForSingleObject(hhandle : HANDLE, dwmilliseconds : u32) -> u32);
 pub type ACCESS_MASK = u32;
 pub type BOOL = i32;
 pub type BSTR = *const u16;
@@ -32,7 +28,6 @@ pub type COINIT = i32;
 pub const COINIT_MULTITHREADED: COINIT = 0;
 pub const ERROR_NO_MORE_ITEMS: i32 = 259;
 pub const ERROR_SUCCESS: i32 = 0;
-pub const FALSE: i32 = 0;
 pub type FARPROC = Option<unsafe extern "system" fn() -> isize>;
 #[repr(C)]
 #[derive(Clone, Copy, Default)]
@@ -102,15 +97,9 @@ pub struct SAFEARRAYBOUND {
     pub cElements: u32,
     pub lLbound: i32,
 }
-pub const SEMAPHORE_MODIFY_STATE: i32 = 2;
-pub const SYNCHRONIZE: i32 = 1048576;
 pub const S_FALSE: HRESULT = 0x1_u32 as _;
 pub const S_OK: HRESULT = 0x0_u32 as _;
 pub const UserEnabled: MACHINE_ATTRIBUTES = 1;
-pub const WAIT_ABANDONED: i32 = 128;
-pub const WAIT_FAILED: u32 = 4294967295;
-pub const WAIT_OBJECT_0: i32 = 0;
-pub const WAIT_TIMEOUT: i32 = 258;
 
 #[link(name = "advapi32")]
 #[link(name = "ole32")]
