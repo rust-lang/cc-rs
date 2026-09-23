@@ -21,9 +21,10 @@ before developing or running tests:
 xcode-select --install
 ```
 
-Apple targets locate an SDK through `xcrun` and `SDKROOT`. If `cargo test`
-fails with `xcrun: SDK "appletvos" cannot be located` (or a similar SDK lookup
-error), export the macOS SDK path and run the tests again:
+Apple targets locate an SDK through `xcrun` and `SDKROOT` (see the Apple
+SDK handling in `src/lib.rs`). If `cargo test` fails with `xcrun: SDK
+"appletvos" cannot be located` (or a similar SDK lookup error), export the
+macOS SDK path and run the tests again:
 
 ```sh
 export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
