@@ -9,7 +9,7 @@
 
 pub type wchar_t = u16;
 
-pub use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY};
+pub(crate) use crate::windows_sys::{FILETIME, GUID, HRESULT, SAFEARRAY};
 
 pub type REFIID = *const IID;
 pub type IID = GUID;
