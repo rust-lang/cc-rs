@@ -8,21 +8,8 @@ into a Rust crate.
 ## Pull requests
 
 - Open pull requests against `main`.
-- Add or update tests when behavior changes. Integration tests live in
-  `tests/`; the workspace also includes `find-msvc-tools` and tools under
-  `dev-tools/`.
-- Before you push, run at least:
-
-  ```bash
-  cargo test
-  cargo fmt -- --check
-  ```
-
-  On macOS, `cargo test` may need the Xcode Command Line Tools and `SDKROOT`;
-  see [Development](DEVELOPMENT.md#testing).
-
-  CI additionally runs Clippy, the MSRV toolchain (see `rust-version` in
-  `Cargo.toml`), and `tombi format --check` for TOML.
+- For local setup and how to run tests before you push, see
+  [Development](DEVELOPMENT.md).
 - Keep diffs focused. Do not reformat unrelated code.
 
 ## Conventional Commits

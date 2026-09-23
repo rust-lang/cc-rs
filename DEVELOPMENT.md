@@ -15,15 +15,18 @@ xcode-select --install
 
 ## Testing
 
-The default check is:
+Before you push, run at least:
 
 ```sh
 cargo test
+cargo fmt -- --check
 ```
 
-Before you push, also run `cargo fmt -- --check` (see
-[CONTRIBUTING.md](CONTRIBUTING.md)). CI runs Clippy, the MSRV toolchain, and
-other checks described there.
+Add or update tests when behavior changes. Integration tests live in `tests/`;
+the workspace also includes `find-msvc-tools` and tools under `dev-tools/`.
+
+CI additionally runs Clippy, the MSRV toolchain (see `rust-version` in
+`Cargo.toml`), and `tombi format --check` for TOML.
 
 On macOS, Apple targets locate an SDK through `xcrun` and `SDKROOT`; that
 logic lives in [`src/lib.rs`](src/lib.rs). If `cargo test` fails with
