@@ -566,6 +566,80 @@ fn msvc_define() {
 }
 
 #[test]
+fn msvc_link_flag_is_ignored() {
+    // Regression test for issue #1331
+    // https://github.com/rust-lang/cc-rs/issues/1331
+    //
+    // cl passes `/link` and everything after it to the linker, so the source
+    // file would never reach the compiler. cc only compiles, so drop them.
+    let test = Test::msvc();
+    test.gcc()
+        .flag("/GS-")
+        .flag("/link")
+        .flag("/NODEFAULTLIB")
+        .define("FOO", None)
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have("/GS-")
+        .must_not_have("/link")
+        .must_not_have("/NODEFAULTLIB")
+        .must_have("-DFOO")
+        .must_have_in_order("-c", "foo.c");
+}
+
+#[test]
+fn clang_cl_link_flag_is_ignored() {
+    let test = Test::msvc();
+    test.shim("clang-cl");
+    test.gcc()
+        .compiler(test.td.path().join("clang-cl"))
+        .flag("-link")
+        .flag("/NODEFAULTLIB")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_not_have("-link")
+        .must_not_have("/NODEFAULTLIB")
+        .must_have("foo.c");
+}
+
+#[test]
+fn msvc_link_flag_if_supported_is_ignored() {
+    // `flag_if_supported("/link")` must not reach cl either. Each list of
+    // flags is cut at its own `/link`: the entries after it in the
+    // `flag_if_supported` list are dropped without being probed. `flag`
+    // entries are a separate list that cc puts before the `flag_if_supported`
+    // ones on the command line, so cl would never pass them to the linker, and
+    // they are kept.
+    let test = Test::msvc();
+    let mut build = test.gcc();
+    build
+        .flag("/GS-")
+        .flag_if_supported("/link")
+        .flag_if_supported("/NODEFAULTLIB")
+        .file("foo.c");
+    assert!(!build.is_flag_supported("/link").unwrap());
+    build.compile("foo");
+
+    test.cmd(0)
+        .must_have("/GS-")
+        .must_not_have("/link")
+        .must_not_have("/NODEFAULTLIB")
+        .must_have_in_order("-c", "foo.c");
+}
+
+#[test]
+fn gnu_link_flag_is_kept() {
+    let test = Test::gnu();
+    test.gcc().flag("/link").file("foo.c").compile("foo");
+
+    test.cmd(0).must_have("/link");
+}
+
+#[test]
 fn msvc_static_crt() {
     let test = Test::msvc();
     test.gcc().static_crt(true).file("foo.c").compile("foo");

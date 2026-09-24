@@ -246,6 +246,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use shlex::Shlex;
@@ -368,6 +369,7 @@ struct BuildCache {
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     known_flag_support_status_cache: RwLock<HashMap<CompilerFlag, bool>>,
     target_info_parser: target::TargetInfoParser,
+    warned_about_msvc_linker_flags: AtomicBool,
 }
 
 /// A builder for compilation of a native library.
@@ -1582,6 +1584,12 @@ impl Build {
             return Ok(is_supported);
         }
 
+        // The probe build drops `/link` in `try_get_compiler`, so it would
+        // compile fine and wrongly report `/link` as supported.
+        if tool.is_like_msvc() && is_msvc_link_flag(flag) {
+            return Ok(false);
+        }
+
         let probe = self.flag_support_probe_files()?;
 
         let mut compiler = {
@@ -2200,10 +2208,17 @@ impl Build {
 
         // Set flags configured in the builder (do this second-to-last, to allow these to override
         // everything above).
-        for flag in self.flags.iter() {
+        let (flags, linker_flags) = split_off_msvc_linker_flags(cmd.family, &self.flags);
+        let mut ignored_flags: Vec<&OsStr> = linker_flags.iter().map(|f| &**f).collect();
+        for flag in flags {
             cmd.args.push((**flag).into());
         }
-        for flag in self.flags_supported.iter() {
+        // Like `self.flags` above, drop `/link` and the entries after it in
+        // this list without probing them.
+        let (flags_supported, linker_flags) =
+            split_off_msvc_linker_flags(cmd.family, &self.flags_supported);
+        ignored_flags.extend(linker_flags.iter().map(|f| &**f));
+        for flag in flags_supported {
             if self
                 .is_flag_supported_inner(flag, &cmd, &target)
                 .unwrap_or(false)
@@ -2221,9 +2236,24 @@ impl Build {
 
         // Set flags from the environment (do this last, to allow these to override everything else).
         if let Some(flags) = &envflags {
+            let (flags, linker_flags) = split_off_msvc_linker_flags(cmd.family, flags);
+            ignored_flags.extend(linker_flags.iter().map(OsStr::new));
             for arg in flags {
                 cmd.push_cc_arg(arg.into());
             }
+        }
+
+        if !ignored_flags.is_empty()
+            && !self
+                .build_cache
+                .warned_about_msvc_linker_flags
+                .swap(true, Ordering::Relaxed)
+        {
+            self.cargo_output.print_warning(&format_args!(
+                "Ignoring {ignored_flags:?}: cl passes `/link` and the arguments after it to the \
+                linker, but cc only compiles. Use `cargo:rustc-link-arg` for linker flags, and \
+                `/Zl` instead of `/link /NODEFAULTLIB`."
+            ));
         }
 
         // Set custom env vars that the user specified with `Build::env`.
@@ -4745,6 +4775,26 @@ impl Default for Build {
     fn default() -> Build {
         Build::new()
     }
+}
+
+/// `cl` and `clang-cl` pass `/link` and every argument after it to the linker.
+/// cc only compiles, and appends the source file after the flags, so such flags
+/// would never reach a linker and would hide the source file from the compiler
+/// (#1331). Splits `flags` into the flags before `/link` and the rest.
+fn split_off_msvc_linker_flags<T: AsRef<OsStr>>(family: ToolFamily, flags: &[T]) -> (&[T], &[T]) {
+    let start = match family {
+        ToolFamily::Msvc { .. } => flags
+            .iter()
+            .position(|flag| is_msvc_link_flag(flag.as_ref())),
+        ToolFamily::Gnu | ToolFamily::Clang { .. } => None,
+    };
+    flags.split_at(start.unwrap_or(flags.len()))
+}
+
+/// Whether `flag` is the `/link` option of `cl` and `clang-cl`. clang-cl also
+/// accepts a joined `-link<args>` form, which this does not detect.
+fn is_msvc_link_flag(flag: &OsStr) -> bool {
+    matches!(flag.to_str(), Some("/link" | "-link"))
 }
 
 fn fail(s: &str) -> ! {
