@@ -37,3 +37,10 @@ point `SDKROOT` at the macOS SDK and rerun tests:
 export SDKROOT="$(xcrun --sdk macosx --show-sdk-path)"
 cargo test
 ```
+
+With only the Command Line Tools installed, `cargo test` may still print
+`cargo:warning=xcrun: error: SDK "iphoneos" cannot be located` (and similar
+messages for other device SDKs) even when all tests pass. Those SDKs ship with
+full Xcode, not the CLT package; setting `SDKROOT` does not silence those
+warnings. Install Xcode from the App Store if you need those SDKs or want a
+clean test log.
