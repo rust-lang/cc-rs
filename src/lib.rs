@@ -2063,7 +2063,22 @@ impl Build {
             self.add_compile_source_arg(&mut cmd, &compiler, src, is_asm);
         }
 
-        run_output(&mut cmd, &self.cargo_output)
+        // cl.exe echoes the name of the file it compiles on stderr. That is
+        // not a warning, so don't forward it as one (#896).
+        let echoed_file_name = if matches!(compiler.family, ToolFamily::Msvc { clang_cl: false }) {
+            self.files
+                .first()
+                .and_then(|src| src.file_name())
+                .and_then(OsStr::to_str)
+        } else {
+            None
+        };
+
+        run_output_ignoring_line(
+            &mut cmd,
+            &self.cargo_output,
+            echoed_file_name.map(str::as_bytes),
+        )
     }
 
     /// Run the compiler, returning the macro-expanded version of the input files.
