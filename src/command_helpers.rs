@@ -470,16 +470,23 @@ pub(crate) fn spawn_and_wait_for_output(
 }
 
 pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Vec<u8>, Error> {
+    run_output_ignoring_line(cmd, cargo_output, None)
+}
+
+/// Like [`run_output`], but a line of stderr equal to `ignored_line` is not
+/// forwarded as a warning.
+pub(crate) fn run_output_ignoring_line(
+    cmd: &mut Command,
+    cargo_output: &CargoOutput,
+    ignored_line: Option<&[u8]>,
+) -> Result<Vec<u8>, Error> {
     let Output {
         status,
         stdout,
         stderr,
     } = spawn_and_wait_for_output(cmd, cargo_output)?;
 
-    stderr
-        .split(|&b| b == b'\n')
-        .filter(|part| !part.is_empty())
-        .for_each(write_warning);
+    stderr_warnings(&stderr, ignored_line).for_each(write_warning);
 
     cargo_output.print_debug(&status);
 
@@ -491,6 +498,18 @@ pub(crate) fn run_output(cmd: &mut Command, cargo_output: &CargoOutput) -> Resul
             format!("command did not execute successfully (status code {status}): {cmd:?}"),
         ))
     }
+}
+
+/// The non-empty lines of `stderr` to forward as warnings, skipping any line
+/// equal to `ignored_line`.
+fn stderr_warnings<'a>(
+    stderr: &'a [u8],
+    ignored_line: Option<&'a [u8]>,
+) -> impl Iterator<Item = &'a [u8]> {
+    stderr
+        .split(|&b| b == b'\n')
+        .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
+        .filter(move |line| !line.is_empty() && Some(*line) != ignored_line)
 }
 
 pub(crate) fn spawn(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Child, Error> {
@@ -602,5 +621,28 @@ impl CommandExt for Command {
     {
         set_probe_env(self, env, ProbeKind::ArDetection);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stderr_warnings_skips_ignored_line() {
+        // cl.exe echoes the source file name before any real diagnostics (#896).
+        let stderr = b"expando.c\r\nexpando.c(2): warning C4005: 'X': macro redefinition\r\n";
+        let warnings: Vec<_> = stderr_warnings(stderr, Some(b"expando.c")).collect();
+        assert_eq!(
+            warnings,
+            [&b"expando.c(2): warning C4005: 'X': macro redefinition"[..]]
+        );
+    }
+
+    #[test]
+    fn stderr_warnings_keeps_every_line_without_ignored_line() {
+        let stderr = b"expando.c\n\nsecond\n";
+        let warnings: Vec<_> = stderr_warnings(stderr, None).collect();
+        assert_eq!(warnings, [&b"expando.c"[..], &b"second"[..]]);
     }
 }
