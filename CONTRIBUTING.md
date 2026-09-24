@@ -3,14 +3,7 @@
 Thanks for helping improve `cc`. This crate is a
 [Cargo build-script](https://doc.rust-lang.org/cargo/reference/build-scripts.html)
 helper: it invokes the platform compiler so C/C++/assembly/CUDA can be linked
-into a Rust crate.
-
-## Pull requests
-
-- Open pull requests against `main`.
-- For local setup and how to run tests before you push, see
-  [Development](DEVELOPMENT.md).
-- Keep diffs focused. Do not reformat unrelated code.
+into a Rust crate. For local setup and tests, see [Development](DEVELOPMENT.md).
 
 ## Conventional Commits
 
