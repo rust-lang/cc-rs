@@ -37,6 +37,25 @@ fn inherits_rustflags() {
 }
 
 #[test]
+fn inherits_target_features() {
+    let mut test = Test::gnu();
+    test.env.set(
+        "CARGO_ENCODED_RUSTFLAGS",
+        "-Ctarget-feature=+ssse3,+avx\u{1f}-C\u{1f}target-feature=+avx2,-sse4a,-sse2,+crt-static,+not-a-feature",
+    );
+    test.gcc().file("foo.c").compile("foo");
+    test.cmd(0)
+        .must_have("-mssse3")
+        .must_have("-mavx")
+        .must_have("-mavx2")
+        .must_have("-mno-sse4a")
+        .must_have_in_order("-mssse3", "-mno-sse4a")
+        .must_not_have("-mno-sse2")
+        .must_not_have("-mcrt-static")
+        .must_not_have("-mnot-a-feature");
+}
+
+#[test]
 fn no_stack_protector() {
     // Do *not* propagate -Zstack-protector=none
     let mut test = Test::gnu();
