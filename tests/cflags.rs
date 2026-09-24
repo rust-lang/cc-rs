@@ -55,3 +55,17 @@ fn cflags_order() {
         .must_have_in_order("-Larbitrary2", "-Larbitrary3")
         .must_have_in_order("-Larbitrary3", "-Larbitrary4");
 }
+
+#[test]
+fn msvc_link_flag_in_cflags_is_ignored() {
+    let mut test = Test::msvc();
+    test.env.set("CFLAGS", "/W3 /link /NODEFAULTLIB");
+
+    test.gcc().file("foo.c").compile("foo");
+
+    test.cmd(0)
+        .must_have("/W3")
+        .must_not_have("/link")
+        .must_not_have("/NODEFAULTLIB")
+        .must_have("foo.c");
+}
