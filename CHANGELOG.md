@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.1](https://github.com/rust-lang/cc-rs/compare/cc-v1.5.0...cc-v1.5.1) - 2026-09-25
+
+### Fixed
+
+- link the static C++ stdlib with `-bundle`, once per `Build` ([#1955](https://github.com/rust-lang/cc-rs/pull/1955))
+
+### Other
+
+- Use lp64d ABI for Redox riscv64 ([#1953](https://github.com/rust-lang/cc-rs/pull/1953))
+
 ## [1.5.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.4.7...cc-v1.5.0) - 2026-09-25
 
 ### Added
