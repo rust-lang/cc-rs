@@ -4079,6 +4079,7 @@ impl Build {
                     "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
                     "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
                     "arm-unknown-netbsd-eabi" => Some("arm--netbsdelf-eabi"),
+                    "armeb-unknown-linux-gnueabi" => Some("armeb-linux-gnueabi"),
                     "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
                     "armv7-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
                     "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
