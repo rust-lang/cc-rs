@@ -1404,3 +1404,141 @@ fn gnu_ar_probe_failure_no_warning() {
         stdout
     );
 }
+
+/// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once
+/// per `Build`, `wasm32`, `pauthtest` and Apple keep a plain `static=`, and a
+/// stdlib value that already names a link kind is emitted unchanged.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn cpp_link_stdlib_static_metadata() {
+    // When invoked as subprocess, perform the builds and return.
+    if let Some(case) = env::var_os("__CC_TEST_CPP_LINK_STDLIB_STATIC") {
+        let test = Test::gnu();
+        test.shim("clang++");
+        let mut build = test.gcc();
+        build
+            .target("x86_64-unknown-linux-gnu")
+            .host("x86_64-unknown-linux-gnu")
+            .cpp(true)
+            .cpp_link_stdlib_static(true)
+            .file("foo.cpp")
+            .archiver(test.td.path().join("ar"));
+        match case.to_str().unwrap() {
+            "one-build" => {
+                build.compile("foo");
+                build.compile("bar");
+                build.clone().compile("baz");
+            }
+            "two-builds" => {
+                build.clone().compile("foo");
+                let mut other = test.gcc();
+                other
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .cpp(true)
+                    .cpp_link_stdlib_static(true)
+                    .file("foo.cpp")
+                    .archiver(test.td.path().join("ar"))
+                    .compile("bar");
+            }
+            "metadata-off-first" => {
+                build.cargo_metadata(false).compile("foo");
+                build.cargo_metadata(true).compile("bar");
+            }
+            target @ ("wasm32-unknown-unknown" | "aarch64-unknown-linux-pauthtest") => {
+                build
+                    .target(target)
+                    .compiler(test.td.path().join("clang++"));
+                build.compile("foo");
+                build.compile("bar");
+            }
+            "x86_64-apple-darwin" => {
+                build.target("x86_64-apple-darwin");
+                build.compile("foo");
+                build.compile("bar");
+            }
+            case => panic!("unknown case {case}"),
+        }
+        return;
+    }
+
+    let link_lib_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
+        let output = Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_CPP_LINK_STDLIB_STATIC", case)
+            .env_remove("CXXSTDLIB")
+            .envs(envs.iter().copied())
+            .args(["--exact", "cpp_link_stdlib_static_metadata", "--nocapture"])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter_map(|line| line.strip_prefix("cargo:rustc-link-lib="))
+            .map(str::to_owned)
+            .collect()
+    };
+
+    // Several compiles on one `Build` and its clones emit the stdlib once.
+    assert_eq!(
+        link_lib_lines("one-build", &[]),
+        [
+            "static=foo",
+            "static:-bundle=stdc++",
+            "static=bar",
+            "static=baz"
+        ]
+    );
+    // The state is per `Build`, not global.
+    assert_eq!(
+        link_lib_lines("two-builds", &[]),
+        [
+            "static=foo",
+            "static:-bundle=stdc++",
+            "static=bar",
+            "static:-bundle=stdc++"
+        ]
+    );
+    // A compile that emits no metadata doesn't use up the one emission.
+    assert_eq!(
+        link_lib_lines("metadata-off-first", &[]),
+        ["static=bar", "static:-bundle=stdc++"]
+    );
+    // `wasm32` and `pauthtest` may also link the C++ stdlib through
+    // `rustc-flags`, so they keep `static=`.
+    assert_eq!(
+        link_lib_lines("wasm32-unknown-unknown", &[]),
+        ["static=foo", "static=stdc++", "static=bar", "static=stdc++"]
+    );
+    assert_eq!(
+        link_lib_lines(
+            "aarch64-unknown-linux-pauthtest",
+            &[
+                ("PAUTHTEST_SYSROOT", "sysroot"),
+                ("PAUTHTEST_RESOURCE_DIR", "resource-dir")
+            ]
+        ),
+        ["static=foo", "static=c++", "static=bar", "static=c++"]
+    );
+    // On Apple targets rustc passes no static hint and ld64 prefers the dylib,
+    // so the stdlib keeps `static=` there too.
+    assert_eq!(
+        link_lib_lines("x86_64-apple-darwin", &[]),
+        ["static=foo", "static=c++", "static=bar", "static=c++"]
+    );
+    // A value that already names a link kind is emitted unchanged, once per `Build`.
+    assert_eq!(
+        link_lib_lines("one-build", &[("CXXSTDLIB", "static:-bundle=c++")]),
+        [
+            "static=foo",
+            "static:-bundle=c++",
+            "static=bar",
+            "static=baz"
+        ]
+    );
+    assert_eq!(
+        link_lib_lines("one-build", &[("CXXSTDLIB", "dylib=stdc++")]),
+        ["static=foo", "dylib=stdc++", "static=bar", "static=baz"]
+    );
+}
