@@ -238,7 +238,7 @@
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display};
@@ -247,7 +247,7 @@ use std::io::{self, Write};
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex, RwLock};
 
 use shlex::Shlex;
 
@@ -367,6 +367,7 @@ struct BuildCache {
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
+    emitted_cpp_link_stdlibs: Mutex<HashSet<Box<str>>>,
     known_flag_support_status_cache: RwLock<HashMap<CompilerFlag, bool>>,
     target_info_parser: target::TargetInfoParser,
     warned_about_msvc_linker_flags: AtomicBool,
@@ -1061,6 +1062,24 @@ impl Build {
     /// Provide value of `true` if linking against system library is not desired
     ///
     /// Note that for `wasm32` target C++ stdlib will always be linked statically
+    ///
+    /// The C++ stdlib is emitted as `cargo:rustc-link-lib=static:-bundle=<stdlib>`,
+    /// so the linker of the final binary finds it in the toolchain's search paths
+    /// instead of rustc bundling it into the rlib. On `wasm32` and `pauthtest`
+    /// targets, where cc may also link the C++ stdlib through `cargo:rustc-flags`,
+    /// and on Apple targets, where the linker would pick the dynamic library over
+    /// an unbundled static one, it is emitted as `static=<stdlib>`. A stdlib value
+    /// that already names a link kind, such as `CXXSTDLIB=static:-bundle=stdc++`,
+    /// is emitted unchanged.
+    ///
+    /// rustc rejects a library that is passed twice when either mention has link
+    /// modifiers ("overriding linking modifiers from command line is not
+    /// supported"). The C++ stdlib is therefore emitted only once per `Build`,
+    /// shared with its clones, however many times it is compiled. A build script
+    /// that links the same C++ stdlib from two separate `Build`s with this option,
+    /// or links it both statically and dynamically, fails to build. Compile such
+    /// libraries with one `Build` or its clones, or set
+    /// [`cpp_link_stdlib(None)`](Build::cpp_link_stdlib) on all but one of them.
     ///
     /// # Example
     ///
@@ -1768,14 +1787,36 @@ impl Build {
         // Add specific C++ libraries, if enabled.
         if self.cpp {
             if let Some(stdlib) = self.get_cpp_link_stdlib()? {
-                if self.cpp_link_stdlib_static {
-                    self.cargo_output.print_metadata(&format_args!(
-                        "cargo:rustc-link-lib=static={}",
-                        stdlib.display()
-                    ));
+                let stdlib = stdlib.to_string_lossy();
+                // rustc rejects a library passed twice when either mention has
+                // link modifiers, so a value that may carry them is emitted once
+                // per `Build`. `wasm32` and `pauthtest` may link the C++ stdlib
+                // below as well, so they keep a plain `static=`. So does Apple:
+                // rustc passes no static hint there and ld64 prefers the dylib,
+                // so an unbundled stdlib would silently link dynamically.
+                let (link_lib, once) = if stdlib.contains('=') {
+                    (stdlib.into_owned(), true)
+                } else if !self.cpp_link_stdlib_static {
+                    (stdlib.into_owned(), false)
+                } else if target.arch == "wasm32"
+                    || target.abi == "pauthtest"
+                    || target.vendor == "apple"
+                {
+                    (format!("static={stdlib}"), false)
                 } else {
+                    (format!("static:-bundle={stdlib}"), true)
+                };
+                let emit = !once
+                    || (self.cargo_output.metadata
+                        && self
+                            .build_cache
+                            .emitted_cpp_link_stdlibs
+                            .lock()
+                            .unwrap()
+                            .insert(link_lib.as_str().into()));
+                if emit {
                     self.cargo_output
-                        .print_metadata(&format_args!("cargo:rustc-link-lib={}", stdlib.display()));
+                        .print_metadata(&format_args!("cargo:rustc-link-lib={link_lib}"));
                 }
             }
             // Link c++ lib from WASI sysroot

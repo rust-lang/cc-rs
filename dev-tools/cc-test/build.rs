@@ -66,10 +66,14 @@ fn main() {
     );
     cc::Build::new().file(file).compile("asm");
 
-    cc::Build::new()
-        .file("src/baz.cpp")
-        .cpp(true)
-        .compile("baz");
+    let mut cpp = cc::Build::new();
+    cpp.file("src/baz.cpp").cpp(true);
+    if target.contains("-linux-gnu") {
+        // Test static linking of stdc++. It isn't bundled into the rlib, so the
+        // linker of the test binaries finds `libstdc++.a` in its own search paths.
+        cpp.cpp_link_stdlib("stdc++").cpp_link_stdlib_static(true);
+    }
+    cpp.compile("baz");
 
     if env::var("CARGO_FEATURE_TEST_CUDA").is_ok() {
         // Detect if there is CUDA compiler and engage "cuda" feature.
@@ -78,11 +82,14 @@ fn main() {
             Err(_) => which::which("nvcc"),
         };
         if nvcc.is_ok() {
-            cc::Build::new()
-                .cuda(true)
-                .cudart("static")
-                .file("src/cuda.cu")
-                .compile("libcuda.a");
+            let mut cuda = cc::Build::new();
+            cuda.cuda(true).cudart("static").file("src/cuda.cu");
+            if target.contains("-linux-gnu") {
+                // `baz` links stdc++ statically above, and rustc rejects a second
+                // mention of it once one has link modifiers.
+                cuda.cpp_link_stdlib(None);
+            }
+            cuda.compile("libcuda.a");
 
             // Communicate [cfg(feature = "cuda")] to test/all.rs.
             println!("cargo:rustc-cfg=feature=\"cuda\"");
@@ -189,37 +196,6 @@ fn main() {
     let out = cc::Build::new().file("src/expand.c").expand();
     let out = String::from_utf8(out).unwrap();
     assert!(out.contains("hello world"));
-
-    // Test static linking of stdc++ on Linux
-    #[cfg(target_os = "linux")]
-    {
-        // Rust linker has no problem linking against dynamic libraries, for instance
-        // it doesn't require any additional steps to link against system
-        // `libstdc++.so`, but if we emit `cargo:rustc-link-lib=static=stdc++`, it will
-        // not be able to find `libstdc++.a` file despite it almost always located next to
-        // `libstdc++.so`. So symlinking to OUT dir solves the problem
-
-        let mut cmd = Command::new("g++");
-        cmd.arg("--print-file-name=libstdc++.a");
-        if arch == "i686" {
-            cmd.arg("-m32");
-        }
-        let libstdc_path: PathBuf =
-            String::from_utf8(cmd.output().expect("Failed to run g++").stdout)
-                .unwrap()
-                .trim()
-                .into();
-
-        let out_stdlib = out_dir.join("libstdc++.a");
-        std::os::unix::fs::symlink(libstdc_path, out_stdlib).unwrap();
-
-        cc::Build::new()
-            .file("src/baz.cpp")
-            .cpp(true)
-            .cpp_link_stdlib("stdc++")
-            .cpp_link_stdlib_static(true)
-            .compile("baz");
-    }
 }
 
 #[track_caller]
