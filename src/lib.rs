@@ -2772,7 +2772,10 @@ impl Build {
                     // get the 32i/32imac/32imc/64gc/64imac/... part
                     let arch = &target.full_arch[5..];
                     if arch.starts_with("64") {
-                        if matches!(target.os, "linux" | "freebsd" | "netbsd" | "managarm") {
+                        if matches!(
+                            target.os,
+                            "linux" | "freebsd" | "netbsd" | "managarm" | "redox"
+                        ) {
                             cmd.args.push(("-march=rv64gc").into());
                             cmd.args.push("-mabi=lp64d".into());
                         } else {
