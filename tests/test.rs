@@ -1405,6 +1405,73 @@ fn gnu_ar_probe_failure_no_warning() {
     );
 }
 
+/// Each line a compiler writes to stderr becomes exactly one warning, also
+/// when a failed compile's error is reported between them.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn compiler_stderr_forwarded_once_per_line() {
+    // When invoked as subprocess, perform the build and return.
+    if let Some(case) = env::var_os("__CC_TEST_STDERR_LINES") {
+        let test = Test::gnu();
+        let mut build = test.gcc();
+        build
+            .target("x86_64-unknown-linux-gnu")
+            .host("x86_64-unknown-linux-gnu")
+            .file("foo.c")
+            .file("bar.c")
+            .env("CC_SHIM_STDERR", "note: from the compiler");
+        if case == "compile-error" {
+            build.env("CC_SHIM_FAIL_IF_ARG", "-c");
+            assert!(build.try_compile("foo").is_err());
+        } else {
+            build.compile("foo");
+        }
+        return;
+    }
+
+    let run = |case: &str| -> Vec<String> {
+        let output = Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_STDERR_LINES", case)
+            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+            .args([
+                "--exact",
+                "compiler_stderr_forwarded_once_per_line",
+                "--nocapture",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        let stdout: Vec<String> = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        for line in &stdout {
+            assert!(!line.contains('\0'), "{stdout:#?}");
+            assert!(
+                !line.get(1..).unwrap_or("").contains("cargo:"),
+                "{stdout:#?}"
+            );
+        }
+        stdout
+    };
+    let count = |lines: &[String], line: &str| lines.iter().filter(|l| *l == line).count();
+
+    let stdout = run("success");
+    assert_eq!(
+        count(&stdout, "cargo:warning=cc: note: from the compiler"),
+        2,
+        "{stdout:#?}"
+    );
+
+    let stdout = run("compile-error");
+    assert!(
+        count(&stdout, "cargo:warning=cc: simulated failure for arg '-c'") >= 1,
+        "{stdout:#?}"
+    );
+}
+
 /// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once
 /// per `Build`, `wasm32`, `pauthtest` and Apple keep a plain `static=`, and a
 /// stdlib value that already names a link kind is emitted unchanged.
