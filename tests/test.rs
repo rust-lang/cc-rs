@@ -1679,3 +1679,56 @@ fn cxxstdlib_static_env_metadata() {
         );
     }
 }
+
+/// A clone shares the flag support cache with the `Build` it was cloned from,
+/// so an answer may only be reused for a probe that would run the same way.
+#[test]
+fn flag_support_cache_is_per_build_env() {
+    let test = Test::gnu();
+    let build = test.gcc();
+    // Without the override the shim accepts the flag.
+    assert!(build.is_flag_supported("-Wprobed").unwrap());
+
+    let mut rejecting = build.clone();
+    rejecting.env("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
+    // A fresh `Build` with the same environment rejects it.
+    assert!(!test
+        .gcc()
+        .env("CC_SHIM_FAIL_IF_ARG", "-Wprobed")
+        .is_flag_supported("-Wprobed")
+        .unwrap());
+    assert!(
+        !rejecting.is_flag_supported("-Wprobed").unwrap(),
+        "the clone reused the answer probed with a different `Build::env`"
+    );
+}
+
+#[test]
+fn flag_support_cache_is_per_target() {
+    let test = Test::gnu();
+    let mut build = test.gcc();
+    // One compiler for both targets, like `CC=clang`, that rejects the flag
+    // only when it compiles for x86.
+    build
+        .compiler(test.td.path().join("cc"))
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .env("CC_SHIM_FAIL_IF_ARG", "-m32");
+    assert!(build.is_flag_supported("-Wprobed").unwrap());
+
+    let mut x86 = build.clone();
+    x86.target("i686-unknown-linux-gnu")
+        .host("i686-unknown-linux-gnu");
+    // A fresh `Build` for x86 rejects it.
+    let mut fresh = test.gcc();
+    fresh
+        .compiler(test.td.path().join("cc"))
+        .target("i686-unknown-linux-gnu")
+        .host("i686-unknown-linux-gnu")
+        .env("CC_SHIM_FAIL_IF_ARG", "-m32");
+    assert!(!fresh.is_flag_supported("-Wprobed").unwrap());
+    assert!(
+        !x86.is_flag_supported("-Wprobed").unwrap(),
+        "the clone reused the answer probed for another target"
+    );
+}
