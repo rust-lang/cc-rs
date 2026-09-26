@@ -1,6 +1,6 @@
 use std::{
     cell::Cell,
-    io::{self, Write as _},
+    io,
     process::{Child, Command},
 };
 
@@ -98,8 +98,9 @@ pub(crate) fn run_commands_in_parallel(
 
     let wait_future = async {
         let mut error = None;
-        // Buffer the stdout
-        let mut stdout = io::BufWriter::with_capacity(128, io::stdout());
+        // Not wrapped in a `BufWriter`, so that each line is written whole and
+        // can't be split by a compiler's stderr, which goes to stdout directly.
+        let mut stdout = io::stdout();
 
         loop {
             // If the other end of the pipe is already disconnected, then we're not gonna get any new jobs,
@@ -127,9 +128,7 @@ pub(crate) fn run_commands_in_parallel(
                             // sure users always see all the compilation failures.
                             has_made_progress.set(true);
 
-                            if cargo_output.warnings {
-                                let _ = writeln!(stdout, "cargo:warning={}", err);
-                            }
+                            cargo_output.print_warning(&err);
                             error = Some(err);
 
                             false

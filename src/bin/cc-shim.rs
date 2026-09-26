@@ -140,6 +140,11 @@ fn main() -> ExitCode {
         }
     }
 
+    // Allow tests to make the shim print a diagnostic and still succeed.
+    if let Ok(message) = env::var("CC_SHIM_STDERR") {
+        eprintln!("{program}: {message}");
+    }
+
     // Create a file used by some tests. Only the invocations a build actually
     // performs are asked to do this; probes are not archiving anything.
     if let Some(out_dir) = env::var_os(OUT_DIR) {
