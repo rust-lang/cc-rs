@@ -198,6 +198,15 @@
 //!
 //! In particular, for Android you may want to [use `c++_static` if you have at most one shared library](https://developer.android.com/ndk/guides/cpp-support).
 //!
+//! Setting the `CXXSTDLIB_STATIC` environment variable links the C++ standard
+//! library statically, as if [`Build::cpp_link_stdlib_static`] were set on every
+//! `Build`, including those of crates that don't call it. The name of the library
+//! is still chosen as above. Like `CXXSTDLIB`, it can be set per target, for
+//! example as `CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu`. It is on unless set to
+//! `""`, `"0"`, `"no"` or `"false"`. A build script that links the C++ standard
+//! library from two separate `Build`s may then fail to build, see
+//! [`Build::cpp_link_stdlib_static`].
+//!
 //! Remember that C++ does name mangling so `extern "C"` might be required to enable Rust linker to find your functions.
 //!
 //! # CUDA C++ support
@@ -1063,6 +1072,10 @@ impl Build {
     ///
     /// Note that for `wasm32` target C++ stdlib will always be linked statically
     ///
+    /// If the `CXXSTDLIB_STATIC` environment variable is set, and not to `""`,
+    /// `"0"`, `"no"` or `"false"`, the C++ stdlib is linked statically even if this
+    /// is set to `false`. It is read with the same target prefixes as `CXXSTDLIB`.
+    ///
     /// The C++ stdlib is emitted as `cargo:rustc-link-lib=static:-bundle=<stdlib>`,
     /// so the linker of the final binary finds it in the toolchain's search paths
     /// instead of rustc bundling it into the rlib. On `wasm32` and `pauthtest`
@@ -1796,7 +1809,7 @@ impl Build {
                 // so an unbundled stdlib would silently link dynamically.
                 let (link_lib, once) = if stdlib.contains('=') {
                     (stdlib.into_owned(), true)
-                } else if !self.cpp_link_stdlib_static {
+                } else if !self.get_cpp_link_stdlib_static() {
                     (stdlib.into_owned(), false)
                 } else if target.arch == "wasm32"
                     || target.abi == "pauthtest"
@@ -3775,6 +3788,16 @@ impl Build {
         }
     }
 
+    /// Returns whether the C++ standard library is linked statically: if
+    /// [`cpp_link_stdlib_static`](Build::cpp_link_stdlib_static) is set, or
+    /// if the `CXXSTDLIB_STATIC` environment variable turns it on.
+    fn get_cpp_link_stdlib_static(&self) -> bool {
+        self.cpp_link_stdlib_static
+            || self
+                .getenv_with_target_prefixes("CXXSTDLIB_STATIC")
+                .map_or(false, |s| env_value_is_true(&s))
+    }
+
     /// Get the archiver (ar) that's in use for this configuration.
     ///
     /// You can use [`Command::get_program`] to get just the path to the command.
@@ -4401,8 +4424,7 @@ impl Build {
     /// Used for `CC_*`-style flags.
     fn get_env_boolean(&self, key: &str) -> bool {
         match self.get_env(key) {
-            // Set -> `true`, unless set to `""`, `"0"`, `"no"` `"false"`
-            Some(s) => &*s != "0" && &*s != "false" && &*s != "no" && !s.is_empty(),
+            Some(s) => env_value_is_true(&s),
             // Not set -> default to `false`.
             None => false,
         }
@@ -4854,6 +4876,12 @@ fn split_off_msvc_linker_flags<T: AsRef<OsStr>>(family: ToolFamily, flags: &[T])
 /// accepts a joined `-link<args>` form, which this does not detect.
 fn is_msvc_link_flag(flag: &OsStr) -> bool {
     matches!(flag.to_str(), Some("/link" | "-link"))
+}
+
+/// Whether a boolean environment variable that is set counts as `true`: it
+/// does unless set to `""`, `"0"`, `"no"` or `"false"`.
+fn env_value_is_true(value: &OsStr) -> bool {
+    value != "0" && value != "false" && value != "no" && !value.is_empty()
 }
 
 fn fail(s: &str) -> ! {

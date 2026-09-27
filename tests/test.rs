@@ -1542,3 +1542,140 @@ fn cpp_link_stdlib_static_metadata() {
         ["static=foo", "dylib=stdc++", "static=bar", "static=baz"]
     );
 }
+
+/// The `CXXSTDLIB_STATIC` environment variable links the C++ stdlib statically
+/// for a `Build` that doesn't call `cpp_link_stdlib_static`, keeping its stdlib
+/// name.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn cxxstdlib_static_env_metadata() {
+    // When invoked as subprocess, perform the builds and return.
+    if let Some(case) = env::var_os("__CC_TEST_CXXSTDLIB_STATIC") {
+        let test = Test::gnu();
+        let mut build = test.gcc();
+        build
+            .target("x86_64-unknown-linux-gnu")
+            .host("x86_64-unknown-linux-gnu")
+            .cpp(true)
+            .cpp_link_stdlib("stdc++")
+            .file("foo.cpp")
+            .archiver(test.td.path().join("ar"));
+        match case.to_str().unwrap() {
+            "stdlib" => {}
+            "no-stdlib" => {
+                build.cpp_link_stdlib(None);
+            }
+            "static-false" => {
+                build.cpp_link_stdlib_static(false);
+            }
+            "x86_64-apple-darwin" => {
+                build.target("x86_64-apple-darwin").cpp_link_stdlib("c++");
+            }
+            case => panic!("unknown case {case}"),
+        }
+        build.compile("foo");
+        build.compile("bar");
+        return;
+    }
+
+    let metadata_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
+        let output = Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_CXXSTDLIB_STATIC", case)
+            .env_remove("CXXSTDLIB")
+            .env_remove("CXXSTDLIB_STATIC")
+            .env_remove("HOST_CXXSTDLIB_STATIC")
+            .env_remove("TARGET_CXXSTDLIB_STATIC")
+            .env_remove("CXXSTDLIB_STATIC_x86_64-unknown-linux-gnu")
+            .env_remove("CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu")
+            .env_remove("CXXSTDLIB_STATIC_x86_64-apple-darwin")
+            .env_remove("CXXSTDLIB_STATIC_x86_64_apple_darwin")
+            .envs(envs.iter().copied())
+            .args(["--exact", "cxxstdlib_static_env_metadata", "--nocapture"])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter(|line| {
+                line.starts_with("cargo:rustc-link-lib=")
+                    || (line.starts_with("cargo:rerun-if-env-changed=")
+                        && line.contains("CXXSTDLIB_STATIC"))
+            })
+            .map(str::to_owned)
+            .collect()
+    };
+    let link_lib_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
+        metadata_lines(case, envs)
+            .iter()
+            .filter_map(|line| line.strip_prefix("cargo:rustc-link-lib="))
+            .map(str::to_owned)
+            .collect()
+    };
+
+    // Unset or false, nothing changes.
+    let dynamic = ["static=foo", "stdc++", "static=bar", "stdc++"];
+    assert_eq!(link_lib_lines("stdlib", &[]), dynamic);
+    for value in ["", "0", "no", "false"] {
+        assert_eq!(
+            link_lib_lines("stdlib", &[("CXXSTDLIB_STATIC", value)]),
+            dynamic
+        );
+    }
+    // Set, the crate's stdlib is linked statically, once per `Build`.
+    let static_once = ["static=foo", "static:-bundle=stdc++", "static=bar"];
+    for (key, value) in [
+        ("CXXSTDLIB_STATIC", "1"),
+        ("CXXSTDLIB_STATIC", "true"),
+        ("HOST_CXXSTDLIB_STATIC", "1"),
+        ("CXXSTDLIB_STATIC_x86_64-unknown-linux-gnu", "1"),
+        ("CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu", "1"),
+    ] {
+        assert_eq!(link_lib_lines("stdlib", &[(key, value)]), static_once);
+    }
+    // It also overrides an explicit `cpp_link_stdlib_static(false)`.
+    assert_eq!(
+        link_lib_lines("static-false", &[("CXXSTDLIB_STATIC", "1")]),
+        static_once
+    );
+    // A target specific value takes precedence over the plain one.
+    assert_eq!(
+        link_lib_lines(
+            "stdlib",
+            &[
+                ("CXXSTDLIB_STATIC", "1"),
+                ("CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu", "0")
+            ]
+        ),
+        dynamic
+    );
+    // No stdlib stays no stdlib.
+    assert_eq!(
+        link_lib_lines("no-stdlib", &[("CXXSTDLIB_STATIC", "1")]),
+        ["static=foo", "static=bar"]
+    );
+    // Apple keeps `static=`, as with `cpp_link_stdlib_static(true)`.
+    assert_eq!(
+        link_lib_lines("x86_64-apple-darwin", &[("CXXSTDLIB_STATIC", "1")]),
+        ["static=foo", "static=c++", "static=bar", "static=c++"]
+    );
+    // Cross compiling, the `TARGET_` prefixed form is read.
+    assert_eq!(
+        link_lib_lines("x86_64-apple-darwin", &[("TARGET_CXXSTDLIB_STATIC", "1")]),
+        ["static=foo", "static=c++", "static=bar", "static=c++"]
+    );
+    // Cargo reruns the build script when the variable changes.
+    let lines = metadata_lines("stdlib", &[]);
+    for key in [
+        "CXXSTDLIB_STATIC_x86_64-unknown-linux-gnu",
+        "CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu",
+        "HOST_CXXSTDLIB_STATIC",
+        "CXXSTDLIB_STATIC",
+    ] {
+        assert!(
+            lines.contains(&format!("cargo:rerun-if-env-changed={key}")),
+            "missing rerun-if-env-changed for {key}: {lines:?}"
+        );
+    }
+}
