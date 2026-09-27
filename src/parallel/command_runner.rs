@@ -1,6 +1,6 @@
 use std::{
     cell::Cell,
-    io,
+    io::{self, Write as _},
     process::{Child, Command},
 };
 
@@ -35,7 +35,6 @@ where
 fn try_wait_on_child(
     cmd: &Command,
     child: &mut Child,
-    mut stdout: impl io::Write,
     stderr_forwarder: &mut StderrForwarder,
 ) -> Result<Option<()>, Error> {
     stderr_forwarder.forward_available();
@@ -44,7 +43,9 @@ fn try_wait_on_child(
         Ok(Some(status)) => {
             stderr_forwarder.forward_all();
 
+            let mut stdout = io::stdout().lock();
             let _ = writeln!(stdout, "{}", status);
+            let _ = stdout.flush();
 
             if status.success() {
                 Ok(Some(()))
@@ -98,9 +99,6 @@ pub(crate) fn run_commands_in_parallel(
 
     let wait_future = async {
         let mut error = None;
-        // Not wrapped in a `BufWriter`, so that each line is written whole and
-        // can't be split by a compiler's stderr, which goes to stdout directly.
-        let mut stdout = io::stdout();
 
         loop {
             // If the other end of the pipe is already disconnected, then we're not gonna get any new jobs,
@@ -115,7 +113,7 @@ pub(crate) fn run_commands_in_parallel(
             cell_update(&pendings, |mut pendings| {
                 // Try waiting on them.
                 pendings.retain_mut(|(cmd, child, _token)| {
-                    match try_wait_on_child(cmd, &mut child.0, &mut stdout, &mut child.1) {
+                    match try_wait_on_child(cmd, &mut child.0, &mut child.1) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
                             has_made_progress.set(true);

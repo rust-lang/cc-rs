@@ -4,7 +4,7 @@ use std::{
     borrow::Cow,
     collections::hash_map,
     ffi::{OsStr, OsString},
-    fmt::Display,
+    fmt::{self, Display},
     fs,
     hash::Hasher,
     io::{self, Read, Write},
@@ -55,13 +55,13 @@ impl CargoOutput {
 
     pub(crate) fn print_metadata(&self, s: &dyn Display) {
         if self.metadata {
-            println!("{s}");
+            print_line(format_args!("{s}"));
         }
     }
 
     pub(crate) fn print_warning(&self, arg: &dyn Display) {
         if self.warnings {
-            println!("cargo:warning={arg}");
+            print_line(format_args!("cargo:warning={arg}"));
         }
     }
 
@@ -72,10 +72,12 @@ impl CargoOutput {
                 .compare_exchange(false, true, Ordering::Relaxed, Ordering::Relaxed)
                 .is_ok()
         {
-            println!("cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT");
+            print_line(format_args!(
+                "cargo:rerun-if-env-changed=CC_ENABLE_DEBUG_OUTPUT"
+            ));
         }
         if self.debug {
-            println!("{arg}");
+            print_line(format_args!("{arg}"));
         }
     }
 
@@ -241,12 +243,20 @@ impl StderrForwarder {
     }
 }
 
+/// Prints one line and flushes it right away. `println!` locks stdout for the
+/// whole line and, unlike a direct write, is captured by the test harness.
+fn print_line(line: fmt::Arguments<'_>) {
+    println!("{line}");
+    io::stdout().flush().unwrap();
+}
+
 fn write_warning(line: &[u8]) {
     let stdout = io::stdout();
     let mut stdout = stdout.lock();
     stdout.write_all(b"cargo:warning=").unwrap();
     stdout.write_all(line).unwrap();
     stdout.write_all(b"\n").unwrap();
+    stdout.flush().unwrap();
 }
 
 fn wait_on_child(

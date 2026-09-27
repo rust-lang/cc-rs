@@ -1424,7 +1424,7 @@ fn compiler_stderr_forwarded_once_per_line() {
             .env("CC_SHIM_STDERR", "note: from the compiler");
         if case == "compile-error" {
             build.env("CC_SHIM_FAIL_IF_ARG", "-c");
-            assert!(build.try_compile("foo").is_err());
+            build.try_compile("foo").unwrap_err();
         } else {
             build.compile("foo");
         }
