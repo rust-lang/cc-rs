@@ -146,8 +146,8 @@ impl StderrForwarder {
                         Err(_) => {
                             // On Windows, if we get an error then the pipe is broken, so flush
                             // the buffer and bail.
-                            if !buffer.is_empty() {
-                                write_warning(&buffer[..]);
+                            if self.bytes_buffered > 0 {
+                                write_warning(&buffer[..self.bytes_buffered]);
                             }
                             self.inner = None;
                             break true;
