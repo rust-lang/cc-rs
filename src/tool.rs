@@ -166,8 +166,7 @@ impl Tool {
                     .set_family_detection_env(env),
                 &{
                     // the errors are not errors!
-                    let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = cargo_output.debug;
+                    let mut cargo_output = cargo_output.quiet_unless_debug();
                     cargo_output.output = OutputKind::Discard;
                     cargo_output
                 },
@@ -236,8 +235,7 @@ impl Tool {
             // that it is not an error, but related to expanding itself.
             //
             // cc would have to disable warning here to prevent generation of too many warnings.
-            let mut compiler_detect_output = cargo_output.clone();
-            compiler_detect_output.warnings = compiler_detect_output.debug;
+            let compiler_detect_output = cargo_output.quiet_unless_debug();
 
             let mut cmd = Command::new(path);
             cmd.arg("-E").arg(tmp.path()).set_family_detection_env(env);

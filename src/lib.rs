@@ -1308,10 +1308,42 @@ impl Build {
     /// Define whether compile warnings should be emitted for cargo. Defaults to
     /// `true`.
     ///
-    /// If disabled, compiler messages will not be printed.
+    /// If disabled, compiler messages will not be printed. They still go to a
+    /// writer set with [`message_output`](Build::message_output).
     /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
     pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
         self.cargo_output.warnings = cargo_warnings;
+        self
+    }
+
+    /// Sets a writer that receives the compiler's messages and cc's own
+    /// warnings, one per line. These are the messages cc prints as
+    /// `cargo:warning=` lines, written without that prefix.
+    ///
+    /// The messages are still printed as cargo warnings too. Disable
+    /// [`cargo_warnings`](Build::cargo_warnings) to send them only to this
+    /// writer. Other `cargo:` lines, such as `cargo:rustc-link-lib`, are always
+    /// printed to stdout, since Cargo reads them there.
+    ///
+    /// Clones of this `Build` share the writer. A failed write never fails the
+    /// build: cc reports the first failure as a cargo warning and carries on.
+    /// Passing `None` removes a writer set earlier.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::{env, fs::File, path::Path};
+    ///
+    /// let out_dir = env::var_os("OUT_DIR").unwrap();
+    /// let log = File::create(Path::new(&out_dir).join("cc.log")).unwrap();
+    ///
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .message_output(Some(log))
+    ///     .compile("foo");
+    /// ```
+    pub fn message_output<W: Write + Send + 'static>(&mut self, output: Option<W>) -> &mut Build {
+        self.cargo_output.message_output = output.map(MessageOutput::new);
         self
     }
 
@@ -1629,6 +1661,7 @@ impl Build {
             cfg.flag(flag)
                 .compiler(tool.path())
                 .cargo_metadata(self.cargo_output.metadata)
+                .cargo_warnings(self.cargo_output.warnings)
                 .opt_level(0)
                 .debug(false)
                 .cpp(self.cpp)
@@ -1644,6 +1677,11 @@ impl Build {
             // compiler family already worked out is not worked out again.
             cfg.env.clone_from(&self.env);
             cfg.build_cache = Arc::clone(&self.build_cache);
+            // The probe's own warnings go where this build's warnings go,
+            // including its message output.
+            cfg.cargo_output
+                .message_output
+                .clone_from(&self.cargo_output.message_output);
             if let Some(target) = &self.target {
                 cfg.target(target);
             }

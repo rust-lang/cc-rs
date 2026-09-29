@@ -4,7 +4,7 @@ use std::{
     borrow::Cow,
     collections::hash_map,
     ffi::{OsStr, OsString},
-    fmt::Display,
+    fmt::{self, Display},
     fs,
     hash::Hasher,
     io::{self, Read, Write},
@@ -12,7 +12,7 @@ use std::{
     process::{Child, ChildStderr, Command, Output, Stdio},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex, PoisonError,
     },
 };
 
@@ -24,7 +24,51 @@ pub(crate) struct CargoOutput {
     pub(crate) warnings: bool,
     pub(crate) debug: bool,
     pub(crate) output: OutputKind,
+    pub(crate) message_output: Option<MessageOutput>,
     checked_dbg_var: Arc<AtomicBool>,
+}
+
+/// The writer set with [`Build::message_output`](crate::Build::message_output),
+/// shared by clones of a `Build`.
+#[derive(Clone)]
+pub(crate) struct MessageOutput(Arc<MessageOutputInner<dyn Write + Send>>);
+
+struct MessageOutputInner<W: ?Sized> {
+    reported_failure: AtomicBool,
+    writer: Mutex<W>,
+}
+
+impl MessageOutput {
+    pub(crate) fn new<W: Write + Send + 'static>(writer: W) -> Self {
+        Self(Arc::new(MessageOutputInner {
+            reported_failure: AtomicBool::new(false),
+            writer: Mutex::new(writer),
+        }))
+    }
+
+    /// Write one message. A failed write never fails the build: the first
+    /// one is reported as a warning on stdout, and later messages are still
+    /// tried.
+    fn write_line(&self, line: &[u8]) {
+        let result = {
+            let mut writer = self.0.writer.lock().unwrap_or_else(PoisonError::into_inner);
+            writer
+                .write_all(line)
+                .and_then(|()| writer.write_all(b"\n"))
+                .and_then(|()| writer.flush())
+        };
+        if let Err(err) = result {
+            if !self.0.reported_failure.swap(true, Ordering::Relaxed) {
+                println!("cargo:warning=failed to write to the cc message output: {err}");
+            }
+        }
+    }
+}
+
+impl fmt::Debug for MessageOutput {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MessageOutput").finish_non_exhaustive()
+    }
 }
 
 /// Different strategies for handling compiler output (to stdout)
@@ -49,8 +93,20 @@ impl CargoOutput {
                 Some(v) => v != "0" && v != "false" && !v.is_empty(),
                 None => false,
             },
+            message_output: None,
             checked_dbg_var: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// A copy for a command whose stderr is expected to be noise: it is only
+    /// forwarded, as warnings and to the message output, when debugging.
+    pub(crate) fn quiet_unless_debug(&self) -> Self {
+        let mut quiet = self.clone();
+        quiet.warnings = quiet.debug;
+        if !quiet.debug {
+            quiet.message_output = None;
+        }
+        quiet
     }
 
     pub(crate) fn print_metadata(&self, s: &dyn Display) {
@@ -62,6 +118,20 @@ impl CargoOutput {
     pub(crate) fn print_warning(&self, arg: &dyn Display) {
         if self.warnings {
             println!("cargo:warning={arg}");
+        }
+        if let Some(message_output) = &self.message_output {
+            message_output.write_line(arg.to_string().as_bytes());
+        }
+    }
+
+    /// Forward one line of a command's stderr.
+    fn forward_stderr_line(&self, line: &[u8]) {
+        if self.warnings {
+            write_warning(line);
+        }
+        if let Some(message_output) = &self.message_output {
+            // Streamed lines still end in `\r` when the compiler wrote `\r\n`.
+            message_output.write_line(line.strip_suffix(b"\r").unwrap_or(line));
         }
     }
 
@@ -80,7 +150,7 @@ impl CargoOutput {
     }
 
     fn stdio_for_warnings(&self) -> Stdio {
-        if self.warnings {
+        if self.warnings || self.message_output.is_some() {
             Stdio::piped()
         } else {
             Stdio::null()
@@ -98,6 +168,7 @@ impl CargoOutput {
 
 pub(crate) struct StderrForwarder {
     inner: Option<(ChildStderr, Vec<u8>)>,
+    cargo_output: CargoOutput,
     #[cfg(feature = "parallel")]
     is_non_blocking: bool,
     #[cfg(feature = "parallel")]
@@ -109,12 +180,13 @@ pub(crate) struct StderrForwarder {
 const MIN_BUFFER_CAPACITY: usize = 100;
 
 impl StderrForwarder {
-    pub(crate) fn new(child: &mut Child) -> Self {
+    pub(crate) fn new(child: &mut Child, cargo_output: &CargoOutput) -> Self {
         Self {
             inner: child
                 .stderr
                 .take()
                 .map(|stderr| (stderr, Vec::with_capacity(MIN_BUFFER_CAPACITY))),
+            cargo_output: cargo_output.clone(),
             bytes_buffered: 0,
             #[cfg(feature = "parallel")]
             is_non_blocking: false,
@@ -147,7 +219,8 @@ impl StderrForwarder {
                             // On Windows, if we get an error then the pipe is broken, so flush
                             // the buffer and bail.
                             if self.bytes_buffered > 0 {
-                                write_warning(&buffer[..self.bytes_buffered]);
+                                self.cargo_output
+                                    .forward_stderr_line(&buffer[..self.bytes_buffered]);
                             }
                             self.inner = None;
                             break true;
@@ -187,7 +260,7 @@ impl StderrForwarder {
                             // Only forward complete lines, leave the rest in the buffer.
                             if let Some((b'\n', line)) = line.split_last() {
                                 consumed += line.len() + 1;
-                                write_warning(line);
+                                self.cargo_output.forward_stderr_line(line);
                             }
                         }
                         if consumed > 0 && consumed < self.bytes_buffered {
@@ -199,10 +272,11 @@ impl StderrForwarder {
                     res => {
                         // End of stream: flush remaining data and bail.
                         if self.bytes_buffered > 0 {
-                            write_warning(&buffer[..self.bytes_buffered]);
+                            self.cargo_output
+                                .forward_stderr_line(&buffer[..self.bytes_buffered]);
                         }
                         if let Err(err) = res {
-                            write_warning(
+                            self.cargo_output.forward_stderr_line(
                                 format!("Failed to read from child stderr: {err}").as_bytes(),
                             );
                         }
@@ -254,7 +328,7 @@ fn wait_on_child(
     child: &mut Child,
     cargo_output: &CargoOutput,
 ) -> Result<(), Error> {
-    StderrForwarder::new(child).forward_all();
+    StderrForwarder::new(child, cargo_output).forward_all();
 
     let status = match child.wait() {
         Ok(s) => s,
@@ -436,13 +510,7 @@ pub(crate) fn run_silent_on_error(
     cargo_output.print_debug(&status);
 
     if status.success() {
-        if cargo_output.warnings {
-            stderr
-                .split(|&b| b == b'\n')
-                .map(|line| line.strip_suffix(b"\r").unwrap_or(line))
-                .filter(|line| !line.is_empty())
-                .for_each(write_warning);
-        }
+        stderr_warnings(&stderr, None).for_each(|line| cargo_output.forward_stderr_line(line));
         Ok(())
     } else {
         Err(Error::new(
@@ -486,7 +554,7 @@ pub(crate) fn run_output_ignoring_line(
         stderr,
     } = spawn_and_wait_for_output(cmd, cargo_output)?;
 
-    stderr_warnings(&stderr, ignored_line).for_each(write_warning);
+    stderr_warnings(&stderr, ignored_line).for_each(|line| cargo_output.forward_stderr_line(line));
 
     cargo_output.print_debug(&status);
 

@@ -150,7 +150,7 @@ pub(crate) fn run_commands_in_parallel(
             let mut cmd = res?;
             let token = tokens.acquire().await?;
             let mut child = spawn(&mut cmd, cargo_output)?;
-            let mut stderr_forwarder = StderrForwarder::new(&mut child);
+            let mut stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
             stderr_forwarder.set_non_blocking()?;
 
             cell_update(&pendings, |mut pendings| {

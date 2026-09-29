@@ -1472,6 +1472,193 @@ fn compiler_stderr_forwarded_once_per_line() {
     );
 }
 
+/// A writer set with `message_output` gets the lines cc prints as
+/// `cargo:warning=`, while every other `cargo:` line stays on stdout.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn message_output() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<cc::Build>();
+
+    struct FailingWriter;
+
+    impl std::io::Write for FailingWriter {
+        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
+            Err(std::io::Error::new(std::io::ErrorKind::Other, "disk full"))
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    // When invoked as subprocess, perform the builds and return.
+    if let Some(case) = env::var_os("__CC_TEST_MESSAGE_OUTPUT") {
+        let log =
+            std::fs::File::create(env::var_os("__CC_TEST_MESSAGE_OUTPUT_FILE").unwrap()).unwrap();
+        let test = if case == "msvc" {
+            Test::msvc()
+        } else {
+            Test::gnu()
+        };
+        let mut build = test.gcc();
+        if case != "msvc" {
+            build
+                .target("x86_64-unknown-linux-gnu")
+                .host("x86_64-unknown-linux-gnu");
+        }
+        build
+            .file("foo.c")
+            .file("bar.c")
+            // A line ending in `\r\n`, as compilers on Windows write them.
+            .env("CC_SHIM_STDERR", "note: from the compiler\r");
+        match case.to_str().unwrap() {
+            "gnu" => {
+                // The flag check runs in a `Build` of its own.
+                build
+                    .flag_if_supported("-Wall")
+                    .message_output(Some(log))
+                    .compile("foo");
+            }
+            "gnu-redirect" => {
+                // The flag check's warnings stay off stdout too.
+                build
+                    .flag_if_supported("-Wall")
+                    .message_output(Some(log))
+                    .cargo_warnings(false)
+                    .compile("foo");
+            }
+            "msvc" => {
+                // cc warns that `cl` can't set the C++ stdlib.
+                build
+                    .cpp(true)
+                    .cpp_set_stdlib("c++")
+                    .message_output(Some(log))
+                    .compile("foo");
+            }
+            "compile-error" => {
+                build
+                    .env("CC_SHIM_FAIL_IF_ARG", "-c")
+                    .message_output(Some(log));
+                assert!(build.try_compile("foo").is_err());
+            }
+            "failing-writer" => {
+                build.message_output(Some(FailingWriter)).compile("foo");
+                build.clone().compile("bar");
+            }
+            case => panic!("unknown case {case}"),
+        }
+        return;
+    }
+
+    let run = |case: &str| -> (Vec<String>, Vec<String>) {
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+        let log = dir.path().join("cc.log");
+        let output = Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_MESSAGE_OUTPUT", case)
+            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+            .env("__CC_TEST_MESSAGE_OUTPUT_FILE", &log)
+            .args(["--exact", "message_output", "--nocapture"])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        let stdout = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        let messages = std::fs::read_to_string(&log).unwrap();
+        assert!(!messages.contains('\r'), "{messages:?}");
+        let messages = messages.lines().map(str::to_owned).collect();
+        (stdout, messages)
+    };
+    let warnings = |stdout: &[String]| -> Vec<String> {
+        stdout
+            .iter()
+            .filter_map(|line| line.strip_prefix("cargo:warning="))
+            .map(str::to_owned)
+            .collect()
+    };
+    let count =
+        |lines: &[String], needle: &str| lines.iter().filter(|l| l.contains(needle)).count();
+    let assert_link_lines = |stdout: &[String]| {
+        assert!(
+            stdout
+                .iter()
+                .any(|l| l == "cargo:rustc-link-lib=static=foo"),
+            "{stdout:#?}"
+        );
+        assert!(
+            stdout
+                .iter()
+                .any(|l| l.starts_with("cargo:rustc-link-search=native=")),
+            "{stdout:#?}"
+        );
+    };
+
+    // By default the writer mirrors the warnings, and gets nothing else.
+    let (stdout, messages) = run("gnu");
+    assert_eq!(warnings(&stdout), messages);
+    assert_eq!(
+        count(&messages, "cc: note: from the compiler"),
+        2,
+        "{messages:#?}"
+    );
+    assert!(
+        count(&messages, "ar: note: from the compiler") >= 1,
+        "{messages:#?}"
+    );
+    assert_eq!(count(&messages, "cargo:"), 0, "{messages:#?}");
+    assert_link_lines(&stdout);
+
+    // With cargo warnings off, the messages only go to the writer.
+    let (stdout, messages) = run("gnu-redirect");
+    assert_eq!(warnings(&stdout), Vec::<String>::new());
+    assert_eq!(
+        count(&messages, "cc: note: from the compiler"),
+        2,
+        "{messages:#?}"
+    );
+    assert_link_lines(&stdout);
+
+    // cc's own warnings go to the writer too.
+    let (stdout, messages) = run("msvc");
+    assert_eq!(warnings(&stdout), messages);
+    assert!(
+        count(&messages, "cpp_set_stdlib is specified") >= 1,
+        "{messages:#?}"
+    );
+    assert_link_lines(&stdout);
+
+    // The diagnostics of a failed compile reach the writer.
+    let (stdout, messages) = run("compile-error");
+    assert_eq!(warnings(&stdout), messages);
+    assert!(
+        count(&messages, "simulated failure for arg '-c'") >= 1,
+        "{messages:#?}"
+    );
+
+    // A writer that fails doesn't fail the build, and the failure is reported
+    // once, even across clones.
+    let (stdout, _) = run("failing-writer");
+    let warnings = warnings(&stdout);
+    assert_eq!(
+        count(
+            &warnings,
+            "failed to write to the cc message output: disk full"
+        ),
+        1,
+        "{warnings:#?}"
+    );
+    assert_eq!(
+        count(&warnings, "cc: note: from the compiler"),
+        4,
+        "{warnings:#?}"
+    );
+    assert_link_lines(&stdout);
+}
+
 /// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once
 /// per `Build`, `wasm32`, `pauthtest` and Apple keep a plain `static=`, and a
 /// stdlib value that already names a link kind is emitted unchanged.
