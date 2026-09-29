@@ -1,6 +1,5 @@
 use std::{
     cell::Cell,
-    io::{self, Write as _},
     process::{Child, Command},
 };
 
@@ -43,9 +42,7 @@ fn try_wait_on_child(
         Ok(Some(status)) => {
             stderr_forwarder.forward_all();
 
-            let mut stdout = io::stdout().lock();
-            let _ = writeln!(stdout, "{}", status);
-            let _ = stdout.flush();
+            println!("{status}");
 
             if status.success() {
                 Ok(Some(()))
