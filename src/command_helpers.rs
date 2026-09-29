@@ -4,7 +4,7 @@ use std::{
     borrow::Cow,
     collections::hash_map,
     ffi::{OsStr, OsString},
-    fmt::Display,
+    fmt::{self, Display},
     fs,
     hash::Hasher,
     io::{self, Read, Write},
@@ -570,6 +570,21 @@ pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAd
         cmd.arg(s);
     } else {
         cmd.arg("-o").arg(dst);
+    }
+}
+
+/// Shows a command's program and arguments like `{cmd:?}`, but not its
+/// environment. After `env_clear` the `Debug` output on Unix lists every
+/// variable set, which can be the whole inherited environment.
+pub(crate) struct CommandLine<'a>(pub(crate) &'a Command);
+
+impl fmt::Display for CommandLine<'_> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self.0.get_program())?;
+        for arg in self.0.get_args() {
+            write!(f, " {arg:?}")?;
+        }
+        Ok(())
     }
 }
 

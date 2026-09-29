@@ -360,10 +360,20 @@ use utilities::*;
 mod flags;
 use flags::*;
 
+/// Key of the flag support cache: everything the probe `Build` in
+/// [`Build::is_flag_supported_inner`] is made from.
 #[derive(Debug, Eq, PartialEq, Hash)]
 struct CompilerFlag {
     compiler: Box<Path>,
     flag: Box<OsStr>,
+    target: Option<Arc<str>>,
+    host: Option<Arc<str>>,
+    cpp: bool,
+    cuda: bool,
+    /// The inherited environment followed by [`Build::env`], in the order the
+    /// probe applies them. The probe's environment is built from this list
+    /// instead of being inherited, so the two can't differ.
+    envs: Box<[(Arc<OsStr>, Arc<OsStr>)]>,
 }
 
 enum PrefixMapFlag {
@@ -1508,9 +1518,9 @@ impl Build {
     /// It may return error if it's unable to run the compiler with a test file
     /// (e.g. the compiler is missing or a write to the `out_dir` failed).
     ///
-    /// Note: Once computed, the result of this call is stored in the
-    /// `known_flag_support` field. If `is_flag_supported(flag)`
-    /// is called again, the result will be read from the hash table.
+    /// Note: Once computed, the result of this call is cached, and the cache
+    /// is shared with clones of this `Build`. It is reused for the same
+    /// compiler, flag, target, host, language and environment.
     pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
         self.is_flag_supported_inner(
             flag.as_ref(),
@@ -1600,9 +1610,21 @@ impl Build {
         tool: &Tool,
         target: &TargetInfo<'_>,
     ) -> Result<bool, Error> {
+        // Take the environment once, and use it both in the key and for the
+        // probe, so the probe runs in exactly the environment its answer is
+        // cached under.
+        let envs = env::vars_os()
+            .map(|(key, value)| (key.into(), value.into()))
+            .chain(self.env.iter().cloned())
+            .collect();
         let compiler_flag = CompilerFlag {
             compiler: tool.path().into(),
             flag: flag.into(),
+            target: self.target.clone(),
+            host: self.host.clone(),
+            cpp: self.cpp,
+            cuda: self.cuda,
+            envs,
         };
 
         if let Some(is_supported) = self
@@ -1665,7 +1687,16 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        cmd.set_flag_supported_env(&self.env);
+        // Rebuild the environment from the key, in the usual order: inherited,
+        // then the compiler's own (`to_command` sets it, `env_clear` drops it),
+        // then `Build::env`.
+        let (inherited, overrides) = compiler_flag
+            .envs
+            .split_at(compiler_flag.envs.len() - self.env.len());
+        cmd.env_clear();
+        cmd.envs(inherited.iter().map(|(key, value)| (key, value)));
+        cmd.envs(compiler.env().iter().map(|(key, value)| (key, value)));
+        cmd.set_flag_supported_env(overrides);
         command_add_output_file(
             &mut cmd,
             &probe.obj,
@@ -1705,7 +1736,7 @@ impl Build {
 
         cmd.current_dir(&*probe.dir);
         self.cargo_output
-            .print_debug(&format_args!("running: {cmd:?}"));
+            .print_debug(&format_args!("running: {}", CommandLine(&cmd)));
         let output = cmd.output()?;
         drop(probe);
         let is_supported = output.status.success() && output.stderr.is_empty();
