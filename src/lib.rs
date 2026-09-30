@@ -1633,6 +1633,7 @@ impl Build {
         key: &mut Option<CompilerFlag>,
     ) -> Result<bool, Error> {
         let key = &*key.get_or_insert_with(|| self.flag_support_cache_key(tool));
+        assert_eq!(&*key.compiler, tool.path());
 
         if let Some(is_supported) = self
             .build_cache
@@ -2035,28 +2036,37 @@ impl Build {
             ));
         }
 
+        if objs.is_empty() {
+            return Ok(());
+        }
+        // Every object is compiled with the same compiler and flags, so work
+        // them out once.
+        let compiler = self.try_get_compiler()?;
+
         #[cfg(feature = "parallel")]
         if objs.len() > 1 {
             return parallel::run_commands_in_parallel(
                 &self.cargo_output,
-                &mut objs.iter().map(|obj| self.create_compile_object_cmd(obj)),
+                &mut objs
+                    .iter()
+                    .map(|obj| self.create_compile_object_cmd(obj, &compiler)),
             );
         }
 
         for obj in objs {
-            let mut cmd = self.create_compile_object_cmd(obj)?;
+            let mut cmd = self.create_compile_object_cmd(obj, &compiler)?;
             run(&mut cmd, &self.cargo_output)?;
         }
 
         Ok(())
     }
 
-    fn create_compile_object_cmd(&self, obj: &Object) -> Result<Command, Error> {
+    /// `compiler` is the result of [`Build::try_get_compiler`].
+    fn create_compile_object_cmd(&self, obj: &Object, compiler: &Tool) -> Result<Command, Error> {
         let asm_ext = AsmFileExt::from_path(&obj.src);
         let is_asm = asm_ext.is_some();
         let target = self.get_target()?;
         let msvc = target.env == "msvc";
-        let compiler = self.try_get_compiler()?;
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let mut cmd = if is_assembler_msvc {
@@ -2089,7 +2099,7 @@ impl Build {
             cmd.args(self.asm_flags.iter().map(core::ops::Deref::deref));
         }
 
-        self.add_compile_source_arg(&mut cmd, &compiler, &obj.src, is_assembler_msvc);
+        self.add_compile_source_arg(&mut cmd, compiler, &obj.src, is_assembler_msvc);
 
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
