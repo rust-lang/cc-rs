@@ -348,6 +348,10 @@ pub mod windows_registry {
 mod command_helpers;
 use command_helpers::*;
 
+mod logger;
+use logger::Logger;
+pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger};
+
 mod tool;
 pub use tool::Tool;
 use tool::{CompilerFamilyLookupCache, ToolFamily};
@@ -1309,41 +1313,51 @@ impl Build {
     /// `true`.
     ///
     /// If disabled, compiler messages will not be printed. They still go to a
-    /// writer set with [`message_output`](Build::message_output).
+    /// logger set with [`message_logger`](Build::message_logger).
     /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
     pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
         self.cargo_output.warnings = cargo_warnings;
         self
     }
 
-    /// Sets a writer that receives the compiler's messages and cc's own
-    /// warnings, one per line. These are the messages cc prints as
-    /// `cargo:warning=` lines, written without that prefix.
+    /// Sets a logger that receives cc's messages: its own warnings, each line
+    /// the commands it runs write to stderr, and the commands that failed. See
+    /// [`BuildMessageKind`] for the details.
     ///
-    /// The messages are still printed as cargo warnings too. Disable
-    /// [`cargo_warnings`](Build::cargo_warnings) to send them only to this
-    /// writer. Other `cargo:` lines, such as `cargo:rustc-link-lib`, are always
-    /// printed to stdout, since Cargo reads them there.
+    /// The warnings and stderr lines are still printed as cargo warnings too.
+    /// Disable [`cargo_warnings`](Build::cargo_warnings) to send them only to
+    /// the logger. Other `cargo:` lines, such as `cargo:rustc-link-lib`, are
+    /// always printed to stdout, since Cargo reads them there.
     ///
-    /// Clones of this `Build` share the writer. A failed write never fails the
-    /// build: cc reports the first failure as a cargo warning and carries on.
-    /// Passing `None` removes a writer set earlier.
+    /// Clones of this `Build` share the logger. Passing `None` removes a logger
+    /// set earlier.
     ///
     /// # Example
     ///
     /// ```no_run
-    /// use std::{env, fs::File, path::Path};
+    /// use std::{any::Any, sync::{Arc, Mutex}};
+    /// use cc::{BuildMessage, BuildMessageKind, BuildMessageLogger};
     ///
-    /// let out_dir = env::var_os("OUT_DIR").unwrap();
-    /// let log = File::create(Path::new(&out_dir).join("cc.log")).unwrap();
+    /// #[derive(Default)]
+    /// struct Messages(Mutex<Vec<String>>);
     ///
-    /// cc::Build::new()
+    /// impl BuildMessageLogger for Messages {
+    ///     fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, _extra: &dyn Any) {
+    ///         self.0.lock().unwrap().push(format!("{kind:?}: {msg}"));
+    ///     }
+    /// }
+    ///
+    /// let messages = Arc::new(Messages::default());
+    /// let result = cc::Build::new()
     ///     .file("src/foo.c")
-    ///     .message_output(Some(log))
-    ///     .compile("foo");
+    ///     .message_logger(Some(messages.clone()))
+    ///     .try_compile("foo");
+    /// // The messages are there whether the build failed or not.
+    /// println!("{:#?}", messages.0.lock().unwrap());
+    /// result.unwrap();
     /// ```
-    pub fn message_output<W: Write + Send + 'static>(&mut self, output: Option<W>) -> &mut Build {
-        self.cargo_output.message_output = output.map(MessageOutput::new);
+    pub fn message_logger(&mut self, logger: Option<Arc<dyn BuildMessageLogger>>) -> &mut Build {
+        self.cargo_output.logger = logger.map(Logger);
         self
     }
 
@@ -1678,10 +1692,10 @@ impl Build {
             cfg.env.clone_from(&self.env);
             cfg.build_cache = Arc::clone(&self.build_cache);
             // The probe's own warnings go where this build's warnings go,
-            // including its message output.
+            // including its logger.
             cfg.cargo_output
-                .message_output
-                .clone_from(&self.cargo_output.message_output);
+                .logger
+                .clone_from(&self.cargo_output.logger);
             if let Some(target) = &self.target {
                 cfg.target(target);
             }

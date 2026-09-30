@@ -1472,32 +1472,55 @@ fn compiler_stderr_forwarded_once_per_line() {
     );
 }
 
-/// A writer set with `message_output` gets the lines cc prints as
-/// `cargo:warning=`, while every other `cargo:` line stays on stdout.
+/// A logger set with `message_logger` gets cc's warnings, each stderr line and
+/// failed commands, while every other `cargo:` line stays on stdout.
 ///
 /// This test runs the builds in a subprocess so we
 /// can capture and assert on the emitted cargo metadata.
 #[test]
-fn message_output() {
-    fn assert_send_sync<T: Send + Sync>() {}
-    assert_send_sync::<cc::Build>();
+fn message_logger() {
+    use std::{
+        any::Any,
+        io::Write,
+        panic::{RefUnwindSafe, UnwindSafe},
+        path::Path,
+        sync::{Arc, Mutex},
+    };
 
-    struct FailingWriter;
+    use cc::{BuildMessage, BuildMessageKind, BuildMessageLogger};
 
-    impl std::io::Write for FailingWriter {
-        fn write(&mut self, _: &[u8]) -> std::io::Result<usize> {
-            Err(std::io::Error::new(std::io::ErrorKind::Other, "disk full"))
-        }
+    fn assert_auto_traits<T: Clone + Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
+    assert_auto_traits::<cc::Build>();
 
-        fn flush(&mut self) -> std::io::Result<()> {
-            Ok(())
+    /// Writes each message as `kind`, `extra` and the text, split by tabs.
+    struct FileLogger(Mutex<std::fs::File>);
+
+    impl BuildMessageLogger for FileLogger {
+        fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, extra: &dyn Any) {
+            let kind = match kind {
+                BuildMessageKind::CommandFailed(status) => {
+                    assert!(!status.success());
+                    format!("CommandFailed({:?})", status.code())
+                }
+                kind => format!("{kind:?}"),
+            };
+            let extra = if let Some(cmd) = extra.downcast_ref::<Command>() {
+                let program = Path::new(cmd.get_program()).file_stem().unwrap();
+                program.to_str().unwrap().to_owned()
+            } else if extra.is::<()>() {
+                "()".to_owned()
+            } else {
+                panic!("unexpected extra for {kind}")
+            };
+            writeln!(self.0.lock().unwrap(), "{kind}\t{extra}\t{msg}").unwrap();
         }
     }
 
     // When invoked as subprocess, perform the builds and return.
-    if let Some(case) = env::var_os("__CC_TEST_MESSAGE_OUTPUT") {
+    if let Some(case) = env::var_os("__CC_TEST_MESSAGE_LOGGER") {
         let log =
-            std::fs::File::create(env::var_os("__CC_TEST_MESSAGE_OUTPUT_FILE").unwrap()).unwrap();
+            std::fs::File::create(env::var_os("__CC_TEST_MESSAGE_LOGGER_FILE").unwrap()).unwrap();
+        let logger = Arc::new(FileLogger(Mutex::new(log)));
         let test = if case == "msvc" {
             Test::msvc()
         } else {
@@ -1513,54 +1536,45 @@ fn message_output() {
             .file("foo.c")
             .file("bar.c")
             // A line ending in `\r\n`, as compilers on Windows write them.
-            .env("CC_SHIM_STDERR", "note: from the compiler\r");
+            .env("CC_SHIM_STDERR", "note: from the compiler\r")
+            .message_logger(Some(logger));
         match case.to_str().unwrap() {
             "gnu" => {
                 // The flag check runs in a `Build` of its own.
-                build
-                    .flag_if_supported("-Wall")
-                    .message_output(Some(log))
-                    .compile("foo");
+                build.flag_if_supported("-Wall").compile("foo");
             }
             "gnu-redirect" => {
                 // The flag check's warnings stay off stdout too.
                 build
                     .flag_if_supported("-Wall")
-                    .message_output(Some(log))
                     .cargo_warnings(false)
                     .compile("foo");
             }
             "msvc" => {
                 // cc warns that `cl` can't set the C++ stdlib.
-                build
-                    .cpp(true)
-                    .cpp_set_stdlib("c++")
-                    .message_output(Some(log))
-                    .compile("foo");
+                build.cpp(true).cpp_set_stdlib("c++").compile("foo");
             }
             "compile-error" => {
-                build
-                    .env("CC_SHIM_FAIL_IF_ARG", "-c")
-                    .message_output(Some(log));
+                build.env("CC_SHIM_FAIL_IF_ARG", "-c");
                 assert!(build.try_compile("foo").is_err());
             }
-            "failing-writer" => {
-                build.message_output(Some(FailingWriter)).compile("foo");
-                build.clone().compile("bar");
+            "clone-and-remove" => {
+                build.clone().compile("foo");
+                build.message_logger(None).compile("bar");
             }
             case => panic!("unknown case {case}"),
         }
         return;
     }
 
-    let run = |case: &str| -> (Vec<String>, Vec<String>) {
+    let run = |case: &str| -> (Vec<String>, Vec<[String; 3]>) {
         let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         let log = dir.path().join("cc.log");
         let output = Command::new(env::current_exe().unwrap())
-            .env("__CC_TEST_MESSAGE_OUTPUT", case)
+            .env("__CC_TEST_MESSAGE_LOGGER", case)
             .env_remove("CC_ENABLE_DEBUG_OUTPUT")
-            .env("__CC_TEST_MESSAGE_OUTPUT_FILE", &log)
-            .args(["--exact", "message_output", "--nocapture"])
+            .env("__CC_TEST_MESSAGE_LOGGER_FILE", &log)
+            .args(["--exact", "message_logger", "--nocapture"])
             .output()
             .unwrap();
         assert!(output.status.success(), "subprocess failed: {:?}", output);
@@ -1570,7 +1584,13 @@ fn message_output() {
             .collect();
         let messages = std::fs::read_to_string(&log).unwrap();
         assert!(!messages.contains('\r'), "{messages:?}");
-        let messages = messages.lines().map(str::to_owned).collect();
+        let messages = messages
+            .lines()
+            .map(|line| {
+                let mut parts = line.splitn(3, '\t').map(str::to_owned);
+                [(); 3].map(|()| parts.next().unwrap())
+            })
+            .collect();
         (stdout, messages)
     };
     let warnings = |stdout: &[String]| -> Vec<String> {
@@ -1580,8 +1600,15 @@ fn message_output() {
             .map(str::to_owned)
             .collect()
     };
-    let count =
-        |lines: &[String], needle: &str| lines.iter().filter(|l| l.contains(needle)).count();
+    let texts = |messages: &[[String; 3]]| -> Vec<String> {
+        messages.iter().map(|[_, _, text]| text.clone()).collect()
+    };
+    let count = |messages: &[[String; 3]], kind: &str, extra: &str, text: &str| {
+        messages
+            .iter()
+            .filter(|m| m[0] == kind && m[1] == extra && m[2] == text)
+            .count()
+    };
     let assert_link_lines = |stdout: &[String]| {
         assert!(
             stdout
@@ -1596,67 +1623,91 @@ fn message_output() {
             "{stdout:#?}"
         );
     };
+    let stderr_line = "StderrForwarding";
+    let note = "cc: note: from the compiler";
 
-    // By default the writer mirrors the warnings, and gets nothing else.
+    // By default the logger mirrors the warnings.
     let (stdout, messages) = run("gnu");
-    assert_eq!(warnings(&stdout), messages);
+    assert_eq!(warnings(&stdout), texts(&messages));
     assert_eq!(
-        count(&messages, "cc: note: from the compiler"),
+        count(&messages, stderr_line, "cc", note),
         2,
         "{messages:#?}"
     );
     assert!(
-        count(&messages, "ar: note: from the compiler") >= 1,
+        count(&messages, stderr_line, "ar", "ar: note: from the compiler") >= 1,
         "{messages:#?}"
     );
-    assert_eq!(count(&messages, "cargo:"), 0, "{messages:#?}");
+    assert!(
+        messages
+            .iter()
+            .all(|m| m[0] == stderr_line || (m[0] == "GeneralWarning" && m[1] == "()")),
+        "{messages:#?}"
+    );
     assert_link_lines(&stdout);
 
-    // With cargo warnings off, the messages only go to the writer.
+    // With cargo warnings off, the messages only go to the logger.
     let (stdout, messages) = run("gnu-redirect");
     assert_eq!(warnings(&stdout), Vec::<String>::new());
     assert_eq!(
-        count(&messages, "cc: note: from the compiler"),
+        count(&messages, stderr_line, "cc", note),
         2,
         "{messages:#?}"
     );
     assert_link_lines(&stdout);
 
-    // cc's own warnings go to the writer too.
+    // cc's own warnings are general warnings.
     let (stdout, messages) = run("msvc");
-    assert_eq!(warnings(&stdout), messages);
+    assert_eq!(warnings(&stdout), texts(&messages));
     assert!(
-        count(&messages, "cpp_set_stdlib is specified") >= 1,
+        messages
+            .iter()
+            .any(|[kind, extra, text]| kind == "GeneralWarning"
+                && extra == "()"
+                && text.contains("cpp_set_stdlib is specified")),
         "{messages:#?}"
     );
     assert_link_lines(&stdout);
 
-    // The diagnostics of a failed compile reach the writer.
-    let (stdout, messages) = run("compile-error");
-    assert_eq!(warnings(&stdout), messages);
+    // A failed compile's diagnostics come before the failed command.
+    let (_, messages) = run("compile-error");
+    let failed = messages
+        .iter()
+        .position(|[kind, extra, text]| {
+            kind == "CommandFailed(Some(1))"
+                && extra == "cc"
+                && text.starts_with("command did not execute successfully")
+        })
+        .unwrap_or_else(|| panic!("{messages:#?}"));
     assert!(
-        count(&messages, "simulated failure for arg '-c'") >= 1,
-        "{messages:#?}"
-    );
-
-    // A writer that fails doesn't fail the build, and the failure is reported
-    // once, even across clones.
-    let (stdout, _) = run("failing-writer");
-    let warnings = warnings(&stdout);
-    assert_eq!(
         count(
-            &warnings,
-            "failed to write to the cc message output: disk full"
-        ),
-        1,
-        "{warnings:#?}"
+            &messages[..failed],
+            stderr_line,
+            "cc",
+            "cc: simulated failure for arg '-c'"
+        ) >= 1,
+        "{messages:#?}"
+    );
+    // With `parallel`, the error isn't passed a second time as a warning.
+    assert!(
+        messages
+            .iter()
+            .all(|m| m[0] != "GeneralWarning" || !m[2].contains(&messages[failed][2])),
+        "{messages:#?}"
+    );
+
+    // Clones share the logger, and `None` removes it.
+    let (stdout, messages) = run("clone-and-remove");
+    assert_eq!(
+        count(&messages, stderr_line, "cc", note),
+        2,
+        "{messages:#?}"
     );
     assert_eq!(
-        count(&warnings, "cc: note: from the compiler"),
+        warnings(&stdout).iter().filter(|w| *w == note).count(),
         4,
-        "{warnings:#?}"
+        "{stdout:#?}"
     );
-    assert_link_lines(&stdout);
 }
 
 /// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once
