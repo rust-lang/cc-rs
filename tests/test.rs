@@ -1537,7 +1537,7 @@ fn message_logger() {
             .file("bar.c")
             // A line ending in `\r\n`, as compilers on Windows write them.
             .env("CC_SHIM_STDERR", "note: from the compiler\r")
-            .message_logger(Some(logger));
+            .message_logger(Some(logger.clone()));
         match case.to_str().unwrap() {
             "gnu" => {
                 // The flag check runs in a `Build` of its own.
@@ -1561,6 +1561,16 @@ fn message_logger() {
             "clone-and-remove" => {
                 build.clone().compile("foo");
                 build.message_logger(None).compile("bar");
+            }
+            "expand" => {
+                // `expand` collects the compiler's output instead of streaming it.
+                let mut build = test.gcc();
+                build
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .file("foo.c")
+                    .message_logger(Some(logger));
+                assert!(build.try_expand().is_err());
             }
             case => panic!("unknown case {case}"),
         }
@@ -1693,6 +1703,23 @@ fn message_logger() {
         messages
             .iter()
             .all(|m| m[0] != "GeneralWarning" || !m[2].contains(&messages[failed][2])),
+        "{messages:#?}"
+    );
+
+    // Output that cc collects reaches the logger too.
+    let (_, messages) = run("expand");
+    let failed = messages
+        .iter()
+        .position(|[kind, extra, _]| kind == "CommandFailed(Some(1))" && extra == "cc")
+        .unwrap_or_else(|| panic!("{messages:#?}"));
+    assert_eq!(
+        count(
+            &messages[..failed],
+            stderr_line,
+            "cc",
+            "cc: the shim cannot preprocess"
+        ),
+        1,
         "{messages:#?}"
     );
 

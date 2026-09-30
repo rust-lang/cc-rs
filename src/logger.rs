@@ -34,7 +34,8 @@ pub enum BuildMessageKind {
     /// A command cc ran exited with this unsuccessful status.
     ///
     /// cc recovers from some failed commands, such as a query for the
-    /// compiler's search paths, so the build may still succeed.
+    /// compiler's search paths, so the build may still succeed. Checks whose
+    /// failure cc expects, such as flag support probes, are not reported.
     CommandFailed(ExitStatus),
 }
 
