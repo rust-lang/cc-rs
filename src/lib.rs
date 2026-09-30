@@ -247,7 +247,7 @@
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
 
 use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display};
@@ -360,10 +360,20 @@ use utilities::*;
 mod flags;
 use flags::*;
 
-#[derive(Debug, Eq, PartialEq, Hash)]
+/// Key of the flag support cache, next to the flag itself: everything else the
+/// probe `Build` in [`Build::is_flag_supported_inner`] is made from. Built by
+/// [`Build::flag_support_cache_key`].
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
 struct CompilerFlag {
     compiler: Box<Path>,
-    flag: Box<OsStr>,
+    target: Option<Arc<str>>,
+    host: Option<Arc<str>>,
+    cpp: bool,
+    cuda: bool,
+    /// The inherited environment followed by [`Build::env`], in the order the
+    /// probe applies them. The probe's environment is built from this list
+    /// instead of being inherited, so the two can't differ.
+    envs: Box<[(Arc<OsStr>, Arc<OsStr>)]>,
 }
 
 enum PrefixMapFlag {
@@ -377,7 +387,7 @@ struct BuildCache {
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<HashSet<Box<str>>>,
-    known_flag_support_status_cache: RwLock<HashMap<CompilerFlag, bool>>,
+    known_flag_support_status_cache: RwLock<HashMap<Box<OsStr>, BTreeMap<CompilerFlag, bool>>>,
     target_info_parser: target::TargetInfoParser,
     warned_about_msvc_linker_flags: AtomicBool,
 }
@@ -1508,14 +1518,15 @@ impl Build {
     /// It may return error if it's unable to run the compiler with a test file
     /// (e.g. the compiler is missing or a write to the `out_dir` failed).
     ///
-    /// Note: Once computed, the result of this call is stored in the
-    /// `known_flag_support` field. If `is_flag_supported(flag)`
-    /// is called again, the result will be read from the hash table.
+    /// Note: Once computed, the result of this call is cached, and the cache
+    /// is shared with clones of this `Build`. It is reused for the same
+    /// compiler, flag, target, host, language and environment.
     pub fn is_flag_supported(&self, flag: impl AsRef<OsStr>) -> Result<bool, Error> {
         self.is_flag_supported_inner(
             flag.as_ref(),
             &self.get_base_compiler()?,
             &self.get_target()?,
+            &mut None,
         )
     }
 
@@ -1594,24 +1605,44 @@ impl Build {
         }
     }
 
+    /// The flag support cache key for probing flags of `tool` with this
+    /// `Build`.
+    fn flag_support_cache_key(&self, tool: &Tool) -> CompilerFlag {
+        CompilerFlag {
+            compiler: tool.path().into(),
+            target: self.target.clone(),
+            host: self.host.clone(),
+            cpp: self.cpp,
+            cuda: self.cuda,
+            envs: env::vars_os()
+                .map(|(name, value)| (name.into(), value.into()))
+                .chain(self.env.iter().cloned())
+                .collect(),
+        }
+    }
+
+    /// `key` holds the cache key for `tool` and this `Build`, or `None` to
+    /// build it here. Building it reads the whole environment, so a caller
+    /// that probes several flags of one tool passes the same `key` to each
+    /// call, and it is built once.
     fn is_flag_supported_inner(
         &self,
         flag: &OsStr,
         tool: &Tool,
         target: &TargetInfo<'_>,
+        key: &mut Option<CompilerFlag>,
     ) -> Result<bool, Error> {
-        let compiler_flag = CompilerFlag {
-            compiler: tool.path().into(),
-            flag: flag.into(),
-        };
+        let key = &*key.get_or_insert_with(|| self.flag_support_cache_key(tool));
+        assert_eq!(&*key.compiler, tool.path());
 
         if let Some(is_supported) = self
             .build_cache
             .known_flag_support_status_cache
             .read()
             .unwrap()
-            .get(&compiler_flag)
-            .cloned()
+            .get(flag)
+            .and_then(|answers| answers.get(key))
+            .copied()
         {
             return Ok(is_supported);
         }
@@ -1665,7 +1696,13 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        cmd.set_flag_supported_env(&self.env);
+        // Run in the environment of the key. `env_clear` also drops what
+        // `to_command` set from `compiler.env()` (`LC_ALL` or `VSLANG`, then
+        // `Build::env`), so set that again on top, which keeps the usual order
+        // and lets `set_flag_supported_env` rewrite the test shim's variables.
+        cmd.env_clear();
+        cmd.envs(key.envs.iter().map(|(name, value)| (name, value)));
+        cmd.set_flag_supported_env(compiler.env());
         command_add_output_file(
             &mut cmd,
             &probe.obj,
@@ -1705,7 +1742,7 @@ impl Build {
 
         cmd.current_dir(&*probe.dir);
         self.cargo_output
-            .print_debug(&format_args!("running: {cmd:?}"));
+            .print_debug(&format_args!("running: {}", CommandLine(&cmd)));
         let output = cmd.output()?;
         drop(probe);
         let is_supported = output.status.success() && output.stderr.is_empty();
@@ -1714,7 +1751,9 @@ impl Build {
             .known_flag_support_status_cache
             .write()
             .unwrap()
-            .insert(compiler_flag, is_supported);
+            .entry(flag.into())
+            .or_default()
+            .insert(key.clone(), is_supported);
 
         Ok(is_supported)
     }
@@ -1997,28 +2036,37 @@ impl Build {
             ));
         }
 
+        if objs.is_empty() {
+            return Ok(());
+        }
+        // Every object is compiled with the same compiler and flags, so work
+        // them out once.
+        let compiler = self.try_get_compiler()?;
+
         #[cfg(feature = "parallel")]
         if objs.len() > 1 {
             return parallel::run_commands_in_parallel(
                 &self.cargo_output,
-                &mut objs.iter().map(|obj| self.create_compile_object_cmd(obj)),
+                &mut objs
+                    .iter()
+                    .map(|obj| self.create_compile_object_cmd(obj, &compiler)),
             );
         }
 
         for obj in objs {
-            let mut cmd = self.create_compile_object_cmd(obj)?;
+            let mut cmd = self.create_compile_object_cmd(obj, &compiler)?;
             run(&mut cmd, &self.cargo_output)?;
         }
 
         Ok(())
     }
 
-    fn create_compile_object_cmd(&self, obj: &Object) -> Result<Command, Error> {
+    /// `compiler` is the result of [`Build::try_get_compiler`].
+    fn create_compile_object_cmd(&self, obj: &Object, compiler: &Tool) -> Result<Command, Error> {
         let asm_ext = AsmFileExt::from_path(&obj.src);
         let is_asm = asm_ext.is_some();
         let target = self.get_target()?;
         let msvc = target.env == "msvc";
-        let compiler = self.try_get_compiler()?;
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let mut cmd = if is_assembler_msvc {
@@ -2051,7 +2099,7 @@ impl Build {
             cmd.args(self.asm_flags.iter().map(core::ops::Deref::deref));
         }
 
-        self.add_compile_source_arg(&mut cmd, &compiler, &obj.src, is_assembler_msvc);
+        self.add_compile_source_arg(&mut cmd, compiler, &obj.src, is_assembler_msvc);
 
         if cfg!(target_os = "macos") {
             self.fix_env_for_apple_os(&mut cmd)?;
@@ -2188,6 +2236,8 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
+        // Shared by every flag probe below, see `is_flag_supported_inner`.
+        let mut flag_support_key = None;
 
         // The flags below are added in roughly the following order:
         // 1. Default flags
@@ -2217,7 +2267,7 @@ impl Build {
         // Disable default flag generation via `no_default_flags` or environment variable
         let no_defaults = self.no_default_flags || self.get_env_boolean("CRATE_CC_NO_DEFAULTS");
         if !no_defaults {
-            self.add_default_flags(&mut cmd, &target, &opt_level)?;
+            self.add_default_flags(&mut cmd, &target, &opt_level, &mut flag_support_key)?;
         }
 
         // Specify various flags that are not considered part of the default flags above.
@@ -2267,12 +2317,12 @@ impl Build {
 
         // Add cc flags inherited from matching rustc flags.
         if self.inherit_rustflags {
-            self.add_inherited_rustflags(&mut cmd, &target)?;
+            self.add_inherited_rustflags(&mut cmd, &target, &mut flag_support_key)?;
         }
 
         // Add path remap flags inherited from cargo's `-Ztrim-paths`.
         if self.inherit_trim_paths {
-            self.add_trim_paths_flags(&mut cmd, &target)?;
+            self.add_trim_paths_flags(&mut cmd, &target, &mut flag_support_key)?;
         }
 
         // Set flags configured in the builder (do this second-to-last, to allow these to override
@@ -2289,7 +2339,7 @@ impl Build {
         ignored_flags.extend(linker_flags.iter().map(|f| &**f));
         for flag in flags_supported {
             if self
-                .is_flag_supported_inner(flag, &cmd, &target)
+                .is_flag_supported_inner(flag, &cmd, &target, &mut flag_support_key)
                 .unwrap_or(false)
             {
                 cmd.push_cc_arg((**flag).into());
@@ -2340,6 +2390,7 @@ impl Build {
         cmd: &mut Tool,
         target: &TargetInfo<'_>,
         opt_level: &str,
+        flag_support_key: &mut Option<CompilerFlag>,
     ) -> Result<(), Error> {
         let raw_target = self.get_raw_target()?;
         // Non-target flags
@@ -2474,7 +2525,7 @@ impl Build {
                 cmd.push_cc_arg("-fno-omit-frame-pointer".into());
                 let flag = OsString::from("-mno-omit-leaf-frame-pointer");
                 if self
-                    .is_flag_supported_inner(&flag, cmd, target)
+                    .is_flag_supported_inner(&flag, cmd, target, flag_support_key)
                     .unwrap_or(false)
                 {
                     cmd.push_cc_arg(flag);
@@ -2906,6 +2957,7 @@ impl Build {
         &self,
         cmd: &mut Tool,
         target: &TargetInfo<'_>,
+        flag_support_key: &mut Option<CompilerFlag>,
     ) -> Result<(), Error> {
         let Some(env_os) = cargo_env_var_os("CARGO_ENCODED_RUSTFLAGS") else {
             // No encoded RUSTFLAGS -> nothing to do
@@ -2914,14 +2966,19 @@ impl Build {
 
         let env = env_os.to_string_lossy();
         let codegen_flags = RustcCodegenFlags::parse(&env)?;
-        codegen_flags.cc_flags(self, cmd, target);
+        codegen_flags.cc_flags(self, cmd, target, flag_support_key);
         Ok(())
     }
 
     /// Translate cargo's `-Ztrim-paths` remap rules into compiler flags.
     ///
     /// [`trim-paths`]: https://doc.rust-lang.org/nightly/cargo/reference/unstable.html#profile-trim-paths-option
-    fn add_trim_paths_flags(&self, cmd: &mut Tool, target: &TargetInfo<'_>) -> Result<(), Error> {
+    fn add_trim_paths_flags(
+        &self,
+        cmd: &mut Tool,
+        target: &TargetInfo<'_>,
+        flag_support_key: &mut Option<CompilerFlag>,
+    ) -> Result<(), Error> {
         // Native MSVC has no documented equivalent of the `-f*-prefix-map` flag family.
         // clang-cl parses Clang driver options when wrapped in `/clang:`.
         if cmd.is_like_msvc() && !cmd.is_like_clang_cl() {
@@ -2962,10 +3019,10 @@ impl Build {
             }
         }
 
-        let macro_scope =
-            macro_scope && self.probe_prefix_map_flag(PrefixMapFlag::Macro, cmd, target);
-        let object_scope =
-            object_scope && self.probe_prefix_map_flag(PrefixMapFlag::Debug, cmd, target);
+        let macro_scope = macro_scope
+            && self.probe_prefix_map_flag(PrefixMapFlag::Macro, cmd, target, flag_support_key);
+        let object_scope = object_scope
+            && self.probe_prefix_map_flag(PrefixMapFlag::Debug, cmd, target, flag_support_key);
 
         if !macro_scope && !object_scope {
             return Ok(());
@@ -3013,6 +3070,7 @@ impl Build {
         flag: PrefixMapFlag,
         cmd: &Tool,
         target: &TargetInfo<'_>,
+        flag_support_key: &mut Option<CompilerFlag>,
     ) -> bool {
         let (flag, unsupported_warning) = match flag {
             PrefixMapFlag::Macro => (
@@ -3033,7 +3091,7 @@ impl Build {
         };
         let probe = format!("{flag}=/probe=/probe");
         let supported = self
-            .is_flag_supported_inner(OsStr::new(&probe), cmd, target)
+            .is_flag_supported_inner(OsStr::new(&probe), cmd, target, flag_support_key)
             .unwrap_or(false);
 
         if !supported {

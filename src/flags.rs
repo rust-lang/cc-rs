@@ -1,5 +1,5 @@
 use crate::target::TargetInfo;
-use crate::{Build, Error, ErrorKind, Tool, ToolFamily};
+use crate::{Build, CompilerFlag, Error, ErrorKind, Tool, ToolFamily};
 use std::borrow::Cow;
 use std::ffi::OsString;
 
@@ -231,12 +231,18 @@ impl<'this> RustcCodegenFlags<'this> {
     }
 
     // Rust and clang/cc don't agree on what equivalent flags should look like.
-    pub(crate) fn cc_flags(&self, build: &Build, tool: &mut Tool, target: &TargetInfo<'_>) {
+    pub(crate) fn cc_flags(
+        &self,
+        build: &Build,
+        tool: &mut Tool,
+        target: &TargetInfo<'_>,
+        flag_support_key: &mut Option<CompilerFlag>,
+    ) {
         let family = tool.family;
         // Push `flag` to `flags` if it is supported by the currently used CC
         let mut push_if_supported = |flag: OsString| {
             if build
-                .is_flag_supported_inner(&flag, tool, target)
+                .is_flag_supported_inner(&flag, tool, target, flag_support_key)
                 .unwrap_or(false)
             {
                 tool.args.push(flag);
