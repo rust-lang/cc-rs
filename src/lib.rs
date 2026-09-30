@@ -2325,6 +2325,12 @@ impl Build {
             self.add_trim_paths_flags(&mut cmd, &target, &mut flag_support_key)?;
         }
 
+        if let Some(sanitizer) = self.getenv("CARGO_CFG_SANITIZE") {
+            let mut sanitizer_flag = OsString::from("-fsanitize=");
+            sanitizer_flag.push(sanitizer);
+            cmd.args.push(sanitizer_flag);
+        }
+
         // Set flags configured in the builder (do this second-to-last, to allow these to override
         // everything above).
         let (flags, linker_flags) = split_off_msvc_linker_flags(cmd.family, &self.flags);
