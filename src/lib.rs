@@ -2105,7 +2105,8 @@ impl Build {
     ///
     /// # Panics
     ///
-    /// Panics if `output` is not formatted correctly or if the archiver fails.
+    /// Panics if `output` is not formatted correctly, if `CC_FORCE_DISABLE` is
+    /// set, or if the archiver fails.
     pub fn create_archive<P>(&self, output: &str, objects: P) -> PathBuf
     where
         P: IntoIterator,
@@ -5039,20 +5040,20 @@ impl Default for Build {
 /// built, the way [`Build::compile`] does after creating its archive.
 ///
 /// `library` is the path of the library, such as the one returned by
-/// [`Build::create_archive`]. Its file name must be `lib<name>.a`, or
-/// `<name>.lib` on MSVC targets. The library is linked as `<name>`, and the
-/// folder it is in is added to the native library search path.
+/// [`Build::create_archive`], including its folder. Its file name must be
+/// `lib<name>.a`, or `<name>.lib` on MSVC targets. The library is linked as
+/// `<name>`, and its folder is added to the native library search path.
 ///
 /// `build` provides the target and the settings that decide how it is linked
 /// and which other libraries are linked with it, such as
 /// [`Build::link_lib_modifier`], [`Build::cpp`] with
-/// [`Build::cpp_link_stdlib`], and [`Build::cudart`]. Nothing is printed when
-/// [`Build::cargo_metadata`] is off.
+/// [`Build::cpp_link_stdlib`], and [`Build::cudart`]. The lines are not
+/// printed when [`Build::cargo_metadata`] is off.
 ///
 /// # Panics
 ///
-/// Panics if the file name of `library` doesn't have one of the forms above,
-/// or if the libraries to link with it can't be determined.
+/// Panics if `library` has no folder or its file name doesn't have one of the
+/// forms above, or if the libraries to link with it can't be determined.
 pub fn emit_link_directives<P: AsRef<Path>>(build: &Build, library: P) {
     if let Err(e) = try_emit_link_directives(build, library) {
         fail(&e.message);
@@ -5082,7 +5083,8 @@ pub fn try_emit_link_directives<P: AsRef<Path>>(build: &Build, library: P) -> Re
             ErrorKind::InvalidArgument,
             format!(
                 "`emit_link_directives` expects the path of a static library named \
-                 `lib<name>.a`, or `<name>.lib` on MSVC targets, got `{}`",
+                 `lib<name>.a`, or `<name>.lib` on MSVC targets, including its folder, \
+                 got `{}`",
                 library.display()
             ),
         )),
