@@ -4650,7 +4650,7 @@ impl Build {
                     .arg("--show-sdk-version")
                     .arg("--sdk")
                     .arg(sdk),
-                &self.cargo_output,
+                &self.cargo_output.for_detection_cmd(),
             )
             .ok()?;
 
@@ -4814,7 +4814,7 @@ impl Build {
         let search_dirs = run_output(
             self.cmd(cc).arg("--print-search-dirs"),
             // this doesn't concern the compilation so we always want to show warnings.
-            cargo_output,
+            &cargo_output.for_detection_cmd(),
         )
         .ok()?;
         // clang driver appears to be forcing UTF-8 output even on Windows,

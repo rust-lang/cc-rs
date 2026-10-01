@@ -27,6 +27,9 @@ pub(crate) struct CargoOutput {
     pub(crate) debug: bool,
     pub(crate) output: OutputKind,
     pub(crate) logger: Option<Logger>,
+    /// Whether the command only detects something, so cc recovers when it
+    /// fails. Passed to the logger with a failed command.
+    is_detection_cmd: bool,
     checked_dbg_var: Arc<AtomicBool>,
 }
 
@@ -53,8 +56,16 @@ impl CargoOutput {
                 None => false,
             },
             logger: None,
+            is_detection_cmd: false,
             checked_dbg_var: Arc::new(AtomicBool::new(false)),
         }
+    }
+
+    /// A copy for a detection command, one whose failure cc recovers from.
+    pub(crate) fn for_detection_cmd(&self) -> Self {
+        let mut detection = self.clone();
+        detection.is_detection_cmd = true;
+        detection
     }
 
     /// A copy for a command whose stderr is expected to be noise: it is only
@@ -105,7 +116,14 @@ impl CargoOutput {
         let message =
             format!("command did not execute successfully (status code {status}): {cmd:?}");
         if let Some(logger) = &self.logger {
-            logger.log(BuildMessageKind::CommandFailed(status), &message, cmd);
+            logger.log(
+                BuildMessageKind::CommandFailed {
+                    is_detection_cmd: self.is_detection_cmd,
+                    exit_status: status,
+                },
+                &message,
+                cmd,
+            );
         }
         Error::new(ErrorKind::ToolExecError, message)
     }

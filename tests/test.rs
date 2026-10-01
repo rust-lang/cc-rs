@@ -1498,9 +1498,16 @@ fn message_logger() {
     impl BuildMessageLogger for FileLogger {
         fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, extra: &dyn Any) {
             let kind = match kind {
-                BuildMessageKind::CommandFailed(status) => {
-                    assert!(!status.success());
-                    format!("CommandFailed({:?})", status.code())
+                BuildMessageKind::CommandFailed {
+                    is_detection_cmd,
+                    exit_status,
+                    ..
+                } => {
+                    assert!(!exit_status.success());
+                    format!(
+                        "CommandFailed({:?}, {is_detection_cmd})",
+                        exit_status.code()
+                    )
                 }
                 kind => format!("{kind:?}"),
             };
@@ -1572,6 +1579,28 @@ fn message_logger() {
                     .message_logger(Some(logger));
                 assert!(build.try_expand().is_err());
             }
+            "search-dirs" => {
+                // cc asks clang for its search dirs to find `llvm-ar`, and
+                // falls back to `ar` when that fails.
+                test.shim("clang");
+                let mut build = test.gcc();
+                build
+                    .target("wasm32-unknown-unknown")
+                    .host("x86_64-unknown-linux-gnu")
+                    .env("CC_SHIM_FAIL_IF_ARG", "--print-search-dirs")
+                    .message_logger(Some(logger));
+                assert!(build.try_get_archiver().is_ok());
+            }
+            "family-detection-debug" => {
+                // The shim fails the `-E` that family detection runs.
+                let mut build = test.gcc();
+                build
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .cargo_debug(true)
+                    .message_logger(Some(logger));
+                assert!(build.try_get_compiler().is_ok());
+            }
             case => panic!("unknown case {case}"),
         }
         return;
@@ -1580,13 +1609,18 @@ fn message_logger() {
     let run = |case: &str| -> (Vec<String>, Vec<[String; 3]>) {
         let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
         let log = dir.path().join("cc.log");
-        let output = Command::new(env::current_exe().unwrap())
-            .env("__CC_TEST_MESSAGE_LOGGER", case)
+        let mut cmd = Command::new(env::current_exe().unwrap());
+        cmd.env("__CC_TEST_MESSAGE_LOGGER", case)
             .env_remove("CC_ENABLE_DEBUG_OUTPUT")
             .env("__CC_TEST_MESSAGE_LOGGER_FILE", &log)
-            .args(["--exact", "message_logger", "--nocapture"])
-            .output()
-            .unwrap();
+            .args(["--exact", "message_logger", "--nocapture"]);
+        // The `wasm32` case relies on cc's default compiler and archiver.
+        for var in ["CC", "AR"] {
+            cmd.env_remove(format!("{var}_wasm32-unknown-unknown"))
+                .env_remove(format!("{var}_wasm32_unknown_unknown"))
+                .env_remove(format!("TARGET_{var}"));
+        }
+        let output = cmd.output().unwrap();
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         let stdout = String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -1684,7 +1718,7 @@ fn message_logger() {
     let failed = messages
         .iter()
         .position(|[kind, extra, text]| {
-            kind == "CommandFailed(Some(1))"
+            kind == "CommandFailed(Some(1), false)"
                 && extra == "cc"
                 && text.starts_with("command did not execute successfully")
         })
@@ -1710,7 +1744,7 @@ fn message_logger() {
     let (_, messages) = run("expand");
     let failed = messages
         .iter()
-        .position(|[kind, extra, _]| kind == "CommandFailed(Some(1))" && extra == "cc")
+        .position(|[kind, extra, _]| kind == "CommandFailed(Some(1), false)" && extra == "cc")
         .unwrap_or_else(|| panic!("{messages:#?}"));
     assert_eq!(
         count(
@@ -1722,6 +1756,47 @@ fn message_logger() {
         1,
         "{messages:#?}"
     );
+
+    // A failed detection command is still reported, flagged as one.
+    let (_, messages) = run("search-dirs");
+    let failed: Vec<_> = messages
+        .iter()
+        .filter(|[kind, _, _]| kind.starts_with("CommandFailed"))
+        .collect();
+    assert_eq!(failed.len(), 1, "{messages:#?}");
+    let [kind, extra, text] = failed[0];
+    assert_eq!(
+        [kind.as_str(), extra.as_str()],
+        ["CommandFailed(Some(1), true)", "clang"],
+        "{messages:#?}"
+    );
+    assert!(text.contains("--print-search-dirs"), "{messages:#?}");
+    assert_eq!(
+        count(
+            &messages,
+            stderr_line,
+            "clang",
+            "clang: simulated failure for arg '--print-search-dirs'"
+        ),
+        1,
+        "{messages:#?}"
+    );
+
+    // Family detection reports its failures only with `cargo_debug`, and the
+    // shim makes its `-E` fail.
+    let (_, messages) = run("family-detection-debug");
+    let failed: Vec<_> = messages
+        .iter()
+        .filter(|[kind, _, _]| kind.starts_with("CommandFailed"))
+        .collect();
+    assert_eq!(failed.len(), 1, "{messages:#?}");
+    let [kind, extra, text] = failed[0];
+    assert_eq!(
+        [kind.as_str(), extra.as_str()],
+        ["CommandFailed(Some(1), true)", "cc"],
+        "{messages:#?}"
+    );
+    assert!(text.contains("\"-E\""), "{messages:#?}");
 
     // Clones share the logger, and `None` removes it.
     let (stdout, messages) = run("clone-and-remove");
