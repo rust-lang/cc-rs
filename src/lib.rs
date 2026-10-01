@@ -341,7 +341,8 @@ pub mod windows_registry {
     /// operation (finding a MSVC tool in a local install) but instead returns a
     /// [`Tool`](crate::Tool) which may be introspected.
     pub fn find_tool(arch_or_target: &str, tool: &str) -> Option<crate::Tool> {
-        ::find_msvc_tools::find_tool(arch_or_target, tool).map(crate::Tool::from_find_msvc_tools)
+        ::find_msvc_tools::find_tool(arch_or_target, tool)
+            .map(|tool| crate::Tool::from_find_msvc_tools(tool, crate::EnvSnapshot::capture()))
     }
 }
 
@@ -352,9 +353,12 @@ mod logger;
 use logger::Logger;
 pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger};
 
+mod build_env;
+use build_env::{BuildEnv, EnvSnapshot, EnvVars};
+
 mod tool;
 pub use tool::Tool;
-use tool::{BuildEnv, CompilerFamilyLookupCache, ToolFamily};
+use tool::{CompilerFamilyLookupCache, ToolFamily};
 
 mod tempfile;
 
@@ -374,11 +378,12 @@ struct CompilerFlag {
     host: Option<Arc<str>>,
     cpp: bool,
     cuda: bool,
-    /// The `Build`'s snapshot of the inherited environment followed by
-    /// [`Build::env`], in the order the probe applies them. The probe's
-    /// environment is built from this list instead of being inherited, so the
-    /// two can't differ.
-    envs: Box<[(Arc<OsStr>, Arc<OsStr>)]>,
+    /// The `Build`'s snapshot of the inherited environment, shared rather than
+    /// copied. The probe runs in this and `explicit`, so the key and the
+    /// probe's environment can't differ.
+    inherited: EnvSnapshot,
+    /// [`Build::env`], which wins over `inherited`.
+    explicit: Box<EnvVars>,
 }
 
 enum PrefixMapFlag {
@@ -406,10 +411,12 @@ struct BuildCache {
 /// A `Build` reads the process environment once, the first time it needs it
 /// (for example in [`Build::compile`], [`Build::get_compiler`],
 /// [`Build::is_flag_supported`] or [`Build::try_flags_from_environment`]), and
-/// keeps that copy. Its own lookups of variables such as `CC` or `CFLAGS` and
-/// the compiler and other tools it runs all use the copy, so later changes to the process environment are not seen. A clone
-/// made after that point keeps the copy, one made before takes its own. Use
-/// [`Build::env`] to change the environment of the child processes.
+/// keeps that copy. Its own lookups of variables such as `CC` or `CFLAGS` use
+/// the copy, and the compiler and other tools it runs get the copy as their
+/// whole environment instead of inheriting the process environment, so later
+/// changes to the process environment are not seen. A clone made after that
+/// point keeps the copy, one made before takes its own. Use [`Build::env`] to
+/// change the environment of the child processes.
 #[derive(Clone, Debug)]
 pub struct Build {
     include_directories: Vec<Arc<Path>>,
@@ -1671,14 +1678,14 @@ impl Build {
             host: self.host.clone(),
             cpp: self.cpp,
             cuda: self.cuda,
-            envs: self.env.get_all_envs().cloned().collect(),
+            inherited: self.env.inherited().clone(),
+            explicit: self.env.explicit.as_slice().into(),
         }
     }
 
     /// `key` holds the cache key for `tool` and this `Build`, or `None` to
-    /// build it here. Building it copies the whole environment, so a caller
-    /// that probes several flags of one tool passes the same `key` to each
-    /// call, and it is built once.
+    /// build it here. A caller that probes several flags of one tool passes
+    /// the same `key` to each call, so it is built once.
     fn is_flag_supported_inner(
         &self,
         flag: &OsStr,
@@ -1726,11 +1733,12 @@ impl Build {
             // The probe has to see the environment the compiler is invoked in,
             // or it answers a question about a different compiler than the one
             // being built with: a bare compiler name resolves through this
-            // `PATH`, not the ambient one. The clone carries the snapshot `key`
-            // was built from, so the probe also reads `CFLAGS` and the like from
-            // it. Also share the caches, so that a compiler family already
-            // worked out is not worked out again.
-            cfg.env.clone_from(&self.env);
+            // `PATH`, not the ambient one. Taking it from `key` makes the probe
+            // read `CFLAGS` and the like from the same snapshot and run in
+            // exactly the environment of the key. Also share the caches, so
+            // that a compiler family already worked out is not worked out
+            // again.
+            cfg.env = BuildEnv::with_inherited(key.inherited.clone(), key.explicit.to_vec());
             cfg.build_cache = Arc::clone(&self.build_cache);
             // The probe's own warnings go where this build's warnings go,
             // including its logger.
@@ -1758,12 +1766,6 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        // Run in the environment of the key. `env_clear` also drops what
-        // `to_command` set from `compiler.env()` (`LC_ALL` or `VSLANG`, then
-        // `Build::env`), so set that again on top, which keeps the usual order
-        // and lets `set_flag_supported_env` rewrite the test shim's variables.
-        cmd.env_clear();
-        cmd.envs(key.envs.iter().map(|(name, value)| (name, value)));
         cmd.set_flag_supported_env(compiler.env());
         command_add_output_file(
             &mut cmd,
@@ -3567,10 +3569,10 @@ impl Build {
                         let mut t = Tool::with_family(
                             PathBuf::from("cmd"),
                             ToolFamily::Clang { zig_cc: false },
+                            self.env.inherited().clone(),
                         );
                         t.args.push("/c".into());
                         t.args.push(format!("{tool}.bat").into());
-                        t.inherited_env = Some(self.env.inherited().clone());
                         Some(t)
                     } else {
                         Some(Tool::new(
@@ -3604,7 +3606,7 @@ impl Build {
                 {
                     clang.into()
                 } else if target.os == "android" {
-                    autodetect_android_compiler(&raw_target, gnu, clang)
+                    autodetect_android_compiler(&raw_target, gnu, clang, self.env.inherited())
                 } else if target.os == "cloudabi" {
                     format!(
                         "{}-{}-{}-{}",
@@ -3880,10 +3882,7 @@ impl Build {
             Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
             None => {
                 if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
-                    Ok((!stdlib.is_empty())
-                        .then_some(stdlib)
-                        .map(PathBuf::from)
-                        .map(Cow::from))
+                    Ok((!stdlib.is_empty()).then(|| Cow::Owned(PathBuf::from(&*stdlib))))
                 } else {
                     let target = self.get_target()?;
                     if target.env == "msvc" {
@@ -4156,7 +4155,9 @@ impl Build {
                                 .iter()
                                 .filter_map(|infix| {
                                     let target_p = format!("{prefix}{infix}-{tool}");
-                                    let status = Command::new(&target_p)
+                                    let mut cmd = Command::new(&target_p);
+                                    self.env.inherited().apply(&mut cmd);
+                                    let status = cmd
                                         .arg("--version")
                                         .stdin(Stdio::null())
                                         .stdout(Stdio::null())
@@ -4503,14 +4504,14 @@ impl Build {
 
     /// Look up an environment variable in the snapshot, and tell Cargo that we
     /// used it.
-    fn get_env(&self, v: &str) -> Option<OsString> {
+    fn get_env(&self, v: &str) -> Option<Arc<OsStr>> {
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
         // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
         if self.emit_rerun_if_env_changed && v != "PATH" {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        let r = self.env.inherited().get(OsStr::new(v)).map(OsStr::to_owned);
+        let r = self.env.inherited().get(OsStr::new(v));
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
@@ -4529,14 +4530,14 @@ impl Build {
     /// On the other hand, we don't want to allow overwriting environment
     /// variables that are `CC`-specific such as `CC_FORCE_DISABLE`
     /// (`Build::env` applies to child processes, not to `cc` itself).
-    fn get_env_overridable(&self, key: &str) -> Option<Cow<'_, OsStr>> {
+    fn get_env_overridable(&self, key: &str) -> Option<Arc<OsStr>> {
         // Try to look up in overrides first.
         if let Some((_key, val)) = self.env.explicit.iter().find(|(k, _)| k.as_ref() == key) {
-            return Some(Cow::Borrowed(&**val));
+            return Some(Arc::clone(val));
         }
 
         // If not found in overrides, look up from environment.
-        self.get_env(key).map(Cow::Owned)
+        self.get_env(key)
     }
 
     /// Get boolean flag that is either true or false.
@@ -4569,7 +4570,7 @@ impl Build {
     }
 
     /// Get a single-valued environment variable with target variants.
-    fn getenv_with_target_prefixes(&self, env: &str) -> Result<OsString, Error> {
+    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
         // Take from first environment variable in the environment.
         let res = self
             .target_envs(env)?
@@ -4626,7 +4627,7 @@ impl Build {
         Ok(())
     }
 
-    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Cow<'_, OsStr>, Error> {
+    fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = self.get_env_overridable("SDKROOT") {
             let p = Path::new(&sdkroot);
@@ -4673,7 +4674,7 @@ impl Build {
                 "Unable to determine Apple SDK path.",
             ));
         };
-        Ok(Cow::Owned(sdk_path.trim().into()))
+        Ok(OsStr::new(sdk_path.trim()).into())
     }
 
     fn apple_sdk_root(&self, target: &TargetInfo<'_>) -> Result<Arc<OsStr>, Error> {
@@ -4689,7 +4690,7 @@ impl Build {
         {
             return Ok(ret);
         }
-        let sdk_path: Arc<OsStr> = self.apple_sdk_root_inner(sdk)?.into();
+        let sdk_path = self.apple_sdk_root_inner(sdk)?;
         self.build_cache
             .apple_sdk_root_cache
             .write()
@@ -4826,7 +4827,7 @@ impl Build {
         version
     }
 
-    fn wasm_musl_sysroot(&self) -> Result<OsString, Error> {
+    fn wasm_musl_sysroot(&self) -> Result<Arc<OsStr>, Error> {
         if let Some(musl_sysroot_path) = self.get_env("WASM_MUSL_SYSROOT") {
             Ok(musl_sysroot_path)
         } else {
@@ -4837,7 +4838,7 @@ impl Build {
         }
     }
 
-    fn wasi_sysroot(&self) -> Result<OsString, Error> {
+    fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
         if let Some(wasi_sysroot_path) = self.get_env("WASI_SYSROOT") {
             Ok(wasi_sysroot_path)
         } else {
@@ -4907,7 +4908,7 @@ impl Build {
             fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
                 // TODO: Should we allow overriding these with `Build::env`?
                 // <https://github.com/rust-lang/cc-rs/issues/1688>
-                self.0.get_env(name).map(::find_msvc_tools::Env::Owned)
+                self.0.get_env(name).map(::find_msvc_tools::Env::Arced)
             }
         }
 
@@ -4915,13 +4916,8 @@ impl Build {
             return None;
         }
 
-        ::find_msvc_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self)).map(
-            |tool| {
-                let mut tool = Tool::from_find_msvc_tools(tool);
-                tool.inherited_env = Some(self.env.inherited().clone());
-                tool
-            },
-        )
+        ::find_msvc_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
+            .map(|tool| Tool::from_find_msvc_tools(tool, self.env.inherited().clone()))
     }
 
     /// Compiling for WASI targets typically uses the [wasi-sdk] project and
@@ -4946,7 +4942,7 @@ impl Build {
         clang.into()
     }
 
-    fn pauthtest_sysroot(&self) -> Result<OsString, Error> {
+    fn pauthtest_sysroot(&self) -> Result<Arc<OsStr>, Error> {
         if let Some(pauthtest_sysroot) = self.get_env("PAUTHTEST_SYSROOT") {
             Ok(pauthtest_sysroot)
         } else {
@@ -4961,7 +4957,7 @@ impl Build {
         }
     }
 
-    fn pauthtest_resource_dir(&self) -> Result<OsString, Error> {
+    fn pauthtest_resource_dir(&self) -> Result<Arc<OsStr>, Error> {
         if let Some(pauthtest_resource_dir) = self.get_env("PAUTHTEST_RESOURCE_DIR") {
             Ok(pauthtest_resource_dir)
         } else {
@@ -5055,7 +5051,18 @@ fn is_llvm_mingw_wrapper(clang_path: &Path) -> bool {
 }
 
 // FIXME: Use parsed target.
-fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> PathBuf {
+fn autodetect_android_compiler(
+    raw_target: &str,
+    gnu: &str,
+    clang: &str,
+    env: &EnvSnapshot,
+) -> PathBuf {
+    let exists = |program: &str| {
+        let mut cmd = Command::new(program);
+        env.apply(&mut cmd);
+        cmd.output().is_ok()
+    };
+
     let new_clang_key = match raw_target {
         "aarch64-linux-android" => Some("aarch64"),
         "armv7-linux-androideabi" => Some("armv7a"),
@@ -5073,7 +5080,7 @@ fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> Path
         .unwrap_or(None);
 
     if let Some(new_clang) = new_clang {
-        if Command::new(new_clang).output().is_ok() {
+        if exists(new_clang) {
             return (*new_clang).into();
         }
     }
@@ -5093,9 +5100,9 @@ fn autodetect_android_compiler(raw_target: &str, gnu: &str, clang: &str) -> Path
 
     // Check if gnu compiler is present
     // if not, use clang
-    if Command::new(&gnu_compiler).output().is_ok() {
+    if exists(&gnu_compiler) {
         gnu_compiler
-    } else if cfg!(windows) && Command::new(&clang_compiler_cmd).output().is_ok() {
+    } else if cfg!(windows) && exists(&clang_compiler_cmd) {
         clang_compiler_cmd
     } else {
         clang_compiler

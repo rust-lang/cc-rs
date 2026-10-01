@@ -2355,6 +2355,104 @@ fn env_snapshot_reaches_flag_support_probe() {
         .must_not_have("-Dset_after_first_read");
 }
 
+/// For a cross target, cc runs `<prefix>-ar --version` to pick the archiver,
+/// in the snapshot too.
+#[test]
+fn env_snapshot_reaches_cross_archiver_probe() {
+    let mut test = Test::gnu();
+    test.shim("aarch64-linux-gnu-ar");
+    for var in [
+        "CROSS_COMPILE",
+        "RUSTC_LINKER",
+        "AR_aarch64-unknown-linux-gnu",
+        "AR_aarch64_unknown_linux_gnu",
+        "TARGET_AR",
+        "CC_SHIM_FAIL_IF_ARG",
+    ] {
+        test.env.remove(var);
+    }
+    // The probe doesn't get `Build::env`, so the shim has to be on the
+    // inherited `PATH`.
+    test.env.set("PATH", test.td.path());
+    let mut build = test.gcc();
+    build
+        .target("aarch64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu");
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "--version");
+    let archiver = build.try_get_archiver().unwrap();
+    assert_eq!(archiver.get_program(), "aarch64-linux-gnu-ar");
+}
+
+/// For Android, cc runs `llvm-ar --version` to pick the archiver, in the
+/// snapshot too.
+#[test]
+fn env_snapshot_reaches_android_archiver_probe() {
+    let mut test = Test::gnu();
+    test.shim("llvm-ar");
+    for var in [
+        "AR_aarch64-linux-android",
+        "AR_aarch64_linux_android",
+        "TARGET_AR",
+        "CC_SHIM_FAIL_IF_ARG",
+    ] {
+        test.env.remove(var);
+    }
+    let mut build = test.gcc();
+    build
+        .target("aarch64-linux-android")
+        .host("x86_64-unknown-linux-gnu")
+        .compiler(test.td.path().join("cc"));
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "--version");
+    let archiver = build.try_get_archiver().unwrap();
+    assert_eq!(archiver.get_program(), "llvm-ar");
+}
+
+/// For Android, cc looks for the compiler by running each candidate name, in
+/// the snapshot too.
+#[test]
+fn env_snapshot_reaches_android_compiler_probe() {
+    let mut test = Test::gnu();
+    test.shim("aarch64-linux-android-gcc");
+    for var in [
+        "CC_aarch64-linux-android",
+        "CC_aarch64_linux_android",
+        "TARGET_CC",
+    ] {
+        test.env.remove(var);
+    }
+    // The probe doesn't get `Build::env`, so the shim has to be on the
+    // inherited `PATH`.
+    test.env.set("PATH", test.td.path());
+    let mut build = test.gcc();
+    build
+        .target("aarch64-linux-android")
+        .host("x86_64-unknown-linux-gnu");
+    build.try_get_compiler().unwrap();
+    test.env.set("PATH", test.td.path().join("empty"));
+    let compiler = build.try_get_compiler().unwrap();
+    // Not found, cc would fall back to `aarch64-linux-android-clang`. On
+    // Windows it also turns either name into `gcc.exe` or `clang.exe`.
+    let name = compiler.path().file_stem().unwrap().to_str().unwrap();
+    assert!(name.ends_with("gcc"), "{name}");
+}
+
+/// Error messages show the command, not the environment cc sets on it.
+#[test]
+fn env_snapshot_stays_out_of_error_messages() {
+    let mut test = Test::gnu();
+    test.env.set("CC_TEST_SECRET", "env_snapshot_secret_value");
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
+    let error = test.gcc().file("foo.c").try_compile("foo").unwrap_err();
+    let message = error.to_string();
+    assert!(
+        message.contains("command did not execute successfully"),
+        "{message}"
+    );
+    assert!(!message.contains("env_snapshot_secret_value"), "{message}");
+}
+
 /// The host decides whether the probe reads `HOST_CFLAGS` or `TARGET_CFLAGS`.
 #[test]
 fn flag_support_cache_is_per_host() {
