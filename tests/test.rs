@@ -2444,7 +2444,14 @@ fn env_snapshot_stays_out_of_error_messages() {
     let mut test = Test::gnu();
     test.env.set("CC_TEST_SECRET", "env_snapshot_secret_value");
     test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
-    let error = test.gcc().file("foo.c").try_compile("foo").unwrap_err();
+    let error = test
+        .gcc()
+        .file("foo.c")
+        // Forwarded stderr is written to stdout directly, past the test
+        // harness's capture.
+        .cargo_warnings(false)
+        .try_compile("foo")
+        .unwrap_err();
     let message = error.to_string();
     assert!(
         message.contains("command did not execute successfully"),
