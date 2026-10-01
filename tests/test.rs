@@ -1472,6 +1472,398 @@ fn compiler_stderr_forwarded_once_per_line() {
     );
 }
 
+/// A logger set with `message_logger` gets cc's warnings, each stderr line and
+/// failed commands, while every other `cargo:` line stays on stdout.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn message_logger() {
+    use std::{
+        any::Any,
+        io::Write,
+        panic::{RefUnwindSafe, UnwindSafe},
+        path::Path,
+        sync::{Arc, Mutex},
+    };
+
+    use cc::{BuildMessage, BuildMessageKind, BuildMessageLogger};
+
+    fn assert_auto_traits<T: Clone + Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
+    assert_auto_traits::<cc::Build>();
+
+    /// Writes each message as `kind`, `extra` and the text, split by tabs.
+    struct FileLogger(Mutex<std::fs::File>);
+
+    impl BuildMessageLogger for FileLogger {
+        fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, extra: &dyn Any) {
+            let kind = match kind {
+                BuildMessageKind::CommandFailed {
+                    is_detection_cmd,
+                    exit_status,
+                    ..
+                } => {
+                    assert!(!exit_status.success());
+                    format!(
+                        "CommandFailed({:?}, {is_detection_cmd})",
+                        exit_status.code()
+                    )
+                }
+                kind => format!("{kind:?}"),
+            };
+            let extra = if let Some(cmd) = extra.downcast_ref::<Command>() {
+                let program = Path::new(cmd.get_program()).file_stem().unwrap();
+                program.to_str().unwrap().to_owned()
+            } else if extra.is::<()>() {
+                "()".to_owned()
+            } else {
+                panic!("unexpected extra for {kind}")
+            };
+            writeln!(self.0.lock().unwrap(), "{kind}\t{extra}\t{msg}").unwrap();
+        }
+    }
+
+    // When invoked as subprocess, perform the builds and return.
+    if let Some(case) = env::var_os("__CC_TEST_MESSAGE_LOGGER") {
+        let log =
+            std::fs::File::create(env::var_os("__CC_TEST_MESSAGE_LOGGER_FILE").unwrap()).unwrap();
+        let logger = Arc::new(FileLogger(Mutex::new(log)));
+        let test = if case == "msvc" {
+            Test::msvc()
+        } else {
+            Test::gnu()
+        };
+        let mut build = test.gcc();
+        if case != "msvc" {
+            build
+                .target("x86_64-unknown-linux-gnu")
+                .host("x86_64-unknown-linux-gnu");
+        }
+        build
+            .file("foo.c")
+            .file("bar.c")
+            // A line ending in `\r\n`, as compilers on Windows write them.
+            .env("CC_SHIM_STDERR", "note: from the compiler\r")
+            .message_logger(Some(logger.clone()));
+        match case.to_str().unwrap() {
+            "gnu" => {
+                // The flag check runs in a `Build` of its own.
+                build.flag_if_supported("-Wall").compile("foo");
+            }
+            "gnu-redirect" => {
+                // The flag check's warnings stay off stdout too.
+                build
+                    .flag_if_supported("-Wall")
+                    .cargo_warnings(false)
+                    .compile("foo");
+            }
+            "msvc" => {
+                // cc warns that `cl` can't set the C++ stdlib.
+                build.cpp(true).cpp_set_stdlib("c++").compile("foo");
+            }
+            "compile-error" => {
+                build.env("CC_SHIM_FAIL_IF_ARG", "-c");
+                assert!(build.try_compile("foo").is_err());
+            }
+            "clone-and-remove" => {
+                build.clone().compile("foo");
+                build.message_logger(None).compile("bar");
+            }
+            "expand" => {
+                // `expand` collects the compiler's output instead of streaming it.
+                let mut build = test.gcc();
+                build
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .file("foo.c")
+                    .message_logger(Some(logger));
+                assert!(build.try_expand().is_err());
+            }
+            "search-dirs" => {
+                // cc asks clang for its search dirs to find `llvm-ar`, and
+                // falls back to `ar` when that fails.
+                test.shim("clang");
+                let mut build = test.gcc();
+                build
+                    .target("wasm32-unknown-unknown")
+                    .host("x86_64-unknown-linux-gnu")
+                    .env("CC_SHIM_FAIL_IF_ARG", "--print-search-dirs")
+                    .message_logger(Some(logger));
+                assert!(build.try_get_archiver().is_ok());
+            }
+            "family-detection-debug" => {
+                // The shim fails the `-E` that family detection runs.
+                let mut build = test.gcc();
+                build
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .cargo_debug(true)
+                    .message_logger(Some(logger));
+                assert!(build.try_get_compiler().is_ok());
+            }
+            "xcrun" => {
+                // For iOS cc asks `xcrun` for the SDK version, which it can
+                // do without, and for the SDK path, which it can't.
+                test.shim("clang").shim("xcrun");
+                for arg in ["--show-sdk-version", "--show-sdk-path"] {
+                    let mut build = test.gcc();
+                    build
+                        .target("aarch64-apple-ios")
+                        .host("x86_64-unknown-linux-gnu")
+                        .env("CC_SHIM_FAIL_IF_ARG", arg)
+                        .message_logger(Some(logger.clone()));
+                    assert_eq!(
+                        build.try_get_compiler().is_ok(),
+                        arg == "--show-sdk-version"
+                    );
+                }
+            }
+            case => panic!("unknown case {case}"),
+        }
+        return;
+    }
+
+    let run = |case: &str| -> (Vec<String>, Vec<[String; 3]>) {
+        let dir = tempfile::tempdir_in(env!("CARGO_TARGET_TMPDIR")).unwrap();
+        let log = dir.path().join("cc.log");
+        let mut cmd = Command::new(env::current_exe().unwrap());
+        cmd.env("__CC_TEST_MESSAGE_LOGGER", case)
+            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+            .env("__CC_TEST_MESSAGE_LOGGER_FILE", &log)
+            .args(["--exact", "message_logger", "--nocapture"]);
+        // The `wasm32` and iOS cases rely on cc's default compiler and
+        // archiver, and the iOS case on asking `xcrun`.
+        for target in ["wasm32-unknown-unknown", "aarch64-apple-ios"] {
+            for var in ["CC", "AR"] {
+                cmd.env_remove(format!("{var}_{target}"))
+                    .env_remove(format!("{var}_{}", target.replace('-', "_")));
+            }
+        }
+        cmd.env_remove("TARGET_CC")
+            .env_remove("TARGET_AR")
+            .env_remove("SDKROOT")
+            .env_remove("IPHONEOS_DEPLOYMENT_TARGET");
+        let output = cmd.output().unwrap();
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        let stdout = String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .map(str::to_owned)
+            .collect();
+        let messages = std::fs::read_to_string(&log).unwrap();
+        assert!(!messages.contains('\r'), "{messages:?}");
+        let messages = messages
+            .lines()
+            .map(|line| {
+                let mut parts = line.splitn(3, '\t').map(str::to_owned);
+                [(); 3].map(|()| parts.next().unwrap())
+            })
+            .collect();
+        (stdout, messages)
+    };
+    let warnings = |stdout: &[String]| -> Vec<String> {
+        stdout
+            .iter()
+            .filter_map(|line| line.strip_prefix("cargo:warning="))
+            .map(str::to_owned)
+            .collect()
+    };
+    let texts = |messages: &[[String; 3]]| -> Vec<String> {
+        messages.iter().map(|[_, _, text]| text.clone()).collect()
+    };
+    let count = |messages: &[[String; 3]], kind: &str, extra: &str, text: &str| {
+        messages
+            .iter()
+            .filter(|m| m[0] == kind && m[1] == extra && m[2] == text)
+            .count()
+    };
+    let assert_link_lines = |stdout: &[String]| {
+        assert!(
+            stdout
+                .iter()
+                .any(|l| l == "cargo:rustc-link-lib=static=foo"),
+            "{stdout:#?}"
+        );
+        assert!(
+            stdout
+                .iter()
+                .any(|l| l.starts_with("cargo:rustc-link-search=native=")),
+            "{stdout:#?}"
+        );
+    };
+    let stderr_line = "StderrForwarding";
+    let note = "cc: note: from the compiler";
+
+    // By default the logger mirrors the warnings.
+    let (stdout, messages) = run("gnu");
+    assert_eq!(warnings(&stdout), texts(&messages));
+    assert_eq!(
+        count(&messages, stderr_line, "cc", note),
+        2,
+        "{messages:#?}"
+    );
+    assert!(
+        count(&messages, stderr_line, "ar", "ar: note: from the compiler") >= 1,
+        "{messages:#?}"
+    );
+    assert!(
+        messages
+            .iter()
+            .all(|m| m[0] == stderr_line || (m[0] == "GeneralWarning" && m[1] == "()")),
+        "{messages:#?}"
+    );
+    assert_link_lines(&stdout);
+
+    // With cargo warnings off, the messages only go to the logger.
+    let (stdout, messages) = run("gnu-redirect");
+    assert_eq!(warnings(&stdout), Vec::<String>::new());
+    assert_eq!(
+        count(&messages, stderr_line, "cc", note),
+        2,
+        "{messages:#?}"
+    );
+    assert_link_lines(&stdout);
+
+    // cc's own warnings are general warnings.
+    let (stdout, messages) = run("msvc");
+    assert_eq!(warnings(&stdout), texts(&messages));
+    assert!(
+        messages
+            .iter()
+            .any(|[kind, extra, text]| kind == "GeneralWarning"
+                && extra == "()"
+                && text.contains("cpp_set_stdlib is specified")),
+        "{messages:#?}"
+    );
+    assert_link_lines(&stdout);
+
+    // A failed compile's diagnostics come before the failed command.
+    let (_, messages) = run("compile-error");
+    let failed = messages
+        .iter()
+        .position(|[kind, extra, text]| {
+            kind == "CommandFailed(Some(1), false)"
+                && extra == "cc"
+                && text.starts_with("command did not execute successfully")
+        })
+        .unwrap_or_else(|| panic!("{messages:#?}"));
+    assert!(
+        count(
+            &messages[..failed],
+            stderr_line,
+            "cc",
+            "cc: simulated failure for arg '-c'"
+        ) >= 1,
+        "{messages:#?}"
+    );
+    // With `parallel`, the error isn't passed a second time as a warning.
+    assert!(
+        messages
+            .iter()
+            .all(|m| m[0] != "GeneralWarning" || !m[2].contains(&messages[failed][2])),
+        "{messages:#?}"
+    );
+
+    // Output that cc collects reaches the logger too.
+    let (_, messages) = run("expand");
+    let failed = messages
+        .iter()
+        .position(|[kind, extra, _]| kind == "CommandFailed(Some(1), false)" && extra == "cc")
+        .unwrap_or_else(|| panic!("{messages:#?}"));
+    assert_eq!(
+        count(
+            &messages[..failed],
+            stderr_line,
+            "cc",
+            "cc: the shim cannot preprocess"
+        ),
+        1,
+        "{messages:#?}"
+    );
+
+    // A failed detection command is still reported, flagged as one.
+    let (_, messages) = run("search-dirs");
+    let failed: Vec<_> = messages
+        .iter()
+        .filter(|[kind, _, _]| kind.starts_with("CommandFailed"))
+        .collect();
+    assert_eq!(failed.len(), 1, "{messages:#?}");
+    let [kind, extra, text] = failed[0];
+    assert_eq!(
+        [kind.as_str(), extra.as_str()],
+        ["CommandFailed(Some(1), true)", "clang"],
+        "{messages:#?}"
+    );
+    assert!(text.contains("--print-search-dirs"), "{messages:#?}");
+    assert_eq!(
+        count(
+            &messages,
+            stderr_line,
+            "clang",
+            "clang: simulated failure for arg '--print-search-dirs'"
+        ),
+        1,
+        "{messages:#?}"
+    );
+
+    // Family detection reports its failures only with `cargo_debug`, and the
+    // shim makes its `-E` fail.
+    let (_, messages) = run("family-detection-debug");
+    let failed: Vec<_> = messages
+        .iter()
+        .filter(|[kind, _, _]| kind.starts_with("CommandFailed"))
+        .collect();
+    assert_eq!(failed.len(), 1, "{messages:#?}");
+    let [kind, extra, text] = failed[0];
+    assert_eq!(
+        [kind.as_str(), extra.as_str()],
+        ["CommandFailed(Some(1), true)", "cc"],
+        "{messages:#?}"
+    );
+    assert!(text.contains("\"-E\""), "{messages:#?}");
+
+    // cc goes on without the SDK version, but not without the SDK path.
+    let (_, messages) = run("xcrun");
+    let failed: Vec<_> = messages
+        .iter()
+        .filter(|[kind, _, _]| kind.starts_with("CommandFailed"))
+        .map(|[kind, extra, text]| {
+            let arg = ["--show-sdk-version", "--show-sdk-path"]
+                .into_iter()
+                .find(|arg| text.contains(arg));
+            (kind.as_str(), extra.as_str(), arg)
+        })
+        .collect();
+    assert_eq!(
+        failed,
+        [
+            (
+                "CommandFailed(Some(1), true)",
+                "xcrun",
+                Some("--show-sdk-version")
+            ),
+            (
+                "CommandFailed(Some(1), false)",
+                "xcrun",
+                Some("--show-sdk-path")
+            ),
+        ],
+        "{messages:#?}"
+    );
+
+    // Clones share the logger, and `None` removes it.
+    let (stdout, messages) = run("clone-and-remove");
+    assert_eq!(
+        count(&messages, stderr_line, "cc", note),
+        2,
+        "{messages:#?}"
+    );
+    assert_eq!(
+        warnings(&stdout).iter().filter(|w| *w == note).count(),
+        4,
+        "{stdout:#?}"
+    );
+}
+
 /// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once
 /// per `Build`, `wasm32`, `pauthtest` and Apple keep a plain `static=`, and a
 /// stdlib value that already names a link kind is emitted unchanged.

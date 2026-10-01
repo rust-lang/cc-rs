@@ -166,8 +166,7 @@ impl Tool {
                     .set_family_detection_env(env),
                 &{
                     // the errors are not errors!
-                    let mut cargo_output = cargo_output.clone();
-                    cargo_output.warnings = cargo_output.debug;
+                    let mut cargo_output = cargo_output.quiet_unless_debug();
                     cargo_output.output = OutputKind::Discard;
                     cargo_output
                 },
@@ -236,8 +235,7 @@ impl Tool {
             // that it is not an error, but related to expanding itself.
             //
             // cc would have to disable warning here to prevent generation of too many warnings.
-            let mut compiler_detect_output = cargo_output.clone();
-            compiler_detect_output.warnings = compiler_detect_output.debug;
+            let compiler_detect_output = cargo_output.quiet_unless_debug();
 
             let mut cmd = Command::new(path);
             cmd.arg("-E").arg(tmp.path()).set_family_detection_env(env);
@@ -267,12 +265,7 @@ impl Tool {
                 )?
             } else {
                 if !status.success() {
-                    return Err(Error::new(
-                        ErrorKind::ToolExecError,
-                        format!(
-                            "command did not execute successfully (status code {status}): {cmd:?}"
-                        ),
-                    ));
+                    return Err(compiler_detect_output.command_failed(&cmd, status));
                 }
 
                 stdout
@@ -281,6 +274,9 @@ impl Tool {
             let stdout = String::from_utf8_lossy(&stdout);
             guess_family_from_stdout(&stdout, path, args, env, cargo_output)
         }
+        // The commands below only detect the compiler family, and cc falls
+        // back to the compiler's name when they fail.
+        let cargo_output = &cargo_output.for_detection_cmd();
         let detect_family = |path: &Path, args: &[String]| -> Result<ToolFamily, Error> {
             // The detected family depends on the environment the probes run in
             // - `PATH` decides what a bare compiler name even resolves to - so

@@ -348,6 +348,10 @@ pub mod windows_registry {
 mod command_helpers;
 use command_helpers::*;
 
+mod logger;
+use logger::Logger;
+pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger};
+
 mod tool;
 pub use tool::Tool;
 use tool::{CompilerFamilyLookupCache, ToolFamily};
@@ -1318,10 +1322,52 @@ impl Build {
     /// Define whether compile warnings should be emitted for cargo. Defaults to
     /// `true`.
     ///
-    /// If disabled, compiler messages will not be printed.
+    /// If disabled, compiler messages will not be printed. They still go to a
+    /// logger set with [`message_logger`](Build::message_logger).
     /// Issues unrelated to the compilation will always produce cargo warnings regardless of this setting.
     pub fn cargo_warnings(&mut self, cargo_warnings: bool) -> &mut Build {
         self.cargo_output.warnings = cargo_warnings;
+        self
+    }
+
+    /// Sets a logger that receives cc's messages: its own warnings, each line
+    /// the commands it runs write to stderr, and the commands that failed. See
+    /// [`BuildMessageKind`] for the details.
+    ///
+    /// The warnings and stderr lines are still printed as cargo warnings too.
+    /// Disable [`cargo_warnings`](Build::cargo_warnings) to send them only to
+    /// the logger. Other `cargo:` lines, such as `cargo:rustc-link-lib`, are
+    /// always printed to stdout, since Cargo reads them there.
+    ///
+    /// Clones of this `Build` share the logger. Passing `None` removes a logger
+    /// set earlier.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use std::{any::Any, sync::{Arc, Mutex}};
+    /// use cc::{BuildMessage, BuildMessageKind, BuildMessageLogger};
+    ///
+    /// #[derive(Default)]
+    /// struct Messages(Mutex<Vec<String>>);
+    ///
+    /// impl BuildMessageLogger for Messages {
+    ///     fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, _extra: &dyn Any) {
+    ///         self.0.lock().unwrap().push(format!("{kind:?}: {msg}"));
+    ///     }
+    /// }
+    ///
+    /// let messages = Arc::new(Messages::default());
+    /// let result = cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .message_logger(Some(messages.clone()))
+    ///     .try_compile("foo");
+    /// // The messages are there whether the build failed or not.
+    /// println!("{:#?}", messages.0.lock().unwrap());
+    /// result.unwrap();
+    /// ```
+    pub fn message_logger(&mut self, logger: Option<Arc<dyn BuildMessageLogger>>) -> &mut Build {
+        self.cargo_output.logger = logger.map(Logger);
         self
     }
 
@@ -1660,6 +1706,7 @@ impl Build {
             cfg.flag(flag)
                 .compiler(tool.path())
                 .cargo_metadata(self.cargo_output.metadata)
+                .cargo_warnings(self.cargo_output.warnings)
                 .opt_level(0)
                 .debug(false)
                 .cpp(self.cpp)
@@ -1675,6 +1722,11 @@ impl Build {
             // compiler family already worked out is not worked out again.
             cfg.env.clone_from(&self.env);
             cfg.build_cache = Arc::clone(&self.build_cache);
+            // The probe's own warnings go where this build's warnings go,
+            // including its logger.
+            cfg.cargo_output
+                .logger
+                .clone_from(&self.cargo_output.logger);
             if let Some(target) = &self.target {
                 cfg.target(target);
             }
@@ -4656,7 +4708,7 @@ impl Build {
                     .arg("--show-sdk-version")
                     .arg("--sdk")
                     .arg(sdk),
-                &self.cargo_output,
+                &self.cargo_output.for_detection_cmd(),
             )
             .ok()?;
 
@@ -4820,7 +4872,7 @@ impl Build {
         let search_dirs = run_output(
             self.cmd(cc).arg("--print-search-dirs"),
             // this doesn't concern the compilation so we always want to show warnings.
-            cargo_output,
+            &cargo_output.for_detection_cmd(),
         )
         .ok()?;
         // clang driver appears to be forcing UTF-8 output even on Windows,
