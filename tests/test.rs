@@ -1601,6 +1601,23 @@ fn message_logger() {
                     .message_logger(Some(logger));
                 assert!(build.try_get_compiler().is_ok());
             }
+            "xcrun" => {
+                // For iOS cc asks `xcrun` for the SDK version, which it can
+                // do without, and for the SDK path, which it can't.
+                test.shim("clang").shim("xcrun");
+                for arg in ["--show-sdk-version", "--show-sdk-path"] {
+                    let mut build = test.gcc();
+                    build
+                        .target("aarch64-apple-ios")
+                        .host("x86_64-unknown-linux-gnu")
+                        .env("CC_SHIM_FAIL_IF_ARG", arg)
+                        .message_logger(Some(logger.clone()));
+                    assert_eq!(
+                        build.try_get_compiler().is_ok(),
+                        arg == "--show-sdk-version"
+                    );
+                }
+            }
             case => panic!("unknown case {case}"),
         }
         return;
@@ -1614,12 +1631,18 @@ fn message_logger() {
             .env_remove("CC_ENABLE_DEBUG_OUTPUT")
             .env("__CC_TEST_MESSAGE_LOGGER_FILE", &log)
             .args(["--exact", "message_logger", "--nocapture"]);
-        // The `wasm32` case relies on cc's default compiler and archiver.
-        for var in ["CC", "AR"] {
-            cmd.env_remove(format!("{var}_wasm32-unknown-unknown"))
-                .env_remove(format!("{var}_wasm32_unknown_unknown"))
-                .env_remove(format!("TARGET_{var}"));
+        // The `wasm32` and iOS cases rely on cc's default compiler and
+        // archiver, and the iOS case on asking `xcrun`.
+        for target in ["wasm32-unknown-unknown", "aarch64-apple-ios"] {
+            for var in ["CC", "AR"] {
+                cmd.env_remove(format!("{var}_{target}"))
+                    .env_remove(format!("{var}_{}", target.replace('-', "_")));
+            }
         }
+        cmd.env_remove("TARGET_CC")
+            .env_remove("TARGET_AR")
+            .env_remove("SDKROOT")
+            .env_remove("IPHONEOS_DEPLOYMENT_TARGET");
         let output = cmd.output().unwrap();
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         let stdout = String::from_utf8_lossy(&output.stdout)
@@ -1797,6 +1820,35 @@ fn message_logger() {
         "{messages:#?}"
     );
     assert!(text.contains("\"-E\""), "{messages:#?}");
+
+    // cc goes on without the SDK version, but not without the SDK path.
+    let (_, messages) = run("xcrun");
+    let failed: Vec<_> = messages
+        .iter()
+        .filter(|[kind, _, _]| kind.starts_with("CommandFailed"))
+        .map(|[kind, extra, text]| {
+            let arg = ["--show-sdk-version", "--show-sdk-path"]
+                .into_iter()
+                .find(|arg| text.contains(arg));
+            (kind.as_str(), extra.as_str(), arg)
+        })
+        .collect();
+    assert_eq!(
+        failed,
+        [
+            (
+                "CommandFailed(Some(1), true)",
+                "xcrun",
+                Some("--show-sdk-version")
+            ),
+            (
+                "CommandFailed(Some(1), false)",
+                "xcrun",
+                Some("--show-sdk-path")
+            ),
+        ],
+        "{messages:#?}"
+    );
 
     // Clones share the logger, and `None` removes it.
     let (stdout, messages) = run("clone-and-remove");

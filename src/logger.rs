@@ -36,12 +36,15 @@ pub trait BuildMessageLogger: Send + Sync + 'static {
 #[non_exhaustive]
 pub enum BuildMessageKind {
     /// Every warning cc prints itself, such as a failed compiler family
-    /// detection or a setting that doesn't apply to the compiler.
+    /// detection or a setting that doesn't apply to the compiler. A failed
+    /// command's error, which `parallel` also prints as a warning, arrives as
+    /// [`CommandFailed`](BuildMessageKind::CommandFailed) instead.
     ///
     /// `extra` is `()`.
     GeneralWarning,
-    /// Each line a command cc runs writes to stderr, such as the compiler or
-    /// the archiver.
+    /// Each line of stderr that cc forwards from a command it runs, such as
+    /// the compiler or the archiver. Stderr that cc hides, such as that of
+    /// flag support probes, isn't passed.
     ///
     /// A trailing `\r` is removed, and text that isn't UTF-8 is converted
     /// lossily. `extra` is the [`Command`](std::process::Command).
@@ -61,7 +64,9 @@ pub enum BuildMessageKind {
         /// `xcrun --show-sdk-version` and compiler family detection. cc hides
         /// the output of family detection unless
         /// [`cargo_debug`](crate::Build::cargo_debug) is on, so its failures
-        /// are only reported then, apart from its `--version` check.
+        /// are only reported then, apart from the `--version` check it runs on
+        /// clang. A failed family detection still arrives as a
+        /// [`GeneralWarning`](BuildMessageKind::GeneralWarning).
         ///
         /// `false` for commands whose failure fails the build, such as the
         /// compiler, the archiver or `xcrun --show-sdk-path`.
