@@ -2438,6 +2438,28 @@ fn env_snapshot_reaches_android_compiler_probe() {
     assert!(name.ends_with("gcc"), "{name}");
 }
 
+/// Compiler family detection runs the compiler in the snapshot too.
+#[test]
+fn env_snapshot_reaches_family_detection() {
+    let mut test = Test::gnu();
+    // The probe resolves `cc` through the inherited `PATH`, so this `Build`
+    // doesn't set one with `Build::env`.
+    test.env.set("PATH", test.td.path());
+    let probe_record = test.td.path().join("family-detection");
+    let mut build = cc::Build::new();
+    build
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .opt_level(2)
+        .out_dir(test.td.path())
+        .compiler("cc")
+        .env("CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION", &probe_record);
+    build.try_flags_from_environment("CFLAGS").unwrap();
+    test.env.set("PATH", test.td.path().join("empty"));
+    build.try_get_compiler().unwrap();
+    assert!(probe_record.exists());
+}
+
 /// Error messages show the command, not the environment cc sets on it.
 #[test]
 fn env_snapshot_stays_out_of_error_messages() {
