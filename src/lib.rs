@@ -1679,7 +1679,7 @@ impl Build {
             cpp: self.cpp,
             cuda: self.cuda,
             inherited: self.env.inherited().clone(),
-            explicit: self.env.explicit.as_slice().into(),
+            explicit: self.env.explicit.clone().into_boxed_slice(),
         }
     }
 

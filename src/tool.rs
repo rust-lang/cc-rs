@@ -299,7 +299,7 @@ impl Tool {
                     .map(Into::into)
                     .collect(),
                 inherited: env.inherited().clone(),
-                explicit: env.explicit.as_slice().into(),
+                explicit: env.explicit.clone().into_boxed_slice(),
             };
             if let Some(family) = cached_compiler_family.read().unwrap().get(&cache_key) {
                 return Ok(*family);
