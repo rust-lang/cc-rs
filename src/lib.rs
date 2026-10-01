@@ -354,7 +354,7 @@ pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger};
 
 mod tool;
 pub use tool::Tool;
-use tool::{CompilerFamilyLookupCache, ToolFamily};
+use tool::{BuildEnv, CompilerFamilyLookupCache, ToolFamily};
 
 mod tempfile;
 
@@ -374,9 +374,10 @@ struct CompilerFlag {
     host: Option<Arc<str>>,
     cpp: bool,
     cuda: bool,
-    /// The inherited environment followed by [`Build::env`], in the order the
-    /// probe applies them. The probe's environment is built from this list
-    /// instead of being inherited, so the two can't differ.
+    /// The `Build`'s snapshot of the inherited environment followed by
+    /// [`Build::env`], in the order the probe applies them. The probe's
+    /// environment is built from this list instead of being inherited, so the
+    /// two can't differ.
     envs: Box<[(Arc<OsStr>, Arc<OsStr>)]>,
 }
 
@@ -401,6 +402,14 @@ struct BuildCache {
 /// A `Build` is the main type of the `cc` crate and is used to control all the
 /// various configuration options and such of a compile. You'll find more
 /// documentation on each method itself.
+///
+/// A `Build` reads the process environment once, the first time it needs it
+/// (for example in [`Build::compile`], [`Build::get_compiler`],
+/// [`Build::is_flag_supported`] or [`Build::try_flags_from_environment`]), and
+/// keeps that copy. Its own lookups of variables such as `CC` or `CFLAGS` and
+/// the compiler and other tools it runs all use the copy, so later changes to the process environment are not seen. A clone
+/// made after that point keeps the copy, one made before takes its own. Use
+/// [`Build::env`] to change the environment of the child processes.
 #[derive(Clone, Debug)]
 pub struct Build {
     include_directories: Vec<Arc<Path>>,
@@ -429,7 +438,7 @@ pub struct Build {
     opt_level: Option<Arc<str>>,
     debug: Option<Arc<str>>,
     force_frame_pointer: Option<bool>,
-    env: Vec<(Arc<OsStr>, Arc<OsStr>)>,
+    env: BuildEnv,
     compiler: Option<Arc<Path>>,
     archiver: Option<Arc<Path>>,
     ranlib: Option<Arc<Path>>,
@@ -561,7 +570,7 @@ impl Build {
             opt_level: None,
             debug: None,
             force_frame_pointer: None,
-            env: Vec::new(),
+            env: BuildEnv::default(),
             compiler: None,
             archiver: None,
             ranlib: None,
@@ -1525,7 +1534,9 @@ impl Build {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>,
     {
-        self.env.push((key.as_ref().into(), val.as_ref().into()));
+        self.env
+            .explicit
+            .push((key.as_ref().into(), val.as_ref().into()));
         self
     }
 
@@ -1660,15 +1671,12 @@ impl Build {
             host: self.host.clone(),
             cpp: self.cpp,
             cuda: self.cuda,
-            envs: env::vars_os()
-                .map(|(name, value)| (name.into(), value.into()))
-                .chain(self.env.iter().cloned())
-                .collect(),
+            envs: self.env.get_all_envs().cloned().collect(),
         }
     }
 
     /// `key` holds the cache key for `tool` and this `Build`, or `None` to
-    /// build it here. Building it reads the whole environment, so a caller
+    /// build it here. Building it copies the whole environment, so a caller
     /// that probes several flags of one tool passes the same `key` to each
     /// call, and it is built once.
     fn is_flag_supported_inner(
@@ -1718,8 +1726,10 @@ impl Build {
             // The probe has to see the environment the compiler is invoked in,
             // or it answers a question about a different compiler than the one
             // being built with: a bare compiler name resolves through this
-            // `PATH`, not the ambient one. Also share the caches, so that a
-            // compiler family already worked out is not worked out again.
+            // `PATH`, not the ambient one. The clone carries the snapshot `key`
+            // was built from, so the probe also reads `CFLAGS` and the like from
+            // it. Also share the caches, so that a compiler family already
+            // worked out is not worked out again.
             cfg.env.clone_from(&self.env);
             cfg.build_cache = Arc::clone(&self.build_cache);
             // The probe's own warnings go where this build's warnings go,
@@ -2430,7 +2440,7 @@ impl Build {
         // Set custom env vars that the user specified with `Build::env`.
         //
         // Do this last, to allow overwriting the other values above.
-        for (key, val) in &self.env {
+        for (key, val) in &self.env.explicit {
             cmd.env.push((key.into(), val.into()));
         }
 
@@ -3469,9 +3479,7 @@ impl Build {
 
     fn cmd<P: AsRef<OsStr>>(&self, prog: P) -> Command {
         let mut cmd = Command::new(prog);
-        for (a, b) in self.env.iter() {
-            cmd.env(a, b);
-        }
+        self.env.apply(&mut cmd);
         cmd
     }
 
@@ -3562,6 +3570,7 @@ impl Build {
                         );
                         t.args.push("/c".into());
                         t.args.push(format!("{tool}.bat").into());
+                        t.inherited_env = Some(self.env.inherited().clone());
                         Some(t)
                     } else {
                         Some(Tool::new(
@@ -4492,7 +4501,8 @@ impl Build {
         }
     }
 
-    /// Look up an environment variable, and tell Cargo that we used it.
+    /// Look up an environment variable in the snapshot, and tell Cargo that we
+    /// used it.
     fn get_env(&self, v: &str) -> Option<OsString> {
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
         // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
@@ -4500,8 +4510,7 @@ impl Build {
             self.cargo_output
                 .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
         }
-        #[allow(clippy::disallowed_methods)] // We emit rerun-if-env-changed above
-        let r = env::var_os(v);
+        let r = self.env.inherited().get(OsStr::new(v)).map(OsStr::to_owned);
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
@@ -4522,7 +4531,7 @@ impl Build {
     /// (`Build::env` applies to child processes, not to `cc` itself).
     fn get_env_overridable(&self, key: &str) -> Option<Cow<'_, OsStr>> {
         // Try to look up in overrides first.
-        if let Some((_key, val)) = self.env.iter().find(|(k, _)| k.as_ref() == key) {
+        if let Some((_key, val)) = self.env.explicit.iter().find(|(k, _)| k.as_ref() == key) {
             return Some(Cow::Borrowed(&**val));
         }
 
@@ -4906,8 +4915,13 @@ impl Build {
             return None;
         }
 
-        ::find_msvc_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self))
-            .map(Tool::from_find_msvc_tools)
+        ::find_msvc_tools::find_tool_with_env(target.full_arch, tool, &BuildEnvGetter(self)).map(
+            |tool| {
+                let mut tool = Tool::from_find_msvc_tools(tool);
+                tool.inherited_env = Some(self.env.inherited().clone());
+                tool
+            },
+        )
     }
 
     /// Compiling for WASI targets typically uses the [wasi-sdk] project and

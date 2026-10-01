@@ -101,6 +101,16 @@ impl<T> OnceLock<T> {
     }
 }
 
+impl<T: Clone> Clone for OnceLock<T> {
+    fn clone(&self) -> Self {
+        let cell = Self::new();
+        if let Some(value) = self.get() {
+            cell.get_or_init(|| value.clone());
+        }
+        cell
+    }
+}
+
 impl<T: fmt::Debug> fmt::Debug for OnceLock<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut d = f.debug_tuple("OnceLock");

@@ -2210,19 +2210,149 @@ fn flag_support_cache_is_per_language() {
     );
 }
 
-/// The probe also depends on the inherited environment.
+/// The probe also depends on the inherited environment, which a clone made
+/// before the first read takes on its own.
 #[test]
 fn flag_support_cache_is_per_process_env() {
     let mut test = Test::gnu();
     test.env.remove("CC_SHIM_FAIL_IF_ARG");
     let mut build = test.gcc();
     build.compiler(test.td.path().join("cc"));
+    let later = build.clone();
     assert!(build.is_flag_supported("-Wprobed").unwrap());
     test.env.set("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
     assert!(
-        !build.is_flag_supported("-Wprobed").unwrap(),
-        "the answer was reused after an inherited variable changed"
+        !later.is_flag_supported("-Wprobed").unwrap(),
+        "the answer was reused for a clone that inherited another environment"
     );
+}
+
+/// A `Build` reads the process environment on first use, not when it is made.
+#[test]
+fn env_snapshot_is_taken_on_first_read() {
+    let mut test = Test::gnu();
+    let mut build = test.gcc();
+    test.env.set("CFLAGS", "-Dset_after_new");
+    build.file("foo.c").compile("foo");
+    test.cmd(0).must_have("-Dset_after_new");
+}
+
+/// Changes after the first read reach neither cc's own lookups nor the child
+/// processes, so both agree with the flag support cache key.
+#[test]
+fn env_snapshot_ignores_later_changes() {
+    let mut test = Test::gnu();
+    test.env.remove("CC_SHIM_FAIL_IF_ARG");
+    let mut build = test.gcc();
+    build.file("foo.c").flag_if_supported("-Wprobed");
+    build.try_get_compiler().unwrap();
+    // Read by cc.
+    test.env.set("CFLAGS", "-Dset_after_first_read");
+    // Read by the compiler: the shim fails on this argument.
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
+    build.try_compile("foo").unwrap();
+    test.cmd(0)
+        .must_have("-Wprobed")
+        .must_not_have("-Dset_after_first_read");
+}
+
+/// A child process gets the snapshot's value of a variable changed later.
+#[test]
+fn env_snapshot_restores_changed_variables() {
+    let mut test = Test::gnu();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "-Dnot_passed");
+    let mut build = test.gcc();
+    build.file("foo.c");
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
+    build.try_compile("foo").unwrap();
+}
+
+/// `Build::env` wins over the snapshot, also when set after the first read.
+#[test]
+fn env_snapshot_is_overridden_by_build_env() {
+    let mut test = Test::gnu();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
+    let mut build = test.gcc();
+    build.file("foo.c");
+    build.try_get_compiler().unwrap();
+    build.env("CC_SHIM_FAIL_IF_ARG", "-Dnot_passed");
+    build.try_compile("foo").unwrap();
+}
+
+/// A clone made before the first read takes its own snapshot, one made after
+/// keeps the snapshot of the original.
+#[test]
+fn env_snapshot_of_clones() {
+    let mut test = Test::gnu();
+    let mut build = test.gcc();
+    build.file("foo.c");
+    let before = build.clone();
+    build.try_get_compiler().unwrap();
+    test.env.set("CFLAGS", "-Dset_after_first_read");
+    let after = build.clone();
+
+    after.compile_intermediates();
+    test.cmd(0).must_not_have("-Dset_after_first_read");
+    before.compile_intermediates();
+    test.cmd(1).must_have("-Dset_after_first_read");
+}
+
+/// The `PATH` that MSVC's tool environment puts its folders in front of wins
+/// over the snapshot's.
+#[cfg(windows)]
+#[test]
+fn env_snapshot_keeps_msvc_tool_env() {
+    use std::ffi::OsStr;
+
+    let mut test = Test::new();
+    let mut build = cc::Build::new();
+    build
+        .target("x86_64-pc-windows-msvc")
+        .host("x86_64-pc-windows-msvc")
+        .opt_level(0)
+        .debug(false)
+        .out_dir(test.td.path());
+    let path_of = |envs: Vec<(&OsStr, Option<&OsStr>)>| {
+        envs.into_iter()
+            .filter(|(key, _)| key.eq_ignore_ascii_case("PATH"))
+            .map(|(_, value)| value.map(OsStr::to_owned))
+            .collect::<Vec<_>>()
+    };
+    let tool = build.get_compiler();
+    let tool_path = path_of(tool.env().iter().map(|(k, v)| (&**k, Some(&**v))).collect());
+    if tool_path.is_empty() {
+        // No Visual Studio found.
+        return;
+    }
+    test.env.set("PATH", test.td.path());
+    let cmd = build.get_compiler().to_command();
+    assert_eq!(path_of(cmd.get_envs().collect()), tool_path);
+}
+
+/// The archiver also runs in the snapshot.
+#[test]
+fn env_snapshot_reaches_archiver() {
+    let mut test = Test::gnu();
+    let mut build = test.gcc();
+    build.file("foo.c").ar_flag("--marker");
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "--marker");
+    build.try_compile("foo").unwrap();
+}
+
+/// The flag support probe reads the snapshot of the `Build` it probes for.
+#[test]
+fn env_snapshot_reaches_flag_support_probe() {
+    let mut test = Test::gnu();
+    test.collect_flag_supported_probes();
+    let build = test.gcc();
+    build.try_get_compiler().unwrap();
+    test.env.set("CFLAGS", "-Dset_after_first_read");
+    assert!(build.is_flag_supported("-Wprobed").unwrap());
+    test.get_flag_supported_probes(0)
+        .must_have("-Wprobed")
+        .must_not_have("-Dset_after_first_read");
 }
 
 /// The host decides whether the probe reads `HOST_CFLAGS` or `TARGET_CFLAGS`.

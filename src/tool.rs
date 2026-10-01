@@ -2,6 +2,7 @@ use crate::{
     command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
+    utilities::OnceLock,
     Error, ErrorKind, OutputKind,
 };
 use std::{
@@ -9,6 +10,7 @@ use std::{
     collections::HashMap,
     env,
     ffi::{OsStr, OsString},
+    fmt,
     io::Write,
     iter,
     path::{Path, PathBuf},
@@ -18,9 +20,110 @@ use std::{
 
 pub(crate) type CompilerFamilyLookupCache = HashMap<Box<[Box<OsStr>]>, ToolFamily>;
 
-/// The environment a compiler is probed and invoked in, as set by
-/// [`Build::env`](crate::Build::env).
-pub(crate) type BuildEnv = [(Arc<OsStr>, Arc<OsStr>)];
+/// The environment of a [`Build`](crate::Build): a snapshot of the process
+/// environment, taken on the first read and used for cc's own lookups, then
+/// the entries set with [`Build::env`](crate::Build::env), which win over it in
+/// child processes.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct BuildEnv {
+    /// Private, so that nothing can read the environment without taking the
+    /// snapshot first.
+    inherited: OnceLock<EnvSnapshot>,
+    pub(crate) explicit: Vec<(Arc<OsStr>, Arc<OsStr>)>,
+}
+
+impl BuildEnv {
+    /// The process environment as it was when this was first called.
+    pub(crate) fn inherited(&self) -> &EnvSnapshot {
+        self.inherited.get_or_init(EnvSnapshot::capture)
+    }
+
+    /// The inherited environment followed by the explicit entries, in the
+    /// order a child process applies them.
+    pub(crate) fn get_all_envs(&self) -> impl Iterator<Item = &(Arc<OsStr>, Arc<OsStr>)> {
+        self.inherited().vars.iter().chain(&self.explicit)
+    }
+
+    /// Run `cmd` in this environment.
+    pub(crate) fn apply(&self, cmd: &mut Command) {
+        self.inherited().pin(cmd);
+        for (key, value) in &self.explicit {
+            cmd.env(key, value);
+        }
+    }
+}
+
+/// A copy of the process environment.
+#[derive(Clone)]
+pub(crate) struct EnvSnapshot {
+    vars: Arc<[(Arc<OsStr>, Arc<OsStr>)]>,
+}
+
+impl EnvSnapshot {
+    fn capture() -> Self {
+        Self {
+            vars: env::vars_os()
+                .map(|(key, value)| (key.into(), value.into()))
+                .collect(),
+        }
+    }
+
+    /// Look up `key` the way `std::env::var_os` would have.
+    pub(crate) fn get(&self, key: &OsStr) -> Option<&OsStr> {
+        find_env(self.vars.iter().map(|(k, v)| (&**k, &**v)), key)
+    }
+
+    /// Make `cmd` run in this environment rather than the current one.
+    ///
+    /// Only the variables that changed since the snapshot are written to
+    /// `cmd`, so a command whose environment did not change is set up, and
+    /// shown by `Debug`, exactly as if it had inherited it.
+    pub(crate) fn pin(&self, cmd: &mut Command) {
+        let current: Vec<_> = env::vars_os().collect();
+        // Nothing changed, the usual case.
+        if current.len() == self.vars.len()
+            && current
+                .iter()
+                .zip(self.vars.iter())
+                .all(|((k, v), (old_k, old_v))| *k == **old_k && *v == **old_v)
+        {
+            return;
+        }
+        for (key, _) in &current {
+            if self.get(key).is_none() {
+                cmd.env_remove(key);
+            }
+        }
+        for (key, value) in self.vars.iter() {
+            let now = find_env(current.iter().map(|(k, v)| (&**k, &**v)), key);
+            if now != Some(&**value) {
+                cmd.env(key, value);
+            }
+        }
+    }
+}
+
+impl fmt::Debug for EnvSnapshot {
+    // The values may hold secrets, and a `Build` can end up in a log.
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "EnvSnapshot(<{} variables>)", self.vars.len())
+    }
+}
+
+/// Environment variable names are case-insensitive on Windows.
+fn find_env<'a>(
+    mut vars: impl Iterator<Item = (&'a OsStr, &'a OsStr)>,
+    key: &OsStr,
+) -> Option<&'a OsStr> {
+    vars.find(|(k, _)| {
+        if cfg!(windows) {
+            k.eq_ignore_ascii_case(key)
+        } else {
+            *k == key
+        }
+    })
+    .map(|(_, v)| v)
+}
 
 /// Separates the arguments from the environment in a
 /// [`CompilerFamilyLookupCache`] key.
@@ -44,6 +147,8 @@ pub struct Tool {
     pub(crate) cc_wrapper_args: Vec<OsString>,
     pub(crate) args: Vec<OsString>,
     pub(crate) env: Vec<(OsString, OsString)>,
+    /// The environment of the `Build` this came from, applied before `env`.
+    pub(crate) inherited_env: Option<EnvSnapshot>,
     pub(crate) family: ToolFamily,
     pub(crate) cuda: bool,
     pub(crate) removed_args: Vec<OsString>,
@@ -113,6 +218,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            inherited_env: None,
             family,
             cuda: false,
             removed_args: Vec::new(),
@@ -281,13 +387,16 @@ impl Tool {
             // The detected family depends on the environment the probes run in
             // - `PATH` decides what a bare compiler name even resolves to - so
             // two lookups that agree on the path and arguments but differ in
-            // `Build::env` must not share an entry.
+            // their environment must not share an entry.
             let cache_key = [path.as_os_str()]
                 .iter()
                 .cloned()
                 .chain(args.iter().map(OsStr::new))
                 .chain(iter::once(OsStr::new(CACHE_KEY_ENV_SEPARATOR)))
-                .chain(env.iter().flat_map(|(key, value)| [&**key, &**value]))
+                .chain(
+                    env.get_all_envs()
+                        .flat_map(|(key, value)| [&**key, &**value]),
+                )
                 .map(Into::into)
                 .collect();
             if let Some(family) = cached_compiler_family.read().unwrap().get(&cache_key) {
@@ -334,6 +443,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            inherited_env: Some(env.inherited().clone()),
             family,
             cuda,
             removed_args: Vec::new(),
@@ -412,6 +522,9 @@ impl Tool {
             }
             None => Command::new(&self.path),
         };
+        if let Some(inherited_env) = &self.inherited_env {
+            inherited_env.pin(&mut cmd);
+        }
         cmd.args(&self.cc_wrapper_args);
 
         cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
@@ -612,5 +725,89 @@ impl ToolFamily {
 
     pub(crate) fn verbose_stderr(&self) -> bool {
         matches!(*self, ToolFamily::Clang { .. })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn snapshot(vars: &[(&str, &str)]) -> EnvSnapshot {
+        EnvSnapshot {
+            vars: vars
+                .iter()
+                .map(|(key, value)| (OsStr::new(key).into(), OsStr::new(value).into()))
+                .collect(),
+        }
+    }
+
+    fn envs(cmd: &Command) -> Vec<(OsString, Option<OsString>)> {
+        cmd.get_envs()
+            .map(|(key, value)| (key.to_owned(), value.map(OsStr::to_owned)))
+            .collect()
+    }
+
+    #[test]
+    fn pin_leaves_an_unchanged_environment_alone() {
+        let mut cmd = Command::new("cc");
+        EnvSnapshot::capture().pin(&mut cmd);
+        assert_eq!(envs(&cmd), []);
+    }
+
+    #[test]
+    fn pin_sets_and_removes_what_differs() {
+        let current: Vec<_> = env::vars_os().collect();
+        assert!(!current.is_empty());
+        let mut cmd = Command::new("cc");
+        snapshot(&[("CC_TEST_ONLY_IN_SNAPSHOT", "1")]).pin(&mut cmd);
+        let envs = envs(&cmd);
+        assert!(envs.contains(&("CC_TEST_ONLY_IN_SNAPSHOT".into(), Some("1".into()))));
+        for (key, _) in current {
+            assert!(
+                envs.iter().any(|(k, v)| *k == key && v.is_none()),
+                "{key:?} was not removed"
+            );
+        }
+    }
+
+    #[test]
+    fn pin_writes_only_what_changed() {
+        let mut vars: Vec<_> = EnvSnapshot::capture().vars.to_vec();
+        vars.push((
+            OsStr::new("CC_TEST_ONLY_IN_SNAPSHOT").into(),
+            OsStr::new("1").into(),
+        ));
+        let mut cmd = Command::new("cc");
+        EnvSnapshot { vars: vars.into() }.pin(&mut cmd);
+        assert_eq!(
+            envs(&cmd),
+            [("CC_TEST_ONLY_IN_SNAPSHOT".into(), Some("1".into()))]
+        );
+    }
+
+    #[test]
+    fn tool_env_wins_over_inherited_env() {
+        let mut tool = Tool::with_family("cc".into(), ToolFamily::Gnu);
+        tool.inherited_env = Some(snapshot(&[("CC_TEST_ORDER", "inherited")]));
+        tool.env.push(("CC_TEST_ORDER".into(), "tool".into()));
+        assert!(envs(&tool.to_command()).contains(&("CC_TEST_ORDER".into(), Some("tool".into()))));
+    }
+
+    #[test]
+    fn snapshot_lookup_follows_the_platform_case_rule() {
+        let snapshot = snapshot(&[("Path", "a")]);
+        assert_eq!(snapshot.get(OsStr::new("Path")), Some(OsStr::new("a")));
+        let other_case = snapshot.get(OsStr::new("PATH"));
+        if cfg!(windows) {
+            assert_eq!(other_case, Some(OsStr::new("a")));
+        } else {
+            assert_eq!(other_case, None);
+        }
+    }
+
+    #[test]
+    fn snapshot_debug_hides_values() {
+        let debug = format!("{:?}", snapshot(&[("CC_TEST_SECRET", "hunter2")]));
+        assert!(!debug.contains("hunter2"), "{debug}");
     }
 }

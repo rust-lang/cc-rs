@@ -17,7 +17,8 @@ use std::{
 };
 
 use crate::{
-    logger::Logger, utilities::cargo_env_var_os, BuildMessageKind, Error, ErrorKind, Object,
+    logger::Logger, tool::BuildEnv, utilities::cargo_env_var_os, BuildMessageKind, Error,
+    ErrorKind, Object,
 };
 
 #[derive(Clone, Debug)]
@@ -648,11 +649,8 @@ impl fmt::Display for CommandLine<'_> {
 /// Naming the two probe classes at the call site, so a caller does not have
 /// to reach for [`ProbeKind`] to say which one it means.
 pub(crate) trait CommandExt {
-    /// Apply `Build::env` to a compiler family detection probe.
-    fn set_family_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>;
+    /// Apply the `Build`'s environment to a compiler family detection probe.
+    fn set_family_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
 
     /// Apply `Build::env` to an `is_flag_supported` probe.
     fn set_flag_supported_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
@@ -660,20 +658,14 @@ pub(crate) trait CommandExt {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>;
 
-    /// Apply `Build::env` to the Android `llvm-ar` probe.
-    fn set_ar_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>;
+    /// Apply the `Build`'s environment to the Android `llvm-ar` probe.
+    fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
 }
 
 impl CommandExt for Command {
-    fn set_family_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
-        set_probe_env(self, env, ProbeKind::FamilyDetection);
+    fn set_family_detection_env(&mut self, env: &BuildEnv) -> &mut Self {
+        env.inherited().pin(self);
+        set_probe_env(self, &env.explicit, ProbeKind::FamilyDetection);
         self
     }
 
@@ -686,12 +678,9 @@ impl CommandExt for Command {
         self
     }
 
-    fn set_ar_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
-        set_probe_env(self, env, ProbeKind::ArDetection);
+    fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self {
+        env.inherited().pin(self);
+        set_probe_env(self, &env.explicit, ProbeKind::ArDetection);
         self
     }
 }
