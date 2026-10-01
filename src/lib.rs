@@ -1815,33 +1815,24 @@ impl Build {
     /// This will return a result instead of panicking; see [`Self::compile()`] for
     /// the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
-        let mut output_components = Path::new(output).components();
-        match (output_components.next(), output_components.next()) {
-            (Some(Component::Normal(_)), None) => {}
-            _ => {
-                return Err(Error::new(
-                    ErrorKind::InvalidArgument,
-                    "argument of `compile` must be a single normal path component",
-                ));
-            }
-        }
-
-        let (lib_name, gnu_lib_name) = if output.starts_with("lib") && output.ends_with(".a") {
-            (&output[3..output.len() - 2], output.to_owned())
-        } else {
-            let mut gnu = String::with_capacity(5 + output.len());
-            gnu.push_str("lib");
-            gnu.push_str(output);
-            gnu.push_str(".a");
-            (output, gnu)
-        };
+        let (lib_name, gnu_lib_name) = lib_and_archive_names(output, "compile")?;
         let dst = self.get_out_dir()?;
 
         let objects = objects_from_files(&self.files, &dst)?;
 
         self.compile_objects(&objects)?;
-        self.assemble(lib_name, &dst.join(gnu_lib_name), &objects)?;
+        self.assemble(
+            lib_name,
+            &dst.join(gnu_lib_name),
+            objects.iter().map(|o| o.dst.as_path()),
+        )?;
 
+        self.emit_link_directives_for(lib_name, &dst)
+    }
+
+    /// Emit the `cargo:` lines that link the static library `lib_name` found in
+    /// `search_dir`, along with the libraries it needs.
+    fn emit_link_directives_for(&self, lib_name: &str, search_dir: &Path) -> Result<(), Error> {
         let target = self.get_target()?;
         if target.abi == "pauthtest" {
             self.cargo_output.print_warning(
@@ -1885,7 +1876,7 @@ impl Build {
         }
         self.cargo_output.print_metadata(&format_args!(
             "cargo:rustc-link-search=native={}",
-            dst.display()
+            search_dir.display()
         ));
 
         // Add specific C++ libraries, if enabled.
@@ -2060,6 +2051,10 @@ impl Build {
     ///
     /// This will return a list of compiled object files, in the same order
     /// as they were passed in as `file`/`files` methods.
+    ///
+    /// [`Build::create_archive`] and [`emit_link_directives`] do the rest of
+    /// what [`Build::compile`] does, so the objects can be changed or added to
+    /// in between.
     pub fn compile_intermediates(&self) -> Vec<PathBuf> {
         match self.try_compile_intermediates() {
             Ok(v) => v,
@@ -2080,13 +2075,80 @@ impl Build {
         Ok(objects.into_iter().map(|v| v.dst).collect())
     }
 
-    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+    /// Create a static library from object files, the way [`Build::compile`]
+    /// does after compiling.
+    ///
+    /// `output` names the library as described under "Library name" in
+    /// [`Build::compile`]. The archive is written
+    /// to `lib<output>.a` in the output directory ([`Build::out_dir`], or
+    /// `OUT_DIR` by default), replacing any existing file, and that path is
+    /// returned. On MSVC targets a copy named `<output>.lib` is placed next to
+    /// it, as `compile` does.
+    ///
+    /// The archive holds `objects` followed by any objects added with
+    /// [`Build::object`] or [`Build::objects`]. It is created with the same
+    /// archiver and flags as `compile` uses, see [`Build::get_archiver`]. With
+    /// [`Build::cuda`] and CUDA files added, the device code is linked into it
+    /// as well.
+    ///
+    /// No `cargo:` lines are emitted. Use [`emit_link_directives`] with the
+    /// returned path to link the library.
+    ///
+    /// ```no_run
+    /// let mut build = cc::Build::new();
+    /// build.file("foo.c");
+    /// let objects = build.compile_intermediates();
+    /// // Change the objects here.
+    /// let library = build.create_archive("foo", &objects);
+    /// cc::emit_link_directives(&build, &library);
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `output` is not formatted correctly or if the archiver fails.
+    pub fn create_archive<P>(&self, output: &str, objects: P) -> PathBuf
+    where
+        P: IntoIterator,
+        P::Item: AsRef<Path>,
+    {
+        match self.try_create_archive(output, objects) {
+            Ok(library) => library,
+            Err(e) => fail(&e.message),
+        }
+    }
+
+    /// Create a static library from object files, the way [`Build::compile`]
+    /// does after compiling.
+    ///
+    /// This will return a result instead of panicking; see
+    /// [`Build::create_archive`] for the complete description.
+    pub fn try_create_archive<P>(&self, output: &str, objects: P) -> Result<PathBuf, Error>
+    where
+        P: IntoIterator,
+        P::Item: AsRef<Path>,
+    {
+        let (lib_name, gnu_lib_name) = lib_and_archive_names(output, "create_archive")?;
+        self.check_enabled()?;
+        let dst = self.get_out_dir()?.join(gnu_lib_name);
+
+        let objects: Vec<P::Item> = objects.into_iter().collect();
+        self.assemble(lib_name, &dst, objects.iter().map(AsRef::as_ref))?;
+
+        Ok(dst)
+    }
+
+    fn check_enabled(&self) -> Result<(), Error> {
         if self.is_disabled() {
             return Err(Error::new(
                 ErrorKind::Disabled,
                 "the `cc` crate's functionality has been disabled by the `CC_FORCE_DISABLE` environment variable.",
             ));
         }
+        Ok(())
+    }
+
+    fn compile_objects(&self, objs: &[Object]) -> Result<(), Error> {
+        self.check_enabled()?;
 
         if objs.is_empty() {
             return Ok(());
@@ -3215,7 +3277,12 @@ impl Build {
         Ok(cmd)
     }
 
-    fn assemble(&self, lib_name: &str, dst: &Path, objs: &[Object]) -> Result<(), Error> {
+    fn assemble<'a>(
+        &'a self,
+        lib_name: &str,
+        dst: &Path,
+        objs: impl IntoIterator<Item = &'a Path>,
+    ) -> Result<(), Error> {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
         let _ = fs::remove_file(dst);
@@ -3231,8 +3298,7 @@ impl Build {
         let mut deterministic_ar: Option<bool> = None;
 
         let mut objs = objs
-            .iter()
-            .map(|o| o.dst.as_path())
+            .into_iter()
             .chain(self.objects.iter().map(core::ops::Deref::deref))
             .peekable();
         let mut batch = Vec::new();
@@ -4967,6 +5033,85 @@ impl Default for Build {
     fn default() -> Build {
         Build::new()
     }
+}
+
+/// Emit the `cargo:` lines that link a static library into the crate being
+/// built, the way [`Build::compile`] does after creating its archive.
+///
+/// `library` is the path of the library, such as the one returned by
+/// [`Build::create_archive`]. Its file name must be `lib<name>.a`, or
+/// `<name>.lib` on MSVC targets. The library is linked as `<name>`, and the
+/// folder it is in is added to the native library search path.
+///
+/// `build` provides the target and the settings that decide how it is linked
+/// and which other libraries are linked with it, such as
+/// [`Build::link_lib_modifier`], [`Build::cpp`] with
+/// [`Build::cpp_link_stdlib`], and [`Build::cudart`]. Nothing is printed when
+/// [`Build::cargo_metadata`] is off.
+///
+/// # Panics
+///
+/// Panics if the file name of `library` doesn't have one of the forms above,
+/// or if the libraries to link with it can't be determined.
+pub fn emit_link_directives<P: AsRef<Path>>(build: &Build, library: P) {
+    if let Err(e) = try_emit_link_directives(build, library) {
+        fail(&e.message);
+    }
+}
+
+/// Emit the `cargo:` lines that link a static library into the crate being
+/// built, the way [`Build::compile`] does after creating its archive.
+///
+/// This will return a result instead of panicking; see
+/// [`emit_link_directives`] for the complete description.
+pub fn try_emit_link_directives<P: AsRef<Path>>(build: &Build, library: P) -> Result<(), Error> {
+    let library = library.as_ref();
+    let file_name = library.file_name().and_then(OsStr::to_str).unwrap_or("");
+    let mut lib_name = file_name
+        .strip_prefix("lib")
+        .and_then(|name| name.strip_suffix(".a"));
+    if lib_name.is_none() && build.get_target()?.env == "msvc" {
+        lib_name = file_name.strip_suffix(".lib");
+    }
+    let search_dir = library.parent().filter(|dir| !dir.as_os_str().is_empty());
+    match (lib_name, search_dir) {
+        (Some(lib_name), Some(search_dir)) if !lib_name.is_empty() => {
+            build.emit_link_directives_for(lib_name, search_dir)
+        }
+        _ => Err(Error::new(
+            ErrorKind::InvalidArgument,
+            format!(
+                "`emit_link_directives` expects the path of a static library named \
+                 `lib<name>.a`, or `<name>.lib` on MSVC targets, got `{}`",
+                library.display()
+            ),
+        )),
+    }
+}
+
+/// Split the `output` argument of [`Build::compile`] or
+/// [`Build::create_archive`] into the library name and the archive's file name.
+fn lib_and_archive_names<'a>(output: &'a str, method: &str) -> Result<(&'a str, String), Error> {
+    let mut output_components = Path::new(output).components();
+    match (output_components.next(), output_components.next()) {
+        (Some(Component::Normal(_)), None) => {}
+        _ => {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                format!("argument of `{method}` must be a single normal path component"),
+            ));
+        }
+    }
+
+    Ok(if output.starts_with("lib") && output.ends_with(".a") {
+        (&output[3..output.len() - 2], output.to_owned())
+    } else {
+        let mut gnu = String::with_capacity(5 + output.len());
+        gnu.push_str("lib");
+        gnu.push_str(output);
+        gnu.push_str(".a");
+        (output, gnu)
+    })
 }
 
 /// `cl` and `clang-cl` pass `/link` and every argument after it to the linker.

@@ -2252,3 +2252,268 @@ fn flag_support_cache_is_per_host() {
         "the clone reused the answer probed for another host"
     );
 }
+
+#[test]
+fn gnu_create_archive() {
+    let test = Test::gnu();
+    let extra = test.td.path().join("extra.o");
+    let mut build = test.gcc();
+    build.file("foo.c").object(&extra);
+    let objects = build.compile_intermediates();
+    let library = build.try_create_archive("foo", &objects).unwrap();
+
+    assert_eq!(library, test.td.path().join("libfoo.a"));
+    // The objects passed in come first, then those added with `object`.
+    test.cmd(1)
+        .must_have("cqD")
+        .must_have(&library)
+        .must_have_in_order(objects[0].to_str().unwrap(), extra.to_str().unwrap());
+    test.cmd(2).must_have("sD").must_have(&library);
+
+    // The deprecated `lib<name>.a` form names the same file.
+    let library = build.try_create_archive("libfoo.a", &objects).unwrap();
+    assert_eq!(library, test.td.path().join("libfoo.a"));
+}
+
+#[test]
+fn msvc_create_archive() {
+    let test = Test::msvc();
+    let mut build = test.gcc();
+    build.file("foo.c");
+    let objects = build.compile_intermediates();
+    let library = build.try_create_archive("foo", &objects).unwrap();
+
+    assert_eq!(library, test.td.path().join("libfoo.a"));
+    let mut out = std::ffi::OsString::from("-out:");
+    out.push(&library);
+    test.cmd(1).must_have(out).must_have(&objects[0]);
+    // As with `compile`, the library is also available as `foo.lib`.
+    assert!(test.td.path().join("foo.lib").is_file());
+}
+
+#[test]
+fn create_archive_checks_its_arguments() {
+    let test = Test::gnu();
+    let build = test.gcc();
+    for output in ["", "a/b", "..", "/foo"] {
+        let err = build
+            .try_create_archive(output, ["foo.o"])
+            .unwrap_err()
+            .to_string();
+        assert!(
+            err.starts_with("InvalidArgument: argument of `create_archive`"),
+            "{output:?}: {err}"
+        );
+    }
+}
+
+#[test]
+fn create_archive_respects_cc_force_disable() {
+    let mut test = Test::gnu();
+    test.env.set("CC_FORCE_DISABLE", "1");
+    let err = test
+        .gcc()
+        .try_create_archive("foo", ["foo.o"])
+        .unwrap_err()
+        .to_string();
+    assert!(err.starts_with("Disabled: "), "{err}");
+    assert!(!test.td.path().join("out0").exists(), "the archiver ran");
+}
+
+#[test]
+fn emit_link_directives_checks_its_arguments() {
+    {
+        let test = Test::gnu();
+        let mut build = test.gcc();
+        build.cargo_metadata(false);
+        for library in [
+            "out/foo.a",
+            "out/lib.a",
+            "out/libfoo.so",
+            "libfoo.a",
+            "out/foo.lib",
+        ] {
+            let err = cc::try_emit_link_directives(&build, library)
+                .unwrap_err()
+                .to_string();
+            assert!(
+                err.starts_with("InvalidArgument: `emit_link_directives` expects"),
+                "{library:?}: {err}"
+            );
+        }
+        cc::try_emit_link_directives(&build, "out/libfoo.a").unwrap();
+    }
+
+    // `<name>.lib` is only a static library name on MSVC targets.
+    let test = Test::msvc();
+    let mut build = test.gcc();
+    build.cargo_metadata(false).cargo_warnings(false);
+    cc::try_emit_link_directives(&build, "out/foo.lib").unwrap();
+    cc::try_emit_link_directives(&build, "out/libfoo.a").unwrap();
+}
+
+/// `compile_intermediates`, `create_archive` and `emit_link_directives` run
+/// the same archiver commands and emit the same link lines as `compile`.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn create_archive_and_emit_link_directives_match_compile() {
+    // When invoked as subprocess, perform the builds and return.
+    if let Some(case) = env::var_os("__CC_TEST_SPLIT_COMPILE") {
+        let case = case.into_string().unwrap();
+        let (case, how) = case.split_once(' ').unwrap();
+        // `cuda` builds a CUDA file, which also device-links the archive.
+        let cuda = case == "cuda";
+        let target = if cuda {
+            "x86_64-unknown-linux-gnu"
+        } else {
+            case
+        };
+        let msvc = target.ends_with("-msvc");
+        let test = if msvc { Test::msvc() } else { Test::gnu() };
+        test.shim("clang++").shim("nvcc");
+        let mut build = test.gcc();
+        build
+            .target(target)
+            .host(target)
+            .cpp(true)
+            .cpp_link_stdlib_static(true)
+            .link_lib_modifier("+whole-archive");
+        if !msvc {
+            build.archiver(test.td.path().join("ar"));
+        }
+        if cuda {
+            build
+                .cuda(true)
+                .compiler(test.td.path().join("nvcc"))
+                .file("foo.cu");
+        } else {
+            build.file("foo.cpp");
+            if target != "x86_64-unknown-linux-gnu" && !msvc {
+                build.compiler(test.td.path().join("clang++"));
+            }
+        }
+        // The test shim always creates `libfoo.a`, which MSVC needs to copy.
+        let names: &[&str] = if msvc { &["foo"] } else { &["foo", "bar"] };
+        for name in names {
+            if how == "compile" {
+                build.compile(name);
+            } else {
+                let objects = build.compile_intermediates();
+                let library = build.create_archive(name, &objects);
+                if how == "split-lib" {
+                    cc::emit_link_directives(&build, library.with_file_name(format!("{name}.lib")));
+                } else {
+                    cc::emit_link_directives(&build, &library);
+                }
+            }
+        }
+        for i in 0.. {
+            let Ok(args) = std::fs::read_to_string(test.td.path().join(format!("out{i}"))) else {
+                break;
+            };
+            println!("ran: {}", args.lines().collect::<Vec<_>>().join(" "));
+        }
+        println!("out-dir: {}", test.td.path().display());
+        return;
+    }
+
+    let run = |target: &str, how: &str| -> (Vec<String>, std::collections::BTreeSet<String>) {
+        let output = Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_SPLIT_COMPILE", format!("{target} {how}"))
+            .env("PAUTHTEST_SYSROOT", "sysroot")
+            .env("PAUTHTEST_RESOURCE_DIR", "resource-dir")
+            .env_remove("CXXSTDLIB")
+            .env_remove("CXXSTDLIB_STATIC")
+            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+            .args([
+                "--exact",
+                "create_archive_and_emit_link_directives_match_compile",
+                "--nocapture",
+            ])
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let out_dir = stdout
+            .lines()
+            .find_map(|line| line.strip_prefix("out-dir: "))
+            .unwrap();
+        let stdout = stdout.replace(out_dir, "<out-dir>");
+        let lines = stdout
+            .lines()
+            .filter(|line| {
+                line.starts_with("cargo:rustc-")
+                    // The shim can't answer family detection, and the failed
+                    // probe's file name is random.
+                    || (line.starts_with("cargo:warning=")
+                        && !line.contains("detect_compiler_family"))
+                    || line.starts_with("ran: ")
+            })
+            .map(str::to_owned)
+            .collect();
+        // Archiving reads `CC_FORCE_DISABLE` once more, so compare these as a set.
+        let rerun_lines = stdout
+            .lines()
+            .filter(|line| line.starts_with("cargo:rerun-if-env-changed="))
+            .map(str::to_owned)
+            .collect();
+        (lines, rerun_lines)
+    };
+
+    let link_lib_lines = |lines: &[String]| -> Vec<String> {
+        lines
+            .iter()
+            .filter_map(|line| line.strip_prefix("cargo:rustc-link-lib="))
+            .map(str::to_owned)
+            .collect()
+    };
+
+    for (target, link_libs) in [
+        (
+            "x86_64-unknown-linux-gnu",
+            &[
+                "static:+whole-archive=foo",
+                "static:-bundle=stdc++",
+                "static:+whole-archive=bar",
+            ][..],
+        ),
+        (
+            "aarch64-unknown-linux-pauthtest",
+            &[
+                "static:+whole-archive=foo",
+                "static=c++",
+                "static:+whole-archive=bar",
+                "static=c++",
+            ][..],
+        ),
+        (
+            "cuda",
+            &[
+                "static:+whole-archive=foo",
+                "static:-bundle=stdc++",
+                "cudart_static",
+                "static:+whole-archive=bar",
+                "cudart_static",
+            ][..],
+        ),
+        ("x86_64-pc-windows-msvc", &["static:+whole-archive=foo"][..]),
+    ] {
+        let compile = run(target, "compile");
+        assert_eq!(link_lib_lines(&compile.0), link_libs, "{target}");
+        if target == "cuda" {
+            assert!(
+                compile.0.iter().any(|line| line.contains("--device-link")),
+                "{compile:#?}"
+            );
+        }
+        let mut hows = vec!["split"];
+        if target.ends_with("-msvc") {
+            hows.push("split-lib");
+        }
+        for how in hows {
+            assert_eq!(run(target, how), compile, "{target} {how}");
+        }
+    }
+}
