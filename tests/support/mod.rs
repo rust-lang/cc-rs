@@ -186,8 +186,34 @@ impl Test {
     /// cc's own probing invocations are not recorded unless a test asks for
     /// them by name with [`Test::probe_out_files`], so this numbering covers
     /// the compile and archive commands only.
+    ///
+    /// With the `parallel` feature, the compile commands of one build run at
+    /// the same time and can be recorded in any order, so a build of several
+    /// files reads each compile back with [`Test::cmd_for_source`] instead.
     pub fn cmd(&self, i: usize) -> Execution {
         self.execution(self.probe_slot("out", i))
+    }
+
+    /// Read back the one invocation a build performed that has `src` as an
+    /// argument, such as the compile command of that source file.
+    #[track_caller]
+    pub fn cmd_for_source<P: AsRef<OsStr>>(&self, src: P) -> Execution {
+        let src = src.as_ref();
+        let mut matches = (0..)
+            .map(|i| self.probe_slot("out", i))
+            .take_while(|path| path.exists())
+            .map(|path| self.execution(path))
+            .filter(|execution| execution.has(src));
+        let Some(execution) = matches.next() else {
+            panic!("no recorded invocation has {:?}", src);
+        };
+        if let Some(other) = matches.next() {
+            panic!(
+                "more than one recorded invocation has {:?}: {:?} and {:?}",
+                src, execution.args, other.args
+            );
+        }
+        execution
     }
 
     /// Record cc's own compiler family detection probes, so

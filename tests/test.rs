@@ -746,13 +746,11 @@ fn msvc_cpp_does_not_pass_tp_for_c_or_cpp() {
         .file(&cpp_src)
         .compile("foo");
 
-    test.cmd(0)
-        .must_have(&c_src)
+    test.cmd_for_source(&c_src)
         .must_not_have("-Tp")
         .must_not_have("/Tp")
         .must_not_have("-TP");
-    test.cmd(1)
-        .must_have(&cpp_src)
+    test.cmd_for_source(&cpp_src)
         .must_not_have("-Tp")
         .must_not_have("/Tp")
         .must_not_have("-TP");
@@ -787,9 +785,6 @@ fn msvc_warnings_disabled() {
     test.cmd(0).must_have("-W0").must_not_have("-W4");
 }
 
-// Disable this test with the parallel feature because the execution
-// order is not deterministic.
-#[cfg(not(feature = "parallel"))]
 #[test]
 fn asm_flags() {
     let test = Test::gnu();
@@ -799,9 +794,9 @@ fn asm_flags() {
         .file("x86_64.S")
         .asm_flag("--abc")
         .compile("foo");
-    test.cmd(0).must_not_have("--abc");
-    test.cmd(1).must_have("--abc");
-    test.cmd(2).must_have("--abc");
+    test.cmd_for_source("foo.c").must_not_have("--abc");
+    test.cmd_for_source("x86_64.asm").must_have("--abc");
+    test.cmd_for_source("x86_64.S").must_have("--abc");
 }
 
 #[test]

@@ -5,7 +5,7 @@
 #![allow(clippy::disallowed_methods)]
 
 use std::env;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{self, prelude::*};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -30,44 +30,49 @@ const OUT_DIR: &str = "CC_SHIM_OUT_DIR";
 /// on. See `set_probe_env` in `src/command_helpers.rs`.
 const OUT_FILES: &str = "CC_SHIM_OUT_FILES";
 
-/// Pick the file this invocation should record its arguments in, if any.
-fn out_file(program: &str) -> Option<PathBuf> {
-    if let Some(files) = env::var_os(OUT_FILES) {
-        let candidate = env::split_paths(&files)
-            .filter(|file| !file.as_os_str().is_empty())
-            .find(|file| !file.exists());
-        return Some(candidate.unwrap_or_else(|| {
-            panic!(
-                "{}: every file named by {} has already been written to: {:?}",
-                program, OUT_FILES, files
-            )
-        }));
+/// Create the file this invocation should record its arguments in, if any.
+///
+/// With the `parallel` feature several compile commands start at once and look
+/// for a free file at the same time. Each candidate is created with
+/// `create_new`, so when two invocations pick the same one, only one gets it
+/// and the other moves on to the next instead of overwriting its record.
+fn create_out_file(program: &str) -> Option<(PathBuf, File)> {
+    let files = env::var_os(OUT_FILES);
+    let candidates: Box<dyn Iterator<Item = PathBuf>> = if let Some(files) = &files {
+        Box::new(env::split_paths(files).filter(|file| !file.as_os_str().is_empty()))
+    } else {
+        let out_dir = PathBuf::from(env::var_os(OUT_DIR)?);
+        Box::new((0..).map(move |i| out_dir.join(format!("out{i}"))))
+    };
+
+    for candidate in candidates {
+        match OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&candidate)
+        {
+            Ok(f) => return Some((candidate, f)),
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+            Err(e) => panic!(
+                "{}: can't create candidate: {}, error: {}",
+                program,
+                candidate.display(),
+                e
+            ),
+        }
     }
 
-    let out_dir = PathBuf::from(env::var_os(OUT_DIR)?);
-    // Find the first nonexistent candidate file to which the program's args can be written.
-    Some(
-        (0..)
-            .map(|i| out_dir.join(format!("out{i}")))
-            .find(|candidate| !candidate.exists())
-            .unwrap_or_else(|| panic!("Cannot find the first nonexistent candidate file to which the program's args can be written under out_dir '{}'", out_dir.display()))
+    panic!(
+        "{}: every file named by {} has already been written to: {:?}",
+        program, OUT_FILES, files
     )
 }
 
 /// Record the args passed to the command, if this invocation records at all.
 fn record(program: &str, args: &[String]) {
-    let Some(candidate) = out_file(program) else {
+    let Some((candidate, f)) = create_out_file(program) else {
         return;
     };
-
-    let f = File::create(&candidate).unwrap_or_else(|e| {
-        panic!(
-            "{}: can't create candidate: {}, error: {}",
-            program,
-            candidate.display(),
-            e
-        )
-    });
     let mut f = io::BufWriter::new(f);
 
     (|| {
