@@ -1815,19 +1815,16 @@ impl Build {
     /// This will return a result instead of panicking; see [`Self::compile()`] for
     /// the complete description.
     pub fn try_compile(&self, output: &str) -> Result<(), Error> {
-        let (lib_name, gnu_lib_name) = lib_and_archive_names(output, "compile")?;
+        // Reject a bad name before compiling anything.
+        lib_and_archive_names(output, "compile")?;
         let dst = self.get_out_dir()?;
 
         let objects = objects_from_files(&self.files, &dst)?;
 
         self.compile_objects(&objects)?;
-        self.assemble(
-            lib_name,
-            &dst.join(gnu_lib_name),
-            objects.iter().map(|o| o.dst.as_path()),
-        )?;
+        let library = self.try_create_archive(output, objects.iter().map(|o| &o.dst))?;
 
-        self.emit_link_directives_for(lib_name, &dst)
+        try_emit_link_directives(self, library)
     }
 
     /// Emit the `cargo:` lines that link the static library `lib_name` found in
@@ -2133,7 +2130,7 @@ impl Build {
         let dst = self.get_out_dir()?.join(gnu_lib_name);
 
         let objects: Vec<P::Item> = objects.into_iter().collect();
-        self.assemble(lib_name, &dst, objects.iter().map(AsRef::as_ref))?;
+        self.assemble(lib_name, &dst, &mut objects.iter().map(AsRef::as_ref))?;
 
         Ok(dst)
     }
@@ -3282,7 +3279,7 @@ impl Build {
         &'a self,
         lib_name: &str,
         dst: &Path,
-        objs: impl IntoIterator<Item = &'a Path>,
+        objs: &mut dyn Iterator<Item = &'a Path>,
     ) -> Result<(), Error> {
         // Delete the destination if it exists as we want to
         // create on the first iteration instead of appending.
@@ -3299,7 +3296,6 @@ impl Build {
         let mut deterministic_ar: Option<bool> = None;
 
         let mut objs = objs
-            .into_iter()
             .chain(self.objects.iter().map(core::ops::Deref::deref))
             .peekable();
         let mut batch = Vec::new();

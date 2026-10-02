@@ -2419,7 +2419,7 @@ fn create_archive_and_emit_link_directives_match_compile() {
         return;
     }
 
-    let run = |target: &str, how: &str| -> (Vec<String>, std::collections::BTreeSet<String>) {
+    let run = |target: &str, how: &str| -> Vec<String> {
         let output = Command::new(env::current_exe().unwrap())
             .env("__CC_TEST_SPLIT_COMPILE", format!("{target} {how}"))
             .env("PAUTHTEST_SYSROOT", "sysroot")
@@ -2441,10 +2441,11 @@ fn create_archive_and_emit_link_directives_match_compile() {
             .find_map(|line| line.strip_prefix("out-dir: "))
             .unwrap();
         let stdout = stdout.replace(out_dir, "<out-dir>");
-        let lines = stdout
+        stdout
             .lines()
             .filter(|line| {
                 line.starts_with("cargo:rustc-")
+                    || line.starts_with("cargo:rerun-if-env-changed=")
                     // The shim can't answer family detection, and the failed
                     // probe's file name is random.
                     || (line.starts_with("cargo:warning=")
@@ -2452,14 +2453,7 @@ fn create_archive_and_emit_link_directives_match_compile() {
                     || line.starts_with("ran: ")
             })
             .map(str::to_owned)
-            .collect();
-        // Archiving reads `CC_FORCE_DISABLE` once more, so compare these as a set.
-        let rerun_lines = stdout
-            .lines()
-            .filter(|line| line.starts_with("cargo:rerun-if-env-changed="))
-            .map(str::to_owned)
-            .collect();
-        (lines, rerun_lines)
+            .collect()
     };
 
     let link_lib_lines = |lines: &[String]| -> Vec<String> {
@@ -2501,10 +2495,10 @@ fn create_archive_and_emit_link_directives_match_compile() {
         ("x86_64-pc-windows-msvc", &["static:+whole-archive=foo"][..]),
     ] {
         let compile = run(target, "compile");
-        assert_eq!(link_lib_lines(&compile.0), link_libs, "{target}");
+        assert_eq!(link_lib_lines(&compile), link_libs, "{target}");
         if target == "cuda" {
             assert!(
-                compile.0.iter().any(|line| line.contains("--device-link")),
+                compile.iter().any(|line| line.contains("--device-link")),
                 "{compile:#?}"
             );
         }
