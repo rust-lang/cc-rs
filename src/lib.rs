@@ -3662,7 +3662,7 @@ impl Build {
             );
             let nvcc = match self.getenv_with_target_prefixes("NVCC") {
                 Err(_) => PathBuf::from("nvcc"),
-                Ok(nvcc) => PathBuf::from(&*nvcc),
+                Ok(nvcc) => PathBuf::from(nvcc),
             };
             let mut nvcc_tool = Tool::with_features(
                 nvcc,
@@ -3846,9 +3846,8 @@ impl Build {
             "buildcache",
             "kache",
         ];
-        let custom_wrapper = self.get_env("CC_KNOWN_WRAPPER_CUSTOM");
-        if custom_wrapper.is_some() {
-            known_wrappers.push(custom_wrapper.as_deref().unwrap().to_str().unwrap());
+        if let Some(custom_wrapper) = self.get_env("CC_KNOWN_WRAPPER_CUSTOM") {
+            known_wrappers.push(custom_wrapper.to_str().unwrap());
         }
 
         let mut parts = tool.split_whitespace();
@@ -3877,12 +3876,12 @@ impl Build {
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
     ///    `None` for MSVC and `stdc++` for anything else.
-    fn get_cpp_link_stdlib(&self) -> Result<Option<Cow<'_, Path>>, Error> {
+    fn get_cpp_link_stdlib(&self) -> Result<Option<&Path>, Error> {
         match &self.cpp_link_stdlib {
-            Some(s) => Ok(s.as_deref().map(Path::new).map(Cow::Borrowed)),
+            Some(s) => Ok(s.as_deref().map(Path::new)),
             None => {
                 if let Ok(stdlib) = self.getenv_with_target_prefixes("CXXSTDLIB") {
-                    Ok((!stdlib.is_empty()).then(|| Cow::Owned(PathBuf::from(&*stdlib))))
+                    Ok((!stdlib.is_empty()).then(|| Path::new(&**stdlib)))
                 } else {
                     let target = self.get_target()?;
                     if target.env == "msvc" {
@@ -3895,11 +3894,11 @@ impl Build {
                         || target.os == "wasi"
                         || target.abi == "pauthtest"
                     {
-                        Ok(Some(Cow::Borrowed(Path::new("c++"))))
+                        Ok(Some(Path::new("c++")))
                     } else if target.os == "android" {
-                        Ok(Some(Cow::Borrowed(Path::new("c++_shared"))))
+                        Ok(Some(Path::new("c++_shared")))
                     } else {
-                        Ok(Some(Cow::Borrowed(Path::new("stdc++"))))
+                        Ok(Some(Path::new("stdc++")))
                     }
                 }
             }
@@ -3913,7 +3912,7 @@ impl Build {
         self.cpp_link_stdlib_static
             || self
                 .getenv_with_target_prefixes("CXXSTDLIB_STATIC")
-                .map_or(false, |s| env_value_is_true(&s))
+                .map_or(false, |s| env_value_is_true(s))
     }
 
     /// Get the archiver (ar) that's in use for this configuration.
@@ -4190,7 +4189,6 @@ impl Build {
     fn prefix_for_target(&self, target: &str) -> Option<Cow<'static, str>> {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
         self.get_env("CROSS_COMPILE")
-            .as_deref()
             .map(|s| s.to_string_lossy().trim_end_matches('-').to_owned())
             .map(Cow::Owned)
             .or_else(|| {
@@ -4382,7 +4380,6 @@ impl Build {
         // are more likely to discover the toolchain early on, because chances are good
         // that the desired toolchain is in one of the higher-priority paths.
         self.get_env("PATH")
-            .as_ref()
             .and_then(|path_entries| {
                 env::split_paths(path_entries).find_map(|path_entry| {
                     for prefix in prefixes {
@@ -4504,7 +4501,7 @@ impl Build {
 
     /// Look up an environment variable in the snapshot, and tell Cargo that we
     /// used it.
-    fn get_env(&self, v: &str) -> Option<Arc<OsStr>> {
+    fn get_env(&self, v: &str) -> Option<&Arc<OsStr>> {
         // Excluding `PATH` prevents spurious rebuilds on Windows, see
         // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
         if self.emit_rerun_if_env_changed && v != "PATH" {
@@ -4515,7 +4512,7 @@ impl Build {
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
             v,
-            OptionOsStrDisplay(r.as_deref())
+            OptionOsStrDisplay(r.map(|r| &**r))
         ));
         r
     }
@@ -4530,10 +4527,10 @@ impl Build {
     /// On the other hand, we don't want to allow overwriting environment
     /// variables that are `CC`-specific such as `CC_FORCE_DISABLE`
     /// (`Build::env` applies to child processes, not to `cc` itself).
-    fn get_env_overridable(&self, key: &str) -> Option<Arc<OsStr>> {
+    fn get_env_overridable(&self, key: &str) -> Option<&Arc<OsStr>> {
         // Try to look up in overrides first.
         if let Some((_key, val)) = self.env.explicit.iter().find(|(k, _)| k.as_ref() == key) {
-            return Some(Arc::clone(val));
+            return Some(val);
         }
 
         // If not found in overrides, look up from environment.
@@ -4545,7 +4542,7 @@ impl Build {
     /// Used for `CC_*`-style flags.
     fn get_env_boolean(&self, key: &str) -> bool {
         match self.get_env(key) {
-            Some(s) => env_value_is_true(&s),
+            Some(s) => env_value_is_true(s),
             // Not set -> default to `false`.
             None => false,
         }
@@ -4570,7 +4567,7 @@ impl Build {
     }
 
     /// Get a single-valued environment variable with target variants.
-    fn getenv_with_target_prefixes(&self, env: &str) -> Result<Arc<OsStr>, Error> {
+    fn getenv_with_target_prefixes(&self, env: &str) -> Result<&Arc<OsStr>, Error> {
         // Take from first environment variable in the environment.
         let res = self
             .target_envs(env)?
@@ -4630,7 +4627,7 @@ impl Build {
     fn apple_sdk_root_inner(&self, sdk: &str) -> Result<Arc<OsStr>, Error> {
         // Code copied from rustc's compiler/rustc_codegen_ssa/src/back/link.rs.
         if let Some(sdkroot) = self.get_env_overridable("SDKROOT") {
-            let p = Path::new(&sdkroot);
+            let p = Path::new(sdkroot);
             let does_sdkroot_contain = |strings: &[&str]| {
                 let sdkroot_str = p.to_string_lossy();
                 strings.iter().any(|s| sdkroot_str.contains(s))
@@ -4656,7 +4653,7 @@ impl Build {
                 "xrsimulator" if does_sdkroot_contain(&["XROS.platform", "MacOSX.platform"]) => {}
                 // Ignore `SDKROOT` if it's not a valid path.
                 _ if !p.is_absolute() || p == Path::new("/") || !p.exists() => {}
-                _ => return Ok(sdkroot),
+                _ => return Ok(Arc::clone(sdkroot)),
             }
         }
 
@@ -4827,7 +4824,7 @@ impl Build {
         version
     }
 
-    fn wasm_musl_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn wasm_musl_sysroot(&self) -> Result<&Arc<OsStr>, Error> {
         if let Some(musl_sysroot_path) = self.get_env("WASM_MUSL_SYSROOT") {
             Ok(musl_sysroot_path)
         } else {
@@ -4838,7 +4835,7 @@ impl Build {
         }
     }
 
-    fn wasi_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn wasi_sysroot(&self) -> Result<&Arc<OsStr>, Error> {
         if let Some(wasi_sysroot_path) = self.get_env("WASI_SYSROOT") {
             Ok(wasi_sysroot_path)
         } else {
@@ -4868,7 +4865,7 @@ impl Build {
         } else {
             path_entries
                 .and_then(find_exe_in_path)
-                .or_else(|| find_exe_in_path(&self.get_env("PATH")?))
+                .or_else(|| find_exe_in_path(self.get_env("PATH")?))
         }
     }
 
@@ -4908,7 +4905,10 @@ impl Build {
             fn get_env(&self, name: &str) -> Option<::find_msvc_tools::Env> {
                 // TODO: Should we allow overriding these with `Build::env`?
                 // <https://github.com/rust-lang/cc-rs/issues/1688>
-                self.0.get_env(name).map(::find_msvc_tools::Env::Arced)
+                self.0
+                    .get_env(name)
+                    .cloned()
+                    .map(::find_msvc_tools::Env::Arced)
             }
         }
 
@@ -4942,7 +4942,7 @@ impl Build {
         clang.into()
     }
 
-    fn pauthtest_sysroot(&self) -> Result<Arc<OsStr>, Error> {
+    fn pauthtest_sysroot(&self) -> Result<&Arc<OsStr>, Error> {
         if let Some(pauthtest_sysroot) = self.get_env("PAUTHTEST_SYSROOT") {
             Ok(pauthtest_sysroot)
         } else {
@@ -4957,7 +4957,7 @@ impl Build {
         }
     }
 
-    fn pauthtest_resource_dir(&self) -> Result<Arc<OsStr>, Error> {
+    fn pauthtest_resource_dir(&self) -> Result<&Arc<OsStr>, Error> {
         if let Some(pauthtest_resource_dir) = self.get_env("PAUTHTEST_RESOURCE_DIR") {
             Ok(pauthtest_resource_dir)
         } else {

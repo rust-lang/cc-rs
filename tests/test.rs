@@ -2341,14 +2341,17 @@ fn env_snapshot_reaches_archiver() {
     build.try_compile("foo").unwrap();
 }
 
-/// The flag support probe reads the snapshot of the `Build` it probes for.
+/// The flag support probe reads the snapshot of the `Build` it probes for, and
+/// runs in it.
 #[test]
 fn env_snapshot_reaches_flag_support_probe() {
     let mut test = Test::gnu();
+    test.env.remove("CC_SHIM_FAIL_IF_ARG");
     test.collect_flag_supported_probes();
     let build = test.gcc();
     build.try_get_compiler().unwrap();
     test.env.set("CFLAGS", "-Dset_after_first_read");
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
     assert!(build.is_flag_supported("-Wprobed").unwrap());
     test.get_flag_supported_probes(0)
         .must_have("-Wprobed")
