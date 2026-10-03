@@ -5,7 +5,7 @@
 use std::env;
 use std::process::Command;
 
-use crate::support::Test;
+use crate::support::{GlobalEnv, Test};
 
 mod support;
 
@@ -972,10 +972,11 @@ fn clang_apple_tvos() {
 #[cfg(target_os = "macos")]
 #[test]
 fn clang_apple_mac_catalyst() {
-    let output = std::process::Command::new("xcrun")
-        .args(["--show-sdk-path", "--sdk", "macosx"])
-        .output()
-        .unwrap();
+    let output = GlobalEnv::output(std::process::Command::new("xcrun").args([
+        "--show-sdk-path",
+        "--sdk",
+        "macosx",
+    ]));
     if !output.status.success() {
         return;
     }
@@ -1029,10 +1030,11 @@ fn clang_apple_tvsimulator() {
 #[test]
 fn clang_apple_visionos() {
     // Only run this test if visionOS is available on the host machine
-    let output = std::process::Command::new("xcrun")
-        .args(["--show-sdk-version", "--sdk", "xros"])
-        .output()
-        .unwrap();
+    let output = GlobalEnv::output(std::process::Command::new("xcrun").args([
+        "--show-sdk-version",
+        "--sdk",
+        "xros",
+    ]));
     if !output.status.success() {
         return;
     }
@@ -1058,10 +1060,11 @@ fn clang_apple_visionos() {
 #[cfg(target_os = "macos")]
 #[test]
 fn apple_sdkroot_wrong() {
-    let output = std::process::Command::new("xcrun")
-        .args(["--show-sdk-path", "--sdk", "iphoneos"])
-        .output()
-        .unwrap();
+    let output = GlobalEnv::output(std::process::Command::new("xcrun").args([
+        "--show-sdk-path",
+        "--sdk",
+        "iphoneos",
+    ]));
     if !output.status.success() {
         return;
     }
@@ -1384,11 +1387,11 @@ fn gnu_ar_probe_failure_no_warning() {
         return;
     }
 
-    let output = Command::new(env::current_exe().unwrap())
-        .env("__CC_TEST_AR_PROBE_STDERR", "1")
-        .args(["--exact", "gnu_ar_probe_failure_no_warning", "--nocapture"])
-        .output()
-        .unwrap();
+    let output = GlobalEnv::output(
+        Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_AR_PROBE_STDERR", "1")
+            .args(["--exact", "gnu_ar_probe_failure_no_warning", "--nocapture"]),
+    );
     assert!(output.status.success(), "subprocess failed: {:?}", output);
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -1427,16 +1430,16 @@ fn compiler_stderr_forwarded_once_per_line() {
     }
 
     let run = |case: &str| -> Vec<String> {
-        let output = Command::new(env::current_exe().unwrap())
-            .env("__CC_TEST_STDERR_LINES", case)
-            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
-            .args([
-                "--exact",
-                "compiler_stderr_forwarded_once_per_line",
-                "--nocapture",
-            ])
-            .output()
-            .unwrap();
+        let output = GlobalEnv::output(
+            Command::new(env::current_exe().unwrap())
+                .env("__CC_TEST_STDERR_LINES", case)
+                .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+                .args([
+                    "--exact",
+                    "compiler_stderr_forwarded_once_per_line",
+                    "--nocapture",
+                ]),
+        );
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         let stdout: Vec<String> = String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -1638,7 +1641,7 @@ fn message_logger() {
             .env_remove("TARGET_AR")
             .env_remove("SDKROOT")
             .env_remove("IPHONEOS_DEPLOYMENT_TARGET");
-        let output = cmd.output().unwrap();
+        let output = GlobalEnv::output(&mut cmd);
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         let stdout = String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -1919,13 +1922,13 @@ fn cpp_link_stdlib_static_metadata() {
     }
 
     let link_lib_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
-        let output = Command::new(env::current_exe().unwrap())
-            .env("__CC_TEST_CPP_LINK_STDLIB_STATIC", case)
-            .env_remove("CXXSTDLIB")
-            .envs(envs.iter().copied())
-            .args(["--exact", "cpp_link_stdlib_static_metadata", "--nocapture"])
-            .output()
-            .unwrap();
+        let output = GlobalEnv::output(
+            Command::new(env::current_exe().unwrap())
+                .env("__CC_TEST_CPP_LINK_STDLIB_STATIC", case)
+                .env_remove("CXXSTDLIB")
+                .envs(envs.iter().copied())
+                .args(["--exact", "cpp_link_stdlib_static_metadata", "--nocapture"]),
+        );
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -2035,20 +2038,20 @@ fn cxxstdlib_static_env_metadata() {
     }
 
     let metadata_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
-        let output = Command::new(env::current_exe().unwrap())
-            .env("__CC_TEST_CXXSTDLIB_STATIC", case)
-            .env_remove("CXXSTDLIB")
-            .env_remove("CXXSTDLIB_STATIC")
-            .env_remove("HOST_CXXSTDLIB_STATIC")
-            .env_remove("TARGET_CXXSTDLIB_STATIC")
-            .env_remove("CXXSTDLIB_STATIC_x86_64-unknown-linux-gnu")
-            .env_remove("CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu")
-            .env_remove("CXXSTDLIB_STATIC_x86_64-apple-darwin")
-            .env_remove("CXXSTDLIB_STATIC_x86_64_apple_darwin")
-            .envs(envs.iter().copied())
-            .args(["--exact", "cxxstdlib_static_env_metadata", "--nocapture"])
-            .output()
-            .unwrap();
+        let output = GlobalEnv::output(
+            Command::new(env::current_exe().unwrap())
+                .env("__CC_TEST_CXXSTDLIB_STATIC", case)
+                .env_remove("CXXSTDLIB")
+                .env_remove("CXXSTDLIB_STATIC")
+                .env_remove("HOST_CXXSTDLIB_STATIC")
+                .env_remove("TARGET_CXXSTDLIB_STATIC")
+                .env_remove("CXXSTDLIB_STATIC_x86_64-unknown-linux-gnu")
+                .env_remove("CXXSTDLIB_STATIC_x86_64_unknown_linux_gnu")
+                .env_remove("CXXSTDLIB_STATIC_x86_64-apple-darwin")
+                .env_remove("CXXSTDLIB_STATIC_x86_64_apple_darwin")
+                .envs(envs.iter().copied())
+                .args(["--exact", "cxxstdlib_static_env_metadata", "--nocapture"]),
+        );
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         String::from_utf8_lossy(&output.stdout)
             .lines()
@@ -2675,20 +2678,20 @@ fn create_archive_and_emit_link_directives_match_compile() {
     }
 
     let run = |target: &str, how: &str| -> Vec<String> {
-        let output = Command::new(env::current_exe().unwrap())
-            .env("__CC_TEST_SPLIT_COMPILE", format!("{target} {how}"))
-            .env("PAUTHTEST_SYSROOT", "sysroot")
-            .env("PAUTHTEST_RESOURCE_DIR", "resource-dir")
-            .env_remove("CXXSTDLIB")
-            .env_remove("CXXSTDLIB_STATIC")
-            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
-            .args([
-                "--exact",
-                "create_archive_and_emit_link_directives_match_compile",
-                "--nocapture",
-            ])
-            .output()
-            .unwrap();
+        let output = GlobalEnv::output(
+            Command::new(env::current_exe().unwrap())
+                .env("__CC_TEST_SPLIT_COMPILE", format!("{target} {how}"))
+                .env("PAUTHTEST_SYSROOT", "sysroot")
+                .env("PAUTHTEST_RESOURCE_DIR", "resource-dir")
+                .env_remove("CXXSTDLIB")
+                .env_remove("CXXSTDLIB_STATIC")
+                .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+                .args([
+                    "--exact",
+                    "create_archive_and_emit_link_directives_match_compile",
+                    "--nocapture",
+                ]),
+        );
         assert!(output.status.success(), "subprocess failed: {:?}", output);
         let stdout = String::from_utf8_lossy(&output.stdout);
         let out_dir = stdout

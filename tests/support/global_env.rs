@@ -3,6 +3,7 @@
 use std::{
     env,
     ffi::{OsStr, OsString},
+    process::{Command, Output, Stdio},
     sync::{Mutex, MutexGuard},
     thread::ThreadId,
 };
@@ -12,6 +13,9 @@ use std::{
 /// A lot of tests need to modify the global environment. This struct ensures
 /// that such accesses are serialized, and reverted once the `GlobalEnv` is
 /// done being used (to avoid influencing other tests).
+///
+/// A child process inherits the environment, so tests that don't hold the
+/// lock start child processes with [`GlobalEnv::output`].
 ///
 /// This _does_ make running the tests slower (as they have to run serially),
 /// there's two ways to improve that:
@@ -84,6 +88,21 @@ impl GlobalEnv {
         unsafe { env::remove_var(&key) };
 
         self.overwritten_envs.push((key, previous_value));
+    }
+
+    /// Run `cmd` like [`Command::output`], but start it while holding the
+    /// lock, so that it doesn't inherit another test's changes.
+    #[track_caller]
+    pub fn output(cmd: &mut Command) -> Output {
+        let lock = Self::lock();
+        let child = cmd
+            .stdin(Stdio::null())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .unwrap();
+        drop(lock);
+        child.wait_with_output().unwrap()
     }
 }
 
