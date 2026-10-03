@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.5.1...cc-v1.6.0) - 2026-10-03
+
+### Added
+
+- add `Build::create_archive` and `emit_link_directives` ([#1972](https://github.com/rust-lang/cc-rs/pull/1972))
+- read the process environment once per `Build`, on first use ([#1969](https://github.com/rust-lang/cc-rs/pull/1969))
+- add `Build::message_logger` for structured access to cc's messages ([#1967](https://github.com/rust-lang/cc-rs/pull/1967))
+- add `CXXSTDLIB_STATIC` to link the C++ stdlib statically from outside ([#1957](https://github.com/rust-lang/cc-rs/pull/1957))
+
+### Fixed
+
+- key the flag support cache on target, host, language and environment ([#1965](https://github.com/rust-lang/cc-rs/pull/1965))
+- forward each line of compiler stderr once and whole with `parallel` ([#1959](https://github.com/rust-lang/cc-rs/pull/1959))
+
+### Other
+
+- find compile commands by source file so tests pass with `parallel` ([#1973](https://github.com/rust-lang/cc-rs/pull/1973))
+- add support for `armeb-unknown-linux-gnueabi` ([#1958](https://github.com/rust-lang/cc-rs/pull/1958))
+
 ## [1.5.1](https://github.com/rust-lang/cc-rs/compare/cc-v1.5.0...cc-v1.5.1) - 2026-09-25
 
 ### Fixed
