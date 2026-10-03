@@ -2205,19 +2205,279 @@ fn flag_support_cache_is_per_language() {
     );
 }
 
-/// The probe also depends on the inherited environment.
+/// The probe also depends on the inherited environment, which a clone made
+/// before the first read takes on its own.
 #[test]
 fn flag_support_cache_is_per_process_env() {
     let mut test = Test::gnu();
     test.env.remove("CC_SHIM_FAIL_IF_ARG");
     let mut build = test.gcc();
     build.compiler(test.td.path().join("cc"));
+    let later = build.clone();
     assert!(build.is_flag_supported("-Wprobed").unwrap());
     test.env.set("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
     assert!(
-        !build.is_flag_supported("-Wprobed").unwrap(),
-        "the answer was reused after an inherited variable changed"
+        !later.is_flag_supported("-Wprobed").unwrap(),
+        "the answer was reused for a clone that inherited another environment"
     );
+}
+
+/// A `Build` reads the process environment on first use, not when it is made.
+#[test]
+fn env_snapshot_is_taken_on_first_read() {
+    let mut test = Test::gnu();
+    let mut build = test.gcc();
+    test.env.set("CFLAGS", "-Dset_after_new");
+    build.file("foo.c").compile("foo");
+    test.cmd(0).must_have("-Dset_after_new");
+}
+
+/// Changes after the first read reach neither cc's own lookups nor the child
+/// processes, so both agree with the flag support cache key.
+#[test]
+fn env_snapshot_ignores_later_changes() {
+    let mut test = Test::gnu();
+    test.env.remove("CC_SHIM_FAIL_IF_ARG");
+    let mut build = test.gcc();
+    build.file("foo.c").flag_if_supported("-Wprobed");
+    build.try_get_compiler().unwrap();
+    // Read by cc.
+    test.env.set("CFLAGS", "-Dset_after_first_read");
+    // Read by the compiler: the shim fails on this argument.
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
+    build.try_compile("foo").unwrap();
+    test.cmd(0)
+        .must_have("-Wprobed")
+        .must_not_have("-Dset_after_first_read");
+}
+
+/// A child process gets the snapshot's value of a variable changed later.
+#[test]
+fn env_snapshot_restores_changed_variables() {
+    let mut test = Test::gnu();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "-Dnot_passed");
+    let mut build = test.gcc();
+    build.file("foo.c");
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
+    build.try_compile("foo").unwrap();
+}
+
+/// `Build::env` wins over the snapshot, also when set after the first read.
+#[test]
+fn env_snapshot_is_overridden_by_build_env() {
+    let mut test = Test::gnu();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
+    let mut build = test.gcc();
+    build.file("foo.c");
+    build.try_get_compiler().unwrap();
+    build.env("CC_SHIM_FAIL_IF_ARG", "-Dnot_passed");
+    build.try_compile("foo").unwrap();
+}
+
+/// A clone made before the first read takes its own snapshot, one made after
+/// keeps the snapshot of the original.
+#[test]
+fn env_snapshot_of_clones() {
+    let mut test = Test::gnu();
+    let mut build = test.gcc();
+    build.file("foo.c");
+    let before = build.clone();
+    build.try_get_compiler().unwrap();
+    test.env.set("CFLAGS", "-Dset_after_first_read");
+    let after = build.clone();
+
+    after.compile_intermediates();
+    test.cmd(0).must_not_have("-Dset_after_first_read");
+    before.compile_intermediates();
+    test.cmd(1).must_have("-Dset_after_first_read");
+}
+
+/// The `PATH` that MSVC's tool environment puts its folders in front of wins
+/// over the snapshot's.
+#[cfg(windows)]
+#[test]
+fn env_snapshot_keeps_msvc_tool_env() {
+    use std::ffi::OsStr;
+
+    let mut test = Test::new();
+    let mut build = cc::Build::new();
+    build
+        .target("x86_64-pc-windows-msvc")
+        .host("x86_64-pc-windows-msvc")
+        .opt_level(0)
+        .debug(false)
+        .out_dir(test.td.path());
+    let path_of = |envs: Vec<(&OsStr, Option<&OsStr>)>| {
+        envs.into_iter()
+            .filter(|(key, _)| key.eq_ignore_ascii_case("PATH"))
+            .map(|(_, value)| value.map(OsStr::to_owned))
+            .collect::<Vec<_>>()
+    };
+    let tool = build.get_compiler();
+    let tool_path = path_of(tool.env().iter().map(|(k, v)| (&**k, Some(&**v))).collect());
+    if tool_path.is_empty() {
+        // No Visual Studio found.
+        return;
+    }
+    test.env.set("PATH", test.td.path());
+    let cmd = build.get_compiler().to_command();
+    assert_eq!(path_of(cmd.get_envs().collect()), tool_path);
+}
+
+/// The archiver also runs in the snapshot.
+#[test]
+fn env_snapshot_reaches_archiver() {
+    let mut test = Test::gnu();
+    let mut build = test.gcc();
+    build.file("foo.c").ar_flag("--marker");
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "--marker");
+    build.try_compile("foo").unwrap();
+}
+
+/// The flag support probe reads the snapshot of the `Build` it probes for, and
+/// runs in it.
+#[test]
+fn env_snapshot_reaches_flag_support_probe() {
+    let mut test = Test::gnu();
+    test.env.remove("CC_SHIM_FAIL_IF_ARG");
+    test.collect_flag_supported_probes();
+    let build = test.gcc();
+    build.try_get_compiler().unwrap();
+    test.env.set("CFLAGS", "-Dset_after_first_read");
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "-Wprobed");
+    assert!(build.is_flag_supported("-Wprobed").unwrap());
+    test.get_flag_supported_probes(0)
+        .must_have("-Wprobed")
+        .must_not_have("-Dset_after_first_read");
+}
+
+/// For a cross target, cc runs `<prefix>-ar --version` to pick the archiver,
+/// in the snapshot too.
+#[test]
+fn env_snapshot_reaches_cross_archiver_probe() {
+    let mut test = Test::gnu();
+    test.shim("aarch64-linux-gnu-ar");
+    for var in [
+        "CROSS_COMPILE",
+        "RUSTC_LINKER",
+        "AR_aarch64-unknown-linux-gnu",
+        "AR_aarch64_unknown_linux_gnu",
+        "TARGET_AR",
+        "CC_SHIM_FAIL_IF_ARG",
+    ] {
+        test.env.remove(var);
+    }
+    // The probe doesn't get `Build::env`, so the shim has to be on the
+    // inherited `PATH`.
+    test.env.set("PATH", test.td.path());
+    let mut build = test.gcc();
+    build
+        .target("aarch64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu");
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "--version");
+    let archiver = build.try_get_archiver().unwrap();
+    assert_eq!(archiver.get_program(), "aarch64-linux-gnu-ar");
+}
+
+/// For Android, cc runs `llvm-ar --version` to pick the archiver, in the
+/// snapshot too.
+#[test]
+fn env_snapshot_reaches_android_archiver_probe() {
+    let mut test = Test::gnu();
+    test.shim("llvm-ar");
+    for var in [
+        "AR_aarch64-linux-android",
+        "AR_aarch64_linux_android",
+        "TARGET_AR",
+        "CC_SHIM_FAIL_IF_ARG",
+    ] {
+        test.env.remove(var);
+    }
+    let mut build = test.gcc();
+    build
+        .target("aarch64-linux-android")
+        .host("x86_64-unknown-linux-gnu")
+        .compiler(test.td.path().join("cc"));
+    build.try_get_compiler().unwrap();
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "--version");
+    let archiver = build.try_get_archiver().unwrap();
+    assert_eq!(archiver.get_program(), "llvm-ar");
+}
+
+/// For Android, cc looks for the compiler by running each candidate name, in
+/// the snapshot too.
+#[test]
+fn env_snapshot_reaches_android_compiler_probe() {
+    let mut test = Test::gnu();
+    test.shim("aarch64-linux-android-gcc");
+    for var in [
+        "CC_aarch64-linux-android",
+        "CC_aarch64_linux_android",
+        "TARGET_CC",
+    ] {
+        test.env.remove(var);
+    }
+    // The probe doesn't get `Build::env`, so the shim has to be on the
+    // inherited `PATH`.
+    test.env.set("PATH", test.td.path());
+    let mut build = test.gcc();
+    build
+        .target("aarch64-linux-android")
+        .host("x86_64-unknown-linux-gnu");
+    build.try_get_compiler().unwrap();
+    test.env.set("PATH", test.td.path().join("empty"));
+    let compiler = build.try_get_compiler().unwrap();
+    // Not found, cc would fall back to `aarch64-linux-android-clang`. On
+    // Windows it also turns either name into `gcc.exe` or `clang.exe`.
+    let name = compiler.path().file_stem().unwrap().to_str().unwrap();
+    assert!(name.ends_with("gcc"), "{name}");
+}
+
+/// Compiler family detection runs the compiler in the snapshot too.
+#[test]
+fn env_snapshot_reaches_family_detection() {
+    let mut test = Test::gnu();
+    // The probe resolves `cc` through the inherited `PATH`, so this `Build`
+    // doesn't set one with `Build::env`.
+    test.env.set("PATH", test.td.path());
+    let probe_record = test.td.path().join("family-detection");
+    let mut build = cc::Build::new();
+    build
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .opt_level(2)
+        .out_dir(test.td.path())
+        .compiler("cc")
+        .env("CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION", &probe_record);
+    build.try_flags_from_environment("CFLAGS").unwrap();
+    test.env.set("PATH", test.td.path().join("empty"));
+    build.try_get_compiler().unwrap();
+    assert!(probe_record.exists());
+}
+
+/// Error messages show the command, not the environment cc sets on it.
+#[test]
+fn env_snapshot_stays_out_of_error_messages() {
+    let mut test = Test::gnu();
+    test.env.set("CC_TEST_SECRET", "env_snapshot_secret_value");
+    test.env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
+    let error = test
+        .gcc()
+        .file("foo.c")
+        // Forwarded stderr is written to stdout directly, past the test
+        // harness's capture.
+        .cargo_warnings(false)
+        .try_compile("foo")
+        .unwrap_err();
+    let message = error.to_string();
+    assert!(
+        message.contains("command did not execute successfully"),
+        "{message}"
+    );
+    assert!(!message.contains("env_snapshot_secret_value"), "{message}");
 }
 
 /// The host decides whether the probe reads `HOST_CFLAGS` or `TARGET_CFLAGS`.

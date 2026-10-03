@@ -17,7 +17,8 @@ use std::{
 };
 
 use crate::{
-    logger::Logger, utilities::cargo_env_var_os, BuildMessageKind, Error, ErrorKind, Object,
+    build_env::BuildEnv, logger::Logger, utilities::cargo_env_var_os, BuildMessageKind, Error,
+    ErrorKind, Object,
 };
 
 #[derive(Clone, Debug)]
@@ -113,8 +114,10 @@ impl CargoOutput {
     /// The error for `cmd` exiting with `status`, which also goes to the
     /// logger.
     pub(crate) fn command_failed(&self, cmd: &Command, status: ExitStatus) -> Error {
-        let message =
-            format!("command did not execute successfully (status code {status}): {cmd:?}");
+        let message = format!(
+            "command did not execute successfully (status code {status}): {}",
+            CommandLine(cmd)
+        );
         if let Some(logger) = &self.logger {
             logger.log(
                 BuildMessageKind::CommandFailed {
@@ -329,7 +332,10 @@ fn wait_on_child(
         Err(e) => {
             return Err(Error::new(
                 ErrorKind::ToolExecError,
-                format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
+                format!(
+                    "failed to wait on spawned child process `{}`: {e}",
+                    CommandLine(cmd)
+                ),
             ));
         }
     };
@@ -506,7 +512,10 @@ pub(crate) fn run_silent_on_error(
     } else {
         Err(Error::new(
             ErrorKind::ToolExecError,
-            format!("command did not execute successfully (status code {status}): {cmd:?}"),
+            format!(
+                "command did not execute successfully (status code {status}): {}",
+                CommandLine(cmd)
+            ),
         ))
     }
 }
@@ -523,7 +532,10 @@ pub(crate) fn spawn_and_wait_for_output(
         .map_err(|e| {
             Error::new(
                 ErrorKind::ToolExecError,
-                format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
+                format!(
+                    "failed to wait on spawned child process `{}`: {e}",
+                    CommandLine(cmd)
+                ),
             )
         })
 }
@@ -580,7 +592,7 @@ pub(crate) fn spawn(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Chi
         }
     }
 
-    cargo_output.print_debug(&format_args!("running: {cmd:?}"));
+    cargo_output.print_debug(&format_args!("running: {}", CommandLine(cmd)));
 
     let cmd = ResetStderr(cmd);
     let child = cmd
@@ -603,7 +615,7 @@ pub(crate) fn spawn(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<Chi
         }
         Err(e) => Err(Error::new(
             ErrorKind::ToolExecError,
-            format!("command `{:?}` failed to start: {e}", cmd.0),
+            format!("command `{}` failed to start: {e}", CommandLine(cmd.0)),
         )),
     }
 }
@@ -631,8 +643,8 @@ pub(crate) fn command_add_output_file(cmd: &mut Command, dst: &Path, args: CmdAd
 }
 
 /// Shows a command's program and arguments like `{cmd:?}`, but not its
-/// environment. After `env_clear` the `Debug` output on Unix lists every
-/// variable set, which can be the whole inherited environment.
+/// environment. cc sets the whole environment on the commands it runs, which
+/// the `Debug` output on Unix would list variable by variable.
 pub(crate) struct CommandLine<'a>(pub(crate) &'a Command);
 
 impl fmt::Display for CommandLine<'_> {
@@ -648,11 +660,8 @@ impl fmt::Display for CommandLine<'_> {
 /// Naming the two probe classes at the call site, so a caller does not have
 /// to reach for [`ProbeKind`] to say which one it means.
 pub(crate) trait CommandExt {
-    /// Apply `Build::env` to a compiler family detection probe.
-    fn set_family_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>;
+    /// Apply the `Build`'s environment to a compiler family detection probe.
+    fn set_family_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
 
     /// Apply `Build::env` to an `is_flag_supported` probe.
     fn set_flag_supported_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
@@ -660,20 +669,14 @@ pub(crate) trait CommandExt {
         K: AsRef<OsStr>,
         V: AsRef<OsStr>;
 
-    /// Apply `Build::env` to the Android `llvm-ar` probe.
-    fn set_ar_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>;
+    /// Apply the `Build`'s environment to the Android `llvm-ar` probe.
+    fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
 }
 
 impl CommandExt for Command {
-    fn set_family_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
-        set_probe_env(self, env, ProbeKind::FamilyDetection);
+    fn set_family_detection_env(&mut self, env: &BuildEnv) -> &mut Self {
+        env.inherited().apply(self);
+        set_probe_env(self, &env.explicit, ProbeKind::FamilyDetection);
         self
     }
 
@@ -686,12 +689,9 @@ impl CommandExt for Command {
         self
     }
 
-    fn set_ar_detection_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
-        set_probe_env(self, env, ProbeKind::ArDetection);
+    fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self {
+        env.inherited().apply(self);
+        set_probe_env(self, &env.explicit, ProbeKind::ArDetection);
         self
     }
 }

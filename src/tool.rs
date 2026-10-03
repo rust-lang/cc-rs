@@ -1,4 +1,5 @@
 use crate::{
+    build_env::{BuildEnv, EnvSnapshot, EnvVars},
     command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
@@ -10,24 +11,25 @@ use std::{
     env,
     ffi::{OsStr, OsString},
     io::Write,
-    iter,
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
-    sync::{Arc, RwLock},
+    sync::RwLock,
 };
 
-pub(crate) type CompilerFamilyLookupCache = HashMap<Box<[Box<OsStr>]>, ToolFamily>;
+pub(crate) type CompilerFamilyLookupCache = HashMap<CompilerFamilyKey, ToolFamily>;
 
-/// The environment a compiler is probed and invoked in, as set by
-/// [`Build::env`](crate::Build::env).
-pub(crate) type BuildEnv = [(Arc<OsStr>, Arc<OsStr>)];
-
-/// Separates the arguments from the environment in a
-/// [`CompilerFamilyLookupCache`] key.
-///
-/// `Command` rejects arguments containing a nul byte, so no argument can
-/// impersonate this and collide with an environment variable name.
-const CACHE_KEY_ENV_SEPARATOR: &str = "\0env\0";
+/// Key of the [`CompilerFamilyLookupCache`].
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub(crate) struct CompilerFamilyKey {
+    /// The compiler's path followed by its arguments.
+    command: Box<[Box<OsStr>]>,
+    /// The detected family depends on the environment the probes run in
+    /// (`PATH` decides what a bare compiler name even resolves to), so two
+    /// lookups that agree on the command but differ in their environment must
+    /// not share an entry.
+    inherited: EnvSnapshot,
+    explicit: Box<EnvVars>,
+}
 
 /// Configuration used to represent an invocation of a C compiler.
 ///
@@ -44,6 +46,8 @@ pub struct Tool {
     pub(crate) cc_wrapper_args: Vec<OsString>,
     pub(crate) args: Vec<OsString>,
     pub(crate) env: Vec<(OsString, OsString)>,
+    /// The environment of the `Build` this came from, applied before `env`.
+    pub(crate) inherited_env: EnvSnapshot,
     pub(crate) family: ToolFamily,
     pub(crate) cuda: bool,
     pub(crate) removed_args: Vec<OsString>,
@@ -51,12 +55,16 @@ pub struct Tool {
 }
 
 impl Tool {
-    pub(crate) fn from_find_msvc_tools(tool: ::find_msvc_tools::Tool) -> Self {
+    pub(crate) fn from_find_msvc_tools(
+        tool: ::find_msvc_tools::Tool,
+        inherited_env: EnvSnapshot,
+    ) -> Self {
         let mut cc_tool = Self::with_family(
             tool.path().into(),
             ToolFamily::Msvc {
                 clang_cl: tool.is_clang_cl(),
             },
+            inherited_env,
         );
 
         cc_tool.env = tool
@@ -106,13 +114,18 @@ impl Tool {
     }
 
     /// Explicitly set the `ToolFamily`, skipping name-based detection.
-    pub(crate) fn with_family(path: PathBuf, family: ToolFamily) -> Self {
+    pub(crate) fn with_family(
+        path: PathBuf,
+        family: ToolFamily,
+        inherited_env: EnvSnapshot,
+    ) -> Self {
         Self {
             path,
             cc_wrapper_path: None,
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            inherited_env,
             family,
             cuda: false,
             removed_args: Vec::new(),
@@ -278,18 +291,16 @@ impl Tool {
         // back to the compiler's name when they fail.
         let cargo_output = &cargo_output.for_detection_cmd();
         let detect_family = |path: &Path, args: &[String]| -> Result<ToolFamily, Error> {
-            // The detected family depends on the environment the probes run in
-            // - `PATH` decides what a bare compiler name even resolves to - so
-            // two lookups that agree on the path and arguments but differ in
-            // `Build::env` must not share an entry.
-            let cache_key = [path.as_os_str()]
-                .iter()
-                .cloned()
-                .chain(args.iter().map(OsStr::new))
-                .chain(iter::once(OsStr::new(CACHE_KEY_ENV_SEPARATOR)))
-                .chain(env.iter().flat_map(|(key, value)| [&**key, &**value]))
-                .map(Into::into)
-                .collect();
+            let cache_key = CompilerFamilyKey {
+                command: [path.as_os_str()]
+                    .iter()
+                    .cloned()
+                    .chain(args.iter().map(OsStr::new))
+                    .map(Into::into)
+                    .collect(),
+                inherited: env.inherited().clone(),
+                explicit: env.explicit.clone().into_boxed_slice(),
+            };
             if let Some(family) = cached_compiler_family.read().unwrap().get(&cache_key) {
                 return Ok(*family);
             }
@@ -334,6 +345,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            inherited_env: env.inherited().clone(),
             family,
             cuda,
             removed_args: Vec::new(),
@@ -403,6 +415,11 @@ impl Tool {
     /// This is useful for when the compiler needs to be executed and the
     /// command returned will already have the initial arguments and environment
     /// variables configured.
+    ///
+    /// The command does not inherit the process environment when it is
+    /// spawned. Its environment is set in full: the copy of the process
+    /// environment this `Tool` was made with (a [`Build`](crate::Build)'s copy,
+    /// see its docs), then [`Tool::env`].
     pub fn to_command(&self) -> Command {
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
@@ -412,6 +429,7 @@ impl Tool {
             }
             None => Command::new(&self.path),
         };
+        self.inherited_env.apply(&mut cmd);
         cmd.args(&self.cc_wrapper_args);
 
         cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
@@ -612,5 +630,26 @@ impl ToolFamily {
 
     pub(crate) fn verbose_stderr(&self) -> bool {
         matches!(*self, ToolFamily::Clang { .. })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn tool_env_wins_over_inherited_env() {
+        let mut tool = Tool::with_family(
+            "cc".into(),
+            ToolFamily::Gnu,
+            EnvSnapshot::from_pairs(&[("CC_TEST_ORDER", "inherited")]),
+        );
+        tool.env.push(("CC_TEST_ORDER".into(), "tool".into()));
+        let cmd = tool.to_command();
+        let envs: Vec<_> = cmd.get_envs().collect();
+        assert_eq!(
+            envs,
+            [(OsStr::new("CC_TEST_ORDER"), Some(OsStr::new("tool")))]
+        );
     }
 }

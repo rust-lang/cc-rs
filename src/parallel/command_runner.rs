@@ -8,7 +8,7 @@ use crate::{
         async_executor::{block_on, YieldOnce},
         job_token,
     },
-    spawn, CargoOutput, Error, ErrorKind, StderrForwarder,
+    spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
 };
 
 struct KillOnDrop(Child, StderrForwarder);
@@ -56,7 +56,10 @@ fn try_wait_on_child(
             stderr_forwarder.forward_all(cmd);
             Err(Error::new(
                 ErrorKind::ToolExecError,
-                format!("failed to wait on spawned child process `{cmd:?}`: {e}"),
+                format!(
+                    "failed to wait on spawned child process `{}`: {e}",
+                    CommandLine(cmd)
+                ),
             ))
         }
     }
