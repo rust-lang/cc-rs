@@ -79,6 +79,12 @@
 //!   For other custom `CC` wrapper, just set `CC_KNOWN_WRAPPER_CUSTOM`
 //!   to the custom wrapper used in `CC`.
 //! * `AR` - the `ar` (archiver) executable to use to build the static library.
+//! * `CC_MASM_ASM` - the assembler for `.asm` files on MSVC targets, used
+//!   instead of `ml64.exe`, `ml.exe`, `armasm.exe` or `armasm64.exe`. Like `AR`,
+//!   it can include arguments, for example `llvm-ml -m64`. For `llvm-ml`, cc
+//!   passes `-m64` or `-m32` to match the target. When it is not set and
+//!   `ml64.exe` or `ml.exe` can't be found, as when cross compiling, cc uses
+//!   `llvm-ml` from next to `clang-cl` or from `PATH` instead.
 //! * `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in
 //!   some cross compiling scenarios. Setting this variable
 //!   will disable the generation of default compiler
@@ -2194,7 +2200,7 @@ impl Build {
 
         let is_assembler_msvc = msvc && asm_ext == Some(AsmFileExt::DotAsm);
         let mut cmd = if is_assembler_msvc {
-            self.msvc_macro_assembler()?
+            self.msvc_macro_assembler(compiler)?
         } else {
             compiler.to_command()
         };
@@ -3228,7 +3234,8 @@ impl Build {
         supported
     }
 
-    fn msvc_macro_assembler(&self) -> Result<Command, Error> {
+    /// `compiler` is the result of [`Build::try_get_compiler`].
+    fn msvc_macro_assembler(&self, compiler: &Tool) -> Result<Command, Error> {
         let target = self.get_target()?;
         let tool = match target.arch {
             "x86_64" => "ml64.exe",
@@ -3236,9 +3243,32 @@ impl Build {
             "aarch64" | "arm64ec" => "armasm64.exe",
             _ => "ml.exe",
         };
-        let mut cmd = self
-            .find_msvc_tools_find(&target, tool)
-            .unwrap_or_else(|| self.cmd(tool));
+        let (mut cmd, args) = match self.env_tool("CC_MASM_ASM") {
+            Some((program, _wrapper, args)) => (self.cmd(program), args),
+            None => (
+                self.default_msvc_macro_assembler(&target, tool, compiler),
+                Vec::new(),
+            ),
+        };
+        let is_llvm_ml = Path::new(cmd.get_program())
+            .file_stem()
+            .and_then(OsStr::to_str)
+            .map_or(false, |stem| stem.starts_with("llvm-ml"));
+        if is_llvm_ml {
+            // llvm-ml assembles for 32-bit x86 unless it is told otherwise or
+            // runs as `llvm-ml64`. It takes the last `-m`, so one in the
+            // user's arguments still wins.
+            match target.arch {
+                "x86_64" => {
+                    cmd.arg("-m64");
+                }
+                "x86" => {
+                    cmd.arg("-m32");
+                }
+                _ => {}
+            }
+        }
+        cmd.args(args);
         cmd.arg("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
             cmd.arg("-I").arg(&**directory);
@@ -3267,7 +3297,8 @@ impl Build {
                 }
             }
         } else {
-            if self.get_debug() {
+            // llvm-ml ignores `-Zi` with a warning.
+            if self.get_debug() && !is_llvm_ml {
                 cmd.arg("-Zi");
             }
 
@@ -3285,6 +3316,31 @@ impl Build {
         }
 
         Ok(cmd)
+    }
+
+    /// The assembler for `.asm` files when `CC_MASM_ASM` is not set: `tool`
+    /// from Visual Studio or `PATH`. Where neither has it, x86 targets fall back
+    /// to llvm-ml, next to clang-cl or on `PATH`.
+    fn default_msvc_macro_assembler(
+        &self,
+        target: &TargetInfo<'_>,
+        tool: &str,
+        compiler: &Tool,
+    ) -> Command {
+        if let Some(cmd) = self.find_msvc_tools_find(target, tool) {
+            return cmd;
+        }
+        // The `PATH` the assembler will run with.
+        let path = self.get_env_overridable("PATH").map(|path| &**path);
+        if matches!(target.arch, "x86" | "x86_64") && self.which(Path::new(tool), path).is_none() {
+            let llvm_ml = self
+                .find_llvm_tool_next_to_clang_cl(compiler, "llvm-ml")
+                .or_else(|| self.which(Path::new("llvm-ml"), path));
+            if let Some(llvm_ml) = llvm_ml {
+                return self.cmd(llvm_ml);
+            }
+        }
+        self.cmd(tool)
     }
 
     fn assemble<'a>(
@@ -4144,27 +4200,7 @@ impl Build {
                     // here.
 
                     let compiler = self.get_base_compiler()?;
-                    let lib = if compiler.family == (ToolFamily::Msvc { clang_cl: true }) {
-                        self.search_programs(
-                            &compiler.path,
-                            Path::new("llvm-lib"),
-                            &self.cargo_output,
-                        )
-                        .or_else(|| {
-                            // See if there is 'llvm-lib' next to 'clang-cl'
-                            if let Some(mut cmd) = self.which(&compiler.path, None) {
-                                cmd.pop();
-                                cmd.push("llvm-lib");
-                                self.which(&cmd, None)
-                            } else {
-                                None
-                            }
-                        })
-                    } else {
-                        None
-                    };
-
-                    if let Some(lib) = lib {
+                    if let Some(lib) = self.find_llvm_tool_next_to_clang_cl(&compiler, "llvm-lib") {
                         name = lib;
                         self.cmd(&name)
                     } else {
@@ -4954,6 +4990,21 @@ impl Build {
             }
         }
         None
+    }
+
+    /// Find the LLVM tool `tool`, such as `llvm-lib`, that comes with
+    /// `compiler` if it is clang-cl: on its program search path, or next to it.
+    fn find_llvm_tool_next_to_clang_cl(&self, compiler: &Tool, tool: &str) -> Option<PathBuf> {
+        if !compiler.is_like_clang_cl() {
+            return None;
+        }
+        self.search_programs(&compiler.path, Path::new(tool), &self.cargo_output)
+            .or_else(|| {
+                let mut path = self.which(&compiler.path, None)?;
+                path.pop();
+                path.push(tool);
+                self.which(&path, None)
+            })
     }
 
     fn find_msvc_tools_find(&self, target: &TargetInfo<'_>, tool: &str) -> Option<Command> {

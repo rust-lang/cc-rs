@@ -59,6 +59,7 @@ impl Test {
         env.remove("CC");
         env.remove("CXX");
         env.remove("AR");
+        env.remove("CC_MASM_ASM");
 
         // Some tests check that a flag is *not* present.  These tests might fail if the flag is set in the
         // CFLAGS or CXXFLAGS environment variables.  This clears the CFLAGS and CXXFLAGS

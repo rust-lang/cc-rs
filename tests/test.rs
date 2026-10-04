@@ -800,6 +800,149 @@ fn asm_flags() {
 }
 
 #[test]
+fn msvc_masm_env_override() {
+    let mut test = Test::msvc();
+    test.shim("masm-wrapper");
+    test.env.set("CC_MASM_ASM", "masm-wrapper --from-env");
+    test.gcc().debug(true).file("foo.asm").compile("foo");
+
+    test.cmd_for_source("foo.asm")
+        .must_have_in_order("--from-env", "-nologo")
+        .must_have("-Zi")
+        .must_not_have("-m64");
+}
+
+#[test]
+fn msvc_masm_env_override_with_target_prefix() {
+    let mut test = Test::msvc();
+    test.shim("masm-wrapper");
+    test.env.set("CC_MASM_ASM", "masm-wrapper --generic");
+    test.env.set(
+        "CC_MASM_ASM_x86_64_pc_windows_msvc",
+        "masm-wrapper --for-target",
+    );
+    test.gcc().file("foo.asm").compile("foo");
+
+    test.cmd_for_source("foo.asm")
+        .must_have("--for-target")
+        .must_not_have("--generic");
+}
+
+#[test]
+fn msvc_masm_llvm_ml_gets_target_bitness() {
+    for (target, bitness, other) in [
+        ("x86_64-pc-windows-msvc", "-m64", "-m32"),
+        ("i686-pc-windows-msvc", "-m32", "-m64"),
+    ] {
+        let mut test = Test::msvc();
+        test.shim("llvm-ml");
+        test.env.set("CC_MASM_ASM", "llvm-ml");
+        test.gcc()
+            .target(target)
+            .host(target)
+            .debug(true)
+            .file("foo.asm")
+            .compile("foo");
+
+        test.cmd_for_source("foo.asm")
+            .must_have(bitness)
+            .must_not_have(other)
+            .must_not_have("-Zi");
+    }
+}
+
+#[test]
+fn msvc_masm_llvm_ml_user_bitness_wins() {
+    let mut test = Test::msvc();
+    test.shim("llvm-ml");
+    test.env.set("CC_MASM_ASM", "llvm-ml -m32");
+    test.gcc().file("foo.asm").compile("foo");
+
+    // llvm-ml takes the last `-m`.
+    test.cmd_for_source("foo.asm")
+        .must_have_in_order("-m64", "-m32");
+}
+
+// A Windows host with Visual Studio finds `ml64.exe` there, so the fallback to
+// llvm-ml can only be tested elsewhere. The shims here also have no `.exe`
+// suffix.
+#[cfg(not(windows))]
+mod msvc_masm_fallback {
+    use std::fs;
+
+    use super::Test;
+
+    #[test]
+    fn llvm_ml_on_path() {
+        let test = Test::msvc();
+        test.shim("llvm-ml");
+        test.gcc().debug(true).file("foo.asm").compile("foo");
+
+        test.cmd_for_source("foo.asm")
+            .must_have("-m64")
+            .must_not_have("-Zi");
+    }
+
+    #[test]
+    fn llvm_ml_next_to_clang_cl() {
+        let test = Test::msvc();
+        // Not on `PATH`, so only found through clang-cl.
+        let llvm_bin = test.td.path().join("llvm").join("bin");
+        fs::create_dir_all(&llvm_bin).unwrap();
+        fs::copy(&test.gcc, llvm_bin.join("clang-cl")).unwrap();
+        fs::copy(&test.gcc, llvm_bin.join("llvm-ml")).unwrap();
+        test.gcc()
+            .compiler(llvm_bin.join("clang-cl"))
+            .file("foo.asm")
+            .compile("foo");
+
+        test.cmd_for_source("foo.asm").must_have("-m64");
+    }
+
+    #[test]
+    fn ml_on_path_is_kept() {
+        let test = Test::msvc();
+        test.shim("ml64.exe").shim("llvm-ml");
+        test.gcc().debug(true).file("foo.asm").compile("foo");
+
+        test.cmd_for_source("foo.asm")
+            .must_have("-Zi")
+            .must_not_have("-m64");
+    }
+
+    #[test]
+    fn no_llvm_ml_for_arm() {
+        let test = Test::msvc();
+        test.shim("llvm-ml");
+        let err = test
+            .gcc()
+            .target("aarch64-pc-windows-msvc")
+            .host("aarch64-pc-windows-msvc")
+            .cargo_warnings(false)
+            .file("foo.asm")
+            .try_compile("foo")
+            .unwrap_err();
+
+        assert!(err.to_string().contains("armasm64.exe"), "{err}");
+    }
+
+    #[test]
+    fn clang_cl_archiver_is_llvm_lib_next_to_it() {
+        let test = Test::new();
+        let llvm_bin = test.td.path().join("llvm").join("bin");
+        fs::create_dir_all(&llvm_bin).unwrap();
+        fs::copy(&test.gcc, llvm_bin.join("clang-cl")).unwrap();
+        fs::copy(&test.gcc, llvm_bin.join("llvm-lib")).unwrap();
+        test.gcc()
+            .target("x86_64-pc-windows-msvc")
+            .host("x86_64-pc-windows-msvc")
+            .compiler(llvm_bin.join("clang-cl"))
+            .file("foo.c")
+            .compile("foo");
+    }
+}
+
+#[test]
 fn gnu_apple_sysroot() {
     let targets = ["aarch64-apple-darwin", "x86_64-apple-darwin"];
 
