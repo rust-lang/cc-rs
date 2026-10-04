@@ -11,24 +11,99 @@ use std::{
     env,
     ffi::{OsStr, OsString},
     io::Write,
+    iter,
     path::{Path, PathBuf},
     process::{Command, Output, Stdio},
-    sync::RwLock,
+    sync::{Arc, RwLock},
 };
 
-pub(crate) type CompilerFamilyLookupCache = HashMap<CompilerFamilyKey, ToolFamily>;
+pub(crate) type CompilerFamilyLookupCache = HashMap<CompilerCommandKey, ToolFamily>;
 
-/// Key of the [`CompilerFamilyLookupCache`].
+/// Whether a compiler command uses libc++, see [`Tool::uses_libcxx`].
+pub(crate) type CppStdlibLookupCache = HashMap<CompilerCommandKey, bool>;
+
+/// Key of the [`CompilerFamilyLookupCache`] and the [`CppStdlibLookupCache`]:
+/// a compiler command and the environment it runs in.
 #[derive(Debug, PartialEq, Eq, Hash)]
-pub(crate) struct CompilerFamilyKey {
+pub(crate) struct CompilerCommandKey {
     /// The compiler's path followed by its arguments.
     command: Box<[Box<OsStr>]>,
-    /// The detected family depends on the environment the probes run in
-    /// (`PATH` decides what a bare compiler name even resolves to), so two
-    /// lookups that agree on the command but differ in their environment must
-    /// not share an entry.
+    /// What a probe finds depends on the environment it runs in (`PATH`
+    /// decides what a bare compiler name even resolves to), so two lookups
+    /// that agree on the command but differ in their environment must not
+    /// share an entry.
     inherited: EnvSnapshot,
     explicit: Box<EnvVars>,
+}
+
+impl CompilerCommandKey {
+    fn new(
+        command: &mut dyn Iterator<Item = &OsStr>,
+        inherited: EnvSnapshot,
+        explicit: Box<EnvVars>,
+    ) -> Self {
+        Self {
+            command: command.map(Into::into).collect(),
+            inherited,
+            explicit,
+        }
+    }
+}
+
+/// Write `contents` to a new file named like `name` for a probe to read, in
+/// `out_dir` or else in the temporary directory. The file is removed when the
+/// returned value is dropped.
+fn probe_source_file(
+    out_dir: Option<&Path>,
+    name: &str,
+    contents: &[u8],
+) -> Result<NamedTempfile, Error> {
+    let out_dir = out_dir
+        .map(Cow::Borrowed)
+        .unwrap_or_else(|| Cow::Owned(env::temp_dir()));
+
+    // Ensure all the parent directories exist otherwise temp file creation
+    // will fail
+    std::fs::create_dir_all(&out_dir).map_err(|err| Error {
+        kind: ErrorKind::IOError,
+        message: format!("failed to create OUT_DIR '{}': {}", out_dir.display(), err).into(),
+    })?;
+
+    let mut tmp = NamedTempfile::new(&out_dir, name).map_err(|err| Error {
+        kind: ErrorKind::IOError,
+        message: format!(
+            "failed to create {} temp file in '{}': {}",
+            name,
+            out_dir.display(),
+            err
+        )
+        .into(),
+    })?;
+    let mut tmp_file = tmp.take_file().unwrap();
+    tmp_file.write_all(contents)?;
+    // Close the file handle *now*, otherwise the compiler may fail to open it on Windows
+    // (#1082). The file stays on disk and its path remains valid until `tmp` is dropped.
+    tmp_file.flush()?;
+    tmp_file.sync_data()?;
+    drop(tmp_file);
+    Ok(tmp)
+}
+
+/// Remove the flags that make a GNU-like compiler write a dependency file
+/// (`-M` and the like, also passed as `-Wp,-M...`), together with the file or
+/// target name that follows `-MF`, `-MT`, `-MQ` and `-MJ`.
+fn remove_dependency_output_flags(args: &mut Vec<OsString>) {
+    let mut drop_next = false;
+    args.retain(|arg| {
+        if std::mem::take(&mut drop_next) {
+            return false;
+        }
+        let Some(arg) = arg.to_str() else {
+            return true;
+        };
+        drop_next = matches!(arg, "-MF" | "-MT" | "-MQ" | "-MJ");
+        !(arg.starts_with("-M") || arg.starts_with("-Wp,-M"))
+    });
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -214,35 +289,11 @@ impl Tool {
             cargo_output: &CargoOutput,
             out_dir: Option<&Path>,
         ) -> Result<ToolFamily, Error> {
-            let out_dir = out_dir
-                .map(Cow::Borrowed)
-                .unwrap_or_else(|| Cow::Owned(env::temp_dir()));
-
-            // Ensure all the parent directories exist otherwise temp file creation
-            // will fail
-            std::fs::create_dir_all(&out_dir).map_err(|err| Error {
-                kind: ErrorKind::IOError,
-                message: format!("failed to create OUT_DIR '{}': {}", out_dir.display(), err)
-                    .into(),
-            })?;
-
-            let mut tmp =
-                NamedTempfile::new(&out_dir, "detect_compiler_family.c").map_err(|err| Error {
-                    kind: ErrorKind::IOError,
-                    message: format!(
-                        "failed to create detect_compiler_family.c temp file in '{}': {}",
-                        out_dir.display(),
-                        err
-                    )
-                    .into(),
-                })?;
-            let mut tmp_file = tmp.take_file().unwrap();
-            tmp_file.write_all(include_bytes!("detect_compiler_family.c"))?;
-            // Close the file handle *now*, otherwise the compiler may fail to open it on Windows
-            // (#1082). The file stays on disk and its path remains valid until `tmp` is dropped.
-            tmp_file.flush()?;
-            tmp_file.sync_data()?;
-            drop(tmp_file);
+            let tmp = probe_source_file(
+                out_dir,
+                "detect_compiler_family.c",
+                include_bytes!("detect_compiler_family.c"),
+            )?;
 
             // When expanding the file, the compiler prints a lot of information to stderr
             // that it is not an error, but related to expanding itself.
@@ -291,16 +342,11 @@ impl Tool {
         // back to the compiler's name when they fail.
         let cargo_output = &cargo_output.for_detection_cmd();
         let detect_family = |path: &Path, args: &[String]| -> Result<ToolFamily, Error> {
-            let cache_key = CompilerFamilyKey {
-                command: [path.as_os_str()]
-                    .iter()
-                    .cloned()
-                    .chain(args.iter().map(OsStr::new))
-                    .map(Into::into)
-                    .collect(),
-                inherited: env.inherited().clone(),
-                explicit: env.explicit.clone().into_boxed_slice(),
-            };
+            let cache_key = CompilerCommandKey::new(
+                &mut iter::once(path.as_os_str()).chain(args.iter().map(OsStr::new)),
+                env.inherited().clone(),
+                env.explicit.clone().into_boxed_slice(),
+            );
             if let Some(family) = cached_compiler_family.read().unwrap().get(&cache_key) {
                 return Ok(*family);
             }
@@ -351,6 +397,54 @@ impl Tool {
             removed_args: Vec::new(),
             has_internal_target_arg: false,
         }
+    }
+
+    /// Whether this C++ compiler uses libc++, found by preprocessing a file
+    /// that includes one of its C++ headers and checking for libc++'s
+    /// `_LIBCPP_VERSION`. The flags that write a dependency file are left out,
+    /// so the probe writes nothing next to the build's own files.
+    ///
+    /// An answer from the compiler is cached for its command and environment.
+    /// An error, such as a probe file that can't be written, is not.
+    pub(crate) fn uses_libcxx(
+        &self,
+        cache: &RwLock<CppStdlibLookupCache>,
+        cargo_output: &CargoOutput,
+        out_dir: Option<&Path>,
+    ) -> Result<bool, Error> {
+        let mut tool = self.clone();
+        remove_dependency_output_flags(&mut tool.args);
+        let mut cmd = tool.to_command();
+        let key = CompilerCommandKey::new(
+            &mut iter::once(cmd.get_program()).chain(cmd.get_args()),
+            tool.inherited_env.clone(),
+            tool.env
+                .iter()
+                .map(|(key, value)| (Arc::from(key.as_os_str()), Arc::from(value.as_os_str())))
+                .collect(),
+        );
+        if let Some(uses_libcxx) = cache.read().unwrap().get(&key) {
+            return Ok(*uses_libcxx);
+        }
+
+        let src = probe_source_file(
+            out_dir,
+            "detect_cpp_stdlib.cpp",
+            include_bytes!("detect_cpp_stdlib.cpp"),
+        )?;
+        cmd.arg("-E")
+            .arg(src.path())
+            .set_cpp_stdlib_detection_env(&tool.env);
+        let stdout = run_output(
+            &mut cmd,
+            &cargo_output.for_detection_cmd().quiet_unless_debug(),
+        )?;
+        let uses_libcxx = stdout
+            .split(|&b| b == b'\n')
+            .any(|line| line.strip_suffix(b"\r").unwrap_or(line) == b"cc_rs_libcxx");
+
+        cache.write().unwrap().insert(key, uses_libcxx);
+        Ok(uses_libcxx)
     }
 
     /// Add an argument to be stripped from the final command arguments.

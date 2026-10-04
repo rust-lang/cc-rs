@@ -432,6 +432,8 @@ enum ProbeKind {
     FlagSupportCheck,
     /// Working out whether an Android NDK ships `llvm-ar` under that name.
     ArDetection,
+    /// Working out which C++ standard library a compiler uses.
+    CppStdlibDetection,
 }
 
 impl ProbeKind {
@@ -441,6 +443,18 @@ impl ProbeKind {
             Self::FamilyDetection => "CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION",
             Self::FlagSupportCheck => "CC_SHIM_OUT_FILES_FOR_FLAG_SUPPORT_CHECK",
             Self::ArDetection => "CC_SHIM_OUT_FILES_FOR_AR_DETECTION",
+            Self::CppStdlibDetection => "CC_SHIM_OUT_FILES_FOR_CPP_STDLIB_DETECTION",
+        }
+    }
+
+    /// The test-only variable holding what the shim should print when this
+    /// class preprocesses a file.
+    const fn stdout_var(self) -> &'static str {
+        match self {
+            Self::FamilyDetection => "CC_SHIM_STDOUT_FOR_FAMILY_DETECTION",
+            Self::FlagSupportCheck => "CC_SHIM_STDOUT_FOR_FLAG_SUPPORT_CHECK",
+            Self::ArDetection => "CC_SHIM_STDOUT_FOR_AR_DETECTION",
+            Self::CppStdlibDetection => "CC_SHIM_STDOUT_FOR_CPP_STDLIB_DETECTION",
         }
     }
 }
@@ -461,8 +475,10 @@ impl ProbeKind {
 /// `CC_SHIM_OUT_FILES` and otherwise clears it, and clears `CC_SHIM_OUT_DIR`
 /// either way, instead of copying `Build::env` over blindly. A probe a test did
 /// not ask about then records nothing at all, rather than taking an `out{i}`
-/// slot and shifting the invocations the test is asserting on. They are
-/// test-only, like `CC_SHIM_OUT_DIR`, and so are documented in
+/// slot and shifting the invocations the test is asserting on. The
+/// `CC_SHIM_STDOUT_FOR_*` variables are renamed to `CC_SHIM_STDOUT` the same
+/// way, so a test can answer one class of probe without changing the others.
+/// They are test-only, like `CC_SHIM_OUT_DIR`, and so are documented in
 /// `src/bin/cc-shim.rs` rather than in the table of public variables in
 /// `src/lib.rs`.
 fn set_probe_env<K, V>(cmd: &mut Command, env: &[(K, V)], kind: ProbeKind)
@@ -475,13 +491,15 @@ where
     }
 
     cmd.env_remove("CC_SHIM_OUT_DIR");
-    match env
-        .iter()
-        .find(|(key, _)| key.as_ref() == OsStr::new(kind.out_files_var()))
-    {
-        Some((_, value)) => cmd.env("CC_SHIM_OUT_FILES", value.as_ref()),
-        None => cmd.env_remove("CC_SHIM_OUT_FILES"),
-    };
+    for (var, shim_var) in [
+        (kind.out_files_var(), "CC_SHIM_OUT_FILES"),
+        (kind.stdout_var(), "CC_SHIM_STDOUT"),
+    ] {
+        match env.iter().find(|(key, _)| key.as_ref() == OsStr::new(var)) {
+            Some((_, value)) => cmd.env(shim_var, value.as_ref()),
+            None => cmd.env_remove(shim_var),
+        };
+    }
 }
 
 pub(crate) fn run(cmd: &mut Command, cargo_output: &CargoOutput) -> Result<(), Error> {
@@ -671,6 +689,9 @@ pub(crate) trait CommandExt {
 
     /// Apply the `Build`'s environment to the Android `llvm-ar` probe.
     fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
+
+    /// Apply a compiler's environment to its C++ standard library probe.
+    fn set_cpp_stdlib_detection_env(&mut self, env: &[(OsString, OsString)]) -> &mut Self;
 }
 
 impl CommandExt for Command {
@@ -692,6 +713,11 @@ impl CommandExt for Command {
     fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self {
         env.inherited().apply(self);
         set_probe_env(self, &env.explicit, ProbeKind::ArDetection);
+        self
+    }
+
+    fn set_cpp_stdlib_detection_env(&mut self, env: &[(OsString, OsString)]) -> &mut Self {
+        set_probe_env(self, env, ProbeKind::CppStdlibDetection);
         self
     }
 }
