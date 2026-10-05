@@ -855,6 +855,19 @@ fn msvc_masm_llvm_ml_gets_target_bitness() {
 }
 
 #[test]
+fn msvc_masm_llvm_ml_name_ignores_case() {
+    let mut test = Test::msvc();
+    test.shim("LLVM-ML.exe");
+    test.env.set("CC_MASM_ASM", "LLVM-ML.exe");
+    test.gcc().debug(true).file("foo.asm").compile("foo");
+
+    test.cmd_for_source("foo.asm")
+        .must_run("LLVM-ML")
+        .must_have("-m64")
+        .must_not_have("-Zi");
+}
+
+#[test]
 fn msvc_masm_llvm_ml_user_bitness_wins() {
     let mut test = Test::msvc();
     test.shim("llvm-ml");

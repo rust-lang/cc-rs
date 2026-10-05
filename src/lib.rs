@@ -3253,7 +3253,9 @@ impl Build {
         let is_llvm_ml = Path::new(cmd.get_program())
             .file_stem()
             .and_then(OsStr::to_str)
-            .map_or(false, |stem| stem.starts_with("llvm-ml"));
+            .map_or(false, |stem| {
+                stem.to_ascii_lowercase().starts_with("llvm-ml")
+            });
         if is_llvm_ml {
             // llvm-ml assembles for 32-bit x86 unless it is told otherwise or
             // runs as `llvm-ml64`. It takes the last `-m`, so one in the
