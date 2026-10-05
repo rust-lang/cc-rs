@@ -807,6 +807,7 @@ fn msvc_masm_env_override() {
     test.gcc().debug(true).file("foo.asm").compile("foo");
 
     test.cmd_for_source("foo.asm")
+        .must_run("masm-wrapper")
         .must_have_in_order("--from-env", "-nologo")
         .must_have("-Zi")
         .must_not_have("-m64");
@@ -815,15 +816,16 @@ fn msvc_masm_env_override() {
 #[test]
 fn msvc_masm_env_override_with_target_prefix() {
     let mut test = Test::msvc();
-    test.shim("masm-wrapper");
-    test.env.set("CC_MASM_ASM", "masm-wrapper --generic");
+    test.shim("masm-generic").shim("masm-for-target");
+    test.env.set("CC_MASM_ASM", "masm-generic --generic");
     test.env.set(
         "CC_MASM_ASM_x86_64_pc_windows_msvc",
-        "masm-wrapper --for-target",
+        "masm-for-target --for-target",
     );
     test.gcc().file("foo.asm").compile("foo");
 
     test.cmd_for_source("foo.asm")
+        .must_run("masm-for-target")
         .must_have("--for-target")
         .must_not_have("--generic");
 }
@@ -845,6 +847,7 @@ fn msvc_masm_llvm_ml_gets_target_bitness() {
             .compile("foo");
 
         test.cmd_for_source("foo.asm")
+            .must_run("llvm-ml")
             .must_have(bitness)
             .must_not_have(other)
             .must_not_have("-Zi");
@@ -860,6 +863,7 @@ fn msvc_masm_llvm_ml_user_bitness_wins() {
 
     // llvm-ml takes the last `-m`.
     test.cmd_for_source("foo.asm")
+        .must_run("llvm-ml")
         .must_have_in_order("-m64", "-m32");
 }
 
@@ -868,9 +872,21 @@ fn msvc_masm_llvm_ml_user_bitness_wins() {
 // suffix.
 #[cfg(not(windows))]
 mod msvc_masm_fallback {
+    use std::ffi::OsString;
     use std::fs;
+    use std::path::PathBuf;
 
     use super::Test;
+
+    /// Put clang-cl and the LLVM `tool` in a folder that is not on `PATH`, so
+    /// the tool can only be found through clang-cl.
+    fn clang_cl_with(test: &Test, tool: &str) -> PathBuf {
+        let llvm_bin = test.td.path().join("llvm").join("bin");
+        fs::create_dir_all(&llvm_bin).unwrap();
+        fs::copy(&test.gcc, llvm_bin.join("clang-cl")).unwrap();
+        fs::copy(&test.gcc, llvm_bin.join(tool)).unwrap();
+        llvm_bin
+    }
 
     #[test]
     fn llvm_ml_on_path() {
@@ -879,6 +895,7 @@ mod msvc_masm_fallback {
         test.gcc().debug(true).file("foo.asm").compile("foo");
 
         test.cmd_for_source("foo.asm")
+            .must_run("llvm-ml")
             .must_have("-m64")
             .must_not_have("-Zi");
     }
@@ -886,17 +903,15 @@ mod msvc_masm_fallback {
     #[test]
     fn llvm_ml_next_to_clang_cl() {
         let test = Test::msvc();
-        // Not on `PATH`, so only found through clang-cl.
-        let llvm_bin = test.td.path().join("llvm").join("bin");
-        fs::create_dir_all(&llvm_bin).unwrap();
-        fs::copy(&test.gcc, llvm_bin.join("clang-cl")).unwrap();
-        fs::copy(&test.gcc, llvm_bin.join("llvm-ml")).unwrap();
+        let llvm_bin = clang_cl_with(&test, "llvm-ml");
         test.gcc()
             .compiler(llvm_bin.join("clang-cl"))
             .file("foo.asm")
             .compile("foo");
 
-        test.cmd_for_source("foo.asm").must_have("-m64");
+        let execution = test.cmd_for_source("foo.asm");
+        execution.must_have("-m64");
+        assert_eq!(execution.program, llvm_bin.join("llvm-ml"));
     }
 
     #[test]
@@ -906,6 +921,7 @@ mod msvc_masm_fallback {
         test.gcc().debug(true).file("foo.asm").compile("foo");
 
         test.cmd_for_source("foo.asm")
+            .must_run("ml64")
             .must_have("-Zi")
             .must_not_have("-m64");
     }
@@ -914,31 +930,37 @@ mod msvc_masm_fallback {
     fn no_llvm_ml_for_arm() {
         let test = Test::msvc();
         test.shim("llvm-ml");
-        let err = test
+        let result = test
             .gcc()
             .target("aarch64-pc-windows-msvc")
             .host("aarch64-pc-windows-msvc")
             .cargo_warnings(false)
             .file("foo.asm")
-            .try_compile("foo")
-            .unwrap_err();
+            .try_compile("foo");
 
+        assert!(
+            !test.td.path().join("out0").exists(),
+            "{:?} ran",
+            test.cmd(0).program
+        );
+        let err = result.unwrap_err();
         assert!(err.to_string().contains("armasm64.exe"), "{err}");
     }
 
     #[test]
     fn clang_cl_archiver_is_llvm_lib_next_to_it() {
         let test = Test::new();
-        let llvm_bin = test.td.path().join("llvm").join("bin");
-        fs::create_dir_all(&llvm_bin).unwrap();
-        fs::copy(&test.gcc, llvm_bin.join("clang-cl")).unwrap();
-        fs::copy(&test.gcc, llvm_bin.join("llvm-lib")).unwrap();
+        let llvm_bin = clang_cl_with(&test, "llvm-lib");
         test.gcc()
             .target("x86_64-pc-windows-msvc")
             .host("x86_64-pc-windows-msvc")
             .compiler(llvm_bin.join("clang-cl"))
             .file("foo.c")
             .compile("foo");
+
+        let mut out = OsString::from("-out:");
+        out.push(test.td.path().join("libfoo.a"));
+        assert_eq!(test.cmd_for_source(out).program, llvm_bin.join("llvm-lib"));
     }
 }
 

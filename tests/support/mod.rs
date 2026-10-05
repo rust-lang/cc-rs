@@ -35,6 +35,8 @@ const AR_DETECTION_PROBES: &str = "ar-detection-probe";
 const PROBE_SLOTS: usize = 4;
 
 pub struct Execution {
+    /// The program the shim was invoked as (`argv[0]`).
+    pub program: PathBuf,
     pub args: Vec<String>,
 }
 
@@ -273,13 +275,27 @@ impl Test {
             .unwrap_or_else(|e| panic!("no recording at {}: {}", path.display(), e))
             .read_to_string(&mut s)
             .unwrap();
+        let mut lines = s.lines().map(|s| s.to_string());
+        let Some(program) = lines.next() else {
+            panic!("empty recording at {}", path.display());
+        };
         Execution {
-            args: s.lines().map(|s| s.to_string()).collect(),
+            program: program.into(),
+            args: lines.collect(),
         }
     }
 }
 
 impl Execution {
+    /// Checks that this invocation ran a program with the file stem `stem`.
+    #[track_caller]
+    pub fn must_run(&self, stem: &str) -> &Execution {
+        if self.program.file_stem() != Some(OsStr::new(stem)) {
+            panic!("expected {:?} to run, found {:?}", stem, self.program);
+        }
+        self
+    }
+
     #[track_caller]
     pub fn must_have<P: AsRef<OsStr>>(&self, p: P) -> &Execution {
         if !self.has(p.as_ref()) {
