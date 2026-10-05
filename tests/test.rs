@@ -920,11 +920,17 @@ mod msvc_masm_fallback {
         test.gcc()
             .compiler(llvm_bin.join("clang-cl"))
             .file("foo.asm")
+            .file("bar.asm")
             .compile("foo");
 
-        let execution = test.cmd_for_source("foo.asm");
-        execution.must_have("-m64");
-        assert_eq!(execution.program, llvm_bin.join("llvm-ml"));
+        for src in ["foo.asm", "bar.asm"] {
+            let execution = test.cmd_for_source(src);
+            execution.must_have("-m64");
+            assert_eq!(execution.program, llvm_bin.join("llvm-ml"));
+        }
+        // One lookup serves both files.
+        test.cmd_for_source("--print-search-dirs")
+            .must_run("clang-cl");
     }
 
     #[test]
