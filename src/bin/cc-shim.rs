@@ -12,10 +12,10 @@ use std::process::ExitCode;
 
 /// Test-only environment variable naming a directory to record invocations in.
 ///
-/// Arguments are written to the first `out{i}` in it that does not exist yet, so
-/// a test reads the `i`-th invocation back with `Test::cmd(i)`. `Test::gcc()`
-/// sets this through `Build::env`, and the compile and archive commands that a
-/// build actually runs inherit it.
+/// The program and its arguments are written to the first `out{i}` in it that
+/// does not exist yet, so a test reads the `i`-th invocation back with
+/// `Test::cmd(i)`. `Test::gcc()` sets this through `Build::env`, and the
+/// compile and archive commands that a build actually runs inherit it.
 const OUT_DIR: &str = "CC_SHIM_OUT_DIR";
 
 /// Test-only environment variable naming an explicit `PATH`-separated list of
@@ -68,7 +68,8 @@ fn create_out_file(program: &str) -> Option<(PathBuf, File)> {
     )
 }
 
-/// Record the args passed to the command, if this invocation records at all.
+/// Record the program the shim runs as, then the args passed to it, if this
+/// invocation records at all.
 fn record(program: &str, args: &[String]) {
     let Some((candidate, f)) = create_out_file(program) else {
         return;
@@ -76,6 +77,7 @@ fn record(program: &str, args: &[String]) {
     let mut f = io::BufWriter::new(f);
 
     (|| {
+        writeln!(f, "{program}")?;
         for arg in args {
             writeln!(f, "{arg}")?;
         }
