@@ -89,21 +89,25 @@ fn probe_source_file(
     Ok(tmp)
 }
 
-/// Remove the flags that make a GNU-like compiler write a dependency file
-/// (`-M` and the like, also passed as `-Wp,-M...`), together with the file or
-/// target name that follows `-MF`, `-MT`, `-MQ` and `-MJ`.
-fn remove_dependency_output_flags(args: &mut Vec<OsString>) {
-    let mut drop_next = false;
-    args.retain(|arg| {
-        if std::mem::take(&mut drop_next) {
-            return false;
-        }
-        let Some(arg) = arg.to_str() else {
-            return true;
-        };
-        drop_next = matches!(arg, "-MF" | "-MT" | "-MQ" | "-MJ");
-        !(arg.starts_with("-M") || arg.starts_with("-Wp,-M"))
-    });
+/// `args` without the flags that make a GNU-like compiler write a dependency
+/// file (`-M` and the like, also passed as `-Wp,-M...`), and without the file
+/// or target name that follows `-MF`, `-MT`, `-MQ` and `-MJ`.
+fn remove_dependency_output_flags(args: &[OsString]) -> Vec<&OsStr> {
+    args.iter()
+        .fold((Vec::new(), false), |(mut args, drop_next), arg| {
+            if drop_next {
+                return (args, false);
+            }
+
+            let arg_str = arg.to_str().unwrap_or_default();
+
+            if !(arg_str.starts_with("-M") || arg_str.starts_with("-Wp,-M")) {
+                args.push(arg.as_os_str());
+            }
+
+            (args, matches!(arg_str, "-MF" | "-MT" | "-MQ" | "-MJ"))
+        })
+        .0
 }
 
 /// Configuration used to represent an invocation of a C compiler.
@@ -412,13 +416,12 @@ impl Tool {
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Result<bool, Error> {
-        let mut tool = self.clone();
-        remove_dependency_output_flags(&mut tool.args);
-        let mut cmd = tool.to_command();
+        let args = remove_dependency_output_flags(&self.args);
+        let mut cmd = self.command_with_args(&mut args.into_iter());
         let key = CompilerCommandKey::new(
             &mut iter::once(cmd.get_program()).chain(cmd.get_args()),
-            tool.inherited_env.clone(),
-            tool.env
+            self.inherited_env.clone(),
+            self.env
                 .iter()
                 .map(|(key, value)| (Arc::from(key.as_os_str()), Arc::from(value.as_os_str())))
                 .collect(),
@@ -434,7 +437,7 @@ impl Tool {
         )?;
         cmd.arg("-E")
             .arg(src.path())
-            .set_cpp_stdlib_detection_env(&tool.env);
+            .set_cpp_stdlib_detection_env(&self.env);
         let stdout = run_output(
             &mut cmd,
             &cargo_output.for_detection_cmd().quiet_unless_debug(),
@@ -513,6 +516,11 @@ impl Tool {
     /// environment this `Tool` was made with (a [`Build`](crate::Build)'s copy,
     /// see its docs), then [`Tool::env`].
     pub fn to_command(&self) -> Command {
+        self.command_with_args(&mut self.args.iter().map(OsString::as_os_str))
+    }
+
+    /// Like [`Tool::to_command`], with `args` in place of [`Tool::args`].
+    fn command_with_args(&self, args: &mut dyn Iterator<Item = &OsStr>) -> Command {
         let mut cmd = match self.cc_wrapper_path {
             Some(ref cc_wrapper_path) => {
                 let mut cmd = Command::new(cc_wrapper_path);
@@ -524,7 +532,7 @@ impl Tool {
         self.inherited_env.apply(&mut cmd);
         cmd.args(&self.cc_wrapper_args);
 
-        cmd.args(self.args.iter().filter(|a| !self.removed_args.contains(a)));
+        cmd.args(args.filter(|a| !self.removed_args.iter().any(|r| r.as_os_str() == *a)));
 
         for (k, v) in self.env.iter() {
             cmd.env(k, v);
