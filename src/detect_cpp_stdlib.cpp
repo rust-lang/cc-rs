@@ -1,5 +1,5 @@
 #include <cstddef>
 
 #ifdef _LIBCPP_VERSION
-cc_rs_libcxx
+#pragma message "libcxx"
 #endif

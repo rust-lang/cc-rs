@@ -2138,7 +2138,7 @@ fn cxxstdlib_static_env_metadata() {
 }
 
 /// What the C++ stdlib probe of a Clang that uses libc++ prints.
-const LIBCXX_PROBE_STDOUT: &str = "# 1 \"detect_cpp_stdlib.cpp\"\ncc_rs_libcxx\n";
+const LIBCXX_PROBE_STDOUT: &str = "# 1 \"detect_cpp_stdlib.cpp\"\n#pragma message(\"libcxx\")\n";
 
 /// A `Build` for a C++ library with Clang, on a target that links libstdc++ by
 /// default, whose C++ stdlib probe prints `probe_stdout`, or fails without it.
@@ -2178,7 +2178,9 @@ fn cpp_stdlib_detection_metadata() {
         match case.to_str().unwrap() {
             "libcxx" => {}
             "libstdcxx" => {
-                build = clang_cpp_build(&test, Some("# 1 \"detect_cpp_stdlib.cpp\"\n"));
+                // Only the message counts, not a path that mentions libcxx.
+                let probe_stdout = "# 1 \"/build/libcxx-sys/out/detect_cpp_stdlib.cpp\"\n";
+                build = clang_cpp_build(&test, Some(probe_stdout));
             }
             "probe-fails" => {
                 build = clang_cpp_build(&test, None);

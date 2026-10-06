@@ -439,9 +439,7 @@ impl Tool {
             &mut cmd,
             &cargo_output.for_detection_cmd().quiet_unless_debug(),
         )?;
-        let uses_libcxx = stdout
-            .split(|&b| b == b'\n')
-            .any(|line| line.strip_suffix(b"\r").unwrap_or(line) == b"cc_rs_libcxx");
+        let uses_libcxx = String::from_utf8_lossy(&stdout).contains(r#""libcxx""#);
 
         cache.write().unwrap().insert(key, uses_libcxx);
         Ok(uses_libcxx)
