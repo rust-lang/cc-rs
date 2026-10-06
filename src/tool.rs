@@ -154,7 +154,7 @@ impl Tool {
             .unwrap_or_default()
                 || {
                     match path.file_name().map(OsStr::to_string_lossy) {
-                        Some(fname) => fname.contains("zig"),
+                        Some(fname) => fname.to_ascii_lowercase().contains("zig"),
                         _ => false,
                     }
                 }
@@ -317,7 +317,10 @@ impl Tool {
             cargo_output.print_warning(&format_args!(
                 "Compiler family detection failed due to error: {e}"
             ));
-            match path.file_name().map(OsStr::to_string_lossy) {
+            let fname = path
+                .file_name()
+                .map(|fname| fname.to_string_lossy().to_ascii_lowercase());
+            match fname.as_deref() {
                 Some(fname) if fname.contains("clang-cl") => ToolFamily::Msvc { clang_cl: true },
                 Some(fname) if fname.ends_with("cl") || fname == "cl.exe" => {
                     ToolFamily::Msvc { clang_cl: false }
