@@ -4000,13 +4000,13 @@ impl Build {
         if !self.cargo_output.metadata || self.cuda || target.arch == "wasm32" {
             return false;
         }
-        // Work out the compiler again without printing anything: when called
-        // from `compile`, this `Build` has already reported the variables it
-        // reads and the warnings that come up on the way.
+        // Work out the compiler again without printing its `cargo:` lines a
+        // second time: when called from `compile`, this `Build` has already
+        // printed the variables it reads and the warnings that come up on the
+        // way.
         let mut quiet = self.clone();
         quiet.cargo_output.metadata = false;
         quiet.cargo_output.warnings = false;
-        quiet.cargo_output.logger = None;
         if quiet.is_disabled() {
             return false;
         }

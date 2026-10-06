@@ -2505,8 +2505,8 @@ fn cpp_stdlib_probe_skipped() {
     assert!(test.get_cpp_stdlib_probes(0).is_none(), "the probe ran");
 }
 
-/// Guard test: the C++ stdlib probe sends nothing to the build's logger,
-/// which already got the messages from working out the compiler.
+/// Guard test: like family detection, the C++ stdlib probe only sends its
+/// stderr and its failure to the build's logger with debug output.
 #[test]
 fn cpp_stdlib_probe_logs_nothing() {
     use cc::{BuildMessage, BuildMessageKind, BuildMessageLogger};
@@ -2526,13 +2526,20 @@ fn cpp_stdlib_probe_logs_nothing() {
     let mut test = Test::clang();
     test.collect_cpp_stdlib_probes();
     let messages = Arc::new(Messages(Mutex::new(Vec::new())));
-    let mut build = libcxx_clang_build(&test);
+    let mut build = clang_cpp_build(&test, None);
     build
+        .cargo_debug(false)
         .cargo_warnings(false)
         .message_logger(Some(messages.clone()));
     cc::emit_link_directives(&build, test.td.path().join("libfoo.a"));
     assert!(test.get_cpp_stdlib_probes(0).is_some(), "no probe ran");
-    assert_eq!(*messages.0.lock().unwrap(), Vec::<String>::new());
+    let messages = messages.0.lock().unwrap();
+    assert!(
+        messages
+            .iter()
+            .all(|msg| !msg.contains("detect_cpp_stdlib") && !msg.contains("cannot preprocess")),
+        "{messages:?}"
+    );
 }
 
 /// A clone shares the flag support cache with the `Build` it was cloned from,
