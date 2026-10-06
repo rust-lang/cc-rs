@@ -1,5 +1,4 @@
-//! This test is in its own module because it modifies the environment and would affect other tests
-//! when run in parallel with them.
+//! Tests of the flags cc reads from `CFLAGS` and similar variables.
 
 #![allow(deprecated)]
 
@@ -28,7 +27,7 @@ fn cflags_order() {
     let mut test = Test::gnu();
 
     // FIXME(madsmtm): Re-enable once `is_flag_supported` works in CI regardless of `target`.
-    // test.env.set("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5");
+    // test.process_env.set("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5");
 
     test.env.set("CFLAGS", "-Larbitrary1");
     test.env.set("HOST_CFLAGS", "-Larbitrary2");

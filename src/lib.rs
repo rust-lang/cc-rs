@@ -1576,6 +1576,42 @@ impl Build {
         self
     }
 
+    /// Use `vars` as the environment of this `Build` instead of the process
+    /// environment.
+    ///
+    /// By default, a `Build` copies the process environment the first time it
+    /// needs it. With this, cc instead looks up the variables it reads itself,
+    /// such as `CC`, `CFLAGS` or `CC_FORCE_DISABLE`, in `vars`, and the
+    /// compiler and the other tools it runs get `vars` instead of the process
+    /// environment, with [`Build::env`] still applied on top. A variable given
+    /// more than once takes its last value.
+    ///
+    /// This replaces the environment rather than adding to it. Call it before
+    /// using the `Build`. A later call still replaces the environment for what
+    /// cc looks up and runs from then on, but a [`Tool`] returned earlier keeps
+    /// its environment, and the Apple SDK path and deployment target are not
+    /// looked up again once found.
+    ///
+    /// The variables Cargo sets for build scripts, such as `OUT_DIR`, `TARGET`
+    /// and `CARGO_CFG_*`, are read from the process environment either way,
+    /// and so is `CC_ENABLE_DEBUG_OUTPUT`, which [`Build::new`] reads. On
+    /// Windows, the `vswhere` and `cl.exe` that cc runs to find Visual Studio
+    /// also still get the process environment.
+    #[doc(hidden)]
+    pub fn set_envs_snapshot<I, K, V>(&mut self, vars: I) -> &mut Build
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: AsRef<OsStr>,
+        V: AsRef<OsStr>,
+    {
+        self.env.set_inherited(EnvSnapshot::from_vars(
+            &mut vars
+                .into_iter()
+                .map(|(key, value)| (key.as_ref().into(), value.as_ref().into())),
+        ));
+        self
+    }
+
     // retained for backwards compatibility only
     #[doc(hidden)]
     #[deprecated = "use `env` instead"]

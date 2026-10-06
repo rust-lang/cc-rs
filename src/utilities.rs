@@ -101,6 +101,14 @@ impl<T> OnceLock<T> {
     }
 }
 
+impl<T> From<T> for OnceLock<T> {
+    fn from(value: T) -> Self {
+        let cell = Self::new();
+        cell.get_or_init(|| value);
+        cell
+    }
+}
+
 impl<T: Clone> Clone for OnceLock<T> {
     fn clone(&self) -> Self {
         let cell = Self::new();

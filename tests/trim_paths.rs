@@ -33,8 +33,8 @@ fn remap() -> OsString {
 #[test]
 fn scope_all() {
     let mut test = Test::gnu();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "all");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -48,8 +48,8 @@ fn scope_all() {
 #[test]
 fn scope_macro() {
     let mut test = Test::gnu();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "macro");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "macro");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -66,8 +66,8 @@ fn scope_macro() {
 #[test]
 fn scope_object() {
     let mut test = Test::gnu();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "object");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "object");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -86,8 +86,9 @@ fn scope_object() {
 #[test]
 fn scope_macro_and_diagnostics() {
     let mut test = Test::gnu();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "diagnostics,macro");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env
+        .set("CARGO_TRIM_PATHS_SCOPE", "diagnostics,macro");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -105,8 +106,8 @@ fn scope_macro_and_diagnostics() {
 #[test]
 fn scope_none() {
     let mut test = Test::gnu();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "none");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "none");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -121,8 +122,8 @@ fn scope_none() {
 #[test]
 fn no_env_vars() {
     let mut test = Test::gnu();
-    test.env.remove("CARGO_TRIM_PATHS_SCOPE");
-    test.env.remove("CARGO_TRIM_PATHS_REMAP");
+    test.process_env.remove("CARGO_TRIM_PATHS_SCOPE");
+    test.process_env.remove("CARGO_TRIM_PATHS_REMAP");
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -137,8 +138,8 @@ fn no_env_vars() {
 #[test]
 fn opt_out() {
     let mut test = Test::gnu();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "all");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc()
         .inherit_trim_paths(false)
@@ -154,8 +155,8 @@ fn opt_out() {
 #[test]
 fn msvc_cl_scope_all() {
     let mut test = Test::msvc();
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "all");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
 
     test.gcc().file("foo.c").compile("foo");
 
@@ -170,8 +171,8 @@ fn msvc_cl_scope_all() {
 fn clang_cl_scope_all() {
     let mut test = Test::msvc();
     test.shim("clang-cl.exe");
-    test.env.set("CARGO_TRIM_PATHS_SCOPE", "all");
-    test.env.set("CARGO_TRIM_PATHS_REMAP", remap());
+    test.process_env.set("CARGO_TRIM_PATHS_SCOPE", "all");
+    test.process_env.set("CARGO_TRIM_PATHS_REMAP", remap());
     test.collect_flag_supported_probes();
     let mut build = test.gcc();
     build

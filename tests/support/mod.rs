@@ -19,11 +19,47 @@ pub struct Test {
     pub gcc: PathBuf,
     pub msvc: bool,
     pub msvc_autodetect: bool,
-    pub env: GlobalEnv,
+    /// The environment [`Test::gcc`] hands to cc with
+    /// `Build::set_envs_snapshot`, a copy of the process environment taken by
+    /// [`Test::new`]. Set cc's own variables such as `CC` or `CFLAGS` here,
+    /// before making the build, so the process environment stays unchanged.
+    pub env: EnvsSnapshot,
+    /// The process environment, locked while the test runs. cc reads the
+    /// variables Cargo sets, such as `OUT_DIR`, from it, and the builds of
+    /// [`Test::gcc_with_process_env`] read all of it.
+    pub process_env: GlobalEnv,
     family_detection_probes: bool,
     flag_supported_probes: bool,
     ar_detection_probes: bool,
     cpp_stdlib_probes: bool,
+}
+
+/// Environment variables for [`Test::gcc`] to hand to cc.
+pub struct EnvsSnapshot {
+    vars: Vec<(OsString, OsString)>,
+}
+
+impl EnvsSnapshot {
+    pub fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
+        self.remove(&key);
+        self.vars.push((key.as_ref().into(), value.as_ref().into()));
+    }
+
+    pub fn remove(&mut self, key: impl AsRef<OsStr>) {
+        let key = key.as_ref();
+        // Environment variable names are case-insensitive on Windows.
+        self.vars.retain(|(k, _)| {
+            if cfg!(windows) {
+                !k.eq_ignore_ascii_case(key)
+            } else {
+                k != key
+            }
+        });
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&OsStr, &OsStr)> {
+        self.vars.iter().map(|(key, value)| (&**key, &**value))
+    }
 }
 
 /// Files the shim records cc's own probing invocations in, per probe class.
@@ -45,7 +81,7 @@ pub struct Execution {
 impl Test {
     #[track_caller]
     pub fn new() -> Test {
-        let mut env = GlobalEnv::lock();
+        let mut process_env = GlobalEnv::lock();
 
         // This is ugly: `sccache` needs to introspect the compiler it is
         // executing, as it adjusts its behavior depending on the
@@ -57,19 +93,19 @@ impl Test {
         // without setting an environment variable here and testing for it
         // there. Explicitly deasserting RUSTC_WRAPPER here seems to be the
         // lesser of the two evils.
-        env.remove("RUSTC_WRAPPER");
+        process_env.remove("RUSTC_WRAPPER");
 
         // cc-rs prefers these env vars to the wrappers. We set these in some tests, so unset them so the wrappers get used
-        env.remove("CC");
-        env.remove("CXX");
-        env.remove("AR");
-        env.remove("CC_MASM_ASM");
+        process_env.remove("CC");
+        process_env.remove("CXX");
+        process_env.remove("AR");
+        process_env.remove("CC_MASM_ASM");
 
         // Some tests check that a flag is *not* present.  These tests might fail if the flag is set in the
         // CFLAGS or CXXFLAGS environment variables.  This clears the CFLAGS and CXXFLAGS
         // variables to make sure that the tests can run correctly.
-        env.set("CFLAGS", "");
-        env.set("CXXFLAGS", "");
+        process_env.set("CFLAGS", "");
+        process_env.set("CXXFLAGS", "");
 
         let td = Builder::new()
             .prefix("cc-shim-test")
@@ -81,7 +117,10 @@ impl Test {
             gcc: env!("CARGO_BIN_EXE_cc-shim").into(),
             msvc: false,
             msvc_autodetect: false,
-            env,
+            env: EnvsSnapshot {
+                vars: env::vars_os().collect(),
+            },
+            process_env,
             family_detection_probes: false,
             flag_supported_probes: false,
             ar_detection_probes: false,
@@ -141,6 +180,20 @@ impl Test {
     /// Flag-support probes must still work when `OUT_DIR` is unset, as in
     /// rustc bootstrap which is not a Cargo build script.
     pub fn gcc_without_out_dir(&self) -> cc::Build {
+        let mut cfg = self.build();
+        cfg.set_envs_snapshot(self.env.iter());
+        cfg
+    }
+
+    /// Like [`Self::gcc`], but cc copies the process environment on first use,
+    /// as in a build script, instead of getting [`Test::env`].
+    pub fn gcc_with_process_env(&self) -> cc::Build {
+        let mut cfg = self.build();
+        cfg.out_dir(self.td.path());
+        cfg
+    }
+
+    fn build(&self) -> cc::Build {
         let mut cfg = cc::Build::new();
         let target = if self.msvc || self.msvc_autodetect {
             "x86_64-pc-windows-msvc"
