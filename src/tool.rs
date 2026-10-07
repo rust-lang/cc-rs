@@ -3,6 +3,7 @@ use crate::{
     command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
+    utilities::IgnoreAsciiCase,
     Error, ErrorKind, OutputKind,
 };
 use std::{
@@ -154,7 +155,7 @@ impl Tool {
             .unwrap_or_default()
                 || {
                     match path.file_name().map(OsStr::to_string_lossy) {
-                        Some(fname) => fname.to_ascii_lowercase().contains("zig"),
+                        Some(fname) => fname.contains_ignore_ascii_case("zig"),
                         _ => false,
                     }
                 }
@@ -317,15 +318,17 @@ impl Tool {
             cargo_output.print_warning(&format_args!(
                 "Compiler family detection failed due to error: {e}"
             ));
-            let fname = path
-                .file_name()
-                .map(|fname| fname.to_string_lossy().to_ascii_lowercase());
-            match fname.as_deref() {
-                Some(fname) if fname.contains("clang-cl") => ToolFamily::Msvc { clang_cl: true },
-                Some(fname) if fname.ends_with("cl") || fname == "cl.exe" => {
+            match path.file_name().map(OsStr::to_string_lossy) {
+                Some(fname) if fname.contains_ignore_ascii_case("clang-cl") => {
+                    ToolFamily::Msvc { clang_cl: true }
+                }
+                Some(fname)
+                    if fname.ends_with_ignore_ascii_case("cl")
+                        || fname.eq_ignore_ascii_case("cl.exe") =>
+                {
                     ToolFamily::Msvc { clang_cl: false }
                 }
-                Some(fname) if fname.contains("clang") => {
+                Some(fname) if fname.contains_ignore_ascii_case("clang") => {
                     let is_clang_cl = args
                         .iter()
                         .any(|a| a.strip_prefix("--driver-mode=") == Some("cl"));
@@ -337,7 +340,9 @@ impl Tool {
                         }
                     }
                 }
-                Some(fname) if fname.contains("zig") => ToolFamily::Clang { zig_cc: true },
+                Some(fname) if fname.contains_ignore_ascii_case("zig") => {
+                    ToolFamily::Clang { zig_cc: true }
+                }
                 _ => ToolFamily::Gnu,
             }
         });
