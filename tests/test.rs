@@ -2321,6 +2321,411 @@ fn cxxstdlib_static_env_metadata() {
     }
 }
 
+/// What the C++ stdlib probe of a Clang that uses libc++ prints.
+const LIBCXX_PROBE_STDOUT: &str = "# 1 \"detect_cpp_stdlib.cpp\"\n#pragma message(\"libcxx\")\n";
+
+/// A `Build` for a C++ library with Clang, on a target that links libstdc++ by
+/// default, whose C++ stdlib probe prints `probe_stdout`, or fails without it.
+fn clang_cpp_build(test: &Test, probe_stdout: Option<&str>) -> cc::Build {
+    let mut build = test.gcc();
+    build
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .cpp(true)
+        .file("foo.cpp")
+        .compiler(test.td.path().join("clang++"))
+        .archiver(test.td.path().join("ar"));
+    if let Some(stdout) = probe_stdout {
+        build.env("CC_SHIM_STDOUT_FOR_CPP_STDLIB_DETECTION", stdout);
+    }
+    build
+}
+
+/// Like [`clang_cpp_build`], with a probe that finds libc++.
+fn libcxx_clang_build(test: &Test) -> cc::Build {
+    clang_cpp_build(test, Some(LIBCXX_PROBE_STDOUT))
+}
+
+/// On a target that links libstdc++ by default, a Clang that uses libc++ gets
+/// `c++` linked instead, and anything else keeps `stdc++`.
+///
+/// This test runs the builds in a subprocess so we
+/// can capture and assert on the emitted cargo metadata.
+#[test]
+fn cpp_stdlib_detection_metadata() {
+    // When invoked as subprocess, perform the builds and return.
+    if let Some(case) = env::var_os("__CC_TEST_CPP_STDLIB_DETECTION") {
+        let mut test = Test::clang();
+        test.shim("c++").shim("nvcc");
+        let library = test.td.path().join("libfoo.a");
+        let mut build = libcxx_clang_build(&test);
+        match case.to_str().unwrap() {
+            "libcxx" => {}
+            "libstdcxx" => {
+                // Only the message counts, not a path that mentions libcxx.
+                let probe_stdout = "# 1 \"/build/libcxx-sys/out/detect_cpp_stdlib.cpp\"\n";
+                build = clang_cpp_build(&test, Some(probe_stdout));
+            }
+            "probe-fails" => {
+                build = clang_cpp_build(&test, None);
+            }
+            "gcc" => {
+                build.compiler(test.td.path().join("c++"));
+            }
+            "cpp-link-stdlib" => {
+                build.cpp_link_stdlib("stdc++");
+            }
+            "nostdinc++" => {
+                build
+                    .flag("-nostdinc++")
+                    .flag("-isystemvendor/libc++/include");
+            }
+            "wasm32" => {
+                build.target("wasm32-unknown-unknown");
+            }
+            "windows-gnu" => {
+                // A Windows compiler ends its lines with `\r\n`.
+                let probe_stdout = LIBCXX_PROBE_STDOUT.replace('\n', "\r\n");
+                build = clang_cpp_build(&test, Some(&probe_stdout));
+                build
+                    .target("x86_64-pc-windows-gnu")
+                    .host("x86_64-pc-windows-gnu");
+                cc::emit_link_directives(&build, &library);
+                cc::emit_link_directives(&build, &library);
+                return;
+            }
+            "cuda" => {
+                test.env.set("CXX", test.td.path().join("clang++"));
+                test.env.set("NVCC", test.td.path().join("nvcc"));
+                let mut build = test.gcc();
+                build
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .cuda(true)
+                    .cudart("none")
+                    .env(
+                        "CC_SHIM_STDOUT_FOR_CPP_STDLIB_DETECTION",
+                        LIBCXX_PROBE_STDOUT,
+                    );
+                cc::emit_link_directives(&build, &library);
+                cc::emit_link_directives(&build, &library);
+                return;
+            }
+            "no-out-dir" => {
+                let mut build = test.gcc_without_out_dir();
+                build
+                    .target("x86_64-unknown-linux-gnu")
+                    .host("x86_64-unknown-linux-gnu")
+                    .cpp(true)
+                    .compiler(test.td.path().join("clang++"))
+                    .env(
+                        "CC_SHIM_STDOUT_FOR_CPP_STDLIB_DETECTION",
+                        LIBCXX_PROBE_STDOUT,
+                    );
+                cc::emit_link_directives(&build, &library);
+                cc::emit_link_directives(&build.clone(), &library);
+                return;
+            }
+            "out-dir-fails-once" => {
+                // A probe that fails for a reason outside the compiler is not
+                // remembered, so the next one can still find libc++.
+                let blocker = test.td.path().join("blocker");
+                std::fs::write(&blocker, "").unwrap();
+                build.out_dir(blocker.join("out"));
+                cc::emit_link_directives(&build, &library);
+                std::fs::remove_file(&blocker).unwrap();
+                cc::emit_link_directives(&build, &library);
+                return;
+            }
+            "force-disable" => {
+                cc::emit_link_directives(&build, &library);
+                return;
+            }
+            case => panic!("unknown case {case}"),
+        }
+        build.compile("foo");
+        build.compile("bar");
+        return;
+    }
+
+    let cargo_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
+        let output = GlobalEnv::output(
+            Command::new(env::current_exe().unwrap())
+                .env("__CC_TEST_CPP_STDLIB_DETECTION", case)
+                .env_remove("CXXSTDLIB")
+                .env_remove("CXXSTDLIB_STATIC")
+                .env_remove("CC_FORCE_DISABLE")
+                .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+                .env_remove("OUT_DIR")
+                .envs(envs.iter().copied())
+                .args(["--exact", "cpp_stdlib_detection_metadata", "--nocapture"]),
+        );
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        String::from_utf8_lossy(&output.stdout)
+            .lines()
+            .filter_map(|line| line.find("cargo:").map(|i| line[i..].to_owned()))
+            .collect()
+    };
+    let link_lib_lines = |case: &str, envs: &[(&str, &str)]| -> Vec<String> {
+        cargo_lines(case, envs)
+            .iter()
+            .filter_map(|line| line.strip_prefix("cargo:rustc-link-lib="))
+            .map(str::to_owned)
+            .collect()
+    };
+    // The probe prints nothing itself, and works out the compiler again
+    // without repeating the lines and warnings the build already printed.
+    let other_lines = |case: &str| -> Vec<String> {
+        cargo_lines(case, &[])
+            .into_iter()
+            .filter(|line| {
+                !line.starts_with("cargo:rustc-link-")
+                    && !(line.starts_with("cargo:rerun-if-env-changed=")
+                        && line.contains("CXXSTDLIB"))
+            })
+            // Leave out the paths, which differ between runs.
+            .map(|line| line.split('"').next().unwrap().to_owned())
+            .collect()
+    };
+    let without_probe = other_lines("cpp-link-stdlib");
+    assert!(
+        without_probe
+            .iter()
+            .any(|line| line.starts_with("cargo:warning=")),
+        "{without_probe:?}"
+    );
+    assert_eq!(other_lines("libcxx"), without_probe);
+    assert_eq!(other_lines("probe-fails"), without_probe);
+
+    let libcxx = ["static=foo", "c++", "static=bar", "c++"];
+    let libstdcxx = ["static=foo", "stdc++", "static=bar", "stdc++"];
+    assert_eq!(link_lib_lines("libcxx", &[]), libcxx);
+    // The static stdlib follows the detected one.
+    assert_eq!(
+        link_lib_lines("libcxx", &[("CXXSTDLIB_STATIC", "1")]),
+        ["static=foo", "static:-bundle=c++", "static=bar"]
+    );
+    assert_eq!(
+        link_lib_lines("windows-gnu", &[]),
+        ["static=foo", "c++", "static=foo", "c++"]
+    );
+    assert_eq!(
+        link_lib_lines("no-out-dir", &[]),
+        ["static=foo", "c++", "static=foo", "c++"]
+    );
+    assert_eq!(
+        link_lib_lines("out-dir-fails-once", &[]),
+        ["static=foo", "stdc++", "static=foo", "c++"]
+    );
+
+    // Everything else keeps `stdc++`.
+    assert_eq!(link_lib_lines("libstdcxx", &[]), libstdcxx);
+    assert_eq!(link_lib_lines("probe-fails", &[]), libstdcxx);
+    assert_eq!(link_lib_lines("gcc", &[]), libstdcxx);
+    assert_eq!(link_lib_lines("cpp-link-stdlib", &[]), libstdcxx);
+    // A build that compiles against C++ headers of its own, such as a vendored
+    // libc++ it links in some other way, keeps `stdc++` too.
+    assert_eq!(link_lib_lines("nostdinc++", &[]), libstdcxx);
+    assert_eq!(
+        link_lib_lines("libcxx", &[("CXXSTDLIB", "stdc++")]),
+        libstdcxx
+    );
+    assert_eq!(
+        link_lib_lines("wasm32", &[]),
+        ["static=foo", "stdc++", "static=bar", "stdc++"]
+    );
+    assert_eq!(
+        link_lib_lines("cuda", &[]),
+        ["static=foo", "stdc++", "static=foo", "stdc++"]
+    );
+    assert_eq!(
+        link_lib_lines("force-disable", &[("CC_FORCE_DISABLE", "1")]),
+        ["static=foo", "stdc++"]
+    );
+}
+
+/// The C++ stdlib probe runs the compiler with the flags the build compiles
+/// with, but without the ones that write a dependency file, so it can't write
+/// one next to the build's own or overwrite it.
+#[test]
+fn cpp_stdlib_probe_drops_dependency_output_flags() {
+    let mut test = Test::clang();
+    test.collect_cpp_stdlib_probes();
+    test.env.set("CXXFLAGS", "-DFROM_ENV -MP -MFenv.d");
+    let mut build = libcxx_clang_build(&test);
+    for flag in [
+        "-stdlib=libc++",
+        "-MD",
+        "-MF",
+        "deps.d",
+        "-MMD",
+        "-MTtarget",
+        "-MQ",
+        "quoted",
+        "-MJ",
+        "db.json",
+        "-Wp,-MD,wp.d",
+    ] {
+        build.flag(flag);
+    }
+    build.compile("foo");
+
+    let probe = test
+        .get_cpp_stdlib_probes(0)
+        .expect("no C++ stdlib probe ran");
+    probe
+        .must_have("-E")
+        .must_have("-stdlib=libc++")
+        .must_have("-DFROM_ENV");
+    for arg in [
+        "-MD",
+        "-MF",
+        "deps.d",
+        "-MMD",
+        "-MTtarget",
+        "-MQ",
+        "quoted",
+        "-MJ",
+        "db.json",
+        "-Wp,-MD,wp.d",
+        "-MP",
+        "-MFenv.d",
+    ] {
+        probe.must_not_have(arg);
+    }
+    // The compile itself keeps them.
+    test.cmd_for_source("foo.cpp")
+        .must_have("-MD")
+        .must_have("deps.d")
+        .must_have("-MFenv.d");
+}
+
+/// The C++ stdlib probe runs once per command, shared by clones, and again for
+/// a command or environment it hasn't seen.
+#[test]
+fn cpp_stdlib_probe_is_cached_per_command() {
+    let mut test = Test::clang();
+    test.collect_cpp_stdlib_probes();
+    let build = libcxx_clang_build(&test);
+    build.compile("foo");
+    build.compile("bar");
+    build.clone().compile("baz");
+    assert!(test.get_cpp_stdlib_probes(0).is_some(), "no probe ran");
+    assert!(test.get_cpp_stdlib_probes(1).is_none(), "probed again");
+
+    build.clone().flag("-DOTHER").compile("foo");
+    test.get_cpp_stdlib_probes(1)
+        .expect("a new flag did not probe again")
+        .must_have("-DOTHER");
+
+    build.clone().env("CC_TEST_OTHER_ENV", "1").compile("foo");
+    assert!(
+        test.get_cpp_stdlib_probes(2).is_some(),
+        "a new environment did not probe again"
+    );
+    assert!(test.get_cpp_stdlib_probes(3).is_none());
+}
+
+/// Guard test: the C++ stdlib probe doesn't run where its answer isn't used.
+#[test]
+fn cpp_stdlib_probe_skipped() {
+    let library = |test: &Test| test.td.path().join("libfoo.a");
+    let check = |configure: &dyn Fn(&Test, &mut cc::Build)| {
+        let mut test = Test::clang();
+        test.collect_cpp_stdlib_probes().shim("c++");
+        let mut build = libcxx_clang_build(&test);
+        configure(&test, &mut build);
+        cc::emit_link_directives(&build, library(&test));
+        assert!(test.get_cpp_stdlib_probes(0).is_none(), "the probe ran");
+    };
+
+    // The stdlib is set explicitly.
+    check(&|_, build| {
+        build.cpp_link_stdlib("stdc++");
+    });
+    check(&|_, build| {
+        build.cpp_link_stdlib(None);
+    });
+    check(&|_, build| {
+        build.cpp_set_stdlib("c++");
+    });
+    // Nothing is linked without metadata.
+    check(&|_, build| {
+        build.cargo_metadata(false);
+    });
+    // Only Clang is probed.
+    check(&|test, build| {
+        build.compiler(test.td.path().join("c++"));
+    });
+    // The build picks its own C++ headers.
+    check(&|_, build| {
+        build.flag("-nostdinc++");
+    });
+    check(&|_, build| {
+        build.flag("-nostdinc");
+    });
+    // Targets that don't link libstdc++ by default.
+    check(&|_, build| {
+        build.target("aarch64-linux-android");
+    });
+    check(&|_, build| {
+        build.target("x86_64-unknown-freebsd");
+    });
+    check(&|_, build| {
+        build.target("wasm32-unknown-unknown");
+    });
+
+    let mut test = Test::clang();
+    test.collect_cpp_stdlib_probes();
+    test.env.set("CXXSTDLIB", "stdc++");
+    cc::emit_link_directives(&libcxx_clang_build(&test), library(&test));
+    assert!(test.get_cpp_stdlib_probes(0).is_none(), "the probe ran");
+    drop(test);
+
+    let mut test = Test::clang();
+    test.collect_cpp_stdlib_probes();
+    test.env.set("CC_FORCE_DISABLE", "1");
+    cc::emit_link_directives(&libcxx_clang_build(&test), library(&test));
+    assert!(test.get_cpp_stdlib_probes(0).is_none(), "the probe ran");
+}
+
+/// Guard test: like family detection, the C++ stdlib probe only sends its
+/// stderr and its failure to the build's logger with debug output.
+#[test]
+fn cpp_stdlib_probe_logs_nothing() {
+    use cc::{BuildMessage, BuildMessageKind, BuildMessageLogger};
+    use std::{
+        any::Any,
+        sync::{Arc, Mutex},
+    };
+
+    struct Messages(Mutex<Vec<String>>);
+
+    impl BuildMessageLogger for Messages {
+        fn log(&self, _: BuildMessageKind, msg: BuildMessage<'_>, _: &dyn Any) {
+            self.0.lock().unwrap().push(msg.to_string());
+        }
+    }
+
+    let mut test = Test::clang();
+    test.collect_cpp_stdlib_probes();
+    let messages = Arc::new(Messages(Mutex::new(Vec::new())));
+    let mut build = clang_cpp_build(&test, None);
+    build
+        .cargo_debug(false)
+        .cargo_warnings(false)
+        .message_logger(Some(messages.clone()));
+    cc::emit_link_directives(&build, test.td.path().join("libfoo.a"));
+    assert!(test.get_cpp_stdlib_probes(0).is_some(), "no probe ran");
+    let messages = messages.0.lock().unwrap();
+    assert!(
+        messages
+            .iter()
+            .all(|msg| !msg.contains("detect_cpp_stdlib") && !msg.contains("cannot preprocess")),
+        "{messages:?}"
+    );
+}
+
 /// A clone shares the flag support cache with the `Build` it was cloned from,
 /// so an answer may only be reused for a probe that would run the same way.
 #[test]

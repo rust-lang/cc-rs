@@ -23,6 +23,7 @@ pub struct Test {
     family_detection_probes: bool,
     flag_supported_probes: bool,
     ar_detection_probes: bool,
+    cpp_stdlib_probes: bool,
 }
 
 /// Files the shim records cc's own probing invocations in, per probe class.
@@ -32,6 +33,7 @@ pub struct Test {
 const FAMILY_DETECTION_PROBES: &str = "family-detection-probe";
 const FLAG_SUPPORTED_PROBES: &str = "flag-supported-probe";
 const AR_DETECTION_PROBES: &str = "ar-detection-probe";
+const CPP_STDLIB_PROBES: &str = "cpp-stdlib-probe";
 const PROBE_SLOTS: usize = 4;
 
 pub struct Execution {
@@ -83,6 +85,7 @@ impl Test {
             family_detection_probes: false,
             flag_supported_probes: false,
             ar_detection_probes: false,
+            cpp_stdlib_probes: false,
         }
     }
 
@@ -169,6 +172,12 @@ impl Test {
             cfg.env(
                 "CC_SHIM_OUT_FILES_FOR_AR_DETECTION",
                 self.probe_out_files(AR_DETECTION_PROBES),
+            );
+        }
+        if self.cpp_stdlib_probes {
+            cfg.env(
+                "CC_SHIM_OUT_FILES_FOR_CPP_STDLIB_DETECTION",
+                self.probe_out_files(CPP_STDLIB_PROBES),
             );
         }
         if self.msvc {
@@ -258,6 +267,20 @@ impl Test {
     /// [`Test::collect_ar_detection_probes`].
     pub fn get_ar_detection_probes(&self, i: usize) -> Execution {
         self.execution(self.probe_slot(AR_DETECTION_PROBES, i))
+    }
+
+    /// Record cc's C++ standard library probes, so
+    /// [`Test::get_cpp_stdlib_probes`] can read them back.
+    pub fn collect_cpp_stdlib_probes(&mut self) -> &mut Self {
+        self.cpp_stdlib_probes = true;
+        self
+    }
+
+    /// Read back the `i`-th C++ standard library probe recorded after
+    /// [`Test::collect_cpp_stdlib_probes`], or `None` if fewer ran.
+    pub fn get_cpp_stdlib_probes(&self, i: usize) -> Option<Execution> {
+        let path = self.probe_slot(CPP_STDLIB_PROBES, i);
+        path.exists().then(|| self.execution(path))
     }
 
     fn probe_slot(&self, class: &str, i: usize) -> PathBuf {

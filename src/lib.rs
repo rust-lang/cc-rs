@@ -190,7 +190,25 @@
 //!
 //! For C++ libraries, the `CXX` and `CXXFLAGS` environment variables are used instead of `CC` and `CFLAGS`.
 //!
-//! The C++ standard library may be linked to the crate target. By default it's `libc++` for macOS, FreeBSD, and OpenBSD, `libc++_shared` for Android, nothing for MSVC, and `libstdc++` for anything else. It can be changed in one of two ways:
+//! The C++ standard library may be linked to the crate target. By default it's `libc++` for macOS, FreeBSD, and OpenBSD, `libc++_shared` for Android, nothing for MSVC, and `libstdc++` for anything else.
+//!
+//! On those other targets, except `wasm32`, a Clang compiler can use `libc++`
+//! instead, when it was built to default to it or is given `-stdlib=libc++`
+//! through `CXXFLAGS` or [`Build::flag`]. For a Clang compiler, `cc` therefore
+//! preprocesses a file that includes a C++ header with the same command and
+//! flags it compiles with, and links `libc++` if the header comes from
+//! `libc++`. If this check fails, `libstdc++` is linked as before. It is not
+//! done for CUDA, when [`Build::cargo_metadata`] is off, or when the flags
+//! include `-nostdinc++` or `-nostdinc`, since the build then picks the C++
+//! headers itself.
+//!
+//! If `libc++` is linked statically (see `CXXSTDLIB_STATIC` below), the build
+//! will probably also need `c++abi`, since `libc++.a` usually doesn't contain
+//! it. `cc` doesn't link it, so link it from the build script, for example with
+//! `cargo:rustc-link-lib=static:-bundle=c++abi`.
+//!
+//! The C++ standard library can be changed in one of two ways, which also skip
+//! the check above:
 //!
 //! 1. by using the `cpp_link_stdlib` method on `Build`:
 //! ```rust,no_run
@@ -364,7 +382,7 @@ use build_env::{BuildEnv, EnvSnapshot, EnvVars};
 
 mod tool;
 pub use tool::Tool;
-use tool::{CompilerFamilyLookupCache, ToolFamily};
+use tool::{CompilerFamilyLookupCache, CppStdlibLookupCache, ToolFamily};
 
 mod tempfile;
 
@@ -402,6 +420,7 @@ struct BuildCache {
     apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
     apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
+    cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<HashSet<Box<str>>>,
     known_flag_support_status_cache: RwLock<HashMap<Box<OsStr>, BTreeMap<CompilerFlag, bool>>>,
     target_info_parser: target::TargetInfoParser,
@@ -913,7 +932,8 @@ impl Build {
     /// 1. If [`cpp_link_stdlib`](Build::cpp_link_stdlib) is set, use its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, use its value.
     /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
-    ///    `None` for MSVC and `stdc++` for anything else.
+    ///    `None` for MSVC and `stdc++` for anything else, or `c++` there if the
+    ///    compiler is a Clang that uses libc++, see [C++ support](crate#c-support).
     ///
     /// On MSVC this also passes `-Tp` immediately before each `.cc` source file
     /// to ensure that they are compiled as C++ rather than assumed to be
@@ -1077,6 +1097,9 @@ impl Build {
     ///
     /// A value of `None` indicates that no automatic linking should happen,
     /// otherwise cargo will link against the specified library.
+    ///
+    /// Setting this, or `CXXSTDLIB`, also skips checking whether a Clang
+    /// compiler uses libc++, see [C++ support](crate#c-support).
     ///
     /// The given library name must not contain the `lib` prefix.
     ///
@@ -4024,7 +4047,8 @@ impl Build {
     /// 1. If [`cpp_link_stdlib`](cc::Build::cpp_link_stdlib) is set, uses its value.
     /// 2. Else if the `CXXSTDLIB` environment variable is set, uses its value.
     /// 3. Else the default is `c++` for OS X and BSDs, `c++_shared` for Android,
-    ///    `None` for MSVC and `stdc++` for anything else.
+    ///    `None` for MSVC, `c++` for a Clang that uses libc++ and `stdc++` for
+    ///    anything else.
     fn get_cpp_link_stdlib(&self) -> Result<Option<&Path>, Error> {
         match &self.cpp_link_stdlib {
             Some(s) => Ok(s.as_deref().map(Path::new)),
@@ -4046,12 +4070,58 @@ impl Build {
                         Ok(Some(Path::new("c++")))
                     } else if target.os == "android" {
                         Ok(Some(Path::new("c++_shared")))
+                    } else if self.compiler_uses_libcxx(&target) {
+                        Ok(Some(Path::new("c++")))
                     } else {
                         Ok(Some(Path::new("stdc++")))
                     }
                 }
             }
         }
+    }
+
+    /// Whether the C++ compiler is a Clang that uses libc++, on a target whose
+    /// C++ stdlib is otherwise `stdc++`. Clang uses libc++ there when it was
+    /// built to default to it or is given `-stdlib=libc++`, and the stdlib it
+    /// compiled against is the one to link. Any failure answers `false`, which
+    /// keeps `stdc++`.
+    fn compiler_uses_libcxx(&self, target: &TargetInfo<'_>) -> bool {
+        // Without metadata the stdlib isn't linked, and CUDA and `wasm32` link
+        // it their own way.
+        if !self.cargo_output.metadata || self.cuda || target.arch == "wasm32" {
+            return false;
+        }
+        // Work out the compiler again without printing its `cargo:` lines a
+        // second time: when called from `compile`, this `Build` has already
+        // printed the variables it reads and the warnings that come up on the
+        // way.
+        let mut quiet = self.clone();
+        quiet.cargo_output.metadata = false;
+        quiet.cargo_output.warnings = false;
+        if quiet.is_disabled() {
+            return false;
+        }
+        let compiler = match quiet.try_get_compiler() {
+            Ok(compiler) if compiler.is_like_clang() => compiler,
+            _ => return false,
+        };
+        // With `-nostdinc++` the build picks the C++ headers itself, often from
+        // a libc++ it links some other way, so they don't tell which library
+        // to link.
+        if compiler
+            .args()
+            .iter()
+            .any(|arg| arg == "-nostdinc++" || arg == "-nostdinc")
+        {
+            return false;
+        }
+        compiler
+            .uses_libcxx(
+                &self.build_cache.cached_uses_libcxx,
+                &quiet.cargo_output,
+                quiet.get_out_dir().ok().as_deref(),
+            )
+            .unwrap_or(false)
     }
 
     /// Returns whether the C++ standard library is linked statically: if
