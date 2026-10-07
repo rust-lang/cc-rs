@@ -196,6 +196,11 @@
 //! include `-nostdinc++` or `-nostdinc`, since the build then picks the C++
 //! headers itself.
 //!
+//! If `libc++` is linked statically (see `CXXSTDLIB_STATIC` below), the build
+//! will probably also need `c++abi`, since `libc++.a` usually doesn't contain
+//! it. `cc` doesn't link it, so link it from the build script, for example with
+//! `cargo:rustc-link-lib=static:-bundle=c++abi`.
+//!
 //! The C++ standard library can be changed in one of two ways, which also skip
 //! the check above:
 //!
