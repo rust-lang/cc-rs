@@ -1795,7 +1795,7 @@ impl Build {
         }
 
         let mut cmd = compiler.to_command();
-        cmd.set_flag_supported_env(compiler.env());
+        cmd.set_flag_supported_env(&compiler.env);
         command_add_output_file(
             &mut cmd,
             &probe.obj,
@@ -1826,7 +1826,7 @@ impl Build {
             // On MSVC we need to make sure the LIB directory is included
             // so the CRT can be found.
             for (key, value) in &tool.env {
-                if key == "LIB" {
+                if &**key == "LIB" {
                     cmd.env("LIB", value);
                     break;
                 }
@@ -1881,9 +1881,9 @@ impl Build {
         if target.env == "msvc" {
             let compiler = self.get_base_compiler()?;
             let atlmfc_lib = compiler
-                .env()
+                .env
                 .iter()
-                .find(|&(var, _)| var.as_os_str() == OsStr::new("LIB"))
+                .find(|&(var, _)| &**var == OsStr::new("LIB"))
                 .and_then(|(_, lib_paths)| {
                     env::split_paths(lib_paths).find(|path| {
                         let sub = Path::new("atlmfc/lib");
@@ -2425,9 +2425,11 @@ impl Build {
         // This should be acceptable because other messages from rustc are in English anyway,
         // and may also be desirable to improve searchability of the compiler diagnostics.
         if matches!(cmd.family, ToolFamily::Msvc { clang_cl: false }) {
-            cmd.env.push(("VSLANG".into(), "1033".into()));
+            cmd.env
+                .push((OsStr::new("VSLANG").into(), OsStr::new("1033").into()));
         } else {
-            cmd.env.push(("LC_ALL".into(), "C".into()));
+            cmd.env
+                .push((OsStr::new("LC_ALL").into(), OsStr::new("C").into()));
         }
 
         // Disable default flag generation via `no_default_flags` or environment variable
@@ -2544,9 +2546,7 @@ impl Build {
         // Set custom env vars that the user specified with `Build::env`.
         //
         // Do this last, to allow overwriting the other values above.
-        for (key, val) in &self.env.explicit {
-            cmd.env.push((key.into(), val.into()));
-        }
+        cmd.env.extend_from_slice(&self.env.explicit);
 
         Ok(cmd)
     }
@@ -3388,9 +3388,7 @@ impl Build {
             ToolFamily::Msvc { clang_cl: false },
             self.env.inherited().clone(),
         );
-        for (key, value) in &self.env.explicit {
-            tool.env.push((key.into(), value.into()));
-        }
+        tool.env.extend_from_slice(&self.env.explicit);
         tool
     }
 
@@ -3615,7 +3613,7 @@ impl Build {
             cmd.args.push("-isysroot".into());
             cmd.args.push(OsStr::new(&sdk_path).to_owned());
             cmd.env
-                .push(("SDKROOT".into(), OsStr::new(&sdk_path).to_owned()));
+                .push((OsStr::new("SDKROOT").into(), Arc::clone(&sdk_path)));
 
             if target.env == "macabi" {
                 // Mac Catalyst uses the macOS SDK, but to compile against and
@@ -3926,9 +3924,7 @@ impl Build {
                 && tool.env.is_empty()
                 && target.env == "msvc"
             {
-                for (k, v) in cl_exe.env.iter() {
-                    tool.env.push((k.to_owned(), v.to_owned()));
-                }
+                tool.env = cl_exe.env;
             }
         }
 

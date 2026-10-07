@@ -3,7 +3,7 @@ use crate::{
     command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
-    utilities::IgnoreAsciiCase,
+    utilities::{IgnoreAsciiCase, OnceLock},
     Error, ErrorKind, OutputKind,
 };
 use std::{
@@ -125,7 +125,12 @@ pub struct Tool {
     pub(crate) cc_wrapper_path: Option<PathBuf>,
     pub(crate) cc_wrapper_args: Vec<OsString>,
     pub(crate) args: Vec<OsString>,
-    pub(crate) env: Vec<(OsString, OsString)>,
+    pub(crate) env: Vec<(Arc<OsStr>, Arc<OsStr>)>,
+    /// A copy of `env` for the deprecated `Tool::env()`, made on its first
+    /// call. cc only changes `env` while it builds a `Tool`, before handing
+    /// it out, and never calls `Tool::env()` itself, so the copy can't go
+    /// stale.
+    env_os_strings: OnceLock<Box<[(OsString, OsString)]>>,
     /// The environment of the `Build` this came from, applied before `env`.
     pub(crate) inherited_env: EnvSnapshot,
     pub(crate) family: ToolFamily,
@@ -150,7 +155,7 @@ impl Tool {
         cc_tool.env = tool
             .env()
             .into_iter()
-            .map(|(k, v)| (k.clone(), v.clone()))
+            .map(|(k, v)| (k.as_os_str().into(), v.as_os_str().into()))
             .collect();
 
         cc_tool
@@ -205,6 +210,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            env_os_strings: OnceLock::new(),
             inherited_env,
             family,
             cuda: false,
@@ -403,6 +409,7 @@ impl Tool {
             cc_wrapper_args: Vec::new(),
             args: Vec::new(),
             env: Vec::new(),
+            env_os_strings: OnceLock::new(),
             inherited_env: env.inherited().clone(),
             family,
             cuda,
@@ -429,10 +436,7 @@ impl Tool {
         let key = CompilerCommandKey::new(
             &mut iter::once(cmd.get_program()).chain(cmd.get_args()),
             self.inherited_env.clone(),
-            self.env
-                .iter()
-                .map(|(key, value)| (Arc::from(key.as_os_str()), Arc::from(value.as_os_str())))
-                .collect(),
+            self.env.clone().into_boxed_slice(),
         );
         if let Some(uses_libcxx) = cache.read().unwrap().get(&key) {
             return Ok(*uses_libcxx);
@@ -522,7 +526,7 @@ impl Tool {
     /// The command does not inherit the process environment when it is
     /// spawned. Its environment is set in full: the copy of the process
     /// environment this `Tool` was made with (a [`Build`](crate::Build)'s copy,
-    /// see its docs), then [`Tool::env`].
+    /// see its docs), then [`Tool::get_envs`].
     pub fn to_command(&self) -> Command {
         self.command_with_args(&mut self.args.iter().map(OsString::as_os_str))
     }
@@ -567,8 +571,25 @@ impl Tool {
     /// operate.
     ///
     /// This is typically only used for MSVC compilers currently.
+    ///
+    /// The first call copies the variables. [`Tool::get_envs`] borrows them
+    /// instead.
+    #[deprecated = "use `get_envs` instead"]
     pub fn env(&self) -> &[(OsString, OsString)] {
-        &self.env
+        self.env_os_strings.get_or_init(|| {
+            self.get_envs()
+                .map(|(key, value)| (key.to_owned(), value.to_owned()))
+                .collect()
+        })
+    }
+
+    /// Returns the environment variables needed for this compiler to
+    /// operate, in the order [`Tool::to_command`] sets them, so a later entry
+    /// for a variable wins over an earlier one.
+    pub fn get_envs(
+        &self,
+    ) -> impl ExactSizeIterator<Item = (&OsStr, &OsStr)> + DoubleEndedIterator {
+        self.env.iter().map(|(key, value)| (&**key, &**value))
     }
 
     /// Returns the compiler command in format of CC environment variable.
@@ -752,12 +773,74 @@ mod tests {
             ToolFamily::Gnu,
             EnvSnapshot::from_pairs(&[("CC_TEST_ORDER", "inherited")]),
         );
-        tool.env.push(("CC_TEST_ORDER".into(), "tool".into()));
+        tool.env.push((
+            OsStr::new("CC_TEST_ORDER").into(),
+            OsStr::new("tool").into(),
+        ));
         let cmd = tool.to_command();
         let envs: Vec<_> = cmd.get_envs().collect();
         assert_eq!(
             envs,
             [(OsStr::new("CC_TEST_ORDER"), Some(OsStr::new("tool")))]
         );
+    }
+
+    /// Two entries for one variable, so that the order matters.
+    const ENV: [(&str, &str); 3] = [
+        ("CC_TEST_B", "first"),
+        ("CC_TEST_A", "a"),
+        ("CC_TEST_B", "last"),
+    ];
+
+    fn tool_with_env() -> Tool {
+        let mut tool =
+            Tool::with_family("cc".into(), ToolFamily::Gnu, EnvSnapshot::from_pairs(&[]));
+        tool.env = ENV
+            .iter()
+            .map(|(key, value)| (OsStr::new(key).into(), OsStr::new(value).into()))
+            .collect();
+        tool
+    }
+
+    #[test]
+    fn get_envs_yields_env_in_order() {
+        let tool = tool_with_env();
+        let expected: Vec<_> = ENV
+            .iter()
+            .map(|(key, value)| (OsStr::new(key), OsStr::new(value)))
+            .collect();
+
+        let mut envs = tool.get_envs();
+        assert_eq!(envs.size_hint(), (3, Some(3)));
+        envs.next();
+        assert_eq!(envs.len(), 2);
+
+        assert_eq!(tool.get_envs().collect::<Vec<_>>(), expected);
+        assert!(tool.get_envs().rev().eq(expected.into_iter().rev()));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn env_returns_a_copy_of_env_in_order() {
+        let tool = tool_with_env();
+        let expected: Vec<(OsString, OsString)> = ENV
+            .iter()
+            .map(|(key, value)| (key.into(), value.into()))
+            .collect();
+
+        let cloned_before = tool.clone();
+        assert_eq!(tool.env(), expected);
+        assert!(std::ptr::eq(tool.env(), tool.env()));
+        let cloned_after = tool.clone();
+        assert_eq!(cloned_before.env(), expected);
+        assert_eq!(cloned_after.env(), expected);
+    }
+
+    #[test]
+    fn tool_keeps_auto_traits() {
+        use std::panic::{RefUnwindSafe, UnwindSafe};
+
+        fn assert_auto_traits<T: Clone + Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
+        assert_auto_traits::<Tool>();
     }
 }

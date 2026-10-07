@@ -165,8 +165,7 @@ fn main() {
         fn has_spectre(target: &str) -> bool {
             cc::windows_registry::find_tool(target, "cl.exe")
                 .unwrap()
-                .env()
-                .iter()
+                .get_envs()
                 .any(|(k, v)| (k == "LIB") && v.to_str().unwrap().contains(r"\lib\spectre\"))
         }
 
