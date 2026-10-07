@@ -3854,7 +3854,7 @@ impl Build {
         // `--target=` ourselves.
         if cfg!(windows) && android_clang_compiler_uses_target_arg_internally(&tool.path) {
             if let Some(path) = tool.path.file_name() {
-                let file_name = path.to_str().unwrap().to_ascii_lowercase();
+                let file_name = path.to_string_lossy().to_ascii_lowercase();
                 let (target, clang) = file_name.split_at(file_name.rfind('-').unwrap());
 
                 tool.has_internal_target_arg = true;
