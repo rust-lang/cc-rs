@@ -377,6 +377,8 @@ mod logger;
 use logger::Logger;
 pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger};
 
+pub mod compile_commands;
+
 mod build_env;
 use build_env::{BuildEnv, EnvSnapshot, EnvVars};
 
@@ -1376,8 +1378,10 @@ impl Build {
     }
 
     /// Sets a logger that receives cc's messages: its own warnings, each line
-    /// the commands it runs write to stderr, and the commands that failed. See
-    /// [`BuildMessageKind`] for the details.
+    /// the commands it runs write to stderr, the commands that failed, and the
+    /// command that compiles each object file. See [`BuildMessageKind`] for
+    /// the details, and [`compile_commands`] for writing the compile commands
+    /// to a `compile_commands.json`.
     ///
     /// The warnings and stderr lines are still printed as cargo warnings too.
     /// Disable [`cargo_warnings`](Build::cargo_warnings) to send them only to
@@ -2197,23 +2201,47 @@ impl Build {
         let compiler = self.try_get_compiler()?;
         // Likewise for the assembler of `.asm` files, once the first one needs it.
         let mut msvc_asm_tool = None;
+        let compile_command_dir = self.compile_command_dir();
+        let mut create_cmd = |obj: &Object| -> Result<Command, Error> {
+            let cmd = self.create_compile_object_cmd(obj, &compiler, &mut msvc_asm_tool)?;
+            if let Some(dir) = &compile_command_dir {
+                self.cargo_output.log_compile_command(&cmd, obj, dir);
+            }
+            Ok(cmd)
+        };
 
         #[cfg(feature = "parallel")]
         if objs.len() > 1 {
             return parallel::run_commands_in_parallel(
                 &self.cargo_output,
-                &mut objs
-                    .iter()
-                    .map(|obj| self.create_compile_object_cmd(obj, &compiler, &mut msvc_asm_tool)),
+                &mut objs.iter().map(&mut create_cmd),
             );
         }
 
         for obj in objs {
-            let mut cmd = self.create_compile_object_cmd(obj, &compiler, &mut msvc_asm_tool)?;
+            let mut cmd = create_cmd(obj)?;
             run(&mut cmd, &self.cargo_output)?;
         }
 
         Ok(())
+    }
+
+    /// The folder compile commands run in, for the logger's
+    /// [`BuildMessageKind::CompileCommand`] messages, or `None` without a
+    /// logger.
+    fn compile_command_dir(&self) -> Option<PathBuf> {
+        self.cargo_output.logger.as_ref()?;
+        // cc doesn't change the directory of the compile commands, so they run
+        // in this process's current directory.
+        match env::current_dir() {
+            Ok(dir) => Some(dir),
+            Err(e) => {
+                self.cargo_output.print_warning(&format_args!(
+                    "compile commands aren't logged because the current directory can't be read: {e}"
+                ));
+                None
+            }
+        }
     }
 
     /// `compiler` is the result of [`Build::try_get_compiler`]. `msvc_asm_tool`
