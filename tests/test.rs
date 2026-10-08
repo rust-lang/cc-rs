@@ -2995,7 +2995,7 @@ fn env_snapshot_keeps_msvc_tool_env() {
             .collect::<Vec<_>>()
     };
     let tool = build.get_compiler();
-    let tool_path = path_of(tool.env().iter().map(|(k, v)| (&**k, Some(&**v))).collect());
+    let tool_path = path_of(tool.get_envs().map(|(k, v)| (k, Some(v))).collect());
     if tool_path.is_empty() {
         // No Visual Studio found.
         return;

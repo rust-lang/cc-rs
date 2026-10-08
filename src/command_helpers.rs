@@ -17,8 +17,10 @@ use std::{
 };
 
 use crate::{
-    build_env::BuildEnv, logger::Logger, utilities::cargo_env_var_os, BuildMessageKind, Error,
-    ErrorKind, Object,
+    build_env::{BuildEnv, EnvVars},
+    logger::Logger,
+    utilities::cargo_env_var_os,
+    BuildMessageKind, Error, ErrorKind, Object,
 };
 
 #[derive(Clone, Debug)]
@@ -481,13 +483,9 @@ impl ProbeKind {
 /// They are test-only, like `CC_SHIM_OUT_DIR`, and so are documented in
 /// `src/bin/cc-shim.rs` rather than in the table of public variables in
 /// `src/lib.rs`.
-fn set_probe_env<K, V>(cmd: &mut Command, env: &[(K, V)], kind: ProbeKind)
-where
-    K: AsRef<OsStr>,
-    V: AsRef<OsStr>,
-{
+fn set_probe_env(cmd: &mut Command, env: &EnvVars, kind: ProbeKind) {
     for (key, value) in env {
-        cmd.env(key.as_ref(), value.as_ref());
+        cmd.env(key, value);
     }
 
     cmd.env_remove("CC_SHIM_OUT_DIR");
@@ -495,8 +493,8 @@ where
         (kind.out_files_var(), "CC_SHIM_OUT_FILES"),
         (kind.stdout_var(), "CC_SHIM_STDOUT"),
     ] {
-        match env.iter().find(|(key, _)| key.as_ref() == OsStr::new(var)) {
-            Some((_, value)) => cmd.env(shim_var, value.as_ref()),
+        match env.iter().find(|(key, _)| &**key == OsStr::new(var)) {
+            Some((_, value)) => cmd.env(shim_var, value),
             None => cmd.env_remove(shim_var),
         };
     }
@@ -682,16 +680,13 @@ pub(crate) trait CommandExt {
     fn set_family_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
 
     /// Apply `Build::env` to an `is_flag_supported` probe.
-    fn set_flag_supported_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>;
+    fn set_flag_supported_env(&mut self, env: &EnvVars) -> &mut Self;
 
     /// Apply the `Build`'s environment to the Android `llvm-ar` probe.
     fn set_ar_detection_env(&mut self, env: &BuildEnv) -> &mut Self;
 
     /// Apply a compiler's environment to its C++ standard library probe.
-    fn set_cpp_stdlib_detection_env(&mut self, env: &[(OsString, OsString)]) -> &mut Self;
+    fn set_cpp_stdlib_detection_env(&mut self, env: &EnvVars) -> &mut Self;
 }
 
 impl CommandExt for Command {
@@ -701,11 +696,7 @@ impl CommandExt for Command {
         self
     }
 
-    fn set_flag_supported_env<K, V>(&mut self, env: &[(K, V)]) -> &mut Self
-    where
-        K: AsRef<OsStr>,
-        V: AsRef<OsStr>,
-    {
+    fn set_flag_supported_env(&mut self, env: &EnvVars) -> &mut Self {
         set_probe_env(self, env, ProbeKind::FlagSupportCheck);
         self
     }
@@ -716,7 +707,7 @@ impl CommandExt for Command {
         self
     }
 
-    fn set_cpp_stdlib_detection_env(&mut self, env: &[(OsString, OsString)]) -> &mut Self {
+    fn set_cpp_stdlib_detection_env(&mut self, env: &EnvVars) -> &mut Self {
         set_probe_env(self, env, ProbeKind::CppStdlibDetection);
         self
     }
