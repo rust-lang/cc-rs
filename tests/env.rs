@@ -13,7 +13,7 @@ fn env_propagates_to_subprocesses() {
 
     let mut test = Test::gnu();
 
-    // Get developer dir before changing the global environment.
+    // Get developer dir before changing the environment.
     let developer_dir = xcode_select_developer_dir();
     // Set developer dir to something bogus.
     test.env.set("DEVELOPER_DIR", "foo");

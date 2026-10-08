@@ -9,9 +9,10 @@ use crate::utilities::OnceLock;
 pub(crate) type EnvVars = [(Arc<OsStr>, Arc<OsStr>)];
 
 /// The environment of a [`Build`](crate::Build): a snapshot of the process
-/// environment, taken on the first read and used for cc's own lookups, then
-/// the entries set with [`Build::env`](crate::Build::env), which win over it in
-/// child processes.
+/// environment, taken on the first read or given with
+/// `Build::set_envs_snapshot`, and used for cc's own lookups, then the entries
+/// set with [`Build::env`](crate::Build::env), which win over it in child
+/// processes.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct BuildEnv {
     /// Private, so that nothing can read the environment without taking the
@@ -26,17 +27,22 @@ impl BuildEnv {
         inherited: EnvSnapshot,
         explicit: Vec<(Arc<OsStr>, Arc<OsStr>)>,
     ) -> Self {
-        let cell = OnceLock::new();
-        cell.get_or_init(|| inherited);
         Self {
-            inherited: cell,
+            inherited: inherited.into(),
             explicit,
         }
     }
 
-    /// The process environment as it was when this was first called.
+    /// The process environment as it was when this was first called, unless
+    /// [`BuildEnv::set_inherited`] replaced it.
     pub(crate) fn inherited(&self) -> &EnvSnapshot {
         self.inherited.get_or_init(EnvSnapshot::capture)
+    }
+
+    /// Use `inherited` instead of the process environment, also if the
+    /// snapshot was already taken.
+    pub(crate) fn set_inherited(&mut self, inherited: EnvSnapshot) {
+        self.inherited = inherited.into();
     }
 
     /// Make `cmd` run in this environment. Like [`EnvSnapshot::apply`], this
@@ -47,19 +53,33 @@ impl BuildEnv {
     }
 }
 
-/// A copy of the process environment. Clones share the copy.
+/// A copy of the process environment, or the variables given to
+/// `Build::set_envs_snapshot`. Clones share the copy.
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct EnvSnapshot {
     vars: Arc<EnvVars>,
 }
 
 impl EnvSnapshot {
-    /// Copy the process environment as it is now.
+    /// Copy the process environment as it is now. A variable it holds twice,
+    /// such as `Path` and `PATH` on Windows, takes its last value, as in the
+    /// tools cc runs.
     pub(crate) fn capture() -> Self {
+        Self::from_vars(&mut env::vars_os().map(|(key, value)| (key.into(), value.into())))
+    }
+
+    /// A snapshot holding `vars`. A variable given more than once takes its
+    /// last value, as with [`Command::envs`].
+    pub(crate) fn from_vars(vars: &mut dyn Iterator<Item = (Arc<OsStr>, Arc<OsStr>)>) -> Self {
+        let mut deduped: Vec<(Arc<OsStr>, Arc<OsStr>)> = Vec::with_capacity(vars.size_hint().0);
+        for (key, value) in vars {
+            match deduped.iter_mut().find(|(k, _)| is_same_key(k, &key)) {
+                Some(entry) => entry.1 = value,
+                None => deduped.push((key, value)),
+            }
+        }
         Self {
-            vars: env::vars_os()
-                .map(|(key, value)| (key.into(), value.into()))
-                .collect(),
+            vars: deduped.into(),
         }
     }
 
@@ -74,7 +94,7 @@ impl EnvSnapshot {
     }
 
     /// Look up `key` the way [`env::var_os`] would have when the snapshot was
-    /// taken.
+    /// taken, except that a variable held twice gives its last value.
     pub(crate) fn get(&self, key: &OsStr) -> Option<&Arc<OsStr>> {
         self.vars
             .iter()
@@ -177,6 +197,47 @@ mod tests {
             assert_eq!(other_case, Some(OsStr::new("a")));
         } else {
             assert_eq!(other_case, None);
+        }
+    }
+
+    #[test]
+    fn set_inherited_replaces_a_taken_snapshot() {
+        let mut env = BuildEnv::default();
+        env.inherited();
+        env.set_inherited(snapshot(&[("CC_TEST_REPLACED", "1")]));
+        assert_eq!(env.inherited(), &snapshot(&[("CC_TEST_REPLACED", "1")]));
+    }
+
+    /// A variable given twice takes its last value, in cc's own lookups as in
+    /// the tools it runs.
+    #[test]
+    fn snapshot_from_vars_keeps_the_last_value() {
+        let snapshot = EnvSnapshot::from_vars(
+            &mut [
+                ("CC_TEST_TWICE", "first"),
+                ("Path", "a"),
+                ("CC_TEST_TWICE", "last"),
+                ("PATH", "b"),
+            ]
+            .into_iter()
+            .map(|(key, value)| (OsStr::new(key).into(), OsStr::new(value).into())),
+        );
+        assert_eq!(
+            snapshot
+                .get(OsStr::new("CC_TEST_TWICE"))
+                .map(|value| &**value),
+            Some(OsStr::new("last"))
+        );
+        let mut cmd = Command::new("cc");
+        snapshot.apply(&mut cmd);
+        for key in ["CC_TEST_TWICE", "Path", "PATH"] {
+            let key = OsStr::new(key);
+            let in_child = cmd
+                .get_envs()
+                .filter(|(k, _)| is_same_key(k, key))
+                .last()
+                .and_then(|(_, value)| value);
+            assert_eq!(snapshot.get(key).map(|value| &**value), in_child, "{key:?}");
         }
     }
 

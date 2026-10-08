@@ -8,7 +8,7 @@ mod support;
 fn sanity() {
     // Sanity check - no flags
     let mut test = Test::gnu();
-    test.env.set("CARGO_ENCODED_RUSTFLAGS", "");
+    test.process_env.set("CARGO_ENCODED_RUSTFLAGS", "");
     test.gcc().file("foo.c").compile("foo");
     test.cmd(0)
         .must_not_have("-fno-omit-frame-pointer")
@@ -22,7 +22,7 @@ fn sanity() {
 fn inherits_rustflags() {
     // Correctly inherits flags from rustc
     let mut test = Test::gnu();
-    test.env.set(
+    test.process_env.set(
         "CARGO_ENCODED_RUSTFLAGS",
         "-Cforce-frame-pointers=true\u{1f}-Ccode-model=small\u{1f}-Csoft-float\u{1f}-Cdwarf-version=5\u{1f}-Zstack-protector=strong",
     );
@@ -39,7 +39,7 @@ fn inherits_rustflags() {
 #[test]
 fn inherits_target_features() {
     let mut test = Test::gnu();
-    test.env.set(
+    test.process_env.set(
         "CARGO_ENCODED_RUSTFLAGS",
         "-Ctarget-feature=+ssse3,+avx\u{1f}-C\u{1f}target-feature=+avx2,-sse4a,-sse2,+crt-static,+not-a-feature",
     );
@@ -59,7 +59,7 @@ fn inherits_target_features() {
 fn no_stack_protector() {
     // Do *not* propagate -Zstack-protector=none
     let mut test = Test::gnu();
-    test.env.set(
+    test.process_env.set(
         "CARGO_ENCODED_RUSTFLAGS",
         "-Cforce-frame-pointers=true\u{1f}-Ccode-model=small\u{1f}-Csoft-float\u{1f}-Cdwarf-version=5\u{1f}-Zstack-protector=none",
     );
