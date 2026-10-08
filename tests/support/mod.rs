@@ -21,8 +21,9 @@ pub struct Test {
     pub msvc_autodetect: bool,
     /// The environment [`Test::gcc`] hands to cc with
     /// `Build::set_envs_snapshot`, a copy of the process environment taken by
-    /// [`Test::new`]. Set cc's own variables such as `CC` or `CFLAGS` here,
-    /// before making the build, so the process environment stays unchanged.
+    /// [`Test::new`] without [`CLEARED_VARS`]. Set cc's own variables such as
+    /// `CC` or `CFLAGS` here, before making the build, so the process
+    /// environment stays unchanged.
     pub env: EnvsSnapshot,
     /// The process environment, locked while the test runs. cc reads the
     /// variables Cargo sets, such as `OUT_DIR`, from it, and the builds of
@@ -62,6 +63,12 @@ impl EnvsSnapshot {
     }
 }
 
+/// Variables a developer's or CI's environment may set that change what the
+/// tests see: cc prefers `CC`, `CXX`, `AR` and `CC_MASM_ASM` to the shims, and
+/// some tests check that a flag is *not* passed, which `CFLAGS` or `CXXFLAGS`
+/// could add.
+const CLEARED_VARS: [&str; 6] = ["CC", "CXX", "AR", "CC_MASM_ASM", "CFLAGS", "CXXFLAGS"];
+
 /// Files the shim records cc's own probing invocations in, per probe class.
 ///
 /// A build can run a class more than once, so each class gets several slots,
@@ -92,20 +99,16 @@ impl Test {
         // usage of `sccache` if running in a test environment, at least not
         // without setting an environment variable here and testing for it
         // there. Explicitly deasserting RUSTC_WRAPPER here seems to be the
-        // lesser of the two evils.
+        // lesser of the two evils. cc reads it from the process environment,
+        // like the other variables Cargo sets.
         process_env.remove("RUSTC_WRAPPER");
 
-        // cc-rs prefers these env vars to the wrappers. We set these in some tests, so unset them so the wrappers get used
-        process_env.remove("CC");
-        process_env.remove("CXX");
-        process_env.remove("AR");
-        process_env.remove("CC_MASM_ASM");
-
-        // Some tests check that a flag is *not* present.  These tests might fail if the flag is set in the
-        // CFLAGS or CXXFLAGS environment variables.  This clears the CFLAGS and CXXFLAGS
-        // variables to make sure that the tests can run correctly.
-        process_env.set("CFLAGS", "");
-        process_env.set("CXXFLAGS", "");
+        let mut env = EnvsSnapshot {
+            vars: env::vars_os().collect(),
+        };
+        for var in CLEARED_VARS {
+            env.remove(var);
+        }
 
         let td = Builder::new()
             .prefix("cc-shim-test")
@@ -117,9 +120,7 @@ impl Test {
             gcc: env!("CARGO_BIN_EXE_cc-shim").into(),
             msvc: false,
             msvc_autodetect: false,
-            env: EnvsSnapshot {
-                vars: env::vars_os().collect(),
-            },
+            env,
             process_env,
             family_detection_probes: false,
             flag_supported_probes: false,
@@ -186,11 +187,21 @@ impl Test {
     }
 
     /// Like [`Self::gcc`], but cc copies the process environment on first use,
-    /// as in a build script, instead of getting [`Test::env`].
-    pub fn gcc_with_process_env(&self) -> cc::Build {
+    /// as in a build script, instead of getting [`Test::env`]. Calls
+    /// [`Test::clear_process_env`] first.
+    pub fn gcc_with_process_env(&mut self) -> cc::Build {
+        self.clear_process_env();
         let mut cfg = self.build();
         cfg.out_dir(self.td.path());
         cfg
+    }
+
+    /// Remove the variables [`Test::new`] removes from [`Test::env`] from the
+    /// process environment too, for builds that read it.
+    pub fn clear_process_env(&mut self) {
+        for var in CLEARED_VARS {
+            self.process_env.remove(var);
+        }
     }
 
     fn build(&self) -> cc::Build {

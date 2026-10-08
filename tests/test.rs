@@ -2981,6 +2981,7 @@ fn env_snapshot_keeps_msvc_tool_env() {
     use std::ffi::OsStr;
 
     let mut test = Test::new();
+    test.clear_process_env();
     let mut build = cc::Build::new();
     build
         .target("x86_64-pc-windows-msvc")
@@ -3132,7 +3133,9 @@ fn env_snapshot_reaches_family_detection() {
         .out_dir(test.td.path())
         .compiler("cc")
         .env("CC_SHIM_OUT_FILES_FOR_FAMILY_DETECTION", &probe_record);
-    build.try_flags_from_environment("CFLAGS").unwrap();
+    // Takes the snapshot while `PATH` has the shim, whether `CFLAGS` is set or
+    // not.
+    let _ = build.try_flags_from_environment("CFLAGS");
     test.process_env.set("PATH", test.td.path().join("empty"));
     build.try_get_compiler().unwrap();
     assert!(probe_record.exists());
@@ -3193,10 +3196,11 @@ fn flag_support_cache_is_per_host() {
 #[test]
 fn set_envs_snapshot_replaces_process_env() {
     let mut test = Test::gnu();
+    let mut build = test.gcc_with_process_env();
     test.process_env.set("CFLAGS", "-Dfrom_process_env");
     // The shim fails if it gets this.
     test.process_env.set("CC_SHIM_FAIL_IF_ARG", "foo.c");
-    test.gcc_with_process_env()
+    build
         .set_envs_snapshot([("CFLAGS", "-Dfrom_snapshot")])
         .file("foo.c")
         .try_compile("foo")
@@ -3210,7 +3214,7 @@ fn set_envs_snapshot_replaces_process_env() {
 /// snapshot, with `Build::env` on top.
 #[test]
 fn set_envs_snapshot_reaches_tools_under_build_env() {
-    let test = Test::gnu();
+    let mut test = Test::gnu();
     for fail_on in ["foo.c", "--marker"] {
         let mut build = test.gcc_with_process_env();
         build
@@ -3233,7 +3237,7 @@ fn set_envs_snapshot_reaches_tools_under_build_env() {
 /// A second call replaces the snapshot rather than adding to it.
 #[test]
 fn set_envs_snapshot_replaces_earlier_call() {
-    let test = Test::gnu();
+    let mut test = Test::gnu();
     test.gcc_with_process_env()
         .set_envs_snapshot([("CFLAGS", "-Dfirst")])
         .set_envs_snapshot([("HOST_CFLAGS", "-Dsecond")])
@@ -3248,8 +3252,8 @@ fn set_envs_snapshot_replaces_earlier_call() {
 #[test]
 fn set_envs_snapshot_after_first_read() {
     let mut test = Test::gnu();
-    test.process_env.set("CFLAGS", "-Dfrom_process_env");
     let mut build = test.gcc_with_process_env();
+    test.process_env.set("CFLAGS", "-Dfrom_process_env");
     build.file("foo.c");
     build.try_get_compiler().unwrap();
     build.set_envs_snapshot([("CFLAGS", "-Dfrom_snapshot")]);
@@ -3284,7 +3288,7 @@ fn set_envs_snapshot_is_part_of_flag_support_cache_key() {
 /// runs.
 #[test]
 fn set_envs_snapshot_last_value_wins() {
-    let test = Test::gnu();
+    let mut test = Test::gnu();
     test.gcc_with_process_env()
         .set_envs_snapshot([
             ("CFLAGS", "-Dfirst"),

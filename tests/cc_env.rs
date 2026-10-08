@@ -128,7 +128,7 @@ fn wrapper_name_ignores_case() {
 #[test]
 fn rustc_wrapper_name_ignores_case() {
     let mut test = Test::clang();
-    test.env.set("RUSTC_WRAPPER", "SCCACHE.EXE");
+    test.process_env.set("RUSTC_WRAPPER", "SCCACHE.EXE");
     test.env.set("CC", "clang");
     let compiler = test
         .gcc()
