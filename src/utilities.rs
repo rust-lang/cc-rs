@@ -53,23 +53,22 @@ where
 
 /// A [`Display`](fmt::Display) that formats by calling `f`, like
 /// `std::fmt::from_fn`, which needs Rust 1.93.
-pub(crate) fn from_fn<F>(f: F) -> FromFn<F>
+pub(crate) fn from_fn<F>(f: F) -> impl fmt::Display
 where
     F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
 {
-    FromFn(f)
-}
+    struct FromFn<F>(F);
 
-/// Returned by [`from_fn`].
-pub(crate) struct FromFn<F>(F);
-
-impl<F> fmt::Display for FromFn<F>
-where
-    F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        (self.0)(f)
+    impl<F> fmt::Display for FromFn<F>
+    where
+        F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            (self.0)(f)
+        }
     }
+
+    FromFn(f)
 }
 
 pub(crate) struct OnceLock<T> {

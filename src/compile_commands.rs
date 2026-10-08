@@ -4,13 +4,13 @@
 //!
 //! cc passes each compile command to the logger set with
 //! [`Build::message_logger`] as a [`BuildMessageKind::CompileCommand`]
-//! message. A [`CompileCommandCollector`] keeps them,
-//! [`store_json_compilation_database`] writes them to a file, and
-//! [`json_compilation_database`] formats them for any other writer:
+//! message. A [`CompileCommandCollector`] keeps them, and
+//! [`json_compilation_database`] formats them as JSON for a file or any other
+//! writer:
 //!
 //! ```no_run
-//! use std::{env, path::PathBuf, sync::Arc};
-//! use cc::compile_commands::{store_json_compilation_database, CompileCommandCollector};
+//! use std::{env, fs, path::PathBuf, sync::Arc};
+//! use cc::compile_commands::{json_compilation_database, CompileCommandCollector};
 //!
 //! let collector = Arc::new(CompileCommandCollector::new());
 //! cc::Build::new()
@@ -24,8 +24,8 @@
 //!     .compile("bar");
 //!
 //! let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-//! store_json_compilation_database(&collector.commands(), out_dir.join("compile_commands.json"))
-//!     .unwrap();
+//! let json = json_compilation_database(&collector.commands()).to_string();
+//! fs::write(out_dir.join("compile_commands.json"), json).unwrap();
 //! ```
 //!
 //! Cargo expects build scripts to write only to `OUT_DIR`, which is inside the
@@ -65,8 +65,7 @@
 use std::{
     any::Any,
     ffi::{OsStr, OsString},
-    fmt, fs,
-    io::{self, Write},
+    fmt,
     ops::Deref,
     path::{Path, PathBuf},
     process::Command,
@@ -86,7 +85,7 @@ use crate::{
 pub struct CompileCommand {
     directory: PathBuf,
     file: PathBuf,
-    arguments: Vec<OsString>,
+    arguments: Box<[OsString]>,
     output: PathBuf,
 }
 
@@ -130,8 +129,8 @@ impl CompileCommand {
 }
 
 /// A [`BuildMessageLogger`] that keeps the [`CompileCommand`] of every
-/// [`BuildMessageKind::CompileCommand`] message, to write them with
-/// [`store_json_compilation_database`].
+/// [`BuildMessageKind::CompileCommand`] message, to format them with
+/// [`json_compilation_database`].
 ///
 /// Set it on each `Build` with
 /// [`Build::message_logger`](crate::Build::message_logger). Several `Build`s
@@ -171,8 +170,8 @@ impl CompileCommandCollector {
     /// calling `commands` again would lock it a second time, which may
     /// deadlock or panic like [`Mutex::lock`]. So drop it before either, and
     /// use `to_vec()` to keep a copy.
-    pub fn commands(&self) -> impl Deref<Target = [CompileCommand]> + '_ {
-        Commands(self.lock())
+    pub fn commands(&self) -> impl Deref<Target = Vec<CompileCommand>> + '_ {
+        self.lock()
     }
 
     fn lock(&self) -> MutexGuard<'_, Vec<CompileCommand>> {
@@ -194,54 +193,19 @@ impl BuildMessageLogger for CompileCommandCollector {
     }
 }
 
-/// The collector's commands, locked while borrowed.
-struct Commands<'a>(MutexGuard<'a, Vec<CompileCommand>>);
-
-impl Deref for Commands<'_> {
-    type Target = [CompileCommand];
-
-    fn deref(&self) -> &[CompileCommand] {
-        &self.0
-    }
-}
-
 /// Format `commands` as a
 /// [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html),
 /// writing straight to the formatter without building a `String` first.
 ///
 /// It can be formatted any number of times and into anything that takes a
-/// [`Display`](fmt::Display): `to_string()`, `write!` to a file or a buffer,
-/// or as part of a larger text. Paths and arguments that aren't valid Unicode
-/// are written with replacement characters (U+FFFD).
-/// [`store_json_compilation_database`] writes it to a file.
+/// [`Display`](fmt::Display): `to_string()`, `write!` to a buffer or to a file
+/// (through a [`BufWriter`](std::io::BufWriter), since it writes in many small
+/// pieces), or as part of a larger text. Paths and arguments that aren't valid
+/// Unicode are written with replacement characters (U+FFFD). See the
+/// [module docs](self) for an example that writes it to a file.
 #[must_use]
 pub fn json_compilation_database(commands: &[CompileCommand]) -> impl fmt::Display + '_ {
     from_fn(move |f| write_json_compilation_database(f, commands))
-}
-
-/// Write `commands` to `path` as a
-/// [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html),
-/// replacing the file if it exists. The text is the one
-/// [`json_compilation_database`] formats.
-///
-/// See the [module docs](self) for an example.
-///
-/// # Errors
-///
-/// Returns the error of writing the file, for example when its folder doesn't
-/// exist.
-pub fn store_json_compilation_database<P: AsRef<Path>>(
-    commands: &[CompileCommand],
-    path: P,
-) -> io::Result<()> {
-    fn store(commands: &[CompileCommand], path: &Path) -> io::Result<()> {
-        let mut file = io::BufWriter::new(fs::File::create(path)?);
-        write!(file, "{}", json_compilation_database(commands))?;
-        // Dropping a `BufWriter` ignores errors, so flush it here.
-        file.flush()
-    }
-
-    store(commands, path.as_ref())
 }
 
 fn write_json_compilation_database(
@@ -258,50 +222,84 @@ fn write_json_compilation_database(
 
 /// Write `command` as one object of the database's array.
 fn write_json_entry(f: &mut fmt::Formatter<'_>, command: &CompileCommand) -> fmt::Result {
-    f.write_str("  {\n    \"directory\": ")?;
-    write_json_string(f, command.directory.as_os_str())?;
-    f.write_str(",\n    \"file\": ")?;
-    write_json_string(f, command.file.as_os_str())?;
-    f.write_str(",\n    \"arguments\": ")?;
-    write_json_string_array(f, &command.arguments)?;
-    f.write_str(",\n    \"output\": ")?;
-    write_json_string(f, command.output.as_os_str())?;
+    f.write_str("  {\n    ")?;
+    f.write_json_field("directory", &*command.directory)?;
+    f.write_str(",\n    ")?;
+    f.write_json_field("file", &*command.file)?;
+    f.write_str(",\n    ")?;
+    f.write_json_field("arguments", &*command.arguments)?;
+    f.write_str(",\n    ")?;
+    f.write_json_field("output", &*command.output)?;
     f.write_str("\n  }")
 }
 
-/// Write `items` as a JSON array of strings, on one line.
-fn write_json_string_array(f: &mut fmt::Formatter<'_>, items: &[OsString]) -> fmt::Result {
-    f.write_str("[")?;
-    for (i, item) in items.iter().enumerate() {
-        if i > 0 {
-            f.write_str(", ")?;
-        }
-        write_json_string(f, item)?;
-    }
-    f.write_str("]")
+/// A value in a database entry.
+enum JsonValue<'a> {
+    String(&'a OsStr),
+    StringArray(&'a [OsString]),
 }
 
-/// Write `s` as a JSON string. It is converted with `to_string_lossy`, which
-/// only allocates for text that isn't valid Unicode.
-fn write_json_string(f: &mut fmt::Formatter<'_>, s: &OsStr) -> fmt::Result {
-    let s = s.to_string_lossy();
-    f.write_str("\"")?;
-    // Text between the characters that need escaping is written in one piece.
-    let mut unescaped = 0;
-    for (i, c) in s.char_indices() {
-        if c == '"' || c == '\\' || c < ' ' {
-            f.write_str(&s[unescaped..i])?;
-            if c < ' ' {
-                // JSON strings can't hold control characters as they are.
-                write!(f, "\\u{:04x}", u32::from(c))?;
-            } else {
-                write!(f, "\\{c}")?;
+impl<'a> From<&'a Path> for JsonValue<'a> {
+    fn from(path: &'a Path) -> Self {
+        Self::String(path.as_os_str())
+    }
+}
+
+impl<'a> From<&'a [OsString]> for JsonValue<'a> {
+    fn from(strings: &'a [OsString]) -> Self {
+        Self::StringArray(strings)
+    }
+}
+
+/// Writes the parts of a JSON compilation database.
+trait JsonWriteExt {
+    /// Write `"name": value`. An array is written on one line.
+    fn write_json_field<'a>(&mut self, name: &str, value: impl Into<JsonValue<'a>>) -> fmt::Result;
+
+    /// Write `s` as a JSON string. It is converted with `to_string_lossy`,
+    /// which only allocates for text that isn't valid Unicode.
+    fn write_json_string(&mut self, s: &OsStr) -> fmt::Result;
+}
+
+impl JsonWriteExt for fmt::Formatter<'_> {
+    fn write_json_field<'a>(&mut self, name: &str, value: impl Into<JsonValue<'a>>) -> fmt::Result {
+        self.write_json_string(OsStr::new(name))?;
+        self.write_str(": ")?;
+        match value.into() {
+            JsonValue::String(s) => self.write_json_string(s),
+            JsonValue::StringArray(strings) => {
+                self.write_str("[")?;
+                for (i, s) in strings.iter().enumerate() {
+                    if i > 0 {
+                        self.write_str(", ")?;
+                    }
+                    self.write_json_string(s)?;
+                }
+                self.write_str("]")
             }
-            unescaped = i + c.len_utf8();
         }
     }
-    f.write_str(&s[unescaped..])?;
-    f.write_str("\"")
+
+    fn write_json_string(&mut self, s: &OsStr) -> fmt::Result {
+        let s = s.to_string_lossy();
+        self.write_str("\"")?;
+        // Text between the characters that need escaping is written in one piece.
+        let mut unescaped = 0;
+        for (i, c) in s.char_indices() {
+            if c == '"' || c == '\\' || c < ' ' {
+                self.write_str(&s[unescaped..i])?;
+                if c < ' ' {
+                    // JSON strings can't hold control characters as they are.
+                    write!(self, "\\u{:04x}", u32::from(c))?;
+                } else {
+                    write!(self, "\\{c}")?;
+                }
+                unescaped = i + c.len_utf8();
+            }
+        }
+        self.write_str(&s[unescaped..])?;
+        self.write_str("\"")
+    }
 }
 
 #[cfg(test)]
@@ -402,7 +400,7 @@ mod tests {
             // An unpaired surrogate.
             OsString::from_wide(&[0x66, 0x6f, 0x6f, 0xd800, 0x2e, 0x63])
         };
-        let json = from_fn(|f| write_json_string(f, &invalid)).to_string();
+        let json = from_fn(|f| f.write_json_string(&invalid)).to_string();
         assert_eq!(json, "\"foo\u{fffd}.c\"");
     }
 }

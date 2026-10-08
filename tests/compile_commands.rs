@@ -4,17 +4,13 @@ use std::{
     env,
     ffi::{OsStr, OsString},
     fmt::Write as _,
-    fs,
-    io::{self, Write as _},
+    io::Write as _,
     panic::{RefUnwindSafe, UnwindSafe},
     path::Path,
     sync::Arc,
 };
 
-use cc::compile_commands::{
-    json_compilation_database, store_json_compilation_database, CompileCommand,
-    CompileCommandCollector,
-};
+use cc::compile_commands::{json_compilation_database, CompileCommand, CompileCommandCollector};
 
 use crate::support::Test;
 
@@ -177,10 +173,9 @@ fn compile_command_collector_is_shared() {
     assert_eq!(commands[0], commands[1]);
 }
 
-/// The stored file holds every collected command, and a write error is
-/// returned.
+/// The JSON holds every collected command.
 #[test]
-fn store_json_compilation_database_writes_the_commands() {
+fn json_compilation_database_holds_the_commands() {
     let test = Test::gnu();
     let collector = Arc::new(CompileCommandCollector::new());
     gnu_build(&test, &collector)
@@ -193,12 +188,7 @@ fn store_json_compilation_database_writes_the_commands() {
     let commands = &*guard;
     assert_eq!(commands.len(), 2, "{commands:#?}");
 
-    let path = test.td.path().join("compile_commands.json");
-    store_json_compilation_database(commands, &path).unwrap();
-    let json = fs::read_to_string(&path).unwrap();
-
-    // The file holds what the formatter writes.
-    assert_eq!(json_compilation_database(commands).to_string(), json);
+    let json = json_compilation_database(commands).to_string();
 
     // Enough for the paths and arguments here, which have no control
     // characters.
@@ -224,10 +214,6 @@ fn store_json_compilation_database_writes_the_commands() {
             assert!(json.contains(&line), "{line} not in {json}");
         }
     }
-
-    let missing = test.td.path().join("missing").join("compile_commands.json");
-    let err = store_json_compilation_database(commands, missing).unwrap_err();
-    assert_eq!(err.kind(), io::ErrorKind::NotFound);
 }
 
 /// The formatter writes the same text each time, into any writer.
