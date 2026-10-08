@@ -61,19 +61,17 @@ pub(crate) struct EnvSnapshot {
 }
 
 impl EnvSnapshot {
-    /// Copy the process environment as it is now.
+    /// Copy the process environment as it is now. A variable it holds twice,
+    /// such as `Path` and `PATH` on Windows, takes its last value, as in the
+    /// tools cc runs.
     pub(crate) fn capture() -> Self {
-        Self {
-            vars: env::vars_os()
-                .map(|(key, value)| (key.into(), value.into()))
-                .collect(),
-        }
+        Self::from_vars(&mut env::vars_os().map(|(key, value)| (key.into(), value.into())))
     }
 
     /// A snapshot holding `vars`. A variable given more than once takes its
     /// last value, as with [`Command::envs`].
     pub(crate) fn from_vars(vars: &mut dyn Iterator<Item = (Arc<OsStr>, Arc<OsStr>)>) -> Self {
-        let mut deduped: Vec<(Arc<OsStr>, Arc<OsStr>)> = Vec::new();
+        let mut deduped: Vec<(Arc<OsStr>, Arc<OsStr>)> = Vec::with_capacity(vars.size_hint().0);
         for (key, value) in vars {
             match deduped.iter_mut().find(|(k, _)| is_same_key(k, &key)) {
                 Some(entry) => entry.1 = value,
@@ -96,7 +94,7 @@ impl EnvSnapshot {
     }
 
     /// Look up `key` the way [`env::var_os`] would have when the snapshot was
-    /// taken.
+    /// taken, except that a variable held twice gives its last value.
     pub(crate) fn get(&self, key: &OsStr) -> Option<&Arc<OsStr>> {
         self.vars
             .iter()
