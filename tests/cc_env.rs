@@ -100,6 +100,48 @@ fn path_to_ccache() {
 }
 
 #[test]
+fn wrapper_name_ignores_case() {
+    for (wrapper, custom) in [
+        ("SCCACHE", None),
+        ("/path/to/Ccache.EXE", None),
+        ("MY-WRAPPER", Some("My-Wrapper")),
+    ] {
+        let mut test = Test::clang();
+        if let Some(custom) = custom {
+            test.env.set("CC_KNOWN_WRAPPER_CUSTOM", custom);
+        }
+        test.env.set("CC", format!("{wrapper} clang"));
+        let compiler = test
+            .gcc()
+            .target("x86_64-unknown-linux-gnu")
+            .host("x86_64-unknown-linux-gnu")
+            .get_compiler();
+
+        assert_eq!(compiler.path(), Path::new("clang"), "{wrapper}");
+        assert!(compiler.is_like_clang(), "{wrapper}");
+        let cmd = compiler.to_command();
+        assert_eq!(cmd.get_program(), wrapper);
+        assert_eq!(cmd.get_args().next(), Some(OsStr::new("clang")));
+    }
+}
+
+#[test]
+fn rustc_wrapper_name_ignores_case() {
+    let mut test = Test::clang();
+    test.env.set("RUSTC_WRAPPER", "SCCACHE.EXE");
+    test.env.set("CC", "clang");
+    let compiler = test
+        .gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .get_compiler();
+
+    let cmd = compiler.to_command();
+    assert_eq!(cmd.get_program(), "SCCACHE.EXE");
+    assert_eq!(cmd.get_args().next(), Some(OsStr::new("clang")));
+}
+
+#[test]
 fn more_spaces() {
     let mut test = Test::gnu();
     test.shim("ccache");

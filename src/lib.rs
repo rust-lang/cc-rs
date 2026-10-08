@@ -3292,9 +3292,7 @@ impl Build {
             .path
             .file_stem()
             .and_then(OsStr::to_str)
-            .map_or(false, |stem| {
-                stem.to_ascii_lowercase().starts_with("llvm-ml")
-            });
+            .map_or(false, |stem| stem.starts_with_ignore_ascii_case("llvm-ml"));
         if is_llvm_ml {
             // llvm-ml assembles for 32-bit x86 unless it is told otherwise or
             // runs as `llvm-ml64`. It takes the last `-m`, so one in the
@@ -3503,7 +3501,10 @@ impl Build {
         let target = self.get_target()?;
 
         let (mut cmd, program, any_flags) = self.try_get_archiver_and_flags()?;
-        if target.env == "msvc" && !program.to_string_lossy().contains("llvm-ar") {
+        let is_llvm_ar = program.file_name().map_or(false, |name| {
+            name.to_string_lossy().contains_ignore_ascii_case("llvm-ar")
+        });
+        if target.env == "msvc" && !is_llvm_ar {
             // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
             // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
             // the caller has explicitly dictated the flags they want. See
@@ -3872,7 +3873,7 @@ impl Build {
         // `--target=` ourselves.
         if cfg!(windows) && android_clang_compiler_uses_target_arg_internally(&tool.path) {
             if let Some(path) = tool.path.file_name() {
-                let file_name = path.to_str().unwrap().to_owned();
+                let file_name = path.to_string_lossy().to_ascii_lowercase();
                 let (target, clang) = file_name.split_at(file_name.rfind('-').unwrap());
 
                 tool.has_internal_target_arg = true;
@@ -3968,7 +3969,8 @@ impl Build {
         let wrapper_stem = wrapper_path.file_stem()?;
 
         VALID_WRAPPERS
-            .contains(&wrapper_stem.to_str()?)
+            .iter()
+            .any(|wrapper| wrapper_stem.eq_ignore_ascii_case(wrapper))
             .then_some(Cow::Owned(rustc_wrapper))
     }
 
@@ -4026,7 +4028,10 @@ impl Build {
         let maybe_wrapper = parts.next()?;
 
         let file_stem = Path::new(maybe_wrapper).file_stem()?.to_str()?;
-        if known_wrappers.contains(&file_stem) {
+        if known_wrappers
+            .iter()
+            .any(|wrapper| wrapper.eq_ignore_ascii_case(file_stem))
+        {
             if let Some(compiler) = parts.next() {
                 return Some((
                     compiler.into(),
@@ -5326,7 +5331,7 @@ fn android_clang_compiler_uses_target_arg_internally(clang_path: &Path) -> bool 
     if let Some(filename) = clang_path.file_name() {
         if let Some(filename_str) = filename.to_str() {
             if let Some(idx) = filename_str.rfind('-') {
-                return filename_str.split_at(idx).0.contains("android");
+                return filename_str[..idx].contains_ignore_ascii_case("android");
             }
         }
     }
@@ -5338,7 +5343,8 @@ fn is_llvm_mingw_wrapper(clang_path: &Path) -> bool {
         .file_name()
         .and_then(|file_name| file_name.to_str())
     {
-        filename.ends_with("-w64-mingw32-clang") || filename.ends_with("-w64-mingw32-clang++")
+        filename.ends_with_ignore_ascii_case("-w64-mingw32-clang")
+            || filename.ends_with_ignore_ascii_case("-w64-mingw32-clang++")
     } else {
         false
     }

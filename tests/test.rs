@@ -1324,6 +1324,94 @@ fn clang_android() {
 }
 
 #[test]
+fn clang_android_name_ignores_case() {
+    let target = "arm-linux-androideabi";
+    let name = "ARM-LINUX-ANDROIDEABI-CLANG";
+    let mut test = Test::new();
+    test.shim(name);
+    test.env.set("CC", test.td.path().join(name));
+    let host = if cfg!(windows) {
+        "x86_64-pc-windows-msvc"
+    } else {
+        "x86_64-unknown-linux-gnu"
+    };
+    let compiler = test.gcc().target(target).host(host).get_compiler();
+    assert!(compiler.is_like_clang());
+    let target_args = compiler
+        .args()
+        .iter()
+        .map(|arg| arg.to_str().unwrap())
+        .filter(|arg| arg.starts_with("--target="))
+        .collect::<Vec<_>>();
+
+    if cfg!(windows) {
+        // On Windows, cc runs the NDK's clang directly with the script's target.
+        assert_eq!(compiler.path(), test.td.path().join("clang.exe"));
+        assert_eq!(target_args, ["--target=arm-linux-androideabi"]);
+    } else {
+        // Elsewhere, cc runs the script, which passes the target itself.
+        assert_eq!(compiler.path(), test.td.path().join(name));
+        assert!(target_args.is_empty(), "{target_args:?}");
+    }
+}
+
+// llvm-mingw's wrappers are only recognized on hosts other than Windows.
+#[cfg(not(windows))]
+#[test]
+fn llvm_mingw_wrapper_name_ignores_case() {
+    let name = "x86_64-w64-mingw32-Clang";
+    let mut test = Test::new();
+    test.shim(name);
+    test.env.set("CC", test.td.path().join(name));
+    let compiler = test
+        .gcc()
+        .target("x86_64-pc-windows-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .get_compiler();
+
+    assert!(compiler.is_like_clang());
+    assert!(
+        !compiler
+            .args()
+            .iter()
+            .any(|arg| arg.to_str().unwrap().starts_with("--target=")),
+        "{:?}",
+        compiler.args()
+    );
+}
+
+#[test]
+fn compiler_family_from_name_ignores_case() {
+    // The shim can't preprocess, so cc falls back to the compiler's name.
+    for (name, clang, msvc, clang_cl) in [
+        ("CLANG", true, false, false),
+        ("ZIG", true, false, false),
+        ("Clang-CL", false, true, true),
+        ("CL", false, true, false),
+        ("CL.exe", false, true, false),
+    ] {
+        let test = Test::new();
+        test.shim(name);
+        let compiler = test
+            .gcc()
+            .target("x86_64-pc-windows-msvc")
+            .host("x86_64-pc-windows-msvc")
+            .compiler(test.td.path().join(name))
+            .get_compiler();
+
+        assert_eq!(
+            (
+                compiler.is_like_clang(),
+                compiler.is_like_msvc(),
+                compiler.is_like_clang_cl()
+            ),
+            (clang, msvc, clang_cl),
+            "{name}"
+        );
+    }
+}
+
+#[test]
 fn parent_dir_file_path() {
     // Regression test for issue #172
     // https://github.com/rust-lang/cc-rs/issues/172
@@ -3136,6 +3224,41 @@ fn msvc_create_archive() {
     test.cmd(1).must_have(out).must_have(&objects[0]);
     // As with `compile`, the library is also available as `foo.lib`.
     assert!(test.td.path().join("foo.lib").is_file());
+}
+
+#[test]
+fn msvc_llvm_ar_name_ignores_case() {
+    let test = Test::msvc();
+    test.shim("LLVM-AR");
+    test.gcc()
+        .archiver(test.td.path().join("LLVM-AR"))
+        .file("foo.c")
+        .compile("foo");
+
+    // llvm-ar takes `ar` style arguments, not `lib.exe` style ones.
+    test.cmd(1)
+        .must_run("LLVM-AR")
+        .must_have("cqD")
+        .must_not_have("-nologo");
+}
+
+#[test]
+fn msvc_llvm_ar_check_ignores_folder_name() {
+    let test = Test::msvc();
+    let llvm_bin = test.td.path().join("llvm-arm64").join("bin");
+    std::fs::create_dir_all(&llvm_bin).unwrap();
+    let llvm_lib = format!("llvm-lib{}", env::consts::EXE_SUFFIX);
+    std::fs::copy(&test.gcc, llvm_bin.join(llvm_lib)).unwrap();
+    test.gcc()
+        .archiver(llvm_bin.join("llvm-lib"))
+        .file("foo.c")
+        .compile("foo");
+
+    // Only the file name tells whether the archiver is llvm-ar.
+    test.cmd(1)
+        .must_run("llvm-lib")
+        .must_have("-nologo")
+        .must_not_have("cqD");
 }
 
 #[test]
