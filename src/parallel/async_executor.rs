@@ -94,7 +94,7 @@ where
             if backoff_cnt > 3 {
                 // We have yielded at least three times without making'
                 // any progress, so we will sleep for a while.
-                let duration = Duration::from_millis(10);
+                let duration = Duration::from_millis((backoff_cnt - 3).min(10));
                 thread::sleep(duration);
             } else {
                 // Given that we spawned a lot of compilation tasks, it is unlikely
