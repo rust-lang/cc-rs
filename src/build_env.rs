@@ -1,7 +1,16 @@
 //! The environment a [`Build`](crate::Build) reads its configuration from and
 //! runs its tools in.
 
-use std::{env, ffi::OsStr, fmt, process::Command, sync::Arc};
+use std::{
+    cmp::Ordering,
+    collections::hash_map::DefaultHasher,
+    env,
+    ffi::OsStr,
+    fmt,
+    hash::{Hash, Hasher},
+    process::Command,
+    sync::Arc,
+};
 
 use crate::utilities::OnceLock;
 
@@ -55,12 +64,25 @@ impl BuildEnv {
 
 /// A copy of the process environment, or the variables given to
 /// `Build::set_envs_snapshot`. Clones share the copy.
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone)]
 pub(crate) struct EnvSnapshot {
     vars: Arc<EnvVars>,
+    /// Hash of `vars`, worked out once.
+    hash: u64,
 }
 
 impl EnvSnapshot {
+    fn new(vars: Arc<EnvVars>) -> Self {
+        // A fixed hasher, so that equal snapshots get equal hashes for the
+        // whole process.
+        let mut hasher = DefaultHasher::new();
+        vars.hash(&mut hasher);
+        Self {
+            hash: hasher.finish(),
+            vars,
+        }
+    }
+
     /// Copy the process environment as it is now. A variable it holds twice,
     /// such as `Path` and `PATH` on Windows, takes its last value, as in the
     /// tools cc runs.
@@ -78,19 +100,17 @@ impl EnvSnapshot {
                 None => deduped.push((key, value)),
             }
         }
-        Self {
-            vars: deduped.into(),
-        }
+        Self::new(deduped.into())
     }
 
     #[cfg(test)]
     pub(crate) fn from_pairs(vars: &[(&str, &str)]) -> Self {
-        Self {
-            vars: vars
+        Self::new(
+            vars
                 .iter()
                 .map(|(key, value)| (OsStr::new(key).into(), OsStr::new(value).into()))
                 .collect(),
-        }
+        )
     }
 
     /// Look up `key` the way [`env::var_os`] would have when the snapshot was
@@ -111,6 +131,35 @@ impl EnvSnapshot {
     pub(crate) fn apply(&self, cmd: &mut Command) {
         cmd.env_clear();
         cmd.envs(pairs(&self.vars));
+    }
+}
+
+impl PartialEq for EnvSnapshot {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.vars, &other.vars) || (self.hash == other.hash && self.vars == other.vars)
+    }
+}
+
+impl Eq for EnvSnapshot {}
+
+impl Hash for EnvSnapshot {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        state.write_u64(self.hash);
+    }
+}
+
+impl Ord for EnvSnapshot {
+    fn cmp(&self, other: &Self) -> Ordering {
+        if Arc::ptr_eq(&self.vars, &other.vars) {
+            return Ordering::Equal;
+        }
+        self.vars.cmp(&other.vars)
+    }
+}
+
+impl PartialOrd for EnvSnapshot {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -238,6 +287,42 @@ mod tests {
                 .last()
                 .and_then(|(_, value)| value);
             assert_eq!(snapshot.get(key).map(|value| &**value), in_child, "{key:?}");
+        }
+    }
+
+    #[test]
+    fn snapshot_comparison_follows_the_variables() {
+        use std::cmp::Ordering;
+        use std::collections::hash_map::DefaultHasher;
+
+        fn hash(snapshot: &EnvSnapshot) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            snapshot.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        let a = snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "2")]);
+        // Same variables, captured separately.
+        let same = snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "2")]);
+        assert!(!Arc::ptr_eq(&a.vars, &same.vars));
+        assert_eq!(a, same);
+        assert_eq!(a.cmp(&same), Ordering::Equal);
+        assert_eq!(hash(&a), hash(&same));
+        assert_eq!(a, a.clone());
+        assert_eq!(a.cmp(&a.clone()), Ordering::Equal);
+
+        for other in [
+            snapshot(&[("CC_TEST_A", "1")]),
+            snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "3")]),
+            // A boundary moved between name and value.
+            snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B2", "")]),
+            // Names are compared exactly, also on Windows.
+            snapshot(&[("CC_TEST_A", "1"), ("cc_test_b", "2")]),
+        ] {
+            assert_ne!(a, other);
+            assert_eq!(a.cmp(&other), a.vars.cmp(&other.vars));
+            assert_ne!(a.cmp(&other), Ordering::Equal);
+            assert_eq!(a.cmp(&other), other.cmp(&a).reverse());
         }
     }
 
