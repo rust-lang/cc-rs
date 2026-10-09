@@ -422,7 +422,7 @@ struct BuildCache {
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<HashSet<Box<str>>>,
-    known_flag_support_status_cache: RwLock<HashMap<Box<OsStr>, BTreeMap<CompilerFlag, bool>>>,
+    known_flag_support_status_cache: RwLock<BTreeMap<CompilerFlag, HashMap<Box<OsStr>, bool>>>,
     target_info_parser: target::TargetInfoParser,
     warned_about_msvc_linker_flags: AtomicBool,
 }
@@ -1766,8 +1766,8 @@ impl Build {
             .known_flag_support_status_cache
             .read()
             .unwrap()
-            .get(flag)
-            .and_then(|answers| answers.get(key))
+            .get(key)
+            .and_then(|answers| answers.get(flag))
             .copied()
         {
             return Ok(is_supported);
@@ -1876,13 +1876,21 @@ impl Build {
         drop(probe);
         let is_supported = output.status.success() && output.stderr.is_empty();
 
-        self.build_cache
+        let mut cache = self
+            .build_cache
             .known_flag_support_status_cache
             .write()
-            .unwrap()
-            .entry(flag.into())
-            .or_default()
-            .insert(key.clone(), is_supported);
+            .unwrap();
+        // Only clone the key the first time it is seen.
+        match cache.get_mut(key) {
+            Some(answers) => {
+                answers.insert(flag.into(), is_supported);
+            }
+            None => {
+                let answers = HashMap::from([(flag.into(), is_supported)]);
+                cache.insert(key.clone(), answers);
+            }
+        }
 
         Ok(is_supported)
     }
