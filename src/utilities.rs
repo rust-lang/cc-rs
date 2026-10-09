@@ -2,7 +2,7 @@ use std::{
     cell::UnsafeCell,
     ffi::{OsStr, OsString},
     fmt::{self, Write},
-    hash::{Hash, Hasher},
+    hash::Hasher,
     marker::PhantomData,
     mem::MaybeUninit,
     panic::{RefUnwindSafe, UnwindSafe},
