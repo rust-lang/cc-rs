@@ -3,7 +3,7 @@ use crate::{
     command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
-    utilities::{IgnoreAsciiCase, OnceLock},
+    utilities::{HashRecorder, IgnoreAsciiCase, OnceLock},
     Error, ErrorKind, OutputKind,
 };
 use std::{
@@ -11,6 +11,7 @@ use std::{
     collections::HashMap,
     env,
     ffi::{OsStr, OsString},
+    hash::Hash,
     io::Write,
     iter,
     path::{Path, PathBuf},
@@ -27,8 +28,8 @@ pub(crate) type CppStdlibLookupCache = HashMap<CompilerCommandKey, bool>;
 /// a compiler command and the environment it runs in.
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub(crate) struct CompilerCommandKey {
-    /// The compiler's path followed by its arguments.
-    command: Box<[Box<OsStr>]>,
+    /// The hashable content of the compiler's path followed by its arguments.
+    command: Box<[u8]>,
     /// What a probe finds depends on the environment it runs in (`PATH`
     /// decides what a bare compiler name even resolves to), so two lookups
     /// that agree on the command but differ in their environment must not
@@ -43,8 +44,12 @@ impl CompilerCommandKey {
         inherited: EnvSnapshot,
         explicit: Box<EnvVars>,
     ) -> Self {
+        let mut recorder = HashRecorder::default();
+        for arg in command {
+            arg.hash(&mut recorder);
+        }
         Self {
-            command: command.map(Into::into).collect(),
+            command: recorder.into_bytes(),
             inherited,
             explicit,
         }
@@ -842,5 +847,52 @@ mod tests {
 
         fn assert_auto_traits<T: Clone + Send + Sync + Unpin + UnwindSafe + RefUnwindSafe>() {}
         assert_auto_traits::<Tool>();
+    }
+
+    #[test]
+    fn command_key_tells_commands_apart() {
+        fn key(command: &[&OsStr]) -> CompilerCommandKey {
+            CompilerCommandKey::new(
+                &mut command.iter().copied(),
+                EnvSnapshot::from_pairs(&[]),
+                Box::new([]),
+            )
+        }
+        let os = OsStr::new;
+
+        assert_eq!(key(&[os("cc"), os("-O2")]), key(&[os("cc"), os("-O2")]));
+
+        for (a, b) in [
+            (
+                &[os("cc"), os("ab"), os("c")][..],
+                &[os("cc"), os("a"), os("bc")][..],
+            ),
+            (&[os("cc"), os("")], &[os("cc")]),
+            (&[os("cc"), os(""), os("")], &[os("cc"), os("")]),
+            (&[os("cc-O2")], &[os("cc"), os("-O2")]),
+        ] {
+            assert_ne!(key(a), key(b), "{a:?} vs {b:?}");
+        }
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn command_key_tells_unpaired_surrogates_apart() {
+        use std::os::windows::ffi::OsStringExt;
+
+        let key = |command: &[OsString]| {
+            CompilerCommandKey::new(
+                &mut command.iter().map(OsString::as_os_str),
+                EnvSnapshot::from_pairs(&[]),
+                Box::new([]),
+            )
+        };
+        // A lead and a trail surrogate in two arguments, and the pair they
+        // would make as one.
+        let lead = OsString::from_wide(&[0xD83D]);
+        let trail = OsString::from_wide(&[0xDE00]);
+        let pair = OsString::from_wide(&[0xD83D, 0xDE00]);
+        assert_ne!(key(&[lead.clone(), trail.clone()]), key(&[pair]));
+        assert_eq!(key(&[lead.clone(), trail.clone()]), key(&[lead, trail]));
     }
 }

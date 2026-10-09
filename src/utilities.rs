@@ -2,6 +2,7 @@ use std::{
     cell::UnsafeCell,
     ffi::{OsStr, OsString},
     fmt::{self, Write},
+    hash::Hasher,
     marker::PhantomData,
     mem::MaybeUninit,
     panic::{RefUnwindSafe, UnwindSafe},
@@ -203,6 +204,28 @@ impl IgnoreAsciiCase for str {
         self.len().checked_sub(suffix.len()).map_or(false, |start| {
             self.as_bytes()[start..].eq_ignore_ascii_case(suffix.as_bytes())
         })
+    }
+}
+
+/// A [`Hasher`] that keeps what is written to it, to turn a value into bytes
+/// that are equal exactly when the values are, as long as its `Hash` impl is
+/// prefix-free like those of `OsStr`, `str` and slices.
+#[derive(Default)]
+pub(crate) struct HashRecorder(Vec<u8>);
+
+impl HashRecorder {
+    pub(crate) fn into_bytes(self) -> Box<[u8]> {
+        self.0.into_boxed_slice()
+    }
+}
+
+impl Hasher for HashRecorder {
+    fn write(&mut self, bytes: &[u8]) {
+        self.0.extend_from_slice(bytes);
+    }
+
+    fn finish(&self) -> u64 {
+        unreachable!("only records what is written")
     }
 }
 
