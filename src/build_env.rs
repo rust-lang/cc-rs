@@ -106,8 +106,7 @@ impl EnvSnapshot {
     #[cfg(test)]
     pub(crate) fn from_pairs(vars: &[(&str, &str)]) -> Self {
         Self::new(
-            vars
-                .iter()
+            vars.iter()
                 .map(|(key, value)| (OsStr::new(key).into(), OsStr::new(value).into()))
                 .collect(),
         )
