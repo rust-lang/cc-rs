@@ -4,12 +4,13 @@ use std::{
 };
 
 use crate::{
+    cell_modify, cell_push,
     parallel::{
         async_executor::{block_on, YieldOnce},
         job_token,
         reactor::{Reactor, Registration},
     },
-    cell_modify, cell_push, spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
+    spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
 };
 
 struct KillOnDrop(Child, StderrForwarder);
