@@ -8,7 +8,7 @@ use std::{
     time::Duration,
 };
 
-use crate::parallel::{cell_modify, cell_push};
+use crate::{cell_modify, cell_push};
 
 #[derive(Default)]
 pub(crate) struct Reactor {
