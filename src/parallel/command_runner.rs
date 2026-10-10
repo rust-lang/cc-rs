@@ -8,7 +8,7 @@ use crate::{
         async_executor::{block_on, YieldOnce},
         job_token,
     },
-    spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
+    cell_modify, cell_push, spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
 };
 
 struct KillOnDrop(Child, StderrForwarder);
@@ -19,21 +19,6 @@ impl Drop for KillOnDrop {
 
         child.kill().ok();
     }
-}
-
-fn cell_modify<T, F, R>(cell: &Cell<T>, f: F) -> R
-where
-    T: Default,
-    F: FnOnce(&mut T) -> R,
-{
-    let mut value = cell.take();
-    let r = f(&mut value);
-    cell.set(value);
-    r
-}
-
-fn cell_push<T>(cell: &Cell<Vec<T>>, element: T) {
-    cell_modify(cell, |vec| vec.push(element));
 }
 
 fn try_wait_on_child(
