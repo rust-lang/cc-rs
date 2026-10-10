@@ -22,7 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Other
 
-- *(compile)* issue compilation cmds more frequently in parallel  #1998 #1999
+- *(compile)* issue compilation cmds more frequently in parallel #1997 #1998
 - *(cache)* Optimize tool detection caching ([#1995](https://github.com/rust-lang/cc-rs/pull/1995))
 - *(cache)* optimize EnvSnapshot Hash, PartialEq, Ord impl ([#1994](https://github.com/rust-lang/cc-rs/pull/1994))
 - Regenerate target info ([#1988](https://github.com/rust-lang/cc-rs/pull/1988))
