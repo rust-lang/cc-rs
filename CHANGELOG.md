@@ -11,8 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- add hidden `Build::set_envs_snapshot` for tests ([#1984](https://github.com/rust-lang/cc-rs/pull/1984))
-- add `Tool::get_envs` and store tool env as `Arc<OsStr>` pairs ([#1985](https://github.com/rust-lang/cc-rs/pull/1985))
+- add `Tool::get_envs`, deprecate Tool::env and store tool env as `Arc<OsStr>` pairs ([#1985](https://github.com/rust-lang/cc-rs/pull/1985))
 - link `c++` when Clang uses libc++ ([#1978](https://github.com/rust-lang/cc-rs/pull/1978))
 - add `CC_MASM_ASM` and fall back to `llvm-ml` for MASM files ([#1975](https://github.com/rust-lang/cc-rs/pull/1975))
 
@@ -24,11 +23,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Other
 
 - *(compile)* added back sleep by backoff ([#1998](https://github.com/rust-lang/cc-rs/pull/1998))
-- *(parallel)* prevent the build from sleeping too long ([#1997](https://github.com/rust-lang/cc-rs/pull/1997))
 - *(cache)* Optimize tool detection caching ([#1995](https://github.com/rust-lang/cc-rs/pull/1995))
 - *(cache)* optimize EnvSnapshot Hash, PartialEq, Ord impl ([#1994](https://github.com/rust-lang/cc-rs/pull/1994))
 - Regenerate target info ([#1988](https://github.com/rust-lang/cc-rs/pull/1988))
-- start subprocesses under the env lock ([#1974](https://github.com/rust-lang/cc-rs/pull/1974))
 
 ## [1.6.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.5.1...cc-v1.6.0) - 2026-10-03
 
