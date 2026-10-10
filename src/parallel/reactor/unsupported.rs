@@ -17,6 +17,6 @@ impl Reactor {
     }
 
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) {
-      sleep(duration);
+        sleep(duration);
     }
 }
