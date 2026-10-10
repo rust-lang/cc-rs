@@ -31,7 +31,7 @@ impl Reactor {
                 revents: 0,
             },
         );
-        Some(Registration { reactor: self, fd })
+        Ok(Registration { reactor: self, fd })
     }
 
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
