@@ -47,7 +47,7 @@ impl Reactor {
                 )
             };
             if ret < 0 {
-                Err(io::Error::last_os_error());
+                Err(io::Error::last_os_error())
             } else {
                 Ok(())
             }
