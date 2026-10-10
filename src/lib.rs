@@ -96,6 +96,12 @@
 //!   arguments (similar to `make` and `cmake`) rather than splitting them on each space.
 //!   For example, with `CFLAGS='a "b c"'`, the compiler will be invoked with 2 arguments -
 //!   `a` and `b c` - rather than 3: `a`, `"b` and `c"`.
+//! * `CC_PREFER_CLANG_CL_OVER_MSVC` - on MSVC targets, whether `cc` looks for
+//!   `clang-cl.exe` instead of `cl.exe` when `CC` (or `CXX` for C++) is not
+//!   set. It takes precedence over [`Build::prefer_clang_cl_over_msvc`] in
+//!   every build script, unless it is empty. It counts as `true` unless set to
+//!   `"0"`, `"no"` or `"false"`, and is read without the prefixes and suffixes
+//!   described below.
 //! * `CXX...` - see [C++ Support](#c-support).
 //! * `CC_FORCE_DISABLE` - If set, `cc` will never run any [`Command`]s, and methods that
 //!   would return an [`Error`]. This is intended for use by third-party build systems
@@ -163,7 +169,7 @@
 //!   require Visual Studio to be installed. `cc-rs` attempts to locate it, and
 //!   if it fails, `cl.exe` is expected to be available in `PATH`. This can be
 //!   set up by running the appropriate developer tools shell.
-//!    * When using `prefer_clang_cl_over_msvc`, make sure that the `C++ Clang compiler for Windows` component
+//!    * When using `prefer_clang_cl_over_msvc` or `CC_PREFER_CLANG_CL_OVER_MSVC`, make sure that the `C++ Clang compiler for Windows` component
 //!      is installed through the Visual Studio Installer, so that `cc-rs` can find `clang-cl.exe`.
 //! * Windows platforms targeting MinGW (e.g. your target name ends in `-gnu`)
 //!   require `cc` to be available in `PATH`. We recommend the
@@ -1550,6 +1556,16 @@ impl Build {
     /// Prefer to use clang-cl over msvc.
     ///
     /// This option defaults to `false`.
+    ///
+    /// On MSVC targets, this makes `cc` look for `clang-cl.exe` instead of
+    /// `cl.exe` when no compiler is set with [`Build::compiler`] or the `CC`
+    /// and `CXX` environment variables.
+    ///
+    /// The `CC_PREFER_CLANG_CL_OVER_MSVC` environment variable takes precedence
+    /// over this option both ways, unless it is empty, so whoever runs the
+    /// build can choose for every crate that uses `cc`. It counts as `true`
+    /// unless set to `"0"`, `"no"` or `"false"`. A build that only works with
+    /// clang-cl can check the compiler it got with [`Tool::is_like_clang_cl`].
     pub fn prefer_clang_cl_over_msvc(&mut self, prefer_clang_cl_over_msvc: bool) -> &mut Build {
         self.prefer_clang_cl_over_msvc = prefer_clang_cl_over_msvc;
         self
@@ -3725,7 +3741,15 @@ impl Build {
         let target = self.get_target()?;
         let raw_target = self.get_raw_target()?;
 
-        let msvc = if self.prefer_clang_cl_over_msvc {
+        // The environment variable takes precedence over the builder option,
+        // unless it is empty. Only MSVC targets look for `cl.exe`, so only
+        // they read it.
+        let prefer_clang_cl = target.env == "msvc"
+            && self
+                .get_env("CC_PREFER_CLANG_CL_OVER_MSVC")
+                .filter(|v| !v.is_empty())
+                .map_or(self.prefer_clang_cl_over_msvc, |v| env_value_is_true(v));
+        let msvc = if prefer_clang_cl {
             "clang-cl.exe"
         } else {
             "cl.exe"

@@ -1679,6 +1679,194 @@ mod msvc_clang_cl_tests {
             "clang-cl should still be MSVC-like in C++ mode"
         );
     }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_enabled_by_env() {
+        let mut test = Test::msvc_autodetect();
+        test.env.set("CC_PREFER_CLANG_CL_OVER_MSVC", "1");
+
+        let compiler = test
+            .gcc()
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        assert!(
+            compiler.is_like_clang_cl(),
+            "clang-cl.exe should be identified as clang-cl-like, got {:?}",
+            compiler
+        );
+        assert!(
+            compiler.is_like_msvc(),
+            "clang-cl should still be MSVC-like"
+        );
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_disabled_by_env() {
+        let mut test = Test::msvc_autodetect();
+        test.env.set("CC_PREFER_CLANG_CL_OVER_MSVC", "0");
+
+        let compiler = test
+            .gcc()
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        assert!(compiler.is_like_msvc(), "Should still be MSVC-like");
+        assert!(!compiler.is_like_clang_cl(), "Should not use clang-cl");
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_disabled_by_env_precedence() {
+        let mut test = Test::msvc_autodetect();
+        test.env.set("CC_PREFER_CLANG_CL_OVER_MSVC", "0");
+
+        let compiler = test
+            .gcc()
+            .prefer_clang_cl_over_msvc(true)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        assert!(compiler.is_like_msvc(), "Should still be MSVC-like");
+        assert!(!compiler.is_like_clang_cl(), "Should not use clang-cl");
+    }
+
+    #[test]
+    fn msvc_prefer_clang_cl_over_msvc_enabled_by_env_precedence() {
+        let mut test = Test::msvc_autodetect();
+        test.env.set("CC_PREFER_CLANG_CL_OVER_MSVC", "1");
+
+        let compiler = test
+            .gcc()
+            .prefer_clang_cl_over_msvc(false)
+            .try_get_compiler()
+            .expect("Failed to get compiler");
+
+        assert!(
+            compiler.is_like_clang_cl(),
+            "clang-cl.exe should be identified as clang-cl-like, got {:?}",
+            compiler
+        );
+        assert!(
+            compiler.is_like_msvc(),
+            "clang-cl should still be MSVC-like"
+        );
+    }
+}
+
+// A Windows host finds `cl.exe` and `clang-cl.exe` in Visual Studio. Elsewhere
+// cc never finds `clang-cl.exe`, and finds `cl.exe` only when `VCINSTALLDIR`
+// and `VSINSTALLDIR` are both set, in one of those folders or on `PATH`. So
+// preferring clang-cl shows as not using that `cl.exe`.
+#[cfg(not(windows))]
+mod msvc_prefer_clang_cl_env {
+    use std::fs;
+    use std::path::PathBuf;
+
+    use super::Test;
+
+    /// A test with a `cl.exe` that cc finds through `VCINSTALLDIR`, and the
+    /// path of that `cl.exe`.
+    fn test_with_cl_exe() -> (Test, PathBuf) {
+        let mut test = Test::msvc_autodetect();
+        test.shim("cc");
+        let vc = test.td.path().join("VC");
+        fs::create_dir_all(&vc).unwrap();
+        let cl_exe = vc.join("cl.exe");
+        fs::copy(&test.gcc, &cl_exe).unwrap();
+        test.env.set("VCINSTALLDIR", &vc);
+        test.env.set("VSINSTALLDIR", &vc);
+        (test, cl_exe)
+    }
+
+    /// Whether cc picks that `cl.exe`, with `CC_PREFER_CLANG_CL_OVER_MSVC` set
+    /// to `env` and `prefer_clang_cl_over_msvc(builder)`.
+    fn uses_cl_exe(env: Option<&str>, builder: bool) -> bool {
+        let (mut test, cl_exe) = test_with_cl_exe();
+        if let Some(value) = env {
+            test.env.set("CC_PREFER_CLANG_CL_OVER_MSVC", value);
+        }
+
+        let compiler = test
+            .gcc()
+            .prefer_clang_cl_over_msvc(builder)
+            .cargo_warnings(false)
+            .try_get_compiler()
+            .unwrap();
+        compiler.path() == cl_exe
+    }
+
+    #[test]
+    fn env_takes_precedence_over_builder() {
+        // Unset or empty, the builder option decides.
+        assert!(uses_cl_exe(None, false));
+        assert!(!uses_cl_exe(None, true));
+        assert!(uses_cl_exe(Some(""), false));
+        assert!(!uses_cl_exe(Some(""), true));
+        // Set, it overrides the builder option both ways.
+        assert!(!uses_cl_exe(Some("1"), false));
+        assert!(uses_cl_exe(Some("0"), true));
+    }
+
+    #[test]
+    fn env_is_true_unless_0_no_or_false() {
+        for value in ["true", "TRUE", "on", "yes", "2"] {
+            assert!(!uses_cl_exe(Some(value), false), "{value:?}");
+        }
+        for value in ["0", "no", "false"] {
+            assert!(uses_cl_exe(Some(value), true), "{value:?}");
+        }
+    }
+
+    #[test]
+    fn env_is_not_overridable() {
+        // `Build::env` applies to child processes, not to cc itself.
+        let (test, cl_exe) = test_with_cl_exe();
+        let compiler = test
+            .gcc()
+            .env("CC_PREFER_CLANG_CL_OVER_MSVC", "1")
+            .prefer_clang_cl_over_msvc(false)
+            .cargo_warnings(false)
+            .try_get_compiler()
+            .unwrap();
+        assert_eq!(compiler.path(), cl_exe);
+    }
+}
+
+/// cc tells Cargo to rerun the build script when `CC_PREFER_CLANG_CL_OVER_MSVC`
+/// changes, on MSVC targets only.
+#[test]
+fn msvc_prefer_clang_cl_over_msvc_env_rerun() {
+    // When invoked as subprocess, get the compiler and return.
+    if let Some(target) = env::var_os("__CC_TEST_PREFER_CLANG_CL_TARGET") {
+        let test = Test::msvc_autodetect();
+        test.shim("cc");
+        let target = target.to_str().unwrap();
+        test.gcc()
+            .target(target)
+            .host(target)
+            .cargo_warnings(false)
+            .try_get_compiler()
+            .unwrap();
+        return;
+    }
+
+    let rerun_lines = |target: &str| {
+        let output = GlobalEnv::output(
+            Command::new(env::current_exe().unwrap())
+                .env("__CC_TEST_PREFER_CLANG_CL_TARGET", target)
+                .args([
+                    "--exact",
+                    "msvc_prefer_clang_cl_over_msvc_env_rerun",
+                    "--nocapture",
+                ]),
+        );
+        assert!(output.status.success(), "subprocess failed: {:?}", output);
+        String::from_utf8_lossy(&output.stdout)
+            .matches("cargo:rerun-if-env-changed=CC_PREFER_CLANG_CL_OVER_MSVC\n")
+            .count()
+    };
+    assert_eq!(rerun_lines("x86_64-pc-windows-msvc"), 1);
+    assert_eq!(rerun_lines("x86_64-unknown-linux-gnu"), 0);
 }
 
 #[test]
