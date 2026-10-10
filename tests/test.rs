@@ -498,6 +498,39 @@ fn gnu_static() {
 }
 
 #[test]
+fn gnu_crt_static_not_applied_when_target_overridden() {
+    let mut test = Test::gnu();
+    test.shim("x86_64-linux-musl-gcc")
+        .shim("x86_64-linux-musl-ar");
+    test.process_env.set("TARGET", "x86_64-unknown-linux-musl");
+    test.process_env
+        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+
+    // Case 1: Compiling for Cargo's TARGET -> crt-static triggers -static
+    test.gcc()
+        .target("x86_64-unknown-linux-musl")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-static");
+
+    drop(test);
+
+    let mut test = Test::gnu();
+    test.shim("x86_64-linux-gnu-gcc")
+        .shim("x86_64-linux-gnu-ar");
+    test.process_env.set("TARGET", "x86_64-unknown-linux-musl");
+    test.process_env
+        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+
+    // Case 2: Target is overridden (e.g. for HOST tools) -> crt-static must NOT apply
+    test.gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_not_have("-static");
+}
+
+#[test]
 fn gnu_no_dash_dash() {
     let test = Test::gnu();
     test.gcc().file("foo.c").compile("foo");
@@ -653,6 +686,36 @@ fn msvc_no_static_crt() {
     test.gcc().static_crt(false).file("foo.c").compile("foo");
 
     test.cmd(0).must_have("-MD");
+}
+
+#[test]
+fn msvc_crt_static_not_applied_when_target_overridden() {
+    let mut test = Test::msvc();
+    test.process_env.set("TARGET", "x86_64-pc-windows-msvc");
+    test.process_env
+        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+
+    // Case 1: Compiling for Cargo's TARGET -> crt-static triggers -MT
+    test.gcc()
+        .target("x86_64-pc-windows-msvc")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-MT").must_not_have("-MD");
+
+    drop(test);
+
+    let mut test = Test::msvc();
+    test.process_env.set("TARGET", "x86_64-pc-windows-msvc");
+    test.process_env
+        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+
+    // Case 2: Target is overridden -> crt-static does not apply and defaults to -MD
+    test.gcc()
+        .target("i686-pc-windows-msvc")
+        .host("i686-pc-windows-msvc")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-MD").must_not_have("-MT");
 }
 
 #[test]
