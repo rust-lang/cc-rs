@@ -1,10 +1,8 @@
 use std::{
     cell::Cell,
     io,
-    marker::PhantomData,
     os::unix::io::{AsRawFd, RawFd},
     process::ChildStderr,
-    thread::sleep,
     time::Duration,
 };
 
