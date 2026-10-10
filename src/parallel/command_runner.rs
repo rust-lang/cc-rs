@@ -1,13 +1,13 @@
 use std::{
     cell::Cell,
     process::{Child, Command},
-    reactor::{Reactor, Registration},
 };
 
 use crate::{
     parallel::{
         async_executor::{block_on, YieldOnce},
         job_token,
+        reactor::{Reactor, Registration},
     },
     cell_modify, cell_push, spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
 };
