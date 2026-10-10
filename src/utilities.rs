@@ -10,6 +10,9 @@ use std::{
     sync::Once,
 };
 
+#[cfg(feature = "parallel")]
+use std::cell::Cell;
+
 use crate::{Error, ErrorKind};
 
 pub(super) struct JoinOsStrs<'a, T> {
