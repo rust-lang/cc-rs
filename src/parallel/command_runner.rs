@@ -156,11 +156,13 @@ pub(crate) fn run_commands_in_parallel(
         for res in cmds {
             let mut cmd = res?;
             let token = tokens.acquire().await?;
-            let mut child = spawn(&mut cmd, cargo_output)?;
-            let mut stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
-            stderr_forwarder.set_non_blocking()?;
 
-            cell_push(&pendings, (cmd, KillOnDrop(child, stderr_forwarder), token));
+            let mut child = spawn(&mut cmd, cargo_output)?;
+            let stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
+            let mut child = KillOnDrop(child, stderr_forwarder);
+            child.1.set_non_blocking()?;
+
+            cell_push(&pendings, (cmd, child, token));
 
             has_made_progress.set(true);
         }
