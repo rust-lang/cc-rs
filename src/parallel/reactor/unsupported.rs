@@ -16,7 +16,8 @@ impl Reactor {
         Ok(Registration(PhantomData))
     }
 
-    pub(crate) fn wait_with_timeout(&self, timeout: Duration) {
+    pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
         sleep(duration);
+        Ok(())
     }
 }
