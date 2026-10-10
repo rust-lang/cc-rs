@@ -1805,8 +1805,9 @@ fn compiler_stderr_forwarded_once_per_line() {
     );
 }
 
-/// A logger set with `message_logger` gets cc's warnings, each stderr line and
-/// failed commands, while every other `cargo:` line stays on stdout.
+/// A logger set with `message_logger` gets cc's warnings, each stderr line,
+/// failed commands and compile commands, while every other `cargo:` line stays
+/// on stdout.
 ///
 /// This test runs the builds in a subprocess so we
 /// can capture and assert on the emitted cargo metadata.
@@ -1846,6 +1847,11 @@ fn message_logger() {
             };
             let extra = if let Some(cmd) = extra.downcast_ref::<Command>() {
                 let program = Path::new(cmd.get_program()).file_stem().unwrap();
+                program.to_str().unwrap().to_owned()
+            } else if let Some(cmd) = extra.downcast_ref::<cc::compile_commands::CompileCommand>() {
+                let program = Path::new(cmd.arguments().next().unwrap())
+                    .file_stem()
+                    .unwrap();
                 program.to_str().unwrap().to_owned()
             } else if extra.is::<()>() {
                 "()".to_owned()
@@ -1901,6 +1907,14 @@ fn message_logger() {
             "clone-and-remove" => {
                 build.clone().compile("foo");
                 build.message_logger(None).compile("bar");
+            }
+            "compile-commands" => {
+                // The collector passes every message on to the logger.
+                let collector = Arc::new(
+                    cc::compile_commands::CompileCommandCollector::new().forward_to(logger),
+                );
+                build.message_logger(Some(collector.clone())).compile("foo");
+                assert_eq!(collector.commands().len(), 2);
             }
             "expand" => {
                 // `expand` collects the compiler's output instead of streaming it.
@@ -2000,8 +2014,20 @@ fn message_logger() {
             .map(str::to_owned)
             .collect()
     };
+    // Compile commands aren't printed, so they have no warning to match.
     let texts = |messages: &[[String; 3]]| -> Vec<String> {
-        messages.iter().map(|[_, _, text]| text.clone()).collect()
+        messages
+            .iter()
+            .filter(|[kind, _, _]| kind != "CompileCommand")
+            .map(|[_, _, text]| text.clone())
+            .collect()
+    };
+    let compile_commands = |messages: &[[String; 3]]| -> Vec<String> {
+        messages
+            .iter()
+            .filter(|[kind, extra, _]| kind == "CompileCommand" && extra == "cc")
+            .map(|[_, _, text]| text.clone())
+            .collect()
     };
     let count = |messages: &[[String; 3]], kind: &str, extra: &str, text: &str| {
         messages
@@ -2039,11 +2065,21 @@ fn message_logger() {
         "{messages:#?}"
     );
     assert!(
-        messages
-            .iter()
-            .all(|m| m[0] == stderr_line || (m[0] == "GeneralWarning" && m[1] == "()")),
+        messages.iter().all(|m| m[0] == stderr_line
+            || (m[0] == "GeneralWarning" && m[1] == "()")
+            || (m[0] == "CompileCommand" && m[1] == "cc")),
         "{messages:#?}"
     );
+    // One compile command per object, with the command line as the text.
+    let commands = compile_commands(&messages);
+    assert_eq!(commands.len(), 2, "{messages:#?}");
+    for src in ["\"foo.c\"", "\"bar.c\""] {
+        assert_eq!(
+            commands.iter().filter(|text| text.ends_with(src)).count(),
+            1,
+            "{messages:#?}"
+        );
+    }
     assert_link_lines(&stdout);
 
     // With cargo warnings off, the messages only go to the logger.
@@ -2110,6 +2146,11 @@ fn message_logger() {
             "cc: the shim cannot preprocess"
         ),
         1,
+        "{messages:#?}"
+    );
+    // Preprocessing isn't a compile command.
+    assert!(
+        messages.iter().all(|m| m[0] != "CompileCommand"),
         "{messages:#?}"
     );
 
@@ -2195,6 +2236,18 @@ fn message_logger() {
         4,
         "{stdout:#?}"
     );
+
+    // A compile command collector keeps the warnings on stdout and passes
+    // every message on.
+    let (stdout, messages) = run("compile-commands");
+    assert_eq!(warnings(&stdout), texts(&messages));
+    assert_eq!(
+        count(&messages, stderr_line, "cc", note),
+        2,
+        "{messages:#?}"
+    );
+    assert_eq!(compile_commands(&messages).len(), 2, "{messages:#?}");
+    assert_link_lines(&stdout);
 }
 
 /// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once

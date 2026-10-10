@@ -25,6 +25,8 @@ pub trait BuildMessageLogger: Send + Sync + 'static {
     ///   [`CommandFailed`](BuildMessageKind::CommandFailed): the
     ///   [`Command`](std::process::Command) that was run, read with
     ///   `extra.downcast_ref::<Command>()`
+    /// - [`CompileCommand`](BuildMessageKind::CompileCommand): the
+    ///   [`compile_commands::CompileCommand`](crate::compile_commands::CompileCommand)
     ///
     /// The logger can't fail the build, but a panic in it reaches the caller
     /// of the `Build` method that was running.
@@ -74,6 +76,17 @@ pub enum BuildMessageKind {
         /// The status the command exited with.
         exit_status: ExitStatus,
     },
+    /// cc is about to run the command that compiles one source file into an
+    /// object file, during [`Build::compile`](crate::Build::compile) or
+    /// [`Build::compile_intermediates`](crate::Build::compile_intermediates).
+    /// Each object file gets one message, also with the `parallel` feature.
+    ///
+    /// The text is the command line, and `extra` is the
+    /// [`compile_commands::CompileCommand`](crate::compile_commands::CompileCommand),
+    /// which a
+    /// [`CompileCommandCollector`](crate::compile_commands::CompileCommandCollector)
+    /// keeps to write a `compile_commands.json`.
+    CompileCommand,
 }
 
 /// The text of a message passed to a [`BuildMessageLogger`].
@@ -92,7 +105,9 @@ impl fmt::Display for BuildMessage<'_> {
     }
 }
 
-/// The logger of a `Build`, shared by its clones.
+/// The logger of a `Build`, shared by its clones, or the one a
+/// [`CompileCommandCollector`](crate::compile_commands::CompileCommandCollector)
+/// forwards to.
 #[derive(Clone)]
 pub(crate) struct Logger(pub(crate) Arc<dyn BuildMessageLogger>);
 
