@@ -1,6 +1,7 @@
 use std::{
     cell::Cell,
     process::{Child, Command},
+    reactor::{Reactor, Registration},
 };
 
 use crate::{
@@ -81,7 +82,14 @@ pub(crate) fn run_commands_in_parallel(
     // acquire the appropriate tokens, Once all objects have been compiled
     // we wait on all the processes and propagate the results of compilation.
 
-    let pendings = Cell::new(Vec::<(Command, KillOnDrop, job_token::JobToken)>::new());
+    let reactor = Reactor::new();
+
+    let pendings = Cell::new(Vec::<(
+        Command,
+        KillOnDrop,
+        job_token::JobToken,
+        Option<Registration<'_>>,
+    )>::new());
     let is_disconnected = Cell::new(false);
     let has_made_progress = Cell::new(false);
 
@@ -98,14 +106,23 @@ pub(crate) fn run_commands_in_parallel(
 
             let pendings_is_empty = cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, child, _token)| {
+                pendings.retain_mut(|(cmd, child, _token, registration)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
                             has_made_progress.set(true);
                             false
                         }
-                        Ok(None) => true, // Task still not finished, keep the entry
+                        Ok(None) => {
+                            // Task still not finished, keep the entry. Once
+                            // its stderr is closed there is nothing more to
+                            // wait for on it, and keeping it registered
+                            // would wake every wait at once.
+                            if child.1.stderr().is_none() {
+                                *registration = None;
+                            }
+                            true
+                        }
                         Err(err) => {
                             // Task fail, remove the entry.
                             // Since we can only return one error, log the error to make
@@ -144,9 +161,15 @@ pub(crate) fn run_commands_in_parallel(
             let mut child = spawn(&mut cmd, cargo_output)?;
             let stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
             let mut child = KillOnDrop(child, stderr_forwarder);
-            child.1.set_non_blocking()?;
 
-            cell_push(&pendings, (cmd, child, token));
+            child.1.set_non_blocking()?;
+            let registration = child
+                .1
+                .stderr()
+                .map(|stderr| reactor.register_stderr(stderr))
+                .transpose()?;
+
+            cell_push(&pendings, (cmd, child, token, registration));
 
             has_made_progress.set(true);
         }
@@ -155,5 +178,5 @@ pub(crate) fn run_commands_in_parallel(
         Ok::<_, Error>(())
     };
 
-    block_on(wait_future, spawn_future, &has_made_progress)
+    block_on(wait_future, spawn_future, &has_made_progress, &reactor)
 }
