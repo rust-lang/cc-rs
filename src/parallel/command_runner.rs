@@ -4,9 +4,11 @@ use std::{
 };
 
 use crate::{
+    cell_modify, cell_push,
     parallel::{
         async_executor::{block_on, YieldOnce},
         job_token,
+        reactor::{Reactor, Registration},
     },
     spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
 };
@@ -19,16 +21,6 @@ impl Drop for KillOnDrop {
 
         child.kill().ok();
     }
-}
-
-fn cell_update<T, F>(cell: &Cell<T>, f: F)
-where
-    T: Default,
-    F: FnOnce(T) -> T,
-{
-    let old = cell.take();
-    let new = f(old);
-    cell.set(new);
 }
 
 fn try_wait_on_child(
@@ -91,7 +83,14 @@ pub(crate) fn run_commands_in_parallel(
     // acquire the appropriate tokens, Once all objects have been compiled
     // we wait on all the processes and propagate the results of compilation.
 
-    let pendings = Cell::new(Vec::<(Command, KillOnDrop, job_token::JobToken)>::new());
+    let reactor = Reactor::default();
+
+    let pendings = Cell::new(Vec::<(
+        Command,
+        KillOnDrop,
+        job_token::JobToken,
+        Option<Registration<'_>>,
+    )>::new());
     let is_disconnected = Cell::new(false);
     let has_made_progress = Cell::new(false);
 
@@ -106,18 +105,25 @@ pub(crate) fn run_commands_in_parallel(
             // by not releasing the tokens before that last file is done we would effectively block other processes from
             // starting sooner - even though we only need one token for that last file, not N others that were acquired.
 
-            let mut pendings_is_empty = false;
-
-            cell_update(&pendings, |mut pendings| {
+            let pendings_is_empty = cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, child, _token)| {
+                pendings.retain_mut(|(cmd, child, _token, registration)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
                             has_made_progress.set(true);
                             false
                         }
-                        Ok(None) => true, // Task still not finished, keep the entry
+                        Ok(None) => {
+                            // Task still not finished, keep the entry. Once
+                            // its stderr is closed there is nothing more to
+                            // wait for on it, and keeping it registered
+                            // would wake every wait at once.
+                            if child.1.stderr().is_none() {
+                                *registration = None;
+                            }
+                            true
+                        }
                         Err(err) => {
                             // Task fail, remove the entry.
                             // Since we can only return one error, log the error to make
@@ -134,8 +140,7 @@ pub(crate) fn run_commands_in_parallel(
                         }
                     }
                 });
-                pendings_is_empty = pendings.is_empty();
-                pendings
+                pendings.is_empty()
             });
 
             if pendings_is_empty && is_disconnected.get() {
@@ -153,14 +158,19 @@ pub(crate) fn run_commands_in_parallel(
         for res in cmds {
             let mut cmd = res?;
             let token = tokens.acquire().await?;
-            let mut child = spawn(&mut cmd, cargo_output)?;
-            let mut stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
-            stderr_forwarder.set_non_blocking()?;
 
-            cell_update(&pendings, |mut pendings| {
-                pendings.push((cmd, KillOnDrop(child, stderr_forwarder), token));
-                pendings
-            });
+            let mut child = spawn(&mut cmd, cargo_output)?;
+            let stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
+            let mut child = KillOnDrop(child, stderr_forwarder);
+
+            child.1.set_non_blocking()?;
+            let registration = child
+                .1
+                .stderr()
+                .map(|stderr| reactor.register_stderr(stderr))
+                .transpose()?;
+
+            cell_push(&pendings, (cmd, child, token, registration));
 
             has_made_progress.set(true);
         }
@@ -169,5 +179,5 @@ pub(crate) fn run_commands_in_parallel(
         Ok::<_, Error>(())
     };
 
-    block_on(wait_future, spawn_future, &has_made_progress)
+    block_on(wait_future, spawn_future, &has_made_progress, &reactor)
 }

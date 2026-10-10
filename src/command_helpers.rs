@@ -193,6 +193,11 @@ impl StderrForwarder {
         }
     }
 
+    #[cfg(feature = "parallel")]
+    pub(crate) fn stderr(&self) -> Option<&ChildStderr> {
+        self.inner.as_ref().map(|inner| &inner.0)
+    }
+
     /// Forward the stderr of `cmd` that is available.
     pub(crate) fn forward_available(&mut self, cmd: &Command) -> bool {
         if let Some((stderr, buffer)) = self.inner.as_mut() {

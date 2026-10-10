@@ -4,11 +4,10 @@ use std::{
     pin::Pin,
     ptr,
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
-    thread,
     time::Duration,
 };
 
-use crate::Error;
+use crate::{parallel::reactor::Reactor, Error};
 
 const NOOP_WAKER_VTABLE: RawWakerVTable = RawWakerVTable::new(
     // Cloning just returns a new no-op raw waker
@@ -48,6 +47,7 @@ pub(crate) fn block_on<Fut1, Fut2>(
     mut fut1: Fut1,
     mut fut2: Fut2,
     has_made_progress: &Cell<bool>,
+    reactor: &Reactor,
 ) -> Result<(), Error>
 where
     Fut1: Future<Output = Result<(), Error>>,
@@ -91,22 +91,8 @@ where
         }
 
         if !has_made_progress.get() {
-            if backoff_cnt > 3 {
-                // We have yielded at least three times without making'
-                // any progress, so we will sleep for a while.
-                let duration = Duration::from_millis((backoff_cnt - 3).min(10));
-                thread::sleep(duration);
-            } else {
-                // Given that we spawned a lot of compilation tasks, it is unlikely
-                // that OS cannot find other ready task to execute.
-                //
-                // If all of them are done, then we will yield them and spawn more,
-                // or simply return.
-                //
-                // Thus this will not be turned into a busy-wait loop and it will not
-                // waste CPU resource.
-                thread::yield_now();
-            }
+            let duration = Duration::from_millis((backoff_cnt + 1).min(10));
+            reactor.wait_with_timeout(duration)?;
         }
 
         backoff_cnt = if has_made_progress.get() {
