@@ -21,14 +21,18 @@ impl Drop for KillOnDrop {
     }
 }
 
-fn cell_update<T, F>(cell: &Cell<T>, f: F)
+fn cell_modify<T, F>(cell: &Cell<T>, f: F)
 where
     T: Default,
-    F: FnOnce(T) -> T,
+    F: FnOnce(&mut T),
 {
-    let old = cell.take();
-    let new = f(old);
-    cell.set(new);
+    let mut value = cell.take();
+    f(&mut value);
+    cell.set(value);
+}
+
+fn cell_push<T>(cell: &Cell<Vec<T>>, element: T) {
+    cell_modify(cell, |vec| vec.push(element));
 }
 
 fn try_wait_on_child(
@@ -108,7 +112,7 @@ pub(crate) fn run_commands_in_parallel(
 
             let mut pendings_is_empty = false;
 
-            cell_update(&pendings, |mut pendings| {
+            cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
                 pendings.retain_mut(|(cmd, child, _token)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
@@ -135,7 +139,6 @@ pub(crate) fn run_commands_in_parallel(
                     }
                 });
                 pendings_is_empty = pendings.is_empty();
-                pendings
             });
 
             if pendings_is_empty && is_disconnected.get() {
@@ -157,10 +160,7 @@ pub(crate) fn run_commands_in_parallel(
             let mut stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
             stderr_forwarder.set_non_blocking()?;
 
-            cell_update(&pendings, |mut pendings| {
-                pendings.push((cmd, KillOnDrop(child, stderr_forwarder), token));
-                pendings
-            });
+            cell_push(&pendings, (cmd, KillOnDrop(child, stderr_forwarder), token));
 
             has_made_progress.set(true);
         }
