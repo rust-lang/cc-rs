@@ -82,7 +82,7 @@ pub(crate) fn run_commands_in_parallel(
     // acquire the appropriate tokens, Once all objects have been compiled
     // we wait on all the processes and propagate the results of compilation.
 
-    let reactor = Reactor::new();
+    let reactor = Reactor::default();
 
     let pendings = Cell::new(Vec::<(
         Command,
