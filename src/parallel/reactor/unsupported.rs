@@ -1,10 +1,4 @@
-use std::{
-    io,
-    marker::PhantomData,
-    process::ChildStderr,
-    thread::sleep,
-    time::Duration,
-};
+use std::{io, marker::PhantomData, process::ChildStderr, thread::sleep, time::Duration};
 
 #[derive(Default)]
 pub(crate) struct Reactor(PhantomData<()>);
