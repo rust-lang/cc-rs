@@ -2612,6 +2612,7 @@ impl Build {
                 let crt_flag = match self.static_crt {
                     Some(true) => "-MT",
                     Some(false) => "-MD",
+                    None if !self.is_cargo_target() => "-MD",
                     None => {
                         let features = cargo_env_var_os("CARGO_CFG_TARGET_FEATURE");
                         let features = features.as_deref().unwrap_or_default();
@@ -2915,7 +2916,7 @@ impl Build {
                     cmd.args.push("-finput-charset=utf-8".into());
                 }
 
-                if self.static_flag.is_none() {
+                if self.static_flag.is_none() && self.is_cargo_target() {
                     let features = cargo_env_var_os("CARGO_CFG_TARGET_FEATURE");
                     let features = features.as_deref().unwrap_or_default();
                     if features.to_string_lossy().contains("crt-static") {
@@ -4655,6 +4656,17 @@ impl Build {
                 .build_cache
                 .target_info_parser
                 .parse_from_cargo_environment_variables(),
+        }
+    }
+
+    /// Returns true if this build configuration is targeting Cargo's `TARGET`.
+    ///
+    /// When `target` is overridden to something else (e.g., `HOST`), Cargo's
+    /// `CARGO_CFG_*` target-feature environment variables do not apply.
+    fn is_cargo_target(&self) -> bool {
+        match &self.target {
+            Some(t) => Some(OsStr::new(&**t)) == cargo_env_var_os("TARGET").as_deref(),
+            None => true,
         }
     }
 
