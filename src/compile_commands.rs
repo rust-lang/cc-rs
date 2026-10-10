@@ -24,7 +24,7 @@
 //!     .compile("bar");
 //!
 //! let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-//! let json = json_compilation_database(&collector.commands()).to_string();
+//! let json = json_compilation_database(collector.commands()).to_string();
 //! fs::write(out_dir.join("compile_commands.json"), json).unwrap();
 //! ```
 //!
@@ -64,10 +64,10 @@
 
 use std::{
     any::Any,
-    ffi::{OsStr, OsString},
+    cell::Cell,
+    ffi::OsStr,
     fmt,
-    ops::Deref,
-    path::{Path, PathBuf},
+    path::Path,
     process::Command,
     sync::{Arc, Mutex, MutexGuard, PoisonError},
 };
@@ -83,10 +83,10 @@ use crate::{
 /// message. See the [module docs](self) for what each field holds.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CompileCommand {
-    directory: PathBuf,
-    file: PathBuf,
-    arguments: Box<[OsString]>,
-    output: PathBuf,
+    directory: Box<Path>,
+    file: Box<Path>,
+    arguments: Box<[Box<OsStr>]>,
+    output: Box<Path>,
 }
 
 impl CompileCommand {
@@ -96,13 +96,13 @@ impl CompileCommand {
         // cc runs its compile commands in its own working directory.
         debug_assert!(cmd.get_current_dir().is_none());
         Self {
-            directory: directory.to_path_buf(),
-            file: directory.join(src),
+            directory: directory.into(),
+            file: directory.join(src).into(),
             arguments: std::iter::once(cmd.get_program())
                 .chain(cmd.get_args())
-                .map(OsStr::to_os_string)
+                .map(Box::from)
                 .collect(),
-            output: directory.join(dst),
+            output: directory.join(dst).into(),
         }
     }
 
@@ -164,14 +164,16 @@ impl CompileCommandCollector {
 
     /// The commands collected so far, in the order cc logged them.
     ///
-    /// The collector stays locked while the returned value is alive, so
-    /// logging into it from another thread waits until it is dropped. On the
-    /// same thread, compiling with a `Build` that uses this collector or
-    /// calling `commands` again would lock it a second time, which may
-    /// deadlock or panic like [`Mutex::lock`]. So drop it before either, and
-    /// use `to_vec()` to keep a copy.
-    pub fn commands(&self) -> impl Deref<Target = Vec<CompileCommand>> + '_ {
-        self.lock()
+    /// Each command is cloned when the iterator reaches it, and the collector
+    /// isn't kept locked in between, so `Build`s can go on logging into it
+    /// while the iterator is alive. Commands logged after this call aren't
+    /// part of it.
+    pub fn commands(
+        &self,
+    ) -> impl ExactSizeIterator<Item = CompileCommand> + DoubleEndedIterator + '_ {
+        let len = self.lock().len();
+        // Commands are only ever added, so every index below `len` stays valid.
+        (0..len).map(move |i| self.lock()[i].clone())
     }
 
     fn lock(&self) -> MutexGuard<'_, Vec<CompileCommand>> {
@@ -197,25 +199,39 @@ impl BuildMessageLogger for CompileCommandCollector {
 /// [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html),
 /// writing straight to the formatter without building a `String` first.
 ///
-/// It can be formatted any number of times and into anything that takes a
-/// [`Display`](fmt::Display): `to_string()`, `write!` to a buffer or to a file
-/// (through a [`BufWriter`](std::io::BufWriter), since it writes in many small
-/// pieces), or as part of a larger text. Paths and arguments that aren't valid
-/// Unicode are written with replacement characters (U+FFFD). See the
+/// `commands` is usually [`CompileCommandCollector::commands`]. The result
+/// can be formatted into anything that takes a [`Display`](fmt::Display):
+/// `to_string()`, `write!` to a buffer or to a file (through a
+/// [`BufWriter`](std::io::BufWriter), since it writes in many small pieces),
+/// or as part of a larger text. Paths and arguments that aren't valid Unicode
+/// are written with replacement characters (U+FFFD). See the
 /// [module docs](self) for an example that writes it to a file.
+///
+/// # Panics
+///
+/// Formatting the result a second time panics, since the first one uses up
+/// `commands`. Call this function again for another copy.
 #[must_use]
-pub fn json_compilation_database(commands: &[CompileCommand]) -> impl fmt::Display + '_ {
-    from_fn(move |f| write_json_compilation_database(f, commands))
+pub fn json_compilation_database(
+    commands: impl IntoIterator<Item = CompileCommand>,
+) -> impl fmt::Display {
+    let commands = Cell::new(Some(commands.into_iter()));
+    from_fn(move |f| {
+        let mut commands = commands
+            .take()
+            .expect("a `json_compilation_database` can only be formatted once");
+        write_json_compilation_database(f, &mut commands)
+    })
 }
 
 fn write_json_compilation_database(
     f: &mut fmt::Formatter<'_>,
-    commands: &[CompileCommand],
+    commands: &mut dyn Iterator<Item = CompileCommand>,
 ) -> fmt::Result {
     f.write_str("[")?;
-    for (i, command) in commands.iter().enumerate() {
+    for (i, command) in commands.enumerate() {
         f.write_str(if i == 0 { "\n" } else { ",\n" })?;
-        write_json_entry(f, command)?;
+        write_json_entry(f, &command)?;
     }
     f.write_str("\n]\n")
 }
@@ -236,7 +252,7 @@ fn write_json_entry(f: &mut fmt::Formatter<'_>, command: &CompileCommand) -> fmt
 /// A value in a database entry.
 enum JsonValue<'a> {
     String(&'a OsStr),
-    StringArray(&'a [OsString]),
+    StringArray(&'a [Box<OsStr>]),
 }
 
 impl<'a> From<&'a Path> for JsonValue<'a> {
@@ -245,8 +261,8 @@ impl<'a> From<&'a Path> for JsonValue<'a> {
     }
 }
 
-impl<'a> From<&'a [OsString]> for JsonValue<'a> {
-    fn from(strings: &'a [OsString]) -> Self {
+impl<'a> From<&'a [Box<OsStr>]> for JsonValue<'a> {
+    fn from(strings: &'a [Box<OsStr>]) -> Self {
         Self::StringArray(strings)
     }
 }
@@ -263,21 +279,25 @@ trait JsonWriteExt {
 
 impl JsonWriteExt for fmt::Formatter<'_> {
     fn write_json_field<'a>(&mut self, name: &str, value: impl Into<JsonValue<'a>>) -> fmt::Result {
-        self.write_json_string(OsStr::new(name))?;
-        self.write_str(": ")?;
-        match value.into() {
-            JsonValue::String(s) => self.write_json_string(s),
-            JsonValue::StringArray(strings) => {
-                self.write_str("[")?;
-                for (i, s) in strings.iter().enumerate() {
-                    if i > 0 {
-                        self.write_str(", ")?;
+        fn inner(f: &mut fmt::Formatter<'_>, name: &str, value: JsonValue<'_>) -> fmt::Result {
+            f.write_json_string(OsStr::new(name))?;
+            f.write_str(": ")?;
+            match value {
+                JsonValue::String(s) => f.write_json_string(s),
+                JsonValue::StringArray(strings) => {
+                    f.write_str("[")?;
+                    for (i, s) in strings.iter().enumerate() {
+                        if i > 0 {
+                            f.write_str(", ")?;
+                        }
+                        f.write_json_string(s)?;
                     }
-                    self.write_json_string(s)?;
+                    f.write_str("]")
                 }
-                self.write_str("]")
             }
         }
+
+        inner(self, name, value.into())
     }
 
     fn write_json_string(&mut self, s: &OsStr) -> fmt::Result {
@@ -308,11 +328,21 @@ mod tests {
 
     fn command(directory: &str, file: &str, arguments: &[&str], output: &str) -> CompileCommand {
         CompileCommand {
-            directory: directory.into(),
-            file: file.into(),
-            arguments: arguments.iter().map(OsString::from).collect(),
-            output: output.into(),
+            directory: Path::new(directory).into(),
+            file: Path::new(file).into(),
+            arguments: arguments.iter().map(|arg| OsStr::new(arg).into()).collect(),
+            output: Path::new(output).into(),
         }
+    }
+
+    #[test]
+    fn compile_command_has_no_spare_capacity() {
+        // Each field is a boxed slice, a pointer and a length, without the
+        // capacity a `PathBuf` or `Vec` would add.
+        assert_eq!(
+            std::mem::size_of::<CompileCommand>(),
+            4 * std::mem::size_of::<Box<[u8]>>()
+        );
     }
 
     #[test]
@@ -342,7 +372,15 @@ mod tests {
 
     #[test]
     fn json_of_no_commands_is_an_empty_array() {
-        assert_eq!(json_compilation_database(&[]).to_string(), "[\n]\n");
+        assert_eq!(json_compilation_database([]).to_string(), "[\n]\n");
+    }
+
+    #[test]
+    #[should_panic(expected = "can only be formatted once")]
+    fn json_formats_only_once() {
+        let json = json_compilation_database([]);
+        assert_eq!(json.to_string(), "[\n]\n");
+        let _ = json.to_string();
     }
 
     #[test]
@@ -383,7 +421,7 @@ mod tests {
   }
 ]
 "#;
-        assert_eq!(json_compilation_database(&commands).to_string(), expected);
+        assert_eq!(json_compilation_database(commands).to_string(), expected);
     }
 
     #[cfg(any(unix, windows))]
@@ -396,7 +434,7 @@ mod tests {
         };
         #[cfg(windows)]
         let invalid = {
-            use std::os::windows::ffi::OsStringExt;
+            use std::{ffi::OsString, os::windows::ffi::OsStringExt};
             // An unpaired surrogate.
             OsString::from_wide(&[0x66, 0x6f, 0x6f, 0xd800, 0x2e, 0x63])
         };

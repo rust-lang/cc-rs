@@ -7,7 +7,9 @@ use std::{
     io::Write as _,
     panic::{RefUnwindSafe, UnwindSafe},
     path::Path,
-    sync::Arc,
+    sync::{mpsc, Arc},
+    thread,
+    time::Duration,
 };
 
 use cc::compile_commands::{json_compilation_database, CompileCommand, CompileCommandCollector};
@@ -70,11 +72,10 @@ fn compile_commands_are_the_commands_cc_runs() {
         .unwrap();
 
     let cwd = env::current_dir().unwrap();
-    let guard = collector.commands();
-    let commands = &*guard;
+    let commands: Vec<_> = collector.commands().collect();
     assert_eq!(commands.len(), 3, "{commands:#?}");
     for src in ["foo.c", "bar.c", "baz.S"] {
-        let command = command_for(commands, src);
+        let command = command_for(&commands, src);
         let args = arguments(command);
         assert_eq!(args, recorded_command(&test, src));
         assert_eq!(command.directory(), cwd);
@@ -99,11 +100,10 @@ fn compile_commands_include_msvc_assembler() {
         .try_compile("foo")
         .unwrap();
 
-    let guard = collector.commands();
-    let commands = &*guard;
+    let commands: Vec<_> = collector.commands().collect();
     assert_eq!(commands.len(), 2, "{commands:#?}");
     for (src, program) in [("foo.c", "cl"), ("bar.asm", "masm-wrapper")] {
-        let command = command_for(commands, src);
+        let command = command_for(&commands, src);
         test.cmd_for_source(src).must_run(program);
         assert_eq!(arguments(command), recorded_command(&test, src));
         let mut output = OsString::from("-Fo");
@@ -127,8 +127,7 @@ fn compile_commands_include_a_failed_compile() {
         .try_compile("foo");
     assert!(result.is_err());
 
-    let guard = collector.commands();
-    let commands = &*guard;
+    let commands: Vec<_> = collector.commands().collect();
     assert_eq!(commands.len(), 1, "{commands:#?}");
     assert_eq!(arguments(&commands[0]), recorded_command(&test, "foo.c"));
 }
@@ -142,7 +141,7 @@ fn compile_command_collector_is_shared() {
     let mut first = gnu_build(&test, &collector);
     first.file("foo.c");
     first.try_compile("foo").unwrap();
-    // Reading the commands in between is fine once the borrow ends.
+    // Reading the commands in between is fine.
     assert_eq!(collector.commands().len(), 1);
     first.try_compile("foo").unwrap();
     gnu_build(&test, &collector)
@@ -162,8 +161,7 @@ fn compile_command_collector_is_shared() {
         .unwrap();
 
     let cwd = env::current_dir().unwrap();
-    let guard = collector.commands();
-    let commands = &*guard;
+    let commands: Vec<_> = collector.commands().collect();
     let files: Vec<_> = commands.iter().map(CompileCommand::file).collect();
     assert_eq!(
         files,
@@ -171,6 +169,50 @@ fn compile_command_collector_is_shared() {
         "{commands:#?}"
     );
     assert_eq!(commands[0], commands[1]);
+}
+
+/// `commands` yields the commands collected when it was called, from either
+/// end, and doesn't keep the collector locked while it is alive.
+#[test]
+fn compile_command_collector_commands_iterator() {
+    let test = Test::gnu();
+    let collector = Arc::new(CompileCommandCollector::new());
+    gnu_build(&test, &collector)
+        .file("foo.c")
+        .try_compile("foo")
+        .unwrap();
+    gnu_build(&test, &collector)
+        .file("bar.c")
+        .try_compile("bar")
+        .unwrap();
+
+    let mut commands = collector.commands();
+    assert_eq!(commands.len(), 2);
+
+    // Another thread can log into the collector meanwhile, without waiting.
+    let mut build = gnu_build(&test, &collector);
+    build.file("baz.c");
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || sender.send(build.try_compile("baz")).unwrap());
+    receiver
+        .recv_timeout(Duration::from_secs(30))
+        .expect("logging waited for the iterator")
+        .unwrap();
+    assert_eq!(collector.commands().len(), 3);
+
+    let cwd = env::current_dir().unwrap();
+    assert_eq!(commands.len(), 2);
+    assert_eq!(commands.next_back().unwrap().file(), cwd.join("bar.c"));
+    assert_eq!(commands.len(), 1);
+    assert_eq!(commands.next().unwrap().file(), cwd.join("foo.c"));
+    assert_eq!(commands.next(), None);
+
+    let files: Vec<_> = collector
+        .commands()
+        .rev()
+        .map(|command| command.file().to_path_buf())
+        .collect();
+    assert_eq!(files, ["baz.c", "bar.c", "foo.c"].map(|src| cwd.join(src)));
 }
 
 /// The JSON holds every collected command.
@@ -184,11 +226,10 @@ fn json_compilation_database_holds_the_commands() {
         .define("GREETING", "\"hello\"")
         .try_compile("foo")
         .unwrap();
-    let guard = collector.commands();
-    let commands = &*guard;
+    let commands: Vec<_> = collector.commands().collect();
     assert_eq!(commands.len(), 2, "{commands:#?}");
 
-    let json = json_compilation_database(commands).to_string();
+    let json = json_compilation_database(collector.commands()).to_string();
 
     // Enough for the paths and arguments here, which have no control
     // characters.
@@ -203,7 +244,7 @@ fn json_compilation_database_holds_the_commands() {
     assert!(json.starts_with("[\n  {\n"), "{json}");
     assert!(json.ends_with("\n  }\n]\n"), "{json}");
     assert!(json.contains(r#""-DGREETING=\"hello\"""#), "{json}");
-    for command in commands {
+    for command in &commands {
         let quoted: Vec<_> = command.arguments().map(quote).collect();
         for line in [
             format!("\"directory\": {},", quote(command.directory().as_os_str())),
@@ -216,7 +257,8 @@ fn json_compilation_database_holds_the_commands() {
     }
 }
 
-/// The formatter writes the same text each time, into any writer.
+/// The formatter writes the same text into any writer, from any iterator of
+/// commands.
 #[test]
 fn json_compilation_database_formats_into_any_writer() {
     let test = Test::gnu();
@@ -225,16 +267,16 @@ fn json_compilation_database_formats_into_any_writer() {
         .file("foo.c")
         .try_compile("foo")
         .unwrap();
-    let commands = collector.commands();
-    let display = json_compilation_database(&commands);
 
-    let json = display.to_string();
+    let json = json_compilation_database(collector.commands()).to_string();
     assert!(json.starts_with("[\n  {\n    \"directory\": "), "{json}");
-    assert_eq!(display.to_string(), json);
     let mut text = String::from("// compile commands\n");
-    write!(text, "{display}").unwrap();
+    write!(text, "{}", json_compilation_database(collector.commands())).unwrap();
     assert_eq!(text, format!("// compile commands\n{json}"));
     let mut bytes = Vec::new();
-    write!(bytes, "{display}").unwrap();
+    write!(bytes, "{}", json_compilation_database(collector.commands())).unwrap();
     assert_eq!(bytes, json.as_bytes());
+
+    let commands: Vec<_> = collector.commands().collect();
+    assert_eq!(json_compilation_database(commands).to_string(), json);
 }
