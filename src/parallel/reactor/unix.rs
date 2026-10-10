@@ -36,7 +36,7 @@ impl Reactor {
 
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
         let timeout = timeout.as_millis().try_into().unwrap();
-        let result = cell_modify(|poll_fds| {
+        let result = cell_modify(&self.poll_fds, |poll_fds| {
             // An error, such as being interrupted by a signal, only means
             // waking up early: the runner checks every command anyway.
             let ret = unsafe {
@@ -56,5 +56,16 @@ impl Reactor {
             Err(err) if err.kind() == io::ErrorKind::Interrupted => Ok(()),
             result => result,
         }
+    }
+}
+
+impl Drop for Registration<'_> {
+    fn drop(&mut self) {
+        let fd = self.fd;
+        cell_modify(&self.reactor.poll_fds, |poll_fds| {
+            if let Some(i) = poll_fds.iter().position(|pollfd| pollfd.fd == fd) {
+                poll_fds.swap_remove(i);
+            }
+        });
     }
 }
