@@ -37,8 +37,6 @@ impl Reactor {
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
         let timeout = timeout.as_millis().try_into().unwrap();
         let result = cell_modify(&self.poll_fds, |poll_fds| {
-            // An error, such as being interrupted by a signal, only means
-            // waking up early: the runner checks every command anyway.
             let ret = unsafe {
                 libc::poll(
                     poll_fds.as_mut_ptr(),
