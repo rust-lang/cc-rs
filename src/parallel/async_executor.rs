@@ -4,7 +4,6 @@ use std::{
     pin::Pin,
     ptr,
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
-    thread,
     time::Duration,
 };
 
