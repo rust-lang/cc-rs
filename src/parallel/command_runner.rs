@@ -21,14 +21,15 @@ impl Drop for KillOnDrop {
     }
 }
 
-fn cell_modify<T, F>(cell: &Cell<T>, f: F)
+fn cell_modify<T, F, R>(cell: &Cell<T>, f: F) -> R
 where
     T: Default,
-    F: FnOnce(&mut T),
+    F: FnOnce(&mut T) -> R,
 {
     let mut value = cell.take();
-    f(&mut value);
+    let r = f(&mut value);
     cell.set(value);
+    r
 }
 
 fn cell_push<T>(cell: &Cell<Vec<T>>, element: T) {
@@ -110,9 +111,7 @@ pub(crate) fn run_commands_in_parallel(
             // by not releasing the tokens before that last file is done we would effectively block other processes from
             // starting sooner - even though we only need one token for that last file, not N others that were acquired.
 
-            let mut pendings_is_empty = false;
-
-            cell_modify(&pendings, |pendings| {
+            let pendings_is_empty = cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
                 pendings.retain_mut(|(cmd, child, _token)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
@@ -138,7 +137,7 @@ pub(crate) fn run_commands_in_parallel(
                         }
                     }
                 });
-                pendings_is_empty = pendings.is_empty();
+                pendings.is_empty()
             });
 
             if pendings_is_empty && is_disconnected.get() {
