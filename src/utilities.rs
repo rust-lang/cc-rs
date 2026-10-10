@@ -229,6 +229,23 @@ impl Hasher for HashRecorder {
     }
 }
 
+#[cfg(feature = "parallel")]
+pub(crate) fn cell_modify<T, F, R>(cell: &Cell<T>, f: F) -> R
+where
+    T: Default,
+    F: FnOnce(&mut T) -> R,
+{
+    let mut value = cell.take();
+    let r = f(&mut value);
+    cell.set(value);
+    r
+}
+
+#[cfg(feature = "parallel")]
+pub(crate) fn cell_push<T>(cell: &Cell<Vec<T>>, element: T) {
+    cell_modify(cell, |vec| vec.push(element));
+}
+
 #[cfg(test)]
 mod tests {
     use super::IgnoreAsciiCase;
