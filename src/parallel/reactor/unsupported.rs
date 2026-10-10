@@ -1,9 +1,9 @@
 use std::{
-  io,
-  marker::PhantomData,
-  process::ChildStderr,
-  thread::sleep,
-  time::Duration,
+    io,
+    marker::PhantomData,
+    process::ChildStderr,
+    thread::sleep,
+    time::Duration,
 };
 
 #[derive(Default)]
