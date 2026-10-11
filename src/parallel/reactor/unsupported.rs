@@ -16,7 +16,7 @@ impl Reactor {
         Ok(Registration(PhantomData))
     }
 
-    pub(crate) fn register_child(&self, child: &Child) -> io::Result<Option<Registration<'_>>> {
+    pub(crate) fn register_child(&self, _child: &Child) -> io::Result<Option<Registration<'_>>> {
         Ok(None)
     }
 
