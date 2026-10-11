@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.7.0...cc-v1.8.0) - 2026-10-11
+
+### Added
+
+- add `CC_PREFER_CLANG_CL_OVER_MSVC` to override `prefer_clang_cl_over_msvc` ([#2001](https://github.com/rust-lang/cc-rs/pull/2001))
+
+### Fixed
+
+- *(panic)* fix panic in code and replace with error when appropriate ([#2008](https://github.com/rust-lang/cc-rs/pull/2008))
+- *(env)* do not panic if WASM_MUSL_SYSROOT not set ([#2007](https://github.com/rust-lang/cc-rs/pull/2007))
+- *(jobserver)* help thread gets more token than necessary ([#2006](https://github.com/rust-lang/cc-rs/pull/2006))
+- stop forwarding -Cprofile-generate/-Cprofile-use to the C compiler ([#2003](https://github.com/rust-lang/cc-rs/pull/2003))
+- do not apply target crt-static when target is overridden ([#1999](https://github.com/rust-lang/cc-rs/pull/1999))
+
+### Other
+
+- *(parallel)* poll for process exit on linux ([#2009](https://github.com/rust-lang/cc-rs/pull/2009))
+- document `NVCC` and other environment variables ([#2005](https://github.com/rust-lang/cc-rs/pull/2005))
+- *(jobserver)* poll for new token ([#2004](https://github.com/rust-lang/cc-rs/pull/2004))
+- *(parallel)* Use poll on unix ([#2000](https://github.com/rust-lang/cc-rs/pull/2000))
+
 ## [1.7.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.6.0...cc-v1.7.0) - 2026-10-10
 
 ### Added
