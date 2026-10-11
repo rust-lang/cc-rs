@@ -20,16 +20,7 @@ pub(crate) struct Registration<'a> {
 
 impl Reactor {
     pub(crate) fn register_stderr(&self, stderr: &ChildStderr) -> io::Result<Registration<'_>> {
-        let fd = stderr.as_raw_fd();
-        cell_push(
-            &self.poll_fds,
-            libc::pollfd {
-                fd,
-                events: libc::POLLIN,
-                revents: 0,
-            },
-        );
-        Ok(Registration { reactor: self, fd })
+        self.register_fd(stderr.as_raw_fd())
     }
 
     pub(crate) fn register_fd(&self, fd: RawFd) -> Registration<'_> {
