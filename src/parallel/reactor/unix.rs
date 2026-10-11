@@ -20,7 +20,10 @@ pub(crate) struct Registration<'a> {
 
 impl Reactor {
     pub(crate) fn register_stderr(&self, stderr: &ChildStderr) -> io::Result<Registration<'_>> {
-        let fd = stderr.as_raw_fd();
+        Ok(self.register_fd(stderr.as_raw_fd()))
+    }
+
+    pub(crate) fn register_fd(&self, fd: RawFd) -> Registration<'_> {
         cell_push(
             &self.poll_fds,
             libc::pollfd {
@@ -29,7 +32,7 @@ impl Reactor {
                 revents: 0,
             },
         );
-        Ok(Registration { reactor: self, fd })
+        Registration { reactor: self, fd }
     }
 
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
