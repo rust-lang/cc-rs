@@ -78,13 +78,28 @@
 //!   for sccache, simply set `CC` to `sccache cc`.
 //!   For other custom `CC` wrapper, just set `CC_KNOWN_WRAPPER_CUSTOM`
 //!   to the custom wrapper used in `CC`.
+//!   `CC` can also include flags, for example `gcc -m32`, which are passed
+//!   before all other flags.
 //! * `AR` - the `ar` (archiver) executable to use to build the static library.
+//! * `ARFLAGS` - a series of space separated flags passed to the archiver,
+//!   before those from [`Build::ar_flag`].
+//! * `RANLIB` and `RANLIBFLAGS` - the `ranlib` executable and its flags that
+//!   [`Build::get_ranlib`] returns. `cc` doesn't run `ranlib` itself.
 //! * `CC_MASM_ASM` - the assembler for `.asm` files on MSVC targets, used
 //!   instead of `ml64.exe`, `ml.exe`, `armasm.exe` or `armasm64.exe`. Like `AR`,
 //!   it can include arguments, for example `llvm-ml -m64`. For `llvm-ml`, cc
 //!   passes `-m64` or `-m32` to match the target. When it is not set and
 //!   `ml64.exe` or `ml.exe` can't be found, as when cross compiling, cc uses
 //!   `llvm-ml` from next to `clang-cl` or from `PATH` instead.
+//! * `NVCC` - the `nvcc` executable used for [CUDA](#cuda-c-support), instead of
+//!   `nvcc` from `PATH`. Its whole value is the path, so unlike `CC` it can't
+//!   include a wrapper or arguments. The C++ compiler (see `CXX`) is still
+//!   passed to it with `-ccbin`, unless [`Build::ccbin`] turns that off.
+//! * `CROSS_COMPILE` - when cross compiling and `CC` (or `CXX`), `AR` or
+//!   `RANLIB` isn't set, `cc` names that tool for many targets with a prefix,
+//!   such as `arm-linux-gnueabi-gcc`. This variable sets that prefix, for
+//!   example `arm-linux-gnueabi-`. If it isn't set, a `RUSTC_LINKER` from Cargo
+//!   that ends in `-gcc` gives the prefix instead.
 //! * `CRATE_CC_NO_DEFAULTS` - the default compiler flags may cause conflicts in
 //!   some cross compiling scenarios. Setting this variable
 //!   will disable the generation of default compiler
@@ -116,26 +131,70 @@
 //!   [buildcache](https://gitlab.com/bits-n-bites/buildcache),
 //!   [cachepot](https://github.com/paritytech/cachepot), or
 //!   [kache](https://github.com/kunobi-ninja/kache).
+//! * `SDKROOT` - the Apple SDK path that `cc` passes with `-isysroot`, instead
+//!   of the one from `xcrun`, on Apple targets other than macOS and on macOS
+//!   with a compiler from an Xcode toolchain (`.xctoolchain`). It is ignored if
+//!   it isn't an existing absolute path or is clearly for another platform.
+//! * `MACOSX_DEPLOYMENT_TARGET`, `IPHONEOS_DEPLOYMENT_TARGET`,
+//!   `TVOS_DEPLOYMENT_TARGET`, `WATCHOS_DEPLOYMENT_TARGET` and
+//!   `XROS_DEPLOYMENT_TARGET` - the minimum OS version that `cc` compiles for on
+//!   the matching Apple targets.
+//! * `WASI_SDK_PATH` - on WASI targets, the
+//!   [wasi-sdk](https://github.com/WebAssembly/wasi-sdk) installation. If it has
+//!   a `bin/<target>-clang`, `cc` uses that as the default compiler.
+//! * `WASI_SYSROOT` - on WASI targets, the sysroot that `cc` passes with
+//!   `--sysroot`. For C++ on `wasm32`, `cc` also links `libc++` and `libc++abi`
+//!   from its `lib/<target>` folder.
+//! * `WASM_MUSL_SYSROOT` - required on `wasm32` Linux targets such as
+//!   `wasm32-wali-linux-musl`: the sysroot that `cc` passes with `--sysroot`.
+//!   For C++, `cc` also links `libc++` and `libc++abi` from its `lib` folder.
+//! * `PAUTHTEST_SYSROOT` and `PAUTHTEST_RESOURCE_DIR` - required on `pauthtest`
+//!   targets such as `aarch64-unknown-linux-pauthtest`: the sysroot and the
+//!   Clang resource folder that `cc` passes with `--sysroot` and
+//!   `-resource-dir`. For C++, `cc` also links `libc++` and `libc++abi` from the
+//!   sysroot's `lib` folder.
+//! * `VCINSTALLDIR` - set by a Visual Studio developer command prompt. On
+//!   Windows, `cc` then takes `cl.exe`, `lib.exe` and the other MSVC tools from
+//!   `PATH`, or from the Visual Studio in `VSINSTALLDIR` if the prompt is for
+//!   another architecture, before it looks for an installed Visual Studio. On
+//!   other hosts, `cc` looks for these tools in `VCINSTALLDIR` and
+//!   `VSINSTALLDIR`, which must both be set, and then in `PATH`.
 //!
 //! Furthermore, projects using this crate may specify custom environment variables
 //! to be inspected, for example via the `Build::try_flags_from_environment`
 //! function. Consult the project’s own documentation or its use of the `cc` crate
 //! for any additional variables it may use.
 //!
-//! Each of these variables can also be supplied with certain prefixes and suffixes,
-//! in the following prioritized order:
+//! `CC`, `CXX`, `AR`, `RANLIB`, `NVCC`, `CC_MASM_ASM`, `CXXSTDLIB`,
+//! `CXXSTDLIB_STATIC` and the flags variables `CFLAGS`, `CXXFLAGS`, `ARFLAGS`
+//! and `RANLIBFLAGS` can also be supplied with certain prefixes and suffixes, in
+//! the following prioritized order:
 //!
 //!   1. `<var>_<target>` - for example, `CC_x86_64-unknown-linux-gnu` or `CC_thumbv8m.main-none-eabi`
-//!   2. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu` or `CC_thumbv8m_main_none_eabi` (both periods and underscores are replaced)
+//!   2. `<var>_<target_with_underscores>` - for example, `CC_x86_64_unknown_linux_gnu` or `CC_thumbv8m_main_none_eabi` (both dashes and periods are replaced)
 //!   3. `<build-kind>_<var>` - for example, `HOST_CC` or `TARGET_CFLAGS`
 //!   4. `<var>` - a plain `CC`, `AR` as above.
+//!
+//! For the flags variables, every form that is set is used, in the reverse of
+//! this order, so the more specific flags come last. The other variables listed
+//! above are only read as written, without prefixes or suffixes.
 //!
 //! If none of these variables exist, cc-rs uses built-in defaults.
 //!
 //! In addition to the above optional environment variables, `cc-rs` has some
 //! functions with hard requirements on some variables supplied by [cargo's
 //! build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
-//! and `HOST` variables.
+//! and `HOST` variables. It also reads these variables from Cargo when they are
+//! set:
+//!
+//! * `DEBUG` - the profile's `debug` setting. Unless it is off (`""`, `"0"`,
+//!   `"false"` or `"none"`), `cc` passes debug info flags such as `-g` or `-Z7`
+//!   and, with GCC and Clang, keeps frame pointers. [`Build::debug`] overrides
+//!   it.
+//! * `CARGO_CFG_TARGET_FEATURE` - if it contains `crt-static`, `cc` passes `-MT`
+//!   instead of `-MD` to MSVC and clang-cl, unless [`Build::static_crt`] is set,
+//!   and `-static` to GCC. This only applies when the build is for Cargo's
+//!   `TARGET`.
 //!
 //! [cargo]: https://doc.rust-lang.org/cargo/reference/build-scripts.html#inputs-to-the-build-script
 //!
@@ -1577,7 +1636,7 @@ impl Build {
     /// allows the following standard environment variables to be overwritten by this function:
     /// - `SDKROOT`
     /// - `*_DEPLOYMENT_TARGET`
-    /// - `WASI_SDK_ROOT`
+    /// - `WASI_SDK_PATH`
     ///
     /// The logic here is "environment variables that the C compiler could itself reasonably have
     /// read".
