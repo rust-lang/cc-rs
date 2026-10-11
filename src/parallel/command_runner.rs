@@ -157,7 +157,7 @@ pub(crate) fn run_commands_in_parallel(
     let spawn_future = async {
         for res in cmds {
             let mut cmd = res?;
-            let token = tokens.acquire().await?;
+            let token = tokens.acquire(&reactor).await?;
 
             let mut child = spawn(&mut cmd, cargo_output)?;
             let stderr_forwarder = StderrForwarder::new(&mut child, cargo_output);
