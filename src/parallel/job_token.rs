@@ -265,7 +265,7 @@ mod inherited_jobserver {
                     }
                     Err(err) if err.kind() == io::ErrorKind::Unsupported => {
                         // Fallback to creating a help thread with blocking acquire
-                        let helper_thread = if let Some(thread) = self.helper_thread.as_ref() {
+                        let helper_thread = if let Some(thread) = self.helper_thread.as_mut() {
                             thread
                         } else {
                             self.helper_thread
