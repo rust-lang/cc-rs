@@ -201,7 +201,7 @@ impl StderrForwarder {
     /// Forward the stderr of `cmd` that is available.
     pub(crate) fn forward_available(&mut self, cmd: &Command) -> bool {
         let Some((stderr, buffer)) = self.inner.as_mut() else {
-            return true
+            return true;
         };
 
         loop {
