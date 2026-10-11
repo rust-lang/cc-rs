@@ -32,6 +32,18 @@ impl Reactor {
         Ok(Registration { reactor: self, fd })
     }
 
+    pub(crate) fn register_fd(&self, fd: RawFd) -> Registration<'_> {
+        cell_push(
+            &self.poll_fds,
+            libc::pollfd {
+                fd,
+                events: libc::POLLIN,
+                revents: 0,
+            },
+        );
+        Registration { reactor: self, fd }
+    }
+
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
         let timeout = timeout.as_millis().try_into().unwrap();
         let result = cell_modify(&self.poll_fds, |poll_fds| {
