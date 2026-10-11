@@ -81,7 +81,6 @@ mod inherited_jobserver {
     use std::{
         io, mem,
         sync::{mpsc, Mutex, MutexGuard, PoisonError},
-    
     };
 
     pub(super) struct JobServer {
@@ -112,10 +111,10 @@ mod inherited_jobserver {
     impl JobServer {
         pub(super) unsafe fn from_env() -> Option<Self> {
             jobserver::Client::from_env().map(|inner| Self {
-                inner,
-                global_implicit_token: Mutex::new(true),
                 #[cfg(unix)]
                 fd: jobserver_fd(&inner),
+                inner,
+                global_implicit_token: Mutex::new(true),
             })
         }
 
