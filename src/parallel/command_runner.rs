@@ -152,6 +152,9 @@ pub(crate) fn run_commands_in_parallel(
         }
     };
     let spawn_future = async {
+        // Limit our parallelism globally with a jobserver.
+        let mut tokens = job_token::ActiveJobTokenServer::new();
+
         for res in cmds {
             let mut cmd = res?;
             let token = tokens.acquire(&reactor).await?;
@@ -172,8 +175,6 @@ pub(crate) fn run_commands_in_parallel(
             has_made_progress.set(true);
         }
         is_disconnected.set(true);
-        // Limit our parallelism globally with a jobserver.
-        let mut tokens = job_token::ActiveJobTokenServer::new();
 
         Ok::<_, Error>(())
     };
