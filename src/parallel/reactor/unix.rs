@@ -1,21 +1,30 @@
 use std::{
     cell::Cell,
     io,
-    os::unix::io::{AsRawFd, RawFd},
-    process::ChildStderr,
+    os::unix::io::{AsRawFd, OwnedFd, RawFd},
+    process::{Child, ChildStderr},
     time::Duration,
 };
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+use std::os::unix::io::FromRawFd;
 
 use crate::{cell_modify, cell_push};
 
 #[derive(Default)]
 pub(crate) struct Reactor {
     poll_fds: Cell<Vec<libc::pollfd>>,
+    /// Set once `pidfd_open` turns out not to be available, such as on Linux
+    /// before 5.3 or when blocked by seccomp, so it isn't tried again.
+    #[cfg(any(target_os = "linux", target_os = "android"))]
+    no_pidfd: Cell<bool>,
 }
 
 pub(crate) struct Registration<'a> {
     reactor: &'a Reactor,
     fd: RawFd,
+    /// Closed only after `fd` is removed from the reactor, in `drop`.
+    _owned_fd: Option<OwnedFd>,
 }
 
 impl Reactor {
@@ -32,7 +41,46 @@ impl Reactor {
                 revents: 0,
             },
         );
-        Registration { reactor: self, fd }
+        Registration {
+            reactor: self,
+            fd,
+            _owned_fd: None,
+        }
+    }
+
+    pub(crate) fn register_child(&self, child: &Child) -> io::Result<Option<Registration<'_>>> {
+        #[cfg(any(target_os = "linux", target_os = "android"))]
+        if !self.no_pidfd.get() {
+            // Not yet waited on, so the pid is still the child's.
+            let ret = unsafe {
+                libc::syscall(
+                    libc::SYS_pidfd_open,
+                    libc::c_long::from(child.id() as libc::pid_t),
+                    0 as libc::c_long,
+                )
+            };
+            if ret >= 0 {
+                // Always close-on-exec.
+                let pidfd = unsafe { OwnedFd::from_raw_fd(ret as RawFd) };
+                let mut registration = self.register_fd(pidfd.as_raw_fd());
+                registration._owned_fd = Some(pidfd);
+                return Ok(Some(registration));
+            }
+            let err = io::Error::last_os_error();
+            if matches!(
+                err.raw_os_error(),
+                Some(libc::ENOSYS | libc::EPERM | libc::EACCES)
+            ) {
+                self.no_pidfd.set(true);
+                return Ok(None);
+            }
+
+            return Err(err);
+        }
+
+        #[cfg(not(any(target_os = "linux", target_os = "android")))]
+        let _ = child;
+        Ok(None)
     }
 
     pub(crate) fn wait_with_timeout(&self, timeout: Duration) -> io::Result<()> {
