@@ -72,3 +72,29 @@ fn no_stack_protector() {
         .must_have("-gdwarf-5")
         .must_not_have("-fno-stack-protector");
 }
+
+#[test]
+fn does_not_inherit_profile_flags() {
+    // Do *not* propagate `-Cprofile-generate` / `-Cprofile-use`, not even to clang: the
+    // C compiler's LLVM instrprof runtime and profile format may not match rustc's.
+    // https://github.com/rust-lang/cc-rs/issues/1986
+    fn check(mut test: Test) {
+        test.process_env.set(
+            "CARGO_ENCODED_RUSTFLAGS",
+            "-Cprofile-generate=/tmp/pgo-data\u{1f}-Cprofile-use=/tmp/merged.profdata\u{1f}-Cforce-frame-pointers=true",
+        );
+        test.gcc().file("foo.c").compile("foo");
+        test.cmd(0)
+            // Other inherited flags are unaffected.
+            .must_have("-fno-omit-frame-pointer")
+            .must_not_have("-fprofile-generate=/tmp/pgo-data")
+            .must_not_have("-fprofile-use=/tmp/merged.profdata");
+    }
+
+    // Each `Test` holds the process environment lock, so run them one at a time.
+    check(Test::gnu());
+
+    let mut clang = Test::clang();
+    clang.env.set("CC", "clang");
+    check(clang);
+}

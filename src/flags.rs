@@ -9,8 +9,6 @@ pub(crate) struct RustcCodegenFlags<'a> {
     code_model: Option<&'a str>,
     no_vectorize_loops: bool,
     no_vectorize_slp: bool,
-    profile_generate: Option<&'a str>,
-    profile_use: Option<&'a str>,
     control_flow_guard: Option<&'a str>,
     lto: Option<&'a str>,
     relocation_model: Option<&'a str>,
@@ -130,14 +128,8 @@ impl<'this> RustcCodegenFlags<'this> {
             "-Cno-vectorize-loops" => self.no_vectorize_loops = true,
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#no-vectorize-slp
             "-Cno-vectorize-slp" => self.no_vectorize_slp = true,
-            // https://doc.rust-lang.org/rustc/codegen-options/index.html#profile-generate
-            "-Cprofile-generate" => {
-                self.profile_generate = flag_not_empty(value)?;
-            }
-            // https://doc.rust-lang.org/rustc/codegen-options/index.html#profile-use
-            "-Cprofile-use" => {
-                self.profile_use = flag_not_empty(value)?;
-            }
+            // `-Cprofile-generate` and `-Cprofile-use` are deliberately *not* parsed, so that
+            // they are never forwarded to the C compiler. See the note in `cc_flags` below.
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#control-flow-guard
             "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
@@ -363,17 +355,17 @@ impl<'this> RustcCodegenFlags<'this> {
         // Compiler-exclusive flags
         match family {
             ToolFamily::Clang { .. } => {
-                // GNU and Clang compilers both support the same PGO flags, but they use different libraries and
-                // different formats for the profile files which are not compatible.
-                // clang and rustc both internally use llvm, so we want to inherit the PGO flags only for clang.
-                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fprofile-generate
-                if let Some(value) = self.profile_generate {
-                    push_if_supported(format!("-fprofile-generate={value}").into());
-                }
-                // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fprofile-use
-                if let Some(value) = self.profile_use {
-                    push_if_supported(format!("-fprofile-use={value}").into());
-                }
+                // Do NOT forward `-Cprofile-generate` / `-Cprofile-use` as
+                // `-fprofile-generate` / `-fprofile-use`, even though rustc and clang both use
+                // LLVM's instrumentation-based PGO. The profiling runtime (`profiler_builtins`)
+                // and the raw/indexed profile formats are tied to the LLVM version, and the LLVM
+                // behind the C compiler is frequently not the one behind rustc (e.g. Apple clang
+                // vs. the LLVM bundled with rustc). C objects instrumented by one toolchain crash
+                // at run time when linked against the other toolchain's profiling runtime, and a
+                // `.profdata` merged by one toolchain's `llvm-profdata` is rejected by the other.
+                // Users whose C compiler matches rustc's LLVM can opt in by passing
+                // `-fprofile-generate=...` / `-fprofile-use=...` via `CFLAGS` / `CXXFLAGS`.
+                // See https://github.com/rust-lang/cc-rs/issues/1986.
 
                 // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fembed-bitcode
                 if let Some(value) = self.embed_bitcode {
@@ -502,8 +494,6 @@ mod tests {
             "-Cno-redzone=yes",
             "-Cno-vectorize-loops",
             "-Cno-vectorize-slp",
-            "-Cprofile-generate=fooprofile",
-            "-Cprofile-use=fooprofile",
             "-Crelocation-model=pic",
             "-Csoft-float=yes",
             "-Zbranch-protection=bti,pac-ret,leaf",
@@ -588,6 +578,9 @@ mod tests {
             "-Cpanic=abort",
             "-Cpasses=foopass",
             "-Cprefer-dynamic=yes",
+            // Deliberately not inherited, see the note in `cc_flags`.
+            "-Cprofile-generate=fooprofile",
+            "-Cprofile-use=fooprofile",
             "-Crelro-level=partial",
             "-Cremark=all",
             "-Crpath=yes",
@@ -610,8 +603,6 @@ mod tests {
                 no_redzone: Some(true),
                 no_vectorize_loops: true,
                 no_vectorize_slp: true,
-                profile_generate: Some("fooprofile"),
-                profile_use: Some("fooprofile"),
                 relocation_model: Some("pic"),
                 soft_float: Some(true),
                 branch_protection: Some("bti,pac-ret,leaf"),
