@@ -2142,7 +2142,7 @@ impl Build {
                 if libtst && libdir.is_dir() {
                     self.cargo_output.print_metadata(&format_args!(
                         "cargo:rustc-link-search=native={}",
-                        libdir.to_str().unwrap()
+                        libdir.display()
                     ));
                 }
 
@@ -2150,7 +2150,12 @@ impl Build {
                 let lib = match cudart {
                     "shared" => "cudart",
                     "static" => "cudart_static",
-                    bad => panic!("unsupported cudart option: {}", bad),
+                    bad => {
+                        return Err(Error::new(
+                            ErrorKind::InvalidArgument,
+                            format!("unsupported cudart option: {bad}"),
+                        ));
+                    }
                 };
                 self.cargo_output
                     .print_metadata(&format_args!("cargo:rustc-link-lib={lib}"));
@@ -2434,10 +2439,12 @@ impl Build {
         let mut cmd = compiler.to_command();
         cmd.arg("-E");
 
-        assert!(
-            self.files.len() <= 1,
-            "Expand may only be called for a single file"
-        );
+        if self.files.len() > 1 {
+            return Err(Error::new(
+                ErrorKind::InvalidArgument,
+                "Expand may only be called for a single file",
+            ));
+        }
 
         let is_asm = self
             .files
@@ -4144,8 +4151,11 @@ impl Build {
             "buildcache",
             "kache",
         ];
-        if let Some(custom_wrapper) = self.get_env("CC_KNOWN_WRAPPER_CUSTOM") {
-            known_wrappers.push(custom_wrapper.to_str().unwrap());
+        if let Some(custom_wrapper) = self
+            .get_env("CC_KNOWN_WRAPPER_CUSTOM")
+            .and_then(|v| v.to_str())
+        {
+            known_wrappers.push(custom_wrapper);
         }
 
         let mut parts = tool.split_whitespace();
@@ -5074,9 +5084,17 @@ impl Build {
                 return Some(deployment_target_ver);
             }
 
-            let mut deployment_target = deployment_target_ver
+            let Ok(parts) = deployment_target_ver
                 .split('.')
-                .map(|v| v.parse::<u32>().expect("integer version"));
+                .map(str::parse::<u32>)
+                .collect::<Result<Vec<_>, _>>()
+            else {
+                self.cargo_output.print_warning(&format_args!(
+                    "ignoring invalid deployment target {deployment_target_ver:?}"
+                ));
+                return None;
+            };
+            let mut deployment_target = parts.into_iter();
 
             match target.os {
                 "macos" => {
