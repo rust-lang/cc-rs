@@ -272,7 +272,6 @@ mod inherited_jobserver {
                                 .insert(HelperThread::new(self.jobserver)?)
                         };
 
-                        helper_thread.request_token();
                         if let Some(token) = helper_thread.try_recv()? {
                             break Ok(token);
                         }
