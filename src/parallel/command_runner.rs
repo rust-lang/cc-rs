@@ -61,9 +61,6 @@ pub(crate) fn run_commands_in_parallel(
     cargo_output: &CargoOutput,
     cmds: &mut dyn Iterator<Item = Result<Command, Error>>,
 ) -> Result<(), Error> {
-    // Limit our parallelism globally with a jobserver.
-    let mut tokens = job_token::ActiveJobTokenServer::new();
-
     // When compiling objects in parallel we do a few dirty tricks to speed
     // things up:
     //
@@ -155,6 +152,9 @@ pub(crate) fn run_commands_in_parallel(
         }
     };
     let spawn_future = async {
+        // Limit our parallelism globally with a jobserver.
+        let mut tokens = job_token::ActiveJobTokenServer::new();
+
         for res in cmds {
             let mut cmd = res?;
             let token = tokens.acquire(&reactor).await?;
