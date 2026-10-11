@@ -2443,7 +2443,7 @@ impl Build {
             return Err(Error::new(
                 ErrorKind::InvalidArgument,
                 "Expand may only be called for a single file",
-           ));
+            ));
         }
 
         let is_asm = self
@@ -4151,7 +4151,10 @@ impl Build {
             "buildcache",
             "kache",
         ];
-        if let Some(custom_wrapper) = self.get_env("CC_KNOWN_WRAPPER_CUSTOM").and_then(|v| v.to_str()) {
+        if let Some(custom_wrapper) = self
+            .get_env("CC_KNOWN_WRAPPER_CUSTOM")
+            .and_then(|v| v.to_str())
+        {
             known_wrappers.push(custom_wrapper);
         }
 
