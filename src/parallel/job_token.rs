@@ -1,6 +1,6 @@
 use core::marker::PhantomData;
 
-use crate::{utilities::OnceLock, Error};
+use crate::{parallel::reactor::Reactor, utilities::OnceLock, Error};
 
 pub(crate) struct JobToken(PhantomData<()>);
 
@@ -60,9 +60,9 @@ impl ActiveJobTokenServer {
         }
     }
 
-    pub(crate) async fn acquire(&mut self) -> Result<JobToken, Error> {
+    pub(crate) async fn acquire(&mut self, reactor: &Reactor) -> Result<JobToken, Error> {
         match self {
-            Self::Inherited(jobserver) => jobserver.acquire().await,
+            Self::Inherited(jobserver) => jobserver.acquire(reactor).await,
             Self::InProcess(jobserver) => Ok(jobserver.acquire().await),
         }
     }
@@ -71,11 +71,17 @@ impl ActiveJobTokenServer {
 mod inherited_jobserver {
     use super::JobToken;
 
-    use crate::{parallel::async_executor::YieldOnce, Error, ErrorKind};
+    use crate::{
+        parallel::{async_executor::YieldOnce, reactor::Reactor},
+        Error, ErrorKind,
+    };
 
+    #[cfg(unix)]
+    use std::os::unix::io::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
     use std::{
         io, mem,
         sync::{mpsc, Mutex, MutexGuard, PoisonError},
+    
     };
 
     pub(super) struct JobServer {
@@ -99,6 +105,8 @@ mod inherited_jobserver {
         /// incorrect, hence we use a `Mutex` here.
         global_implicit_token: Mutex<bool>,
         inner: jobserver::Client,
+        #[cfg(unix)]
+        fd: Option<OwnedFd>,
     }
 
     impl JobServer {
@@ -106,7 +114,37 @@ mod inherited_jobserver {
             jobserver::Client::from_env().map(|inner| Self {
                 inner,
                 global_implicit_token: Mutex::new(true),
+                #[cfg(unix)]
+                fd: jobserver_fd(&inner),
             })
+        }
+
+        /// `jobserver::Client` doesn't expose its pipe or fifo, so take it from
+        /// the `MAKEFLAGS` it passes to child processes, which is what they use.
+        #[cfg(unix)]
+        fn jobserver_fd(client: &jobserver::Client) -> Option<OwnedFd> {
+            use std::{fs::OpenOptions, process::Command};
+
+            let mut cmd = Command::new("");
+            client.configure(&mut cmd);
+            let (_, flags) = cmd.get_envs().find(|(key, _)| *key == "CARGO_MAKEFLAGS")?;
+            // Last in the flags, so a fifo path may contain spaces.
+            let (_, auth) = flags?.to_str()?.split_once("--jobserver-auth=")?;
+
+            if let Some(path) = auth.strip_prefix("fifo:") {
+                // Read and write, as opening a fifo read-only blocks until it has
+                // a writer.
+                let fifo = OpenOptions::new().read(true).write(true).open(path);
+                Some(fifo.ok()?.into())
+            } else {
+                let (read, _) = auth.split_once(',')?;
+                let read = read.parse::<RawFd>().ok().filter(|fd| *fd >= 0)?;
+                // `from_env` has just opened the client from this fd, and left it
+                // open.
+                unsafe { BorrowedFd::borrow_raw(read) }
+                    .try_clone_to_owned()
+                    .ok()
+            }
         }
 
         fn get_global_implicit_token(&self) -> MutexGuard<'_, bool> {
@@ -165,8 +203,12 @@ mod inherited_jobserver {
     }
 
     impl ActiveJobServer<'_> {
-        pub(super) async fn acquire(&mut self) -> Result<JobToken, Error> {
+        pub(super) async fn acquire(&mut self, _reactor: &Reactor) -> Result<JobToken, Error> {
             let mut has_requested_token = false;
+            // Kept while waiting, dropped once a token is acquired: a
+            // jobserver with tokens to spare would wake every wait at once.
+            #[cfg(unix)]
+            let mut _registration = None;
 
             loop {
                 // Fast path
@@ -179,7 +221,20 @@ mod inherited_jobserver {
                         acquired.drop_without_releasing();
                         break Ok(JobToken::new());
                     }
-                    Ok(None) => YieldOnce::default().await,
+                    Ok(None) => {
+                        // Other processes, such as rustc, other build
+                        // scripts or make, put the tokens they release back
+                        // into the jobserver.
+                        #[cfg(unix)]
+                        if _registration.is_none() {
+                            _registration = self
+                                .jobserver
+                                .fd
+                                .as_ref()
+                                .map(|fd| _reactor.register_fd(fd.as_raw_fd()));
+                        }
+                        YieldOnce::default().await
+                    }
                     Err(err) if err.kind() == io::ErrorKind::Unsupported => {
                         // Fallback to creating a help thread with blocking acquire
                         let helper_thread = if let Some(thread) = self.helper_thread.as_ref() {
