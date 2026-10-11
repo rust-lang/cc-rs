@@ -112,7 +112,7 @@ mod inherited_jobserver {
         pub(super) unsafe fn from_env() -> Option<Self> {
             jobserver::Client::from_env().map(|inner| Self {
                 #[cfg(unix)]
-                fd: jobserver_fd(&inner),
+                fd: Self::jobserver_fd(&inner),
                 inner,
                 global_implicit_token: Mutex::new(true),
             })
