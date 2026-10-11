@@ -279,6 +279,7 @@ mod inherited_jobserver {
 
                         helper_thread.request_token();
                         YieldOnce::default().await
+                    }
                 }
             }
         }
