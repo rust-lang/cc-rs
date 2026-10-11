@@ -200,97 +200,97 @@ impl StderrForwarder {
 
     /// Forward the stderr of `cmd` that is available.
     pub(crate) fn forward_available(&mut self, cmd: &Command) -> bool {
-        if let Some((stderr, buffer)) = self.inner.as_mut() {
-            loop {
-                // For non-blocking we check to see if there is data available, so we should try to
-                // read at least that much. For blocking, always read at least the minimum amount.
-                #[cfg(not(feature = "parallel"))]
-                let to_reserve = MIN_BUFFER_CAPACITY;
-                #[cfg(feature = "parallel")]
-                let to_reserve = if self.is_non_blocking && !self.bytes_available_failed {
-                    match crate::parallel::stderr::bytes_available(stderr) {
-                        #[cfg(windows)]
-                        Ok(0) => break false,
-                        #[cfg(unix)]
-                        Ok(0) => {
-                            // On Unix, depending on the implementation, we may sometimes get 0 in a
-                            // loop (either there is data available or the pipe is broken), so
-                            // continue with the non-blocking read anyway.
-                            MIN_BUFFER_CAPACITY
-                        }
-                        #[cfg(windows)]
-                        Err(_) => {
-                            // On Windows, if we get an error then the pipe is broken, so flush
-                            // the buffer and bail.
-                            if self.bytes_buffered > 0 {
-                                self.cargo_output
-                                    .forward_stderr_line(&buffer[..self.bytes_buffered], cmd);
-                            }
-                            self.inner = None;
-                            break true;
-                        }
-                        #[cfg(unix)]
-                        Err(_) => {
-                            // On Unix, depending on the implementation, we may get spurious
-                            // errors so make a note not to use bytes_available again and try
-                            // the non-blocking read anyway.
-                            self.bytes_available_failed = true;
-                            MIN_BUFFER_CAPACITY
-                        }
-                        #[cfg(target_family = "wasm")]
-                        Err(_) => panic!("bytes_available should always succeed on wasm"),
-                        Ok(bytes_available) => MIN_BUFFER_CAPACITY.max(bytes_available),
-                    }
-                } else {
-                    MIN_BUFFER_CAPACITY
-                };
-                if self.bytes_buffered + to_reserve > buffer.len() {
-                    buffer.resize(self.bytes_buffered + to_reserve, 0);
-                }
+        let Some((stderr, buffer)) = self.inner.as_mut() else {
+            return true
+        };
 
-                match stderr.read(&mut buffer[self.bytes_buffered..]) {
-                    Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
-                        // No data currently, yield back.
-                        break false;
+        loop {
+            // For non-blocking we check to see if there is data available, so we should try to
+            // read at least that much. For blocking, always read at least the minimum amount.
+            #[cfg(not(feature = "parallel"))]
+            let to_reserve = MIN_BUFFER_CAPACITY;
+            #[cfg(feature = "parallel")]
+            let to_reserve = if self.is_non_blocking && !self.bytes_available_failed {
+                match crate::parallel::stderr::bytes_available(stderr) {
+                    #[cfg(windows)]
+                    Ok(0) => break false,
+                    #[cfg(unix)]
+                    Ok(0) => {
+                        // On Unix, depending on the implementation, we may sometimes get 0 in a
+                        // loop (either there is data available or the pipe is broken), so
+                        // continue with the non-blocking read anyway.
+                        MIN_BUFFER_CAPACITY
                     }
-                    Err(err) if err.kind() == std::io::ErrorKind::Interrupted => {
-                        // Interrupted, try again.
-                        continue;
-                    }
-                    Ok(bytes_read) if bytes_read != 0 => {
-                        self.bytes_buffered += bytes_read;
-                        let mut consumed = 0;
-                        for line in buffer[..self.bytes_buffered].split_inclusive(|&b| b == b'\n') {
-                            // Only forward complete lines, leave the rest in the buffer.
-                            if let Some((b'\n', line)) = line.split_last() {
-                                consumed += line.len() + 1;
-                                self.cargo_output.forward_stderr_line(line, cmd);
-                            }
-                        }
-                        if consumed > 0 && consumed < self.bytes_buffered {
-                            // Remove the consumed bytes from buffer
-                            buffer.copy_within(consumed.., 0);
-                        }
-                        self.bytes_buffered -= consumed;
-                    }
-                    res => {
-                        // End of stream: flush remaining data and bail.
+                    #[cfg(windows)]
+                    Err(_) => {
+                        // On Windows, if we get an error then the pipe is broken, so flush
+                        // the buffer and bail.
                         if self.bytes_buffered > 0 {
                             self.cargo_output
                                 .forward_stderr_line(&buffer[..self.bytes_buffered], cmd);
                         }
-                        if let Err(err) = res {
-                            self.cargo_output.print_warning(&format_args!(
-                                "Failed to read from child stderr: {err}"
-                            ));
-                        }
-                        self.inner.take();
+                        self.inner = None;
                         break true;
                     }
+                    #[cfg(unix)]
+                    Err(_) => {
+                        // On Unix, depending on the implementation, we may get spurious
+                        // errors so make a note not to use bytes_available again and try
+                        // the non-blocking read anyway.
+                        self.bytes_available_failed = true;
+                        MIN_BUFFER_CAPACITY
+                    }
+                    #[cfg(target_family = "wasm")]
+                    Err(_) => panic!("bytes_available should always succeed on wasm"),
+                    Ok(bytes_available) => MIN_BUFFER_CAPACITY.max(bytes_available),
+                }
+            } else {
+                MIN_BUFFER_CAPACITY
+            };
+            if self.bytes_buffered + to_reserve > buffer.len() {
+                buffer.resize(self.bytes_buffered + to_reserve, 0);
+            }
+
+            match stderr.read(&mut buffer[self.bytes_buffered..]) {
+                Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
+                    // No data currently, yield back.
+                    break false;
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::Interrupted => {
+                    // Interrupted, try again.
+                    continue;
+                }
+                Ok(bytes_read) if bytes_read != 0 => {
+                    self.bytes_buffered += bytes_read;
+                    let mut consumed = 0;
+                    for line in buffer[..self.bytes_buffered].split_inclusive(|&b| b == b'\n') {
+                        // Only forward complete lines, leave the rest in the buffer.
+                        if let Some((b'\n', line)) = line.split_last() {
+                            consumed += line.len() + 1;
+                            self.cargo_output.forward_stderr_line(line, cmd);
+                        }
+                    }
+                    if consumed > 0 && consumed < self.bytes_buffered {
+                        // Remove the consumed bytes from buffer
+                        buffer.copy_within(consumed.., 0);
+                    }
+                    self.bytes_buffered -= consumed;
+                }
+                res => {
+                    // End of stream: flush remaining data and bail.
+                    if self.bytes_buffered > 0 {
+                        self.cargo_output
+                            .forward_stderr_line(&buffer[..self.bytes_buffered], cmd);
+                    }
+                    if let Err(err) = res {
+                        self.cargo_output.print_warning(&format_args!(
+                            "Failed to read from child stderr: {err}"
+                        ));
+                    }
+                    self.inner.take();
+                    break true;
                 }
             }
-        } else {
-            true
         }
     }
 
