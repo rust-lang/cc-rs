@@ -105,7 +105,7 @@ pub(crate) fn run_commands_in_parallel(
 
             let pendings_is_empty = cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, child, _token, stderr_registration, _child_registration)| {
+                pendings.retain_mut(|(cmd, child, _token, stderr_registration, _)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
@@ -170,7 +170,7 @@ pub(crate) fn run_commands_in_parallel(
                 .stderr()
                 .map(|stderr| reactor.register_stderr(stderr))
                 .transpose()?;
-            let child_registration = reactor.register_child(&child.0);
+            let child_registration = reactor.register_child(&child.0)?;
 
             cell_push(
                 &pendings,
