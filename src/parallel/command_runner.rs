@@ -86,7 +86,8 @@ pub(crate) fn run_commands_in_parallel(
         Command,
         KillOnDrop,
         job_token::JobToken,
-        Option<Registration<'_>>,
+        Option<Registration<'_>>, // stderr_registration
+        Option<Registration<'_>>, // child_registration
     )>::new());
     let is_disconnected = Cell::new(false);
     let has_made_progress = Cell::new(false);
@@ -104,7 +105,7 @@ pub(crate) fn run_commands_in_parallel(
 
             let pendings_is_empty = cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, child, _token, registration)| {
+                pendings.retain_mut(|(cmd, child, _token, stderr_registration, _)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
@@ -117,7 +118,7 @@ pub(crate) fn run_commands_in_parallel(
                             // wait for on it, and keeping it registered
                             // would wake every wait at once.
                             if child.1.stderr().is_none() {
-                                *registration = None;
+                                *stderr_registration = None;
                             }
                             true
                         }
@@ -164,13 +165,17 @@ pub(crate) fn run_commands_in_parallel(
             let mut child = KillOnDrop(child, stderr_forwarder);
 
             child.1.set_non_blocking()?;
-            let registration = child
+            let stderr_registration = child
                 .1
                 .stderr()
                 .map(|stderr| reactor.register_stderr(stderr))
                 .transpose()?;
+            let child_registration = reactor.register_child(&child.0)?;
 
-            cell_push(&pendings, (cmd, child, token, registration));
+            cell_push(
+                &pendings,
+                (cmd, child, token, stderr_registration, child_registration),
+            );
 
             has_made_progress.set(true);
         }
