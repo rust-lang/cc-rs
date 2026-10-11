@@ -2082,7 +2082,7 @@ impl Build {
                         ));
                     }
                 } else if target.os == "linux" {
-                    let musl_sysroot = self.wasm_musl_sysroot().unwrap();
+                    let musl_sysroot = self.wasm_musl_sysroot()?;
                     self.cargo_output.print_metadata(&format_args!(
                         "cargo:rustc-flags=-L {}/lib -lstatic=c++ -lstatic=c++abi",
                         Path::new(&musl_sysroot).display(),
@@ -2877,7 +2877,7 @@ impl Build {
                         for x in &["wasm-exceptions", "declspec"] {
                             cmd.push_cc_arg(format!("-f{x}").into());
                         }
-                        let musl_sysroot = self.wasm_musl_sysroot().unwrap();
+                        let musl_sysroot = self.wasm_musl_sysroot()?;
                         cmd.push_cc_arg(
                             format!("--sysroot={}", Path::new(&musl_sysroot).display()).into(),
                         );
