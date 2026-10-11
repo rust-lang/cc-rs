@@ -1846,12 +1846,14 @@ fn message_logger() {
                 build.message_logger(None).compile("bar");
             }
             "compile-commands" => {
-                // The collector passes every message on to the logger.
-                let collector = Arc::new(
-                    cc::compile_commands::CompileCommandCollector::new().forward_to(logger),
-                );
-                build.message_logger(Some(collector.clone())).compile("foo");
-                assert_eq!(collector.commands().len(), 2);
+                // The collector passes every message on to the logger, also
+                // when nothing reads its commands.
+                let log = logger.0.lock().unwrap().try_clone().unwrap();
+                let (collector, _) = cc::compile_commands::CompileCommandCollector::new();
+                let collector = collector.forward_to(Box::new(FileLogger(Mutex::new(log))));
+                build
+                    .message_logger(Some(Arc::new(collector)))
+                    .compile("foo");
             }
             "expand" => {
                 // `expand` collects the compiler's output instead of streaming it.

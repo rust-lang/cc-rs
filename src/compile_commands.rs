@@ -4,15 +4,16 @@
 //!
 //! cc passes each compile command to the logger set with
 //! [`Build::message_logger`] as a [`BuildMessageKind::CompileCommand`]
-//! message. A [`CompileCommandCollector`] keeps them, and
-//! [`json_compilation_database`] formats them as JSON for a file or any other
-//! writer:
+//! message. A [`CompileCommandCollector`] passes them on to its
+//! [`CompileCommands`], and [`json_compilation_database`] formats those as
+//! JSON for a file or any other writer:
 //!
 //! ```no_run
 //! use std::{env, fs, path::PathBuf, sync::Arc};
 //! use cc::compile_commands::{json_compilation_database, CompileCommandCollector};
 //!
-//! let collector = Arc::new(CompileCommandCollector::new());
+//! let (collector, commands) = CompileCommandCollector::new();
+//! let collector = Arc::new(collector);
 //! cc::Build::new()
 //!     .file("src/foo.c")
 //!     .message_logger(Some(collector.clone()))
@@ -24,7 +25,7 @@
 //!     .compile("bar");
 //!
 //! let out_dir = PathBuf::from(env::var_os("OUT_DIR").unwrap());
-//! let json = json_compilation_database(collector.commands()).to_string();
+//! let json = json_compilation_database(commands).to_string();
 //! fs::write(out_dir.join("compile_commands.json"), json).unwrap();
 //! ```
 //!
@@ -69,7 +70,10 @@ use std::{
     fmt,
     path::Path,
     process::Command,
-    sync::{Arc, Mutex, MutexGuard, PoisonError},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Mutex, PoisonError,
+    },
 };
 
 use crate::{
@@ -128,57 +132,45 @@ impl CompileCommand {
     }
 }
 
-/// A [`BuildMessageLogger`] that keeps the [`CompileCommand`] of every
-/// [`BuildMessageKind::CompileCommand`] message, to format them with
-/// [`json_compilation_database`].
+/// A [`BuildMessageLogger`] that passes the [`CompileCommand`] of every
+/// [`BuildMessageKind::CompileCommand`] message on to its [`CompileCommands`],
+/// to format them with [`json_compilation_database`].
 ///
 /// Set it on each `Build` with
 /// [`Build::message_logger`](crate::Build::message_logger). Several `Build`s
-/// and their clones can share one collector, also across threads; it keeps the
-/// commands in the order cc logged them. A `Build` that compiles twice is
-/// recorded twice.
+/// and their clones can share one collector, also across threads; the
+/// commands arrive in the order cc logged them. A `Build` that compiles twice
+/// is recorded twice. Once the [`CompileCommands`] is dropped, the collector
+/// drops the commands it gets.
 ///
 /// The collector doesn't change what cc prints: its warnings and the
 /// compiler's stderr are still printed as `cargo:warning=` lines unless
 /// [`Build::cargo_warnings`](crate::Build::cargo_warnings) is off. To also
 /// handle the messages in a logger of your own, pass it to
 /// [`forward_to`](Self::forward_to).
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct CompileCommandCollector {
-    commands: Mutex<Vec<CompileCommand>>,
-    forward_to: Option<Logger>,
+    // A logger must be `Sync`, and `Sender` is only `Sync` since Rust 1.72.
+    sender: Mutex<Sender<CompileCommand>>,
+    forward_to: Option<Logger<Box<dyn BuildMessageLogger>>>,
 }
 
 impl CompileCommandCollector {
-    /// A collector with no commands yet that passes messages on to no other
-    /// logger.
-    pub fn new() -> Self {
-        Self::default()
+    /// A collector that passes messages on to no other logger, and the
+    /// [`CompileCommands`] that yields what it collects.
+    pub fn new() -> (Self, CompileCommands) {
+        let (sender, receiver) = mpsc::channel();
+        let collector = Self {
+            sender: Mutex::new(sender),
+            forward_to: None,
+        };
+        (collector, CompileCommands(receiver))
     }
 
     /// Pass every message, compile commands included, on to `logger` as well.
-    pub fn forward_to(mut self, logger: Arc<dyn BuildMessageLogger>) -> Self {
+    pub fn forward_to(mut self, logger: Box<dyn BuildMessageLogger>) -> Self {
         self.forward_to = Some(Logger(logger));
         self
-    }
-
-    /// The commands collected so far, in the order cc logged them.
-    ///
-    /// Each command is cloned when the iterator reaches it, and the collector
-    /// isn't kept locked in between, so `Build`s can go on logging into it
-    /// while the iterator is alive. Commands logged after this call aren't
-    /// part of it.
-    pub fn commands(
-        &self,
-    ) -> impl ExactSizeIterator<Item = CompileCommand> + DoubleEndedIterator + '_ {
-        let len = self.lock().len();
-        // Commands are only ever added, so every index below `len` stays valid.
-        (0..len).map(move |i| self.lock()[i].clone())
-    }
-
-    fn lock(&self) -> MutexGuard<'_, Vec<CompileCommand>> {
-        // Nothing under the lock can leave the list half changed.
-        self.commands.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
@@ -186,7 +178,14 @@ impl BuildMessageLogger for CompileCommandCollector {
     fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, extra: &dyn Any) {
         if kind == BuildMessageKind::CompileCommand {
             if let Some(command) = extra.downcast_ref::<CompileCommand>() {
-                self.lock().push(command.clone());
+                let command = command.clone();
+                // Sending only fails once the `CompileCommands` is dropped, and
+                // then nothing reads the command anyway.
+                let _ = self
+                    .sender
+                    .lock()
+                    .unwrap_or_else(PoisonError::into_inner)
+                    .send(command);
             }
         }
         if let Some(logger) = &self.forward_to {
@@ -195,22 +194,44 @@ impl BuildMessageLogger for CompileCommandCollector {
     }
 }
 
+/// The compile commands of a [`CompileCommandCollector`], made with it by
+/// [`CompileCommandCollector::new`].
+///
+/// It is an iterator over the commands logged so far, in the order cc logged
+/// them. It doesn't wait for more, so it can be read while the collector and
+/// the `Build`s that use it are still alive: once a `Build` method such as
+/// [`compile`](crate::Build::compile) returns, the commands it ran have all
+/// been logged. Reading it again later yields the commands logged in between.
+#[derive(Debug)]
+pub struct CompileCommands(Receiver<CompileCommand>);
+
+impl Iterator for CompileCommands {
+    type Item = CompileCommand;
+
+    fn next(&mut self) -> Option<CompileCommand> {
+        // `recv` would wait until the collector is dropped, which usually
+        // happens only at the end of the build script.
+        self.0.try_recv().ok()
+    }
+}
+
 /// Format `commands` as a
 /// [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html),
 /// writing straight to the formatter without building a `String` first.
 ///
-/// `commands` is usually [`CompileCommandCollector::commands`]. The result
-/// can be formatted into anything that takes a [`Display`](fmt::Display):
-/// `to_string()`, `write!` to a buffer or to a file (through a
-/// [`BufWriter`](std::io::BufWriter), since it writes in many small pieces),
-/// or as part of a larger text. Paths and arguments that aren't valid Unicode
-/// are written with replacement characters (U+FFFD). See the
-/// [module docs](self) for an example that writes it to a file.
+/// `commands` is usually the [`CompileCommands`] of a
+/// [`CompileCommandCollector`]. The result can be formatted into anything that
+/// takes a [`Display`](fmt::Display): `to_string()`, `write!` to a buffer or
+/// to a file (through a [`BufWriter`](std::io::BufWriter), since it writes in
+/// many small pieces), or as part of a larger text. Paths and arguments that
+/// aren't valid Unicode are written with replacement characters (U+FFFD). See
+/// the [module docs](self) for an example that writes it to a file.
 ///
 /// # Panics
 ///
 /// Formatting the result a second time panics, since the first one uses up
-/// `commands`. Call this function again for another copy.
+/// `commands`. To format the same commands twice, collect them into a `Vec`
+/// and pass a clone each time.
 #[must_use]
 pub fn json_compilation_database(
     commands: impl IntoIterator<Item = CompileCommand>,
