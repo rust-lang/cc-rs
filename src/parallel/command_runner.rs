@@ -8,7 +8,7 @@ use crate::{
     parallel::{
         async_executor::{block_on, YieldOnce},
         job_token,
-        reactor::{Reactor, Registration},
+        reactor::{ChildRegistration, Reactor, Registration},
     },
     spawn, CargoOutput, CommandLine, Error, ErrorKind, StderrForwarder,
 };
@@ -87,7 +87,7 @@ pub(crate) fn run_commands_in_parallel(
         KillOnDrop,
         job_token::JobToken,
         Option<Registration<'_>>, // stderr_registration
-        Option<Registration<'_>>, // child_registration
+        ChildRegistration<'_>,
     )>::new());
     let is_disconnected = Cell::new(false);
     let has_made_progress = Cell::new(false);
