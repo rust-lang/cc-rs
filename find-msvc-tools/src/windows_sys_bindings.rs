@@ -20,6 +20,7 @@ windows_link::link!("advapi32.dll" "system" fn RegOpenKeyExW(hkey : HKEY, lpsubk
 windows_link::link!("advapi32.dll" "system" fn RegQueryValueExW(hkey : HKEY, lpvaluename : PCWSTR, lpreserved : *const u32, lptype : *mut u32, lpdata : *mut u8, lpcbdata : *mut u32) -> LSTATUS);
 windows_link::link!("oleaut32.dll" "system" fn SysFreeString(bstrstring : BSTR));
 windows_link::link!("oleaut32.dll" "system" fn SysStringLen(pbstr : BSTR) -> u32);
+windows_link::link!("kernel32.dll" "system" fn WaitForMultipleObjects(ncount : u32, lphandles : *const HANDLE, bwaitall : BOOL, dwmilliseconds : u32) -> u32);
 pub type ACCESS_MASK = u32;
 pub type BOOL = i32;
 pub type BSTR = *const u16;
@@ -51,6 +52,7 @@ pub const HKEY_LOCAL_MACHINE: HKEY = -2147483646 as _;
 pub type HMODULE = HINSTANCE;
 pub type HRESULT = i32;
 pub const IMAGE_FILE_MACHINE_AMD64: i32 = 34404;
+pub const INFINITE: u32 = 4294967295;
 pub const IID_IUnknown: GUID = GUID {
     data1: 0x00000000,
     data2: 0x0000,
@@ -71,6 +73,7 @@ pub const KEY_READ: i32 = 131097;
 pub const KEY_WOW64_32KEY: i32 = 512;
 pub type LSTATUS = i32;
 pub type MACHINE_ATTRIBUTES = u32;
+pub const MAXIMUM_WAIT_OBJECTS: i32 = 64;
 pub type PCSTR = *const u8;
 pub type PCWSTR = *const u16;
 pub type PWSTR = *mut u16;
@@ -100,6 +103,7 @@ pub struct SAFEARRAYBOUND {
 pub const S_FALSE: HRESULT = 0x1_u32 as _;
 pub const S_OK: HRESULT = 0x0_u32 as _;
 pub const UserEnabled: MACHINE_ATTRIBUTES = 1;
+pub const WAIT_FAILED: u32 = 4294967295;
 
 #[link(name = "advapi32")]
 #[link(name = "ole32")]
