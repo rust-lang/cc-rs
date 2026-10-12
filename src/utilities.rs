@@ -1,7 +1,7 @@
 use std::{
     borrow::Borrow,
     cell::UnsafeCell,
-    ffi::{OsStr, OsString},
+    ffi::OsStr,
     fmt::{self, Write},
     hash::Hasher,
     marker::PhantomData,
@@ -12,9 +12,7 @@ use std::{
 };
 
 #[cfg(feature = "parallel")]
-use std::cell::Cell;
-
-use crate::{Error, ErrorKind};
+use std::{cell::Cell, ffi::OsString};
 
 /// A map for the few entries of a cache, looked up by going through them.
 ///
@@ -226,32 +224,18 @@ impl<T> Drop for OnceLock<T> {
     }
 }
 
-/// Access an environment variable that's set by Cargo.
+/// Access an environment variable that's set by Cargo, in the process
+/// environment.
 ///
 /// <https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts>
 ///
-/// Cargo doesn't need to be told about these with `rerun-if-env-changed`, and
-/// that we don't want to allow overwriting them with `Build::env`.
+/// Only for state shared by the whole process, such as the jobserver. A
+/// `Build` reads these variables from its snapshot instead, with
+/// `Build::get_cargo_env`.
+#[cfg(feature = "parallel")]
 #[allow(clippy::disallowed_methods)] // Cargo env, no need for cache busting.
 pub(crate) fn cargo_env_var_os(key: &str) -> Option<OsString> {
     std::env::var_os(key)
-}
-
-pub(crate) fn cargo_env_var(key: &str) -> Result<String, Error> {
-    if let Some(value) = cargo_env_var_os(key) {
-        match value.into_string() {
-            Ok(value) => Ok(value),
-            Err(value) => Err(Error::new(
-                ErrorKind::EnvVarNotFound,
-                format!("environment variable {key} is not valid utf-8: {value:?}"),
-            )),
-        }
-    } else {
-        Err(Error::new(
-            ErrorKind::EnvVarNotFound,
-            format!("environment variable {key} not defined"),
-        ))
-    }
 }
 
 /// `contains`, `starts_with` and `ends_with` that ignore ASCII case, like

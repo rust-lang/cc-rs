@@ -22,12 +22,13 @@ pub struct Test {
     /// The environment [`Test::gcc`] hands to cc with
     /// `Build::set_envs_snapshot`, a copy of the process environment taken by
     /// [`Test::new`] without [`CLEARED_VARS`]. Set cc's own variables such as
-    /// `CC` or `CFLAGS` here, before making the build, so the process
-    /// environment stays unchanged.
+    /// `CC` or `CFLAGS`, and the variables Cargo sets such as `TARGET` or
+    /// `CARGO_ENCODED_RUSTFLAGS`, here, before making the build, so the
+    /// process environment stays unchanged.
     pub env: EnvsSnapshot,
-    /// The process environment, locked while the test runs. cc reads the
-    /// variables Cargo sets, such as `OUT_DIR`, from it, and the builds of
-    /// [`Test::gcc_with_process_env`] read all of it.
+    /// The process environment, locked while the test runs. Builds that don't
+    /// get [`Test::env`], such as those of [`Test::gcc_with_process_env`], read
+    /// it.
     pub process_env: GlobalEnv,
     family_detection_probes: bool,
     flag_supported_probes: bool,
@@ -108,8 +109,8 @@ impl Test {
         // usage of `sccache` if running in a test environment, at least not
         // without setting an environment variable here and testing for it
         // there. Explicitly deasserting RUSTC_WRAPPER here seems to be the
-        // lesser of the two evils. cc reads it from the process environment,
-        // like the other variables Cargo sets.
+        // lesser of the two evils. Removing it before the copy below keeps it
+        // out of `env` too.
         process_env.remove("RUSTC_WRAPPER");
 
         let mut env = EnvsSnapshot {

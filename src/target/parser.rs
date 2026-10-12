@@ -1,10 +1,6 @@
 use core::mem;
 
-use crate::{
-    target::TargetInfo,
-    utilities::{cargo_env_var, OnceLock},
-    Error, ErrorKind,
-};
+use crate::{build_env::EnvSnapshot, target::TargetInfo, utilities::OnceLock, Error, ErrorKind};
 
 #[derive(Debug)]
 struct TargetInfoParserInner {
@@ -17,9 +13,9 @@ struct TargetInfoParserInner {
 }
 
 impl TargetInfoParserInner {
-    fn from_cargo_environment_variables() -> Result<Self, Error> {
+    fn from_cargo_environment_variables(vars: &EnvSnapshot) -> Result<Self, Error> {
         // `TARGET` must be present.
-        let target_name = cargo_env_var("TARGET")?;
+        let target_name = vars.get_cargo_var("TARGET")?;
 
         // Parse the full architecture name from the target name.
         let (full_arch, _rest) = target_name.split_once('-').ok_or(Error::new(
@@ -27,8 +23,8 @@ impl TargetInfoParserInner {
             format!("target `{target_name}` only had a single component (at least two required)"),
         ))?;
 
-        let cargo_env = |key, fallback: Option<&str>| match cargo_env_var(key) {
-            Ok(var) => Ok(var.into_boxed_str()),
+        let cargo_env = |key, fallback: Option<&str>| match vars.get_cargo_var(key) {
+            Ok(var) => Ok(var.into()),
             Err(err) => match fallback {
                 Some(fallback) => Ok(fallback.into()),
                 None => Err(Error::new(
@@ -55,7 +51,7 @@ impl TargetInfoParserInner {
         // back back to data from the known set of target names instead.
         //
         // See discussion in #1225 for further details.
-        let fallback_target = TargetInfo::from_rustc_target(&target_name).ok();
+        let fallback_target = TargetInfo::from_rustc_target(target_name).ok();
         let ft = fallback_target.as_ref();
         let arch = cargo_env("CARGO_CFG_TARGET_ARCH", ft.map(|t| t.arch))?;
         let vendor = cargo_env("CARGO_CFG_TARGET_VENDOR", ft.map(|t| t.vendor))?;
@@ -95,10 +91,15 @@ impl TargetInfoParserInner {
 pub(crate) struct TargetInfoParser(OnceLock<Result<TargetInfoParserInner, Error>>);
 
 impl TargetInfoParser {
-    pub fn parse_from_cargo_environment_variables(&self) -> Result<TargetInfo<'_>, Error> {
+    /// Parse the target from Cargo's variables in `vars` on the first call.
+    /// Later calls return that result, so pass the same `vars` every time.
+    pub fn parse_from_cargo_environment_variables(
+        &self,
+        vars: &EnvSnapshot,
+    ) -> Result<TargetInfo<'_>, Error> {
         match self
             .0
-            .get_or_init(TargetInfoParserInner::from_cargo_environment_variables)
+            .get_or_init(|| TargetInfoParserInner::from_cargo_environment_variables(vars))
         {
             Ok(TargetInfoParserInner {
                 full_arch,
