@@ -82,12 +82,14 @@ pub(crate) fn run_commands_in_parallel(
 
     let reactor = Reactor::default();
 
+    // The registrations come before the child, so that they are dropped
+    // first, while what they refer to is still open.
     let pendings = Cell::new(Vec::<(
         Command,
-        KillOnDrop,
-        job_token::JobToken,
         Option<Registration<'_>>, // stderr_registration
         ChildRegistration<'_>,
+        KillOnDrop,
+        job_token::JobToken,
     )>::new());
     let is_disconnected = Cell::new(false);
     let has_made_progress = Cell::new(false);
@@ -105,7 +107,7 @@ pub(crate) fn run_commands_in_parallel(
 
             let pendings_is_empty = cell_modify(&pendings, |pendings| {
                 // Try waiting on them.
-                pendings.retain_mut(|(cmd, child, _token, stderr_registration, _)| {
+                pendings.retain_mut(|(cmd, stderr_registration, _, child, _token)| {
                     match try_wait_on_child(cmd, &mut child.0, &mut child.1, cargo_output) {
                         Ok(Some(())) => {
                             // Task done, remove the entry
@@ -174,7 +176,7 @@ pub(crate) fn run_commands_in_parallel(
 
             cell_push(
                 &pendings,
-                (cmd, child, token, stderr_registration, child_registration),
+                (cmd, stderr_registration, child_registration, child, token),
             );
 
             has_made_progress.set(true);
