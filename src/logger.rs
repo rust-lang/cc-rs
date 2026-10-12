@@ -25,6 +25,8 @@ pub trait BuildMessageLogger: Send + Sync + 'static {
     ///   [`CommandFailed`](BuildMessageKind::CommandFailed): the
     ///   [`Command`](std::process::Command) that was run, read with
     ///   `extra.downcast_ref::<Command>()`
+    /// - [`CompileCommand`](BuildMessageKind::CompileCommand): the
+    ///   [`compile_commands::CompileCommand`](crate::compile_commands::CompileCommand)
     ///
     /// The logger can't fail the build, but a panic in it reaches the caller
     /// of the `Build` method that was running.
@@ -74,6 +76,17 @@ pub enum BuildMessageKind {
         /// The status the command exited with.
         exit_status: ExitStatus,
     },
+    /// cc is about to run the command that compiles one source file into an
+    /// object file, during [`Build::compile`](crate::Build::compile) or
+    /// [`Build::compile_intermediates`](crate::Build::compile_intermediates).
+    /// Each object file gets one message, also with the `parallel` feature.
+    ///
+    /// The text is the command line, and `extra` is the
+    /// [`compile_commands::CompileCommand`](crate::compile_commands::CompileCommand),
+    /// which a
+    /// [`CompileCommandCollector`](crate::compile_commands::CompileCommandCollector)
+    /// collects to write a `compile_commands.json`.
+    CompileCommand,
 }
 
 /// The text of a message passed to a [`BuildMessageLogger`].
@@ -92,15 +105,17 @@ impl fmt::Display for BuildMessage<'_> {
     }
 }
 
-/// The logger of a `Build`, shared by its clones.
+/// The logger of a `Build`, shared by its clones, or the boxed one a
+/// [`CompileCommandCollector`](crate::compile_commands::CompileCommandCollector)
+/// forwards to.
 #[derive(Clone)]
-pub(crate) struct Logger(pub(crate) Arc<dyn BuildMessageLogger>);
+pub(crate) struct Logger<L = Arc<dyn BuildMessageLogger>>(pub(crate) L);
 
 // cc only calls the logger and never relies on its state, so a panic can't
-// leave cc with a broken one. This keeps `Build` `UnwindSafe` and
-// `RefUnwindSafe`.
-impl UnwindSafe for Logger {}
-impl RefUnwindSafe for Logger {}
+// leave cc with a broken one. This keeps `Build` and `CompileCommandCollector`
+// `UnwindSafe` and `RefUnwindSafe`.
+impl<L> UnwindSafe for Logger<L> {}
+impl<L> RefUnwindSafe for Logger<L> {}
 
 impl Logger {
     pub(crate) fn log(&self, kind: BuildMessageKind, msg: &str, extra: &dyn Any) {
@@ -108,7 +123,7 @@ impl Logger {
     }
 }
 
-impl fmt::Debug for Logger {
+impl<L> fmt::Debug for Logger<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Logger").finish_non_exhaustive()
     }

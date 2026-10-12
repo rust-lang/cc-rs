@@ -18,6 +18,7 @@ use std::{
 
 use crate::{
     build_env::{BuildEnv, EnvVars},
+    compile_commands::CompileCommand,
     logger::Logger,
     utilities::cargo_env_var_os,
     BuildMessageKind, Error, ErrorKind, Object,
@@ -131,6 +132,17 @@ impl CargoOutput {
             );
         }
         Error::new(ErrorKind::ToolExecError, message)
+    }
+
+    /// Pass `cmd`, which compiles `obj` in `directory`, to the logger.
+    pub(crate) fn log_compile_command(&self, cmd: &Command, obj: &Object, directory: &Path) {
+        if let Some(logger) = &self.logger {
+            logger.log(
+                BuildMessageKind::CompileCommand,
+                &CommandLine(cmd).to_string(),
+                &CompileCommand::new(cmd, &obj.src, &obj.dst, directory),
+            );
+        }
     }
 
     pub(crate) fn print_debug(&self, arg: &dyn Display) {
