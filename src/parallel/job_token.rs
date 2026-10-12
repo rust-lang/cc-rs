@@ -76,8 +76,19 @@ mod inherited_jobserver {
         Error, ErrorKind,
     };
 
+    #[cfg(windows)]
+    use crate::{cell_modify, cell_push};
+
     #[cfg(unix)]
     use std::os::unix::io::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
+
+    #[cfg(windows)]
+    use std::{
+        cell::Cell,
+        os::windows::io::{AsRawHandle, OwnedHandle},
+        rc::Rc,
+    };
+
     use std::{
         io, mem,
         sync::{mpsc, Mutex, MutexGuard, PoisonError},
@@ -106,6 +117,8 @@ mod inherited_jobserver {
         inner: jobserver::Client,
         #[cfg(unix)]
         fd: Option<OwnedFd>,
+        #[cfg(windows)]
+        semaphore: Option<OwnedHandle>,
     }
 
     impl JobServer {
@@ -113,22 +126,31 @@ mod inherited_jobserver {
             jobserver::Client::from_env().map(|inner| Self {
                 #[cfg(unix)]
                 fd: Self::jobserver_fd(&inner),
+                #[cfg(windows)]
+                semaphore: Self::jobserver_semaphore(&inner),
                 inner,
                 global_implicit_token: Mutex::new(true),
             })
         }
 
-        /// `jobserver::Client` doesn't expose its pipe or fifo, so take it from
-        /// the `MAKEFLAGS` it passes to child processes, which is what they use.
-        #[cfg(unix)]
-        fn jobserver_fd(client: &jobserver::Client) -> Option<OwnedFd> {
-            use std::{fs::OpenOptions, process::Command};
-
-            let mut cmd = Command::new("");
+        /// `jobserver::Client` doesn't expose its pipe, fifo or semaphore, so
+        /// take it from the `MAKEFLAGS` it passes to child processes, which is
+        /// what they use.
+        #[cfg(any(unix, windows))]
+        fn jobserver_auth(client: &jobserver::Client) -> Option<String> {
+            let mut cmd = std::process::Command::new("");
             client.configure(&mut cmd);
             let (_, flags) = cmd.get_envs().find(|(key, _)| *key == "CARGO_MAKEFLAGS")?;
             // Last in the flags, so a fifo path may contain spaces.
             let (_, auth) = flags?.to_str()?.split_once("--jobserver-auth=")?;
+            Some(auth.to_owned())
+        }
+
+        #[cfg(unix)]
+        fn jobserver_fd(client: &jobserver::Client) -> Option<OwnedFd> {
+            use std::fs::OpenOptions;
+
+            let auth = Self::jobserver_auth(client)?;
 
             if let Some(path) = auth.strip_prefix("fifo:") {
                 // Read and write, as opening a fifo read-only blocks until it has
@@ -143,6 +165,22 @@ mod inherited_jobserver {
                 unsafe { BorrowedFd::borrow_raw(read) }
                     .try_clone_to_owned()
                     .ok()
+            }
+        }
+
+        #[cfg(windows)]
+        fn jobserver_semaphore(client: &jobserver::Client) -> Option<OwnedHandle> {
+            use ::find_msvc_tools::windows_sys::{OpenSemaphoreA, SYNCHRONIZE};
+            use std::{ffi::CString, os::windows::io::FromRawHandle};
+
+            let name = CString::new(Self::jobserver_auth(client)?).ok()?;
+            // Only to wait on, which takes a token, that is then released
+            // through `inner`.
+            let handle = unsafe { OpenSemaphoreA(SYNCHRONIZE, 0, name.as_ptr().cast()) };
+            if handle.is_null() {
+                None
+            } else {
+                Some(unsafe { OwnedHandle::from_raw_handle(handle) })
             }
         }
 
@@ -173,6 +211,8 @@ mod inherited_jobserver {
             ActiveJobServer {
                 jobserver: self,
                 helper_thread: None,
+                #[cfg(windows)]
+                semaphore_tokens: Rc::default(),
             }
         }
     }
@@ -229,14 +269,34 @@ mod inherited_jobserver {
     pub(crate) struct ActiveJobServer<'a> {
         jobserver: &'a JobServer,
         helper_thread: Option<HelperThread>,
+        /// Tokens of counts taken from the semaphore by waiting on it.
+        #[cfg(windows)]
+        semaphore_tokens: Rc<Cell<Vec<JobToken>>>,
     }
 
     impl ActiveJobServer<'_> {
+        /// Take a token without blocking.
+        fn try_acquire(&self) -> io::Result<Option<JobToken>> {
+            // Already taken by waiting on the semaphore.
+            #[cfg(windows)]
+            if let Some(token) = cell_modify(&self.semaphore_tokens, Vec::pop) {
+                return Ok(Some(token));
+            }
+
+            Ok(self.jobserver.inner.try_acquire()?.map(|acquired| {
+                acquired.drop_without_releasing();
+                JobToken::new()
+            }))
+        }
+
         pub(super) async fn acquire(&mut self, _reactor: &Reactor) -> Result<JobToken, Error> {
-            // Kept while waiting, dropped once a token is acquired: a
-            // jobserver with tokens to spare would wake every wait at once.
+            // Kept while waiting, dropped once a token is acquired, or the
+            // future is: a jobserver with tokens to spare would wake every
+            // wait at once, and waiting on the semaphore takes tokens.
             #[cfg(unix)]
             let mut _registration = None;
+            #[cfg(windows)]
+            let mut _semaphore_registration = None;
 
             loop {
                 // Fast path
@@ -244,11 +304,8 @@ mod inherited_jobserver {
                     break Ok(JobToken::new());
                 }
 
-                match self.jobserver.inner.try_acquire() {
-                    Ok(Some(acquired)) => {
-                        acquired.drop_without_releasing();
-                        break Ok(JobToken::new());
-                    }
+                match self.try_acquire() {
+                    Ok(Some(token)) => break Ok(token),
                     Ok(None) => {
                         // Other processes, such as rustc, other build
                         // scripts or make, put the tokens they release back
@@ -260,6 +317,16 @@ mod inherited_jobserver {
                                 .fd
                                 .as_ref()
                                 .map(|fd| _reactor.register_fd(fd.as_raw_fd()));
+                        }
+                        #[cfg(windows)]
+                        if _semaphore_registration.is_none() {
+                            if let Some(semaphore) = &self.jobserver.semaphore {
+                                let tokens = Rc::clone(&self.semaphore_tokens);
+                                _semaphore_registration = Some(_reactor.register_semaphore(
+                                    semaphore.as_raw_handle(),
+                                    Box::new(move || cell_push(&tokens, JobToken::new())),
+                                ));
+                            }
                         }
                         YieldOnce::default().await
                     }
