@@ -9,4 +9,7 @@ use win::{IID_IUnknown as _, IUnknown_Vtbl as _};
 
 // Public only for cc-rs
 pub const FILE_ATTRIBUTE_TEMPORARY: u32 = win::FILE_ATTRIBUTE_TEMPORARY as u32;
-pub use win::PeekNamedPipe;
+pub const INFINITE: u32 = win::INFINITE;
+pub const MAXIMUM_WAIT_OBJECTS: usize = win::MAXIMUM_WAIT_OBJECTS as usize;
+pub const WAIT_FAILED: u32 = win::WAIT_FAILED;
+pub use win::{PeekNamedPipe, WaitForMultipleObjects};
