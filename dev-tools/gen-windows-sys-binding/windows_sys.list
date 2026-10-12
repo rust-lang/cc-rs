@@ -18,6 +18,11 @@ CoInitializeEx
 GetProcAddress
 LoadLibraryA
 PeekNamedPipe
+WaitForMultipleObjects
+INFINITE
+MAXIMUM_WAIT_OBJECTS
+WAIT_FAILED
+RegCloseKey
 RegCloseKey
 RegEnumKeyExW
 RegOpenKeyExW
