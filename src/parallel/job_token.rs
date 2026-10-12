@@ -80,7 +80,11 @@ mod inherited_jobserver {
     use crate::{cell_modify, cell_push};
 
     #[cfg(unix)]
-    use std::os::unix::io::{AsRawFd, BorrowedFd, OwnedFd, RawFd};
+    use std::{
+        fs::File,
+        io::{Read, Write},
+        os::unix::io::{AsRawFd, BorrowedFd, FromRawFd, OwnedFd, RawFd},
+    };
 
     #[cfg(windows)]
     use std::{
@@ -227,22 +231,72 @@ mod inherited_jobserver {
         /// its request pending, and requesting again would make the helper
         /// thread take more tokens than are ever used.
         has_requested_token: bool,
+        /// Readable once the helper thread has sent a token, to be polled.
+        #[cfg(unix)]
+        notified: File,
     }
 
     impl HelperThread {
         fn new(jobserver: &JobServer) -> Result<Self, Error> {
             let (tx, rx) = mpsc::channel();
+            #[cfg(unix)]
+            let (notified, notifier) = Self::pipe()?;
 
             Ok(Self {
                 rx,
                 inner: jobserver.inner.clone().into_helper_thread(move |res| {
-                    let _ = tx.send(res);
+                    // `rx` is only gone if dropping `Self` gave up on joining
+                    // the helper thread, and so is `notified` then, and a pipe
+                    // with no reader left raises `SIGPIPE`.
+                    tx.send(res).unwrap();
+                    // Only to wake up the reactor: if it fails, the token is
+                    // still found on its timeout. If the pipe is full, it is
+                    // readable already.
+                    #[cfg(unix)]
+                    let _ = (&notifier).write(&[0]);
                 })?,
                 has_requested_token: false,
+                #[cfg(unix)]
+                notified,
             })
         }
 
+        /// A non-blocking pipe, as (read, write).
+        #[cfg(unix)]
+        fn pipe() -> io::Result<(File, File)> {
+            let mut fds = [0; 2];
+            if unsafe { libc::pipe(fds.as_mut_ptr()) } != 0 {
+                return Err(io::Error::last_os_error());
+            }
+            let pipe = unsafe { (File::from_raw_fd(fds[0]), File::from_raw_fd(fds[1])) };
+            for fd in fds {
+                // `pipe2` isn't on all of them.
+                let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
+                if flags == -1
+                    || unsafe { libc::fcntl(fd, libc::F_SETFL, flags | libc::O_NONBLOCK) } == -1
+                    || unsafe { libc::fcntl(fd, libc::F_SETFD, libc::FD_CLOEXEC) } == -1
+                {
+                    return Err(io::Error::last_os_error());
+                }
+            }
+            Ok(pipe)
+        }
+
         fn try_recv(&mut self) -> Result<Option<JobToken>, Error> {
+            // Before receiving, so that a token sent after it notifies again.
+            #[cfg(unix)]
+            loop {
+                match (&self.notified).read(&mut [0; 64]) {
+                    // The helper thread is gone, see `rx`.
+                    Ok(0) => break,
+                    Ok(_) => (),
+                    Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
+                    Err(err) if err.kind() == io::ErrorKind::Interrupted => (),
+                    // Left readable, it would wake up every wait.
+                    Err(err) => return Err(err.into()),
+                }
+            }
+
             match self.rx.try_recv() {
                 Ok(res) => {
                     self.has_requested_token = false;
@@ -344,6 +398,12 @@ mod inherited_jobserver {
                         }
 
                         helper_thread.request_token();
+                        // The helper thread notifies once it has sent a token.
+                        #[cfg(unix)]
+                        if _registration.is_none() {
+                            _registration =
+                                Some(_reactor.register_fd(helper_thread.notified.as_raw_fd()));
+                        }
                         YieldOnce::default().await
                     }
                     Err(err) => break Err(err.into()),
@@ -400,3 +460,4 @@ mod inprocess_jobserver {
         }
     }
 }
+
