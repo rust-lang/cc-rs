@@ -1766,7 +1766,7 @@ mod msvc_prefer_clang_cl_env {
 
     /// A test with a `cl.exe` that cc finds through `VCINSTALLDIR`, and the
     /// path of that `cl.exe`.
-    fn test_with_cl_exe() -> (Test, PathBuf) {
+    pub(super) fn test_with_cl_exe() -> (Test, PathBuf) {
         let mut test = Test::msvc_autodetect();
         test.shim("cc");
         let vc = test.td.path().join("VC");
@@ -1830,6 +1830,60 @@ mod msvc_prefer_clang_cl_env {
             .unwrap();
         assert_eq!(compiler.path(), cl_exe);
     }
+}
+
+/// cc runs the `cl.exe` it finds itself through a compiler cache from
+/// `RUSTC_WRAPPER`, as it does a compiler from `CC`, and changes nothing else
+/// about it.
+#[test]
+fn msvc_rustc_wrapper_applies_to_found_cl_exe() {
+    // A Windows host finds the `cl.exe` of Visual Studio, other hosts the one
+    // in `VCINSTALLDIR`.
+    #[cfg(windows)]
+    let mut test = Test::msvc_autodetect();
+    #[cfg(not(windows))]
+    let (mut test, _) = msvc_prefer_clang_cl_env::test_with_cl_exe();
+
+    let found = test.gcc().cargo_warnings(false).get_compiler();
+    // A `cl.exe` that cc didn't find is a bare name, which gets the wrapper
+    // anyway.
+    assert!(found.path().is_absolute(), "{:?}", found.path());
+    assert!(found.is_like_msvc() && !found.is_like_clang_cl());
+    let found_cmd = found.to_command();
+    assert_eq!(found_cmd.get_program(), found.path());
+    // Outside a developer prompt, the variables Visual Studio's `cl.exe`
+    // needs come with it.
+    if cfg!(windows) && env::var_os("VCINSTALLDIR").is_none() {
+        for var in ["INCLUDE", "LIB"] {
+            assert!(found.get_envs().any(|(key, _)| key == var), "{var}");
+        }
+    }
+
+    // Only wrappers known to cache C compilers are used.
+    for wrapper in ["", "cargo-miri"] {
+        test.process_env.set("RUSTC_WRAPPER", wrapper);
+        let compiler = test.gcc().cargo_warnings(false).get_compiler();
+        assert_eq!(compiler.to_command().get_program(), found.path());
+    }
+
+    test.process_env.set("RUSTC_WRAPPER", "sccache");
+    let compiler = test.gcc().cargo_warnings(false).get_compiler();
+    assert_eq!(compiler.path(), found.path());
+    assert!(compiler.is_like_msvc() && !compiler.is_like_clang_cl());
+    assert!(compiler.get_envs().eq(found.get_envs()));
+    let cmd = compiler.to_command();
+    assert_eq!(cmd.get_program(), "sccache");
+    assert_eq!(
+        cmd.get_args().collect::<Vec<_>>(),
+        std::iter::once(found.path().as_os_str())
+            .chain(found_cmd.get_args())
+            .collect::<Vec<_>>()
+    );
+
+    // C++ uses the same `cl.exe`, through the wrapper too.
+    let cpp = test.gcc().cpp(true).cargo_warnings(false).get_compiler();
+    assert_eq!(cpp.path(), found.path());
+    assert_eq!(cpp.to_command().get_program(), "sccache");
 }
 
 /// cc tells Cargo to rerun the build script when `CC_PREFER_CLANG_CL_OVER_MSVC`
