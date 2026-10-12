@@ -101,10 +101,10 @@ pub struct SAFEARRAYBOUND {
     pub cElements: u32,
     pub lLbound: i32,
 }
+pub const SYNCHRONIZE: i32 = 1048576;
 pub const S_FALSE: HRESULT = 0x1_u32 as _;
 pub const S_OK: HRESULT = 0x0_u32 as _;
 pub const UserEnabled: MACHINE_ATTRIBUTES = 1;
-pub const SYNCHRONIZE: i32 = 1048576;
 pub const WAIT_FAILED: u32 = 4294967295;
 pub const WAIT_OBJECT_0: i32 = 0;
 
