@@ -150,7 +150,8 @@ impl CompileCommand {
 /// [`forward_to`](Self::forward_to).
 #[derive(Debug)]
 pub struct CompileCommandCollector {
-    // A logger must be `Sync`, and `Sender` is only `Sync` since Rust 1.72.
+    // TODO: Use a plain `Sender` once MSRV is bumped to 1.72. A logger must be
+    // `Sync`, and `Sender` is only `Sync` since Rust 1.72.
     sender: Mutex<Sender<CompileCommand>>,
     forward_to: Option<Logger<Box<dyn BuildMessageLogger>>>,
 }
