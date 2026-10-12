@@ -65,12 +65,13 @@ impl Reactor {
         semaphore: RawHandle,
         on_acquired: Box<dyn FnOnce()>,
     ) -> SemaphoreRegistration<'_> {
+        let previous = self.on_semaphore.replace(Some(on_acquired));
+        assert!(previous.is_none(), "a semaphore is already registered");
         cell_modify(&self.handles, |handles| {
             handles.push(semaphore);
             let last = handles.len() - 1;
             handles.swap(0, last);
         });
-        self.on_semaphore.set(Some(on_acquired));
         SemaphoreRegistration { reactor: self }
     }
 
