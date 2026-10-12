@@ -13,6 +13,7 @@ windows_link::link!("ole32.dll" "system" fn CoInitializeEx(pvreserved : *const c
 windows_link::link!("kernel32.dll" "system" fn GetMachineTypeAttributes(machine : u16, machinetypeattributes : *mut MACHINE_ATTRIBUTES) -> HRESULT);
 windows_link::link!("kernel32.dll" "system" fn GetProcAddress(hmodule : HMODULE, lpprocname : PCSTR) -> FARPROC);
 windows_link::link!("kernel32.dll" "system" fn LoadLibraryA(lplibfilename : PCSTR) -> HMODULE);
+windows_link::link!("kernel32.dll" "system" fn OpenSemaphoreA(dwdesiredaccess : u32, binherithandle : BOOL, lpname : PCSTR) -> HANDLE);
 windows_link::link!("kernel32.dll" "system" fn PeekNamedPipe(hnamedpipe : HANDLE, lpbuffer : *mut core::ffi::c_void, nbuffersize : u32, lpbytesread : *mut u32, lptotalbytesavail : *mut u32, lpbytesleftthismessage : *mut u32) -> BOOL);
 windows_link::link!("advapi32.dll" "system" fn RegCloseKey(hkey : HKEY) -> LSTATUS);
 windows_link::link!("advapi32.dll" "system" fn RegEnumKeyExW(hkey : HKEY, dwindex : u32, lpname : PWSTR, lpcchname : *mut u32, lpreserved : *const u32, lpclass : PWSTR, lpcchclass : *mut u32, lpftlastwritetime : *mut FILETIME) -> LSTATUS);
@@ -103,7 +104,9 @@ pub struct SAFEARRAYBOUND {
 pub const S_FALSE: HRESULT = 0x1_u32 as _;
 pub const S_OK: HRESULT = 0x0_u32 as _;
 pub const UserEnabled: MACHINE_ATTRIBUTES = 1;
+pub const SYNCHRONIZE: i32 = 1048576;
 pub const WAIT_FAILED: u32 = 4294967295;
+pub const WAIT_OBJECT_0: i32 = 0;
 
 #[link(name = "advapi32")]
 #[link(name = "ole32")]

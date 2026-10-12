@@ -22,6 +22,9 @@ WaitForMultipleObjects
 INFINITE
 MAXIMUM_WAIT_OBJECTS
 WAIT_FAILED
+WAIT_OBJECT_0
+OpenSemaphoreA
+SYNCHRONIZE
 RegCloseKey
 RegEnumKeyExW
 RegOpenKeyExW
