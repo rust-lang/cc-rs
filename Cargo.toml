@@ -65,6 +65,12 @@ libc = { version = "0.2.168", default-features = false, optional = true }
 # so that they aren't broken. This has never enabled `parallel`, so we won't do that.
 jobserver = []
 parallel = ["dep:jobserver", "dep:libc"]
+# Collect the compile commands into a `compile_commands.json`, see the
+# `compile_commands` module.
+compile-commands = []
+
+[package.metadata.docs.rs]
+all-features = true
 
 [lints]
 workspace = true
