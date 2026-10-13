@@ -2090,7 +2090,7 @@ fn message_logger() {
             let extra = if let Some(cmd) = extra.downcast_ref::<Command>() {
                 let program = Path::new(cmd.get_program()).file_stem().unwrap();
                 program.to_str().unwrap().to_owned()
-            } else if let Some(cmd) = extra.downcast_ref::<cc::compile_commands::CompileCommand>() {
+            } else if let Some(cmd) = extra.downcast_ref::<cc::CompileCommand>() {
                 let program = Path::new(cmd.arguments().next().unwrap())
                     .file_stem()
                     .unwrap();
