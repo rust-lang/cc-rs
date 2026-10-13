@@ -42,7 +42,7 @@ jobs:
             mingw64,
             windows-latest,
           ]
-        cargo_flags: ['', '--release', '--features parallel']
+        cargo_flags: ['', '--release', '--features parallel,compile-commands']
         include:
           - build: stable
             os: ubuntu-latest
@@ -336,7 +336,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
-      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel,compile-commands
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
@@ -361,7 +361,7 @@ jobs:
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo test --no-run --target ${{ matrix.target }}
       - run: cargo test --no-run --target ${{ matrix.target }} --release
-      - run: cargo test --no-run --target ${{ matrix.target }} --features parallel
+      - run: cargo test --no-run --target ${{ matrix.target }} --features parallel,compile-commands
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
