@@ -1,4 +1,5 @@
 #![allow(missing_docs)]
+#![cfg(feature = "compile-commands")]
 
 use std::{
     any::Any,
