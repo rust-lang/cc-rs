@@ -142,6 +142,43 @@ fn rustc_wrapper_name_ignores_case() {
 }
 
 #[test]
+fn rustc_wrapper_applies_to_default_compiler_and_nvcc() {
+    let mut test = Test::gnu();
+    test.process_env.set("RUSTC_WRAPPER", "sccache");
+    for cuda in [false, true] {
+        let compiler = test
+            .gcc()
+            .target("x86_64-unknown-linux-gnu")
+            .host("x86_64-unknown-linux-gnu")
+            .cuda(cuda)
+            .cargo_warnings(false)
+            .get_compiler();
+        let cmd = compiler.to_command();
+        assert_eq!(cmd.get_program(), "sccache", "cuda: {cuda}");
+        assert_eq!(
+            cmd.get_args().next(),
+            Some(compiler.path().as_os_str()),
+            "cuda: {cuda}"
+        );
+    }
+}
+
+#[test]
+fn cc_wrapper_wins_over_rustc_wrapper() {
+    let mut test = Test::gnu();
+    test.process_env.set("RUSTC_WRAPPER", "sccache");
+    test.env.set("CC", "ccache cc");
+    let cmd = test
+        .gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .get_compiler()
+        .to_command();
+    assert_eq!(cmd.get_program(), "ccache");
+    assert_eq!(cmd.get_args().next(), Some(OsStr::new("cc")));
+}
+
+#[test]
 fn more_spaces() {
     let mut test = Test::gnu();
     test.shim("ccache");

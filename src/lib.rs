@@ -125,12 +125,18 @@
 //!   [`Build::get_compiler`] may produce less accurate results as in some cases `cc` runs
 //!   commands in order to locate compilers. Additionally, this does nothing to prevent
 //!   users from running [`Tool::to_command`] and executing the [`Command`] themselves.
-//! * `RUSTC_WRAPPER` - If set, the specified command will be prefixed to the compiler
-//!   command. This is useful for projects that want to use
+//! * `RUSTC_WRAPPER` - if its file name is `sccache`, `cachepot`, `buildcache`
+//!   or `kache` (ignoring case and the extension, so `/usr/bin/sccache` and
+//!   `SCCACHE.EXE` count), `cc` prefixes it to the compiler command, unless `CC`
+//!   (or `CXX` for C++) already names a wrapper (`nvcc` for CUDA gets it either
+//!   way). This is useful for projects that want to use
 //!   [sccache](https://github.com/mozilla/sccache),
 //!   [buildcache](https://gitlab.com/bits-n-bites/buildcache),
 //!   [cachepot](https://github.com/paritytech/cachepot), or
-//!   [kache](https://github.com/kunobi-ninja/kache).
+//!   [kache](https://github.com/kunobi-ninja/kache). Other wrappers are
+//!   ignored, since they usually only work with rustc. The wrapper isn't used
+//!   for a compiler set with [`Build::compiler`], or for the default `emcc` on
+//!   Emscripten targets.
 //! * `SDKROOT` - the Apple SDK path that `cc` passes with `-isysroot`, instead
 //!   of the one from `xcrun`, on Apple targets other than macOS and on macOS
 //!   with a compiler from an Xcode toolchain (`.xctoolchain`). It is ignored if
@@ -3921,7 +3927,11 @@ impl Build {
                     None
                 }
             })
-            .or_else(|| cl_exe.clone());
+            .or_else(|| {
+                let mut t = cl_exe.clone()?;
+                self.apply_rustc_wrapper_fallback(&mut t);
+                Some(t)
+            });
 
         let tool = match tool_opt {
             Some(t) => t,
@@ -3982,9 +3992,7 @@ impl Build {
                     &self.cargo_output,
                     out_dir,
                 );
-                if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
-                    t.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
-                }
+                self.apply_rustc_wrapper_fallback(&mut t);
                 t
             }
         };
@@ -4012,9 +4020,7 @@ impl Build {
                     .args
                     .push(format!("-ccbin={}", tool.path.display()).into());
             }
-            if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
-                nvcc_tool.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
-            }
+            self.apply_rustc_wrapper_fallback(&mut nvcc_tool);
             nvcc_tool.family = tool.family;
             nvcc_tool
         } else {
@@ -4114,6 +4120,14 @@ impl Build {
         }
 
         Ok(tool)
+    }
+
+    /// Runs `tool` through the wrapper from `RUSTC_WRAPPER`, if
+    /// `rustc_wrapper_fallback` accepts it.
+    fn apply_rustc_wrapper_fallback(&self, tool: &mut Tool) {
+        if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
+            tool.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
+        }
     }
 
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
