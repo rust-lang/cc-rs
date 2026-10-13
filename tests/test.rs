@@ -2150,6 +2150,7 @@ fn message_logger() {
                 build.clone().compile("foo");
                 build.message_logger(None).compile("bar");
             }
+            #[cfg(feature = "compile-commands")]
             "compile-commands" => {
                 // The collector passes every message on to the logger, also
                 // when nothing reads its commands.
@@ -2483,15 +2484,18 @@ fn message_logger() {
 
     // A compile command collector keeps the warnings on stdout and passes
     // every message on.
-    let (stdout, messages) = run("compile-commands");
-    assert_eq!(warnings(&stdout), texts(&messages));
-    assert_eq!(
-        count(&messages, stderr_line, "cc", note),
-        2,
-        "{messages:#?}"
-    );
-    assert_eq!(compile_commands(&messages).len(), 2, "{messages:#?}");
-    assert_link_lines(&stdout);
+    #[cfg(feature = "compile-commands")]
+    {
+        let (stdout, messages) = run("compile-commands");
+        assert_eq!(warnings(&stdout), texts(&messages));
+        assert_eq!(
+            count(&messages, stderr_line, "cc", note),
+            2,
+            "{messages:#?}"
+        );
+        assert_eq!(compile_commands(&messages).len(), 2, "{messages:#?}");
+        assert_link_lines(&stdout);
+    }
 }
 
 /// With `cpp_link_stdlib_static`, the C++ stdlib is emitted with `-bundle` once
