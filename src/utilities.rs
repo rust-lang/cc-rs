@@ -1,4 +1,5 @@
 use std::{
+    borrow::Borrow,
     cell::UnsafeCell,
     ffi::{OsStr, OsString},
     fmt::{self, Write},
@@ -14,6 +15,59 @@ use std::{
 use std::cell::Cell;
 
 use crate::{Error, ErrorKind};
+
+/// A map for the few entries of a cache, looked up by going through them.
+///
+/// Unlike `HashMap` and `BTreeMap`, which are generated anew for every type of
+/// entry, this takes little code, and for a few entries it is just as fast.
+#[derive(Debug)]
+pub(crate) struct VecMap<K, V>(Vec<(K, V)>);
+
+impl<K, V> Default for VecMap<K, V> {
+    fn default() -> Self {
+        Self(Vec::new())
+    }
+}
+
+impl<K, V> VecMap<K, V> {
+    pub(crate) fn get<Q>(&self, key: &Q) -> Option<&V>
+    where
+        K: Borrow<Q>,
+        Q: PartialEq + ?Sized,
+    {
+        // A plain loop, as iterator adapters take more code.
+        for (k, v) in &self.0 {
+            if k.borrow() == key {
+                return Some(v);
+            }
+        }
+        None
+    }
+
+    pub(crate) fn get_mut<Q>(&mut self, key: &Q) -> Option<&mut V>
+    where
+        K: Borrow<Q>,
+        Q: PartialEq + ?Sized,
+    {
+        for (k, v) in &mut self.0 {
+            if (*k).borrow() == key {
+                return Some(v);
+            }
+        }
+        None
+    }
+
+    /// Replaces the value of `key`, if there is one already.
+    pub(crate) fn insert(&mut self, key: K, value: V)
+    where
+        K: PartialEq,
+    {
+        match self.get_mut(&key) {
+            Some(v) => *v = value,
+            None => self.0.push((key, value)),
+        }
+    }
+}
 
 pub(super) struct JoinOsStrs<'a, T> {
     pub(super) slice: &'a [T],
