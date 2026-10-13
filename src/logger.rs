@@ -86,6 +86,10 @@ pub enum BuildMessageKind {
     /// which a
     /// [`CompileCommandCollector`](crate::compile_commands::CompileCommandCollector)
     /// collects to write a `compile_commands.json`.
+    #[cfg_attr(
+        not(feature = "compile-commands"),
+        allow(rustdoc::broken_intra_doc_links)
+    )]
     CompileCommand,
 }
 
