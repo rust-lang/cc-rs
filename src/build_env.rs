@@ -2,7 +2,6 @@
 //! runs its tools in.
 
 use std::{
-    cmp::Ordering,
     collections::hash_map::DefaultHasher,
     env,
     ffi::OsStr,
@@ -141,27 +140,6 @@ impl PartialEq for EnvSnapshot {
 
 impl Eq for EnvSnapshot {}
 
-impl Hash for EnvSnapshot {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
-    }
-}
-
-impl Ord for EnvSnapshot {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if Arc::ptr_eq(&self.vars, &other.vars) {
-            return Ordering::Equal;
-        }
-        self.vars.cmp(&other.vars)
-    }
-}
-
-impl PartialOrd for EnvSnapshot {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-
 impl fmt::Debug for EnvSnapshot {
     // The values may hold secrets, and a `Build` can end up in a log.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -291,24 +269,13 @@ mod tests {
 
     #[test]
     fn snapshot_comparison_follows_the_variables() {
-        use std::cmp::Ordering;
-        use std::collections::hash_map::DefaultHasher;
-
-        fn hash(snapshot: &EnvSnapshot) -> u64 {
-            let mut hasher = DefaultHasher::new();
-            snapshot.hash(&mut hasher);
-            hasher.finish()
-        }
-
         let a = snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "2")]);
         // Same variables, captured separately.
         let same = snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "2")]);
         assert!(!Arc::ptr_eq(&a.vars, &same.vars));
         assert_eq!(a, same);
-        assert_eq!(a.cmp(&same), Ordering::Equal);
-        assert_eq!(hash(&a), hash(&same));
+        assert_eq!(a.hash, same.hash);
         assert_eq!(a, a.clone());
-        assert_eq!(a.cmp(&a.clone()), Ordering::Equal);
 
         for other in [
             snapshot(&[("CC_TEST_A", "1")]),
@@ -319,9 +286,6 @@ mod tests {
             snapshot(&[("CC_TEST_A", "1"), ("cc_test_b", "2")]),
         ] {
             assert_ne!(a, other);
-            assert_eq!(a.cmp(&other), a.vars.cmp(&other.vars));
-            assert_ne!(a.cmp(&other), Ordering::Equal);
-            assert_eq!(a.cmp(&other), other.cmp(&a).reverse());
         }
     }
 
