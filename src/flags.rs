@@ -137,7 +137,10 @@ impl<'this> RustcCodegenFlags<'this> {
             // This variable is currently unused, we just keep it in case we need it in future
             "-Clto" => self.lto = value.or(Some("true")),
             // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
-            "-Clinker-plugin-lto" => self.linker_plugin_lto = Some(true),
+            "-Clinker-plugin-lto" => {
+                // A non-boolean value names the linker plugin and also enables LTO.
+                self.linker_plugin_lto = Some(value.and_then(arg_to_bool).unwrap_or(true));
+            }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
                 self.relocation_model = flag_not_empty(value)?;
@@ -430,6 +433,34 @@ mod tests {
     fn check(env: &str, expected: &RustcCodegenFlags) {
         let actual = RustcCodegenFlags::parse(env).unwrap();
         assert_eq!(actual, *expected);
+    }
+
+    #[test]
+    fn linker_plugin_lto_values() {
+        let enabled = RustcCodegenFlags {
+            linker_plugin_lto: Some(true),
+            ..RustcCodegenFlags::default()
+        };
+        check("-Clinker-plugin-lto", &enabled);
+        for value in ["y", "yes", "on", "true", "/path/to/LLVMgold.so"] {
+            check(&format!("-Clinker-plugin-lto={value}"), &enabled);
+        }
+        let disabled = RustcCodegenFlags {
+            linker_plugin_lto: Some(false),
+            ..RustcCodegenFlags::default()
+        };
+        for value in ["n", "no", "off", "false"] {
+            for flags in [
+                format!("-Clinker-plugin-lto={value}"),
+                format!("-C\u{1f}linker-plugin-lto={value}"),
+                format!("--codegen\u{1f}linker-plugin-lto={value}"),
+                format!("--codegen=linker-plugin-lto={value}"),
+            ] {
+                check(&flags, &disabled);
+            }
+        }
+        check("-Clinker-plugin-lto\u{1f}-Clinker-plugin-lto=no", &disabled);
+        check("-Clinker-plugin-lto=no\u{1f}-Clinker-plugin-lto", &enabled);
     }
 
     #[test]
