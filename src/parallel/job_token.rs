@@ -95,7 +95,7 @@ mod inherited_jobserver {
 
     use std::{
         io, mem,
-        sync::{mpsc, Mutex, MutexGuard, PoisonError},
+        sync::{Arc, Mutex, MutexGuard, PoisonError},
     };
 
     pub(super) struct JobServer {
@@ -223,8 +223,9 @@ mod inherited_jobserver {
 
     struct HelperThread {
         inner: jobserver::HelperThread,
-        /// When rx is dropped, all the token stored within it will be dropped.
-        rx: mpsc::Receiver<io::Result<jobserver::Acquired>>,
+        /// What the helper thread has sent, which only holds it weakly.
+        /// Dropping it puts the tokens left in it back.
+        tokens: Arc<Mutex<Vec<io::Result<jobserver::Acquired>>>>,
         /// Whether a token was requested and is yet to be received.
         ///
         /// Kept across `acquire`s: one that ends up with another token leaves
@@ -238,20 +239,27 @@ mod inherited_jobserver {
 
     impl HelperThread {
         fn new(jobserver: &JobServer) -> Result<Self, Error> {
-            let (tx, rx) = mpsc::channel();
+            let tokens = Arc::default();
+            let weak = Arc::downgrade(&tokens);
             #[cfg(unix)]
             let (notified, notifier) = Self::pipe()?;
 
             Ok(Self {
-                rx,
+                tokens,
                 inner: jobserver.inner.clone().into_helper_thread(move |res| {
-                    // `rx` is only gone if dropping `Self` gave up on joining
-                    // the helper thread, and so is `notified` then, and a pipe
-                    // with no reader left raises `SIGPIPE`.
-                    tx.send(res).unwrap();
+                    // Only gone if dropping `Self` gave up on joining the
+                    // helper thread, and dropping `res` puts the token back.
+                    let Some(tokens) = weak.upgrade() else {
+                        return;
+                    };
+                    tokens
+                        .lock()
+                        .unwrap_or_else(PoisonError::into_inner)
+                        .push(res);
                     // Only to wake up the reactor: if it fails, the token is
                     // still found on its timeout. If the pipe is full, it is
-                    // readable already.
+                    // readable already. If `notified` is gone, it fails with
+                    // `EPIPE`, as Rust programs ignore `SIGPIPE`.
                     #[cfg(unix)]
                     let _ = (&notifier).write(&[0]);
                 })?,
@@ -287,7 +295,7 @@ mod inherited_jobserver {
             #[cfg(unix)]
             loop {
                 match (&self.notified).read(&mut [0; 64]) {
-                    // The helper thread is gone, see `rx`.
+                    // The helper thread is gone, see below.
                     Ok(0) => break,
                     Ok(_) => (),
                     Err(err) if err.kind() == io::ErrorKind::WouldBlock => break,
@@ -297,17 +305,22 @@ mod inherited_jobserver {
                 }
             }
 
-            match self.rx.try_recv() {
-                Ok(res) => {
+            let mut tokens = self.tokens.lock().unwrap_or_else(PoisonError::into_inner);
+            match tokens.pop() {
+                Some(res) => {
+                    drop(tokens);
                     self.has_requested_token = false;
                     res?.drop_without_releasing();
                     Ok(Some(JobToken::new()))
                 }
-                Err(mpsc::TryRecvError::Disconnected) => Err(Error::new(
+                // The helper thread's callback holds the only `Weak`, and
+                // pushes before dropping it. Read under the lock, so that a
+                // token pushed before is popped above.
+                None if Arc::weak_count(&self.tokens) == 0 => Err(Error::new(
                     ErrorKind::JobserverHelpThreadError,
                     "jobserver help thread has returned before ActiveJobServer is dropped",
                 )),
-                Err(mpsc::TryRecvError::Empty) => Ok(None),
+                None => Ok(None),
             }
         }
 
