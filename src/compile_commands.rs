@@ -1,6 +1,7 @@
 //! Record the commands cc compiles with as a
 //! [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html),
 //! the `compile_commands.json` that clangd, clang-tidy and other tools read.
+//! Needs the `compile-commands` feature.
 //!
 //! cc passes each compile command to the logger set with
 //! [`Build::message_logger`] as a [`BuildMessageKind::CompileCommand`]
@@ -69,7 +70,6 @@ use std::{
     ffi::OsStr,
     fmt,
     path::Path,
-    process::Command,
     sync::{
         mpsc::{self, Receiver, Sender},
         Mutex, PoisonError,
@@ -78,59 +78,8 @@ use std::{
 
 use crate::{
     logger::Logger, utilities::from_fn, BuildMessage, BuildMessageKind, BuildMessageLogger,
+    CompileCommand,
 };
-
-/// The command that compiles one object file: an entry of a
-/// [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html).
-///
-/// cc passes it as the `extra` of a [`BuildMessageKind::CompileCommand`]
-/// message. See the [module docs](self) for what each field holds.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CompileCommand {
-    directory: Box<Path>,
-    file: Box<Path>,
-    arguments: Box<[Box<OsStr>]>,
-    output: Box<Path>,
-}
-
-impl CompileCommand {
-    /// `cmd` compiles `src` into `dst` and runs in `directory`, which must be
-    /// absolute.
-    pub(crate) fn new(cmd: &Command, src: &Path, dst: &Path, directory: &Path) -> Self {
-        // cc runs its compile commands in its own working directory.
-        debug_assert!(cmd.get_current_dir().is_none());
-        Self {
-            directory: directory.into(),
-            file: directory.join(src).into(),
-            arguments: std::iter::once(cmd.get_program())
-                .chain(cmd.get_args())
-                .map(Box::from)
-                .collect(),
-            output: directory.join(dst).into(),
-        }
-    }
-
-    /// The working directory of the compiler, an absolute path. Relative paths
-    /// in the arguments are relative to it.
-    pub fn directory(&self) -> &Path {
-        &self.directory
-    }
-
-    /// The source file, an absolute path.
-    pub fn file(&self) -> &Path {
-        &self.file
-    }
-
-    /// The program cc runs, followed by its arguments, without any escaping.
-    pub fn arguments(&self) -> impl ExactSizeIterator<Item = &OsStr> + DoubleEndedIterator {
-        self.arguments.iter().map(|arg| &**arg)
-    }
-
-    /// The object file, an absolute path.
-    pub fn output(&self) -> &Path {
-        &self.output
-    }
-}
 
 /// A [`BuildMessageLogger`] that passes the [`CompileCommand`] of every
 /// [`BuildMessageKind::CompileCommand`] message on to its [`CompileCommands`],
@@ -355,41 +304,6 @@ mod tests {
             arguments: arguments.iter().map(|arg| OsStr::new(arg).into()).collect(),
             output: Path::new(output).into(),
         }
-    }
-
-    #[test]
-    fn compile_command_has_no_spare_capacity() {
-        // Each field is a boxed slice, a pointer and a length, without the
-        // capacity a `PathBuf` or `Vec` would add.
-        assert_eq!(
-            std::mem::size_of::<CompileCommand>(),
-            4 * std::mem::size_of::<Box<[u8]>>()
-        );
-    }
-
-    #[test]
-    fn paths_are_joined_to_the_directory() {
-        let directory = Path::new(if cfg!(windows) { r"C:\crate" } else { "/crate" });
-        let mut cmd = Command::new("cc");
-        cmd.args(["-c", "src/foo.c", "-o", "out/foo.o"]);
-
-        let command = CompileCommand::new(
-            &cmd,
-            Path::new("src/foo.c"),
-            Path::new("out/foo.o"),
-            directory,
-        );
-        assert_eq!(command.directory(), directory);
-        assert_eq!(command.file(), directory.join("src/foo.c"));
-        assert_eq!(command.output(), directory.join("out/foo.o"));
-        assert!(command
-            .arguments()
-            .eq(["cc", "-c", "src/foo.c", "-o", "out/foo.o"]));
-
-        // An absolute source stays as it is.
-        let src = directory.join("other").join("bar.c");
-        let command = CompileCommand::new(&cmd, &src, Path::new("out/bar.o"), directory);
-        assert_eq!(command.file(), src);
     }
 
     #[test]

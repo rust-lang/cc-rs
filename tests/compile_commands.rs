@@ -1,4 +1,5 @@
 #![allow(missing_docs)]
+#![cfg(feature = "compile-commands")]
 
 use std::{
     any::Any,
@@ -18,10 +19,8 @@ use std::{
 };
 
 use cc::{
-    compile_commands::{
-        json_compilation_database, CompileCommand, CompileCommandCollector, CompileCommands,
-    },
-    BuildMessage, BuildMessageKind, BuildMessageLogger,
+    compile_commands::{json_compilation_database, CompileCommandCollector, CompileCommands},
+    BuildMessage, BuildMessageKind, BuildMessageLogger, CompileCommand,
 };
 
 use crate::support::Test;

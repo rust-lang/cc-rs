@@ -57,6 +57,7 @@ where
 
 /// A [`Display`](fmt::Display) that formats by calling `f`, like
 /// `std::fmt::from_fn`, which needs Rust 1.93.
+#[cfg(feature = "compile-commands")]
 pub(crate) fn from_fn<F>(f: F) -> impl fmt::Display
 where
     F: Fn(&mut fmt::Formatter<'_>) -> fmt::Result,

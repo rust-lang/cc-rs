@@ -18,6 +18,9 @@ categories.workspace = true
 # The binary target is only used by tests.
 exclude = ["/.github", "src/bin", "tests"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [workspace]
 members = [
     "dev-tools/cc-test",
@@ -61,6 +64,9 @@ tempfile = "3.0.4"
 libc = { version = "0.2.168", default-features = false, optional = true }
 
 [features]
+# Collect the compile commands into a `compile_commands.json`, see the
+# `compile_commands` module.
+compile-commands = []
 # This is a placeholder feature for people who incorrectly used `cc` with `features = ["jobserver"]`
 # so that they aren't broken. This has never enabled `parallel`, so we won't do that.
 jobserver = []
