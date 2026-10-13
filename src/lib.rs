@@ -446,8 +446,9 @@ use command_helpers::*;
 
 mod logger;
 use logger::Logger;
-pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger};
+pub use logger::{BuildMessage, BuildMessageKind, BuildMessageLogger, CompileCommand};
 
+#[cfg(feature = "compile-commands")]
 pub mod compile_commands;
 
 mod build_env;
@@ -1453,6 +1454,10 @@ impl Build {
     /// command that compiles each object file. See [`BuildMessageKind`] for
     /// the details, and [`compile_commands`] for writing the compile commands
     /// to a `compile_commands.json`.
+    #[cfg_attr(
+        not(feature = "compile-commands"),
+        allow(rustdoc::broken_intra_doc_links)
+    )]
     ///
     /// The warnings and stderr lines are still printed as cargo warnings too.
     /// Disable [`cargo_warnings`](Build::cargo_warnings) to send them only to
