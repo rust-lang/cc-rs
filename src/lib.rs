@@ -342,7 +342,6 @@
 #![doc(html_root_url = "https://docs.rs/cc/1.0")]
 
 use std::borrow::Cow;
-use std::collections::{BTreeMap, HashMap, HashSet};
 use std::env;
 use std::ffi::{OsStr, OsString};
 use std::fmt::{self, Display};
@@ -469,7 +468,7 @@ use flags::*;
 /// Key of the flag support cache, next to the flag itself: everything else the
 /// probe `Build` in [`Build::is_flag_supported_inner`] is made from. Built by
 /// [`Build::flag_support_cache_key`].
-#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+#[derive(Clone, Debug, PartialEq)]
 struct CompilerFlag {
     compiler: Box<Path>,
     target: Option<Arc<str>>,
@@ -491,12 +490,12 @@ enum PrefixMapFlag {
 
 #[derive(Debug, Default)]
 struct BuildCache {
-    apple_sdk_root_cache: RwLock<HashMap<Box<str>, Arc<OsStr>>>,
-    apple_versions_cache: RwLock<HashMap<Box<str>, Arc<str>>>,
+    apple_sdk_root_cache: RwLock<VecMap<&'static str, Arc<OsStr>>>,
+    apple_versions_cache: RwLock<VecMap<&'static str, Arc<str>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
-    emitted_cpp_link_stdlibs: Mutex<HashSet<Box<str>>>,
-    known_flag_support_status_cache: RwLock<BTreeMap<CompilerFlag, HashMap<Box<OsStr>, bool>>>,
+    emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
+    known_flag_support_status_cache: RwLock<VecMap<CompilerFlag, VecMap<Box<OsStr>, bool>>>,
     target_info_parser: target::TargetInfoParser,
     warned_about_msvc_linker_flags: AtomicBool,
 }
@@ -1977,7 +1976,8 @@ impl Build {
                 answers.insert(flag.into(), is_supported);
             }
             None => {
-                let answers = HashMap::from([(flag.into(), is_supported)]);
+                let mut answers = VecMap::default();
+                answers.insert(flag.into(), is_supported);
                 cache.insert(key.clone(), answers);
             }
         }
@@ -2074,13 +2074,14 @@ impl Build {
                     (format!("static:-bundle={stdlib}"), true)
                 };
                 let emit = !once
-                    || (self.cargo_output.metadata
-                        && self
-                            .build_cache
-                            .emitted_cpp_link_stdlibs
-                            .lock()
-                            .unwrap()
-                            .insert(link_lib.as_str().into()));
+                    || (self.cargo_output.metadata && {
+                        let mut emitted = self.build_cache.emitted_cpp_link_stdlibs.lock().unwrap();
+                        let first = !emitted.iter().any(|emitted| **emitted == *link_lib);
+                        if first {
+                            emitted.push(link_lib.as_str().into());
+                        }
+                        first
+                    });
                 if emit {
                     self.cargo_output
                         .print_metadata(&format_args!("cargo:rustc-link-lib={link_lib}"));
@@ -4952,7 +4953,8 @@ impl Build {
         } else {
             "HOST"
         };
-        let target_u = target.replace(['-', '.'], "_");
+        // A `&str` pattern, like the others, rather than another instance.
+        let target_u = target.replace("-", "_").replace(".", "_");
 
         Ok([
             format!("{env}_{target}"),
@@ -5088,7 +5090,7 @@ impl Build {
             .apple_sdk_root_cache
             .write()
             .expect("apple_sdk_root_cache lock failed")
-            .insert(sdk.into(), sdk_path.clone());
+            .insert(sdk, sdk_path.clone());
         Ok(sdk_path)
     }
 
@@ -5223,7 +5225,7 @@ impl Build {
             .apple_versions_cache
             .write()
             .expect("apple_versions_cache lock failed")
-            .insert(sdk.into(), version.clone());
+            .insert(sdk, version.clone());
 
         version
     }

@@ -3,12 +3,11 @@ use crate::{
     command_helpers::{run_output, spawn_and_wait_for_output, CargoOutput, CommandExt},
     run,
     tempfile::NamedTempfile,
-    utilities::{HashRecorder, IgnoreAsciiCase, OnceLock},
+    utilities::{HashRecorder, IgnoreAsciiCase, OnceLock, VecMap},
     Error, ErrorKind, OutputKind,
 };
 use std::{
     borrow::Cow,
-    collections::HashMap,
     env,
     ffi::{OsStr, OsString},
     hash::Hash,
@@ -19,14 +18,14 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-pub(crate) type CompilerFamilyLookupCache = HashMap<CompilerCommandKey, ToolFamily>;
+pub(crate) type CompilerFamilyLookupCache = VecMap<CompilerCommandKey, ToolFamily>;
 
 /// Whether a compiler command uses libc++, see [`Tool::uses_libcxx`].
-pub(crate) type CppStdlibLookupCache = HashMap<CompilerCommandKey, bool>;
+pub(crate) type CppStdlibLookupCache = VecMap<CompilerCommandKey, bool>;
 
 /// Key of the [`CompilerFamilyLookupCache`] and the [`CppStdlibLookupCache`]:
 /// a compiler command and the environment it runs in.
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq)]
 pub(crate) struct CompilerCommandKey {
     /// The hashable content of the compiler's path followed by its arguments.
     command: Box<[u8]>,
