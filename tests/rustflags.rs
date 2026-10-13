@@ -98,3 +98,33 @@ fn does_not_inherit_profile_flags() {
     clang.env.set("CC", "clang");
     check(clang);
 }
+
+#[test]
+fn disabled_linker_plugin_lto_does_not_enable_clang_lto() {
+    for value in ["n", "no", "off", "false"] {
+        let mut test = Test::clang();
+        test.env.set("CC", "clang");
+        test.process_env.set(
+            "CARGO_ENCODED_RUSTFLAGS",
+            format!("-Clinker-plugin-lto={value}"),
+        );
+        test.gcc().file("foo.c").compile("foo");
+        test.cmd_for_source("foo.c").must_not_have("-flto=thin");
+    }
+}
+
+#[test]
+fn enabled_linker_plugin_lto_preserves_clang_lto() {
+    for flags in [
+        "-Clinker-plugin-lto",
+        "-Clinker-plugin-lto=yes",
+        "-Clinker-plugin-lto=/path/to/LLVMgold.so",
+        "-Clinker-plugin-lto=no\u{1f}-Clinker-plugin-lto",
+    ] {
+        let mut test = Test::clang();
+        test.env.set("CC", "clang");
+        test.process_env.set("CARGO_ENCODED_RUSTFLAGS", flags);
+        test.gcc().file("foo.c").compile("foo");
+        test.cmd_for_source("foo.c").must_have("-flto=thin");
+    }
+}
