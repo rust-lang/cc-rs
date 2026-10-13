@@ -18,10 +18,9 @@ use std::{
 
 use crate::{
     build_env::{BuildEnv, EnvVars},
-    compile_commands::CompileCommand,
     logger::Logger,
     utilities::cargo_env_var_os,
-    BuildMessageKind, Error, ErrorKind, Object,
+    BuildMessageKind, CompileCommand, Error, ErrorKind, Object,
 };
 
 #[derive(Clone, Debug)]
