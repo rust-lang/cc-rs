@@ -2,9 +2,11 @@
 
 use std::{
     any::Any,
+    ffi::OsStr,
     fmt,
     panic::{RefUnwindSafe, UnwindSafe},
-    process::ExitStatus,
+    path::Path,
+    process::{Command, ExitStatus},
     sync::Arc,
 };
 
@@ -26,7 +28,7 @@ pub trait BuildMessageLogger: Send + Sync + 'static {
     ///   [`Command`](std::process::Command) that was run, read with
     ///   `extra.downcast_ref::<Command>()`
     /// - [`CompileCommand`](BuildMessageKind::CompileCommand): the
-    ///   [`compile_commands::CompileCommand`](crate::compile_commands::CompileCommand)
+    ///   [`CompileCommand`]
     ///
     /// The logger can't fail the build, but a panic in it reaches the caller
     /// of the `Build` method that was running.
@@ -82,7 +84,7 @@ pub enum BuildMessageKind {
     /// Each object file gets one message, also with the `parallel` feature.
     ///
     /// The text is the command line, and `extra` is the
-    /// [`compile_commands::CompileCommand`](crate::compile_commands::CompileCommand),
+    /// [`CompileCommand`],
     /// which a
     /// [`CompileCommandCollector`](crate::compile_commands::CompileCommandCollector)
     /// collects to write a `compile_commands.json`.
@@ -91,6 +93,58 @@ pub enum BuildMessageKind {
         allow(rustdoc::broken_intra_doc_links)
     )]
     CompileCommand,
+}
+
+/// The command that compiles one object file: an entry of a
+/// [JSON compilation database](https://clang.llvm.org/docs/JSONCompilationDatabase.html).
+///
+/// cc passes it as the `extra` of a [`BuildMessageKind::CompileCommand`]
+/// message.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CompileCommand {
+    pub(crate) directory: Box<Path>,
+    pub(crate) file: Box<Path>,
+    pub(crate) arguments: Box<[Box<OsStr>]>,
+    pub(crate) output: Box<Path>,
+}
+
+impl CompileCommand {
+    /// `cmd` compiles `src` into `dst` and runs in `directory`, which must be
+    /// absolute.
+    pub(crate) fn new(cmd: &Command, src: &Path, dst: &Path, directory: &Path) -> Self {
+        // cc runs its compile commands in its own working directory.
+        debug_assert!(cmd.get_current_dir().is_none());
+        Self {
+            directory: directory.into(),
+            file: directory.join(src).into(),
+            arguments: std::iter::once(cmd.get_program())
+                .chain(cmd.get_args())
+                .map(Box::from)
+                .collect(),
+            output: directory.join(dst).into(),
+        }
+    }
+
+    /// The working directory of the compiler, an absolute path. Relative paths
+    /// in the arguments are relative to it.
+    pub fn directory(&self) -> &Path {
+        &self.directory
+    }
+
+    /// The source file, an absolute path.
+    pub fn file(&self) -> &Path {
+        &self.file
+    }
+
+    /// The program cc runs, followed by its arguments, without any escaping.
+    pub fn arguments(&self) -> impl ExactSizeIterator<Item = &OsStr> + DoubleEndedIterator {
+        self.arguments.iter().map(|arg| &**arg)
+    }
+
+    /// The object file, an absolute path.
+    pub fn output(&self) -> &Path {
+        &self.output
+    }
 }
 
 /// The text of a message passed to a [`BuildMessageLogger`].
@@ -130,5 +184,45 @@ impl Logger {
 impl<L> fmt::Debug for Logger<L> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Logger").finish_non_exhaustive()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compile_command_has_no_spare_capacity() {
+        // Each field is a boxed slice, a pointer and a length, without the
+        // capacity a `PathBuf` or `Vec` would add.
+        assert_eq!(
+            std::mem::size_of::<CompileCommand>(),
+            4 * std::mem::size_of::<Box<[u8]>>()
+        );
+    }
+
+    #[test]
+    fn paths_are_joined_to_the_directory() {
+        let directory = Path::new(if cfg!(windows) { r"C:\crate" } else { "/crate" });
+        let mut cmd = Command::new("cc");
+        cmd.args(["-c", "src/foo.c", "-o", "out/foo.o"]);
+
+        let command = CompileCommand::new(
+            &cmd,
+            Path::new("src/foo.c"),
+            Path::new("out/foo.o"),
+            directory,
+        );
+        assert_eq!(command.directory(), directory);
+        assert_eq!(command.file(), directory.join("src/foo.c"));
+        assert_eq!(command.output(), directory.join("out/foo.o"));
+        assert!(command
+            .arguments()
+            .eq(["cc", "-c", "src/foo.c", "-o", "out/foo.o"]));
+
+        // An absolute source stays as it is.
+        let src = directory.join("other").join("bar.c");
+        let command = CompileCommand::new(&cmd, &src, Path::new("out/bar.o"), directory);
+        assert_eq!(command.file(), src);
     }
 }
