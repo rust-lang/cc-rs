@@ -187,6 +187,11 @@
 //!
 //! If none of these variables exist, cc-rs uses built-in defaults.
 //!
+//! The compiler also reads some variables by itself, such as `CPATH` for GCC
+//! and Clang, `INCLUDE` and `CL` for MSVC, and `SDKROOT` on Apple targets. cc
+//! tells Cargo to rerun the build script when these change too, see
+//! [`Build::emit_rerun_if_env_changed`] for the full list.
+//!
 //! In addition to the above optional environment variables, `cc-rs` has some
 //! functions with hard requirements on some variables supplied by [cargo's
 //! build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
@@ -495,6 +500,8 @@ struct BuildCache {
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
+    /// The variables `cargo:rerun-if-env-changed` was printed for.
+    emitted_rerun_if_env_changed: Mutex<Vec<Box<str>>>,
     known_flag_support_status_cache: RwLock<VecMap<CompilerFlag, VecMap<Box<OsStr>, bool>>>,
     warned_about_msvc_linker_flags: AtomicBool,
 }
@@ -1559,6 +1566,17 @@ impl Build {
     /// rebuild when detected environment changes, by default build script is
     /// always run on every compilation if no rerun cargo metadata is emitted.
     ///
+    /// The `cargo:rerun-if-env-changed` lines name the variables cc reads, and
+    /// those the compiler reads by itself: `CPATH`, `C_INCLUDE_PATH`,
+    /// `CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH` and `OBJCPLUS_INCLUDE_PATH` for
+    /// GCC and Clang, `INCLUDE`, `EXTERNAL_INCLUDE`, `CL` and `_CL_` for MSVC and
+    /// clang-cl, and on Apple targets `SDKROOT` and the target's deployment
+    /// target variable, such as `MACOSX_DEPLOYMENT_TARGET`. cc prints the lines
+    /// for the compiler's variables whenever it works out the compiler, such as
+    /// in [`Build::compile`], [`Build::expand`], [`Build::get_compiler`] or a
+    /// flag check. Like the lines for the variables cc looks up in its copy of
+    /// the environment, each is printed once for a `Build` and its clones.
+    ///
     /// NOTE that cc does not emit metadata to detect changes for `PATH`, since it could
     /// be changed every compilation yet does not affect the result of compilation
     /// (i.e. rust-analyzer adds temporary directory to `PATH`).
@@ -2579,6 +2597,7 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
+        self.rerun_if_compiler_env_changed(&cmd, &target);
         // Shared by every flag probe below, see `is_flag_supported_inner`.
         let mut flag_support_key = None;
 
@@ -4885,12 +4904,7 @@ impl Build {
     /// Look up an environment variable in the snapshot, and tell Cargo that we
     /// used it.
     fn get_env(&self, v: &str) -> Option<&Arc<OsStr>> {
-        // Excluding `PATH` prevents spurious rebuilds on Windows, see
-        // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
-        if self.emit_rerun_if_env_changed && v != "PATH" {
-            self.cargo_output
-                .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
-        }
+        self.rerun_if_env_changed(v);
         let r = self.env.inherited().get(OsStr::new(v));
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
@@ -4946,6 +4960,45 @@ impl Build {
             Some(s) => env_value_is_true(s),
             // Not set -> default to `false`.
             None => false,
+        }
+    }
+
+    /// Tell Cargo to rerun the build script when the variable `v` changes,
+    /// unless this `Build`, a clone of it or one of its flag checks already
+    /// did.
+    fn rerun_if_env_changed(&self, v: &str) {
+        // Excluding `PATH` prevents spurious rebuilds on Windows, see
+        // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
+        if !self.emit_rerun_if_env_changed || !self.cargo_output.metadata || v == "PATH" {
+            return;
+        }
+        let mut emitted = self
+            .build_cache
+            .emitted_rerun_if_env_changed
+            .lock()
+            .unwrap();
+        if emitted.iter().any(|emitted| **emitted == *v) {
+            return;
+        }
+        emitted.push(v.into());
+        drop(emitted);
+        self.cargo_output
+            .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
+    }
+
+    /// Tell Cargo to rerun the build script when a variable that `compiler`
+    /// reads by itself changes. Their values aren't used.
+    fn rerun_if_compiler_env_changed(&self, compiler: &Tool, target: &TargetInfo<'_>) {
+        for var in compiler.family.env_vars() {
+            self.rerun_if_env_changed(var);
+        }
+        if target.vendor == "apple" {
+            // The compiler reads these when cc doesn't pass the SDK or the
+            // deployment target itself, and cc reads them when it does.
+            self.rerun_if_env_changed("SDKROOT");
+            if let Some(var) = target.apple_deployment_target_var() {
+                self.rerun_if_env_changed(var);
+            }
         }
     }
 
