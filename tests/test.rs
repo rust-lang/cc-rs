@@ -1922,7 +1922,7 @@ fn msvc_prefer_clang_cl_over_msvc_env_rerun() {
     assert_eq!(rerun_lines("x86_64-unknown-linux-gnu"), 0);
 }
 
-/// The variables GCC and Clang read by themselves.
+/// The variables GCC and Clang, clang-cl included, read by themselves.
 const GNU_COMPILER_ENV: [&str; 5] = [
     "CPATH",
     "C_INCLUDE_PATH",
@@ -1930,8 +1930,10 @@ const GNU_COMPILER_ENV: [&str; 5] = [
     "OBJC_INCLUDE_PATH",
     "OBJCPLUS_INCLUDE_PATH",
 ];
-/// The variables MSVC and clang-cl read by themselves.
-const MSVC_COMPILER_ENV: [&str; 4] = ["INCLUDE", "EXTERNAL_INCLUDE", "CL", "_CL_"];
+/// The variables the compiler reads on MSVC targets.
+const MSVC_INCLUDE_ENV: [&str; 2] = ["INCLUDE", "EXTERNAL_INCLUDE"];
+/// The variables cl.exe and clang-cl read by themselves.
+const CL_ENV: [&str; 2] = ["CL", "_CL_"];
 /// The variables the compiler reads on Apple targets.
 const APPLE_COMPILER_ENV: [&str; 6] = [
     "SDKROOT",
@@ -1961,8 +1963,12 @@ fn compiler_env_build(case: &str) {
     let (target, compiler, archiver) = match case {
         "msvc" => ("x86_64-pc-windows-msvc", "cl", "lib.exe"),
         "clang-cl" => ("x86_64-pc-windows-msvc", "clang-cl", "lib.exe"),
+        "clang-msvc" => ("x86_64-pc-windows-msvc", "clang", "lib.exe"),
         "ios" | "ios-no-defaults" => ("aarch64-apple-ios", "clang", "ar"),
         "macos" => ("x86_64-apple-darwin", "clang", "ar"),
+        "tvos" => ("aarch64-apple-tvos", "clang", "ar"),
+        "watchos" => ("aarch64-apple-watchos", "clang", "ar"),
+        "visionos" => ("aarch64-apple-visionos", "clang", "ar"),
         _ => ("x86_64-unknown-linux-gnu", "cc", "ar"),
     };
     let mut build = test.gcc();
@@ -1975,12 +1981,12 @@ fn compiler_env_build(case: &str) {
         .file("foo.c");
     match case {
         // Two files, compiled twice.
-        "gnu" | "msvc" | "clang-cl" | "ios" | "macos" => {
+        "gnu" | "msvc" | "clang-cl" | "clang-msvc" | "ios" | "macos" => {
             build.file("bar.c");
             build.try_compile("foo").unwrap();
             build.try_compile("foo").unwrap();
         }
-        "ios-no-defaults" => {
+        "ios-no-defaults" | "tvos" | "watchos" | "visionos" => {
             build.no_default_flags(true).try_compile("foo").unwrap();
         }
         "expand" => {
@@ -2055,22 +2061,24 @@ fn compiler_env_rerun_gnu() {
     for case in ["gnu", "expand", "flag-check"] {
         let lines = compiler_env_rerun_lines("compiler_env_rerun_gnu", case);
         assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
-        assert_rerun_count(&lines, &MSVC_COMPILER_ENV, 0);
+        assert_rerun_count(&lines, &MSVC_INCLUDE_ENV, 0);
+        assert_rerun_count(&lines, &CL_ENV, 0);
         assert_rerun_count(&lines, &APPLE_COMPILER_ENV, 0);
     }
 }
 
-/// The same for MSVC and clang-cl.
+/// The same on MSVC targets, for cl.exe, clang-cl and Clang.
 #[test]
 fn compiler_env_rerun_msvc() {
     if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
         compiler_env_build(case.to_str().unwrap());
         return;
     }
-    for case in ["msvc", "clang-cl"] {
+    for (case, gnu, cl) in [("msvc", 0, 1), ("clang-cl", 1, 1), ("clang-msvc", 1, 0)] {
         let lines = compiler_env_rerun_lines("compiler_env_rerun_msvc", case);
-        assert_rerun_count(&lines, &MSVC_COMPILER_ENV, 1);
-        assert_rerun_count(&lines, &GNU_COMPILER_ENV, 0);
+        assert_rerun_count(&lines, &MSVC_INCLUDE_ENV, 1);
+        assert_rerun_count(&lines, &GNU_COMPILER_ENV, gnu);
+        assert_rerun_count(&lines, &CL_ENV, cl);
         assert_rerun_count(&lines, &APPLE_COMPILER_ENV, 0);
     }
 }
@@ -2088,6 +2096,9 @@ fn compiler_env_rerun_apple() {
         ("ios", "IPHONEOS_DEPLOYMENT_TARGET"),
         // cc reads neither.
         ("ios-no-defaults", "IPHONEOS_DEPLOYMENT_TARGET"),
+        ("tvos", "TVOS_DEPLOYMENT_TARGET"),
+        ("watchos", "WATCHOS_DEPLOYMENT_TARGET"),
+        ("visionos", "XROS_DEPLOYMENT_TARGET"),
         // cc reads only the deployment target.
         ("macos", "MACOSX_DEPLOYMENT_TARGET"),
     ] {
@@ -2099,7 +2110,8 @@ fn compiler_env_rerun_apple() {
             .filter(|var| *var != "SDKROOT" && *var != deployment_target)
             .collect();
         assert_rerun_count(&lines, &others, 0);
-        assert_rerun_count(&lines, &MSVC_COMPILER_ENV, 0);
+        assert_rerun_count(&lines, &MSVC_INCLUDE_ENV, 0);
+        assert_rerun_count(&lines, &CL_ENV, 0);
     }
 }
 
