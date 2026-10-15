@@ -559,8 +559,7 @@ fn msvc_smoke() {
         .must_have("-MD")
         .must_not_have("-Tp")
         .must_not_have("-TP");
-    test.cmd(1)
-        .must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
+    test.cmd(1).must_have("db3b6bfb95261072-foo.o");
 }
 
 #[test]
@@ -3715,9 +3714,51 @@ fn msvc_create_archive() {
     assert_eq!(library, test.td.path().join("libfoo.a"));
     let mut out = std::ffi::OsString::from("-out:");
     out.push(&library);
-    test.cmd(1).must_have(out).must_have(&objects[0]);
+    test.cmd(1)
+        .must_have(out)
+        .must_have(objects[0].file_name().unwrap());
     // As with `compile`, the library is also available as `foo.lib`.
     assert!(test.td.path().join("foo.lib").is_file());
+}
+
+#[test]
+fn msvc_archive_members_are_relative_to_out_dir() {
+    let test = Test::msvc();
+    let elsewhere = test.td.path().parent().unwrap().join("elsewhere.o");
+    test.gcc()
+        .file("foo.c")
+        .object(&elsewhere)
+        .object("relative.o")
+        .compile("foo");
+
+    // lib.exe names each member by the path it is given, so the objects in
+    // OUT_DIR are passed relative to it and the archive doesn't change with
+    // the location of the build. Objects from elsewhere stay absolute.
+    let ar = test.cmd(1);
+    assert_eq!(
+        ar.cwd.canonicalize().unwrap(),
+        test.td.path().canonicalize().unwrap()
+    );
+    let mut out = std::ffi::OsString::from("-out:");
+    out.push(test.td.path().join("libfoo.a"));
+    ar.must_have(out)
+        .must_have("db3b6bfb95261072-foo.o")
+        .must_have(&elsewhere)
+        .must_have(env::current_dir().unwrap().join("relative.o"));
+}
+
+#[test]
+fn msvc_archive_with_ar_flags_keeps_the_current_directory() {
+    let test = Test::msvc();
+    test.gcc()
+        .file("foo.c")
+        .ar_flag("-def:foo.def")
+        .compile("foo");
+
+    // The flags may name files relative to the current directory.
+    let ar = test.cmd(1);
+    assert_eq!(ar.cwd, env::current_dir().unwrap());
+    ar.must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
 }
 
 #[test]

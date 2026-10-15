@@ -91,6 +91,8 @@ const PROBE_SLOTS: usize = 4;
 pub struct Execution {
     /// The program the shim was invoked as (`argv[0]`).
     pub program: PathBuf,
+    /// The directory the shim ran in.
+    pub cwd: PathBuf,
     pub args: Vec<String>,
 }
 
@@ -375,8 +377,12 @@ impl Test {
         let Some(program) = lines.next() else {
             panic!("empty recording at {}", path.display());
         };
+        let Some(cwd) = lines.next() else {
+            panic!("no directory in the recording at {}", path.display());
+        };
         Execution {
             program: program.into(),
+            cwd: cwd.into(),
             args: lines.collect(),
         }
     }

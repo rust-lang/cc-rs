@@ -76,8 +76,8 @@ fn create_out_file(program: &str) -> Option<(PathBuf, File)> {
     )
 }
 
-/// Record the program the shim runs as, then the args passed to it, if this
-/// invocation records at all.
+/// Record the program the shim runs as, the directory it runs in, then the args
+/// passed to it, if this invocation records at all.
 fn record(program: &str, args: &[String]) {
     let Some((candidate, f)) = create_out_file(program) else {
         return;
@@ -86,6 +86,7 @@ fn record(program: &str, args: &[String]) {
 
     (|| {
         writeln!(f, "{program}")?;
+        writeln!(f, "{}", env::current_dir()?.display())?;
         for arg in args {
             writeln!(f, "{arg}")?;
         }

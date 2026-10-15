@@ -3685,7 +3685,29 @@ impl Build {
             if dst.exists() {
                 cmd.arg(dst);
             }
-            cmd.args(objs);
+            // lib.exe and llvm-lib name each member by the path they are given,
+            // so absolute paths would put the location of the build into the
+            // archive. Run the archiver in the folder of the library, where cc
+            // writes the objects, and pass them relative to it. Flags from
+            // `ARFLAGS` or `ar_flag` and an archiver given by a relative path
+            // may name files relative to the current directory, so they keep it.
+            let dir = dst.parent().filter(|dir| {
+                dir.is_absolute()
+                    && !any_flags
+                    && (program.is_absolute() || program.components().count() == 1)
+            });
+            if let Some(dir) = dir {
+                cmd.current_dir(dir);
+                for obj in objs {
+                    match obj.strip_prefix(dir) {
+                        Ok(relative) => cmd.arg(relative),
+                        Err(_) if obj.is_relative() => cmd.arg(env::current_dir()?.join(obj)),
+                        Err(_) => cmd.arg(obj),
+                    };
+                }
+            } else {
+                cmd.args(objs);
+            }
             run(&mut cmd, &self.cargo_output)?;
         } else {
             // Set an environment variable to tell the OSX archiver to ensure
