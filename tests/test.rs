@@ -22,7 +22,7 @@ fn gnu_smoke() {
         .must_have("-ffunction-sections")
         .must_have("-fdata-sections");
     test.cmd(1)
-        .must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
+        .must_have(test.td.path().join("67d7710782a67785-foo.o"));
 }
 
 #[test]
@@ -557,7 +557,7 @@ fn msvc_smoke() {
         .must_have("-MD")
         .must_not_have("-Tp")
         .must_not_have("-TP");
-    test.cmd(1).must_have("db3b6bfb95261072-foo.o");
+    test.cmd(1).must_have("67d7710782a67785-foo.o");
 }
 
 #[test]
@@ -3970,7 +3970,7 @@ fn msvc_archive_members_are_relative_to_out_dir() {
     let mut out = std::ffi::OsString::from("-out:");
     out.push(test.td.path().join("libfoo.a"));
     ar.must_have(out)
-        .must_have("db3b6bfb95261072-foo.o")
+        .must_have("67d7710782a67785-foo.o")
         .must_have(&elsewhere)
         .must_have(env::current_dir().unwrap().join("relative.o"));
 }
@@ -3986,7 +3986,7 @@ fn msvc_archive_with_ar_flags_keeps_the_current_directory() {
     // The flags may name files relative to the current directory.
     let ar = test.cmd(1);
     assert_eq!(ar.cwd, env::current_dir().unwrap());
-    ar.must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
+    ar.must_have(test.td.path().join("67d7710782a67785-foo.o"));
 }
 
 #[test]
@@ -4007,7 +4007,7 @@ fn msvc_archive_with_args_in_ar_keeps_the_current_directory() {
         // Like `ARFLAGS`, the arguments in `AR` may name files relative to the
         // current directory.
         let ar = test.cmd(1);
-        let object = test.td.path().join("db3b6bfb95261072-foo.o");
+        let object = test.td.path().join("67d7710782a67785-foo.o");
         if args {
             assert_eq!(ar.cwd, env::current_dir().unwrap(), "{var}");
             ar.must_have("-def:foo.def").must_have(object);
@@ -4039,7 +4039,7 @@ fn msvc_archive_arm64ec_members_are_relative_to_out_dir() {
         test.td.path().canonicalize().unwrap()
     );
     ar.must_have("/machine:arm64ec")
-        .must_have("db3b6bfb95261072-foo.o");
+        .must_have("67d7710782a67785-foo.o");
 }
 
 #[test]
@@ -4067,7 +4067,7 @@ fn msvc_archive_batches_are_relative_to_out_dir() {
         );
     }
     test.cmd(1)
-        .must_have("db3b6bfb95261072-foo.o")
+        .must_have("67d7710782a67785-foo.o")
         .must_have(objects[0].file_name().unwrap());
     test.cmd(2)
         .must_have(objects[1].file_name().unwrap())
