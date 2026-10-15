@@ -3762,6 +3762,70 @@ fn msvc_archive_with_ar_flags_keeps_the_current_directory() {
 }
 
 #[test]
+fn msvc_archive_with_args_in_ar_keeps_the_current_directory() {
+    for (var, ar, args) in [
+        ("AR", "lib.exe", false),
+        ("AR", "lib.exe -def:foo.def", true),
+        ("AR_x86_64-pc-windows-msvc", "lib.exe -def:foo.def", true),
+    ] {
+        // `Test::msvc` sets the archiver itself, so it would ignore `AR`.
+        let mut test = Test::msvc_autodetect();
+        test.env.set(var, ar);
+        test.gcc()
+            .compiler(test.td.path().join("cl"))
+            .file("foo.c")
+            .compile("foo");
+
+        // Like `ARFLAGS`, the arguments in `AR` may name files relative to the
+        // current directory.
+        let ar = test.cmd(1);
+        let object = test.td.path().join("db3b6bfb95261072-foo.o");
+        if args {
+            assert_eq!(ar.cwd, env::current_dir().unwrap(), "{var}");
+            ar.must_have("-def:foo.def").must_have(object);
+        } else {
+            assert_eq!(
+                ar.cwd.canonicalize().unwrap(),
+                test.td.path().canonicalize().unwrap()
+            );
+            ar.must_have(object.file_name().unwrap());
+        }
+    }
+}
+
+#[test]
+fn msvc_archive_batches_are_relative_to_out_dir() {
+    let test = Test::msvc();
+    // The archiver takes about 4000 bytes of paths at a time, so these go in
+    // two batches: `foo.o` and the first, then the second and `relative.o`.
+    let objects: Vec<_> = (0..2)
+        .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
+        .collect();
+    test.gcc()
+        .file("foo.c")
+        .object(&objects[0])
+        .object(&objects[1])
+        .object("relative.o")
+        .compile("foo");
+
+    // Every batch runs in OUT_DIR, and a relative object from elsewhere is
+    // still passed absolute.
+    for i in 1..=2 {
+        let ar = test.cmd(i);
+        assert_eq!(
+            ar.cwd.canonicalize().unwrap(),
+            test.td.path().canonicalize().unwrap()
+        );
+    }
+    test.cmd(1)
+        .must_have("db3b6bfb95261072-foo.o")
+        .must_have(objects[0].file_name().unwrap());
+    test.cmd(2)
+        .must_have(objects[1].file_name().unwrap())
+        .must_have(env::current_dir().unwrap().join("relative.o"));
+}
+
+#[test]
 fn msvc_llvm_ar_name_ignores_case() {
     let test = Test::msvc();
     test.shim("LLVM-AR");

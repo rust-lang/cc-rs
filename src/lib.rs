@@ -3670,6 +3670,8 @@ impl Build {
             name.to_string_lossy().contains_ignore_ascii_case("llvm-ar")
         });
         if target.env == "msvc" && !is_llvm_ar {
+            // Arguments from `AR` itself, `ARFLAGS` or `ar_flag`, before ours.
+            let any_args = cmd.get_args().next().is_some();
             // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
             // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
             // the caller has explicitly dictated the flags they want. See
@@ -3688,20 +3690,22 @@ impl Build {
             // lib.exe and llvm-lib name each member by the path they are given,
             // so absolute paths would put the location of the build into the
             // archive. Run the archiver in the folder of the library, where cc
-            // writes the objects, and pass them relative to it. Flags from
-            // `ARFLAGS` or `ar_flag` and an archiver given by a relative path
-            // may name files relative to the current directory, so they keep it.
+            // writes the objects, and pass them relative to it. Arguments from
+            // `AR`, `ARFLAGS` or `ar_flag` and an archiver given by a relative
+            // path may name files relative to the current directory, so they
+            // keep it.
             let dir = dst.parent().filter(|dir| {
                 dir.is_absolute()
-                    && !any_flags
+                    && !any_args
                     && (program.is_absolute() || program.components().count() == 1)
             });
             if let Some(dir) = dir {
+                let current_dir = env::current_dir()?;
                 cmd.current_dir(dir);
                 for obj in objs {
                     match obj.strip_prefix(dir) {
                         Ok(relative) => cmd.arg(relative),
-                        Err(_) if obj.is_relative() => cmd.arg(env::current_dir()?.join(obj)),
+                        Err(_) if obj.is_relative() => cmd.arg(current_dir.join(obj)),
                         Err(_) => cmd.arg(obj),
                     };
                 }
