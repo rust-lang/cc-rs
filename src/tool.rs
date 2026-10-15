@@ -764,6 +764,26 @@ impl ToolFamily {
     pub(crate) fn verbose_stderr(&self) -> bool {
         matches!(*self, ToolFamily::Clang { .. })
     }
+
+    /// The environment variables that compilers of this family read by
+    /// themselves, and that change what they compile.
+    pub(crate) fn env_vars(&self) -> &'static [&'static str] {
+        match *self {
+            // https://clang.llvm.org/docs/CommandGuide/clang.html#environment
+            // https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => &[
+                "CPATH",
+                "C_INCLUDE_PATH",
+                "CPLUS_INCLUDE_PATH",
+                "OBJC_INCLUDE_PATH",
+                "OBJCPLUS_INCLUDE_PATH",
+            ],
+            // https://learn.microsoft.com/en-us/cpp/build/reference/cl-environment-variables
+            // clang-cl also reads `EXTERNAL_INCLUDE`, which Visual Studio's
+            // developer prompts set next to `INCLUDE`.
+            ToolFamily::Msvc { .. } => &["INCLUDE", "EXTERNAL_INCLUDE", "CL", "_CL_"],
+        }
+    }
 }
 
 #[cfg(test)]

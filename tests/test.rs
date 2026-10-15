@@ -1922,6 +1922,217 @@ fn msvc_prefer_clang_cl_over_msvc_env_rerun() {
     assert_eq!(rerun_lines("x86_64-unknown-linux-gnu"), 0);
 }
 
+/// The variables GCC and Clang read by themselves.
+const GNU_COMPILER_ENV: [&str; 5] = [
+    "CPATH",
+    "C_INCLUDE_PATH",
+    "CPLUS_INCLUDE_PATH",
+    "OBJC_INCLUDE_PATH",
+    "OBJCPLUS_INCLUDE_PATH",
+];
+/// The variables MSVC and clang-cl read by themselves.
+const MSVC_COMPILER_ENV: [&str; 4] = ["INCLUDE", "EXTERNAL_INCLUDE", "CL", "_CL_"];
+/// The variables the compiler reads on Apple targets.
+const APPLE_COMPILER_ENV: [&str; 6] = [
+    "SDKROOT",
+    "MACOSX_DEPLOYMENT_TARGET",
+    "IPHONEOS_DEPLOYMENT_TARGET",
+    "TVOS_DEPLOYMENT_TARGET",
+    "WATCHOS_DEPLOYMENT_TARGET",
+    "XROS_DEPLOYMENT_TARGET",
+];
+/// Names the build that a `compiler_env_*` test runs in its subprocess.
+const COMPILER_ENV_CASE: &str = "__CC_TEST_COMPILER_ENV_CASE";
+
+/// Runs the build `case` of a `compiler_env_*` test. These run in a
+/// subprocess, since cc prints its `cargo:` lines to stdout.
+fn compiler_env_build(case: &str) {
+    let mut test = Test::gnu();
+    test.shim("clang")
+        .shim("clang-cl")
+        .shim("cl")
+        .shim("lib.exe");
+    // On Apple targets cc takes the SDK and the deployment target from these
+    // instead of asking `xcrun`.
+    let sdk_root = test.td.path().to_owned();
+    test.env.set("SDKROOT", sdk_root);
+    test.env.set("IPHONEOS_DEPLOYMENT_TARGET", "17.0");
+    test.env.set("MACOSX_DEPLOYMENT_TARGET", "11.0");
+    let (target, compiler, archiver) = match case {
+        "msvc" => ("x86_64-pc-windows-msvc", "cl", "lib.exe"),
+        "clang-cl" => ("x86_64-pc-windows-msvc", "clang-cl", "lib.exe"),
+        "ios" | "ios-no-defaults" => ("aarch64-apple-ios", "clang", "ar"),
+        "macos" => ("x86_64-apple-darwin", "clang", "ar"),
+        _ => ("x86_64-unknown-linux-gnu", "cc", "ar"),
+    };
+    let mut build = test.gcc();
+    build
+        .target(target)
+        .host("x86_64-unknown-linux-gnu")
+        .compiler(test.td.path().join(compiler))
+        .archiver(test.td.path().join(archiver))
+        .cargo_warnings(false)
+        .file("foo.c");
+    match case {
+        // Two files, compiled twice.
+        "gnu" | "msvc" | "clang-cl" | "ios" | "macos" => {
+            build.file("bar.c");
+            build.try_compile("foo").unwrap();
+            build.try_compile("foo").unwrap();
+        }
+        "ios-no-defaults" => {
+            build.no_default_flags(true).try_compile("foo").unwrap();
+        }
+        "expand" => {
+            // The shim can't preprocess, but the compiler is worked out first.
+            assert!(build.try_expand().is_err());
+        }
+        "flag-check" => {
+            assert!(build.is_flag_supported("-Wall").unwrap());
+        }
+        "off" => {
+            build
+                .emit_rerun_if_env_changed(false)
+                .try_compile("foo")
+                .unwrap();
+        }
+        // Clones that print nothing don't keep the original from printing.
+        "off-clones" => {
+            build
+                .clone()
+                .emit_rerun_if_env_changed(false)
+                .try_compile("foo")
+                .unwrap();
+            build
+                .clone()
+                .cargo_metadata(false)
+                .try_compile("foo")
+                .unwrap();
+            build.try_compile("foo").unwrap();
+        }
+        case => panic!("unknown case {case}"),
+    }
+}
+
+/// The variables that the build `case` of the test `name` printed
+/// `cargo:rerun-if-env-changed` for, in order.
+fn compiler_env_rerun_lines(name: &str, case: &str) -> Vec<String> {
+    const PREFIX: &str = "cargo:rerun-if-env-changed=";
+    let output = GlobalEnv::output(
+        Command::new(env::current_exe().unwrap())
+            .env(COMPILER_ENV_CASE, case)
+            .env_remove("CC_ENABLE_DEBUG_OUTPUT")
+            .args(["--exact", name, "--nocapture"]),
+    );
+    assert!(output.status.success(), "subprocess failed: {:?}", output);
+    String::from_utf8_lossy(&output.stdout)
+        .lines()
+        // libtest prints the test name on the line of the first output.
+        .filter_map(|line| Some(line[line.find(PREFIX)? + PREFIX.len()..].to_owned()))
+        .collect()
+}
+
+#[track_caller]
+fn assert_rerun_count(lines: &[String], vars: &[&str], count: usize) {
+    for var in vars {
+        assert_eq!(
+            lines.iter().filter(|line| line == var).count(),
+            count,
+            "{var} in {lines:?}"
+        );
+    }
+}
+
+/// cc tells Cargo to rerun the build script when a variable that GCC or Clang
+/// reads by itself changes, once per `Build`, whether it compiles, expands or
+/// checks a flag.
+#[test]
+fn compiler_env_rerun_gnu() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    for case in ["gnu", "expand", "flag-check"] {
+        let lines = compiler_env_rerun_lines("compiler_env_rerun_gnu", case);
+        assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
+        assert_rerun_count(&lines, &MSVC_COMPILER_ENV, 0);
+        assert_rerun_count(&lines, &APPLE_COMPILER_ENV, 0);
+    }
+}
+
+/// The same for MSVC and clang-cl.
+#[test]
+fn compiler_env_rerun_msvc() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    for case in ["msvc", "clang-cl"] {
+        let lines = compiler_env_rerun_lines("compiler_env_rerun_msvc", case);
+        assert_rerun_count(&lines, &MSVC_COMPILER_ENV, 1);
+        assert_rerun_count(&lines, &GNU_COMPILER_ENV, 0);
+        assert_rerun_count(&lines, &APPLE_COMPILER_ENV, 0);
+    }
+}
+
+/// On Apple targets, also for `SDKROOT` and the target's deployment target,
+/// whether cc reads them itself or not, and only once when it does.
+#[test]
+fn compiler_env_rerun_apple() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    for (case, deployment_target) in [
+        // cc reads both itself.
+        ("ios", "IPHONEOS_DEPLOYMENT_TARGET"),
+        // cc reads neither.
+        ("ios-no-defaults", "IPHONEOS_DEPLOYMENT_TARGET"),
+        // cc reads only the deployment target.
+        ("macos", "MACOSX_DEPLOYMENT_TARGET"),
+    ] {
+        let lines = compiler_env_rerun_lines("compiler_env_rerun_apple", case);
+        assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
+        assert_rerun_count(&lines, &["SDKROOT", deployment_target], 1);
+        let others: Vec<&str> = APPLE_COMPILER_ENV
+            .into_iter()
+            .filter(|var| *var != "SDKROOT" && *var != deployment_target)
+            .collect();
+        assert_rerun_count(&lines, &others, 0);
+        assert_rerun_count(&lines, &MSVC_COMPILER_ENV, 0);
+    }
+}
+
+/// None of them with `emit_rerun_if_env_changed(false)`, and such a clone, or
+/// one without `cargo_metadata`, doesn't keep the original from printing them.
+#[test]
+fn compiler_env_rerun_off() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    let lines = compiler_env_rerun_lines("compiler_env_rerun_off", "off");
+    assert_rerun_count(&lines, &GNU_COMPILER_ENV, 0);
+    let lines = compiler_env_rerun_lines("compiler_env_rerun_off", "off-clones");
+    assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
+}
+
+/// Each `cargo:rerun-if-env-changed` line is printed once per `Build`, even
+/// when cc reads the variable again for another file or another compile.
+#[test]
+fn rerun_if_env_changed_once_per_build() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    for case in ["gnu", "msvc", "ios"] {
+        let lines = compiler_env_rerun_lines("rerun_if_env_changed_once_per_build", case);
+        for line in &lines {
+            assert_rerun_count(&lines, &[line], 1);
+        }
+    }
+}
+
 #[test]
 fn gnu_ar_deterministic_flag() {
     let test = Test::gnu();
