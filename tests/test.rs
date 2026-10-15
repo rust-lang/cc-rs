@@ -559,8 +559,7 @@ fn msvc_smoke() {
         .must_have("-MD")
         .must_not_have("-Tp")
         .must_not_have("-TP");
-    test.cmd(1)
-        .must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
+    test.cmd(1).must_have("db3b6bfb95261072-foo.o");
 }
 
 #[test]
@@ -3715,9 +3714,136 @@ fn msvc_create_archive() {
     assert_eq!(library, test.td.path().join("libfoo.a"));
     let mut out = std::ffi::OsString::from("-out:");
     out.push(&library);
-    test.cmd(1).must_have(out).must_have(&objects[0]);
+    test.cmd(1)
+        .must_have(out)
+        .must_have(objects[0].file_name().unwrap());
     // As with `compile`, the library is also available as `foo.lib`.
     assert!(test.td.path().join("foo.lib").is_file());
+}
+
+#[test]
+fn msvc_archive_members_are_relative_to_out_dir() {
+    let test = Test::msvc();
+    let elsewhere = test.td.path().parent().unwrap().join("elsewhere.o");
+    test.gcc()
+        .file("foo.c")
+        .object(&elsewhere)
+        .object("relative.o")
+        .compile("foo");
+
+    // lib.exe names each member by the path it is given, so the objects in
+    // OUT_DIR are passed relative to it and the archive doesn't change with
+    // the location of the build. Objects from elsewhere stay absolute.
+    let ar = test.cmd(1);
+    assert_eq!(
+        ar.cwd.canonicalize().unwrap(),
+        test.td.path().canonicalize().unwrap()
+    );
+    let mut out = std::ffi::OsString::from("-out:");
+    out.push(test.td.path().join("libfoo.a"));
+    ar.must_have(out)
+        .must_have("db3b6bfb95261072-foo.o")
+        .must_have(&elsewhere)
+        .must_have(env::current_dir().unwrap().join("relative.o"));
+}
+
+#[test]
+fn msvc_archive_with_ar_flags_keeps_the_current_directory() {
+    let test = Test::msvc();
+    test.gcc()
+        .file("foo.c")
+        .ar_flag("-def:foo.def")
+        .compile("foo");
+
+    // The flags may name files relative to the current directory.
+    let ar = test.cmd(1);
+    assert_eq!(ar.cwd, env::current_dir().unwrap());
+    ar.must_have(test.td.path().join("db3b6bfb95261072-foo.o"));
+}
+
+#[test]
+fn msvc_archive_with_args_in_ar_keeps_the_current_directory() {
+    for (var, ar, args) in [
+        ("AR", "lib.exe", false),
+        ("AR", "lib.exe -def:foo.def", true),
+        ("AR_x86_64-pc-windows-msvc", "lib.exe -def:foo.def", true),
+    ] {
+        // `Test::msvc` sets the archiver itself, so it would ignore `AR`.
+        let mut test = Test::msvc_autodetect();
+        test.env.set(var, ar);
+        test.gcc()
+            .compiler(test.td.path().join("cl"))
+            .file("foo.c")
+            .compile("foo");
+
+        // Like `ARFLAGS`, the arguments in `AR` may name files relative to the
+        // current directory.
+        let ar = test.cmd(1);
+        let object = test.td.path().join("db3b6bfb95261072-foo.o");
+        if args {
+            assert_eq!(ar.cwd, env::current_dir().unwrap(), "{var}");
+            ar.must_have("-def:foo.def").must_have(object);
+        } else {
+            assert_eq!(
+                ar.cwd.canonicalize().unwrap(),
+                test.td.path().canonicalize().unwrap()
+            );
+            ar.must_have(object.file_name().unwrap());
+        }
+    }
+}
+
+#[test]
+fn msvc_archive_arm64ec_members_are_relative_to_out_dir() {
+    // `Test::msvc` sets the archiver itself, so cc wouldn't add `/machine:`.
+    let test = Test::msvc_autodetect();
+    test.gcc()
+        .target("arm64ec-pc-windows-msvc")
+        .compiler(test.td.path().join("cl"))
+        .file("foo.c")
+        .compile("foo");
+
+    // cc adds `/machine:arm64ec` itself; only arguments from the user keep the
+    // current directory.
+    let ar = test.cmd(1);
+    assert_eq!(
+        ar.cwd.canonicalize().unwrap(),
+        test.td.path().canonicalize().unwrap()
+    );
+    ar.must_have("/machine:arm64ec")
+        .must_have("db3b6bfb95261072-foo.o");
+}
+
+#[test]
+fn msvc_archive_batches_are_relative_to_out_dir() {
+    let test = Test::msvc();
+    // The archiver takes about 4000 bytes of paths at a time, so these go in
+    // two batches: `foo.o` and the first, then the second and `relative.o`.
+    let objects: Vec<_> = (0..2)
+        .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
+        .collect();
+    test.gcc()
+        .file("foo.c")
+        .object(&objects[0])
+        .object(&objects[1])
+        .object("relative.o")
+        .compile("foo");
+
+    // Every batch runs in OUT_DIR, and a relative object from elsewhere is
+    // still passed absolute.
+    for i in 1..=2 {
+        let ar = test.cmd(i);
+        assert_eq!(
+            ar.cwd.canonicalize().unwrap(),
+            test.td.path().canonicalize().unwrap()
+        );
+    }
+    test.cmd(1)
+        .must_have("db3b6bfb95261072-foo.o")
+        .must_have(objects[0].file_name().unwrap());
+    test.cmd(2)
+        .must_have(objects[1].file_name().unwrap())
+        .must_have(env::current_dir().unwrap().join("relative.o"));
 }
 
 #[test]
