@@ -791,22 +791,34 @@ impl ToolFamily {
     }
 
     /// The environment variables that compilers of this family read by
-    /// themselves, and that change what they compile.
-    pub(crate) fn env_vars(&self) -> &'static [&'static str] {
-        match *self {
-            // https://clang.llvm.org/docs/CommandGuide/clang.html#environment
+    /// themselves, and that change what they compile. `msvc_target` tells
+    /// whether they target MSVC.
+    pub(crate) fn env_vars(&self, msvc_target: bool) -> &'static [&'static str] {
+        const VARS: &[&str] = &[
+            // Read by GCC and by Clang in every driver mode, see
             // https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html
-            ToolFamily::Gnu | ToolFamily::Clang { .. } => &[
-                "CPATH",
-                "C_INCLUDE_PATH",
-                "CPLUS_INCLUDE_PATH",
-                "OBJC_INCLUDE_PATH",
-                "OBJCPLUS_INCLUDE_PATH",
-            ],
+            // https://clang.llvm.org/docs/CommandGuide/clang.html#environment
+            "CPATH",
+            "C_INCLUDE_PATH",
+            "CPLUS_INCLUDE_PATH",
+            "OBJC_INCLUDE_PATH",
+            "OBJCPLUS_INCLUDE_PATH",
+            // Read by Clang targeting MSVC, in every driver mode. cl.exe reads
+            // `INCLUDE`, and `EXTERNAL_INCLUDE` only with
+            // `/external:env:EXTERNAL_INCLUDE`. Visual Studio's developer
+            // prompts set both.
+            "INCLUDE",
+            "EXTERNAL_INCLUDE",
+            // Read by cl.exe and clang-cl, see
             // https://learn.microsoft.com/en-us/cpp/build/reference/cl-environment-variables
-            // clang-cl also reads `EXTERNAL_INCLUDE`, which Visual Studio's
-            // developer prompts set next to `INCLUDE`.
-            ToolFamily::Msvc { .. } => &["INCLUDE", "EXTERNAL_INCLUDE", "CL", "_CL_"],
+            "CL",
+            "_CL_",
+        ];
+        match *self {
+            ToolFamily::Clang { .. } if msvc_target => &VARS[..7],
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => &VARS[..5],
+            ToolFamily::Msvc { clang_cl: true } => VARS,
+            ToolFamily::Msvc { clang_cl: false } => &VARS[5..],
         }
     }
 }

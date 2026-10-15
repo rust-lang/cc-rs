@@ -506,6 +506,17 @@ struct BuildCache {
     warned_about_msvc_linker_flags: AtomicBool,
 }
 
+/// Add `value` to `emitted` unless it is already there, and tell whether it
+/// was added.
+fn push_if_new(emitted: &Mutex<Vec<Box<str>>>, value: &str) -> bool {
+    let mut emitted = emitted.lock().unwrap();
+    let new = !emitted.iter().any(|emitted| **emitted == *value);
+    if new {
+        emitted.push(value.into());
+    }
+    new
+}
+
 /// A builder for compilation of a native library.
 ///
 /// A `Build` is the main type of the `cc` crate and is used to control all the
@@ -1569,13 +1580,15 @@ impl Build {
     /// The `cargo:rerun-if-env-changed` lines name the variables cc reads, and
     /// those the compiler reads by itself: `CPATH`, `C_INCLUDE_PATH`,
     /// `CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH` and `OBJCPLUS_INCLUDE_PATH` for
-    /// GCC and Clang, `INCLUDE`, `EXTERNAL_INCLUDE`, `CL` and `_CL_` for MSVC and
-    /// clang-cl, and on Apple targets `SDKROOT` and the target's deployment
-    /// target variable, such as `MACOSX_DEPLOYMENT_TARGET`. cc prints the lines
-    /// for the compiler's variables whenever it works out the compiler, such as
-    /// in [`Build::compile`], [`Build::expand`], [`Build::get_compiler`] or a
-    /// flag check. Like the lines for the variables cc looks up in its copy of
-    /// the environment, each is printed once for a `Build` and its clones.
+    /// GCC and Clang, clang-cl included, `INCLUDE` and `EXTERNAL_INCLUDE` on
+    /// MSVC targets, `CL` and `_CL_` for cl.exe and clang-cl, and on Apple
+    /// targets `SDKROOT` and the target's deployment target variable, such as
+    /// `MACOSX_DEPLOYMENT_TARGET`. cc prints the lines for the compiler's
+    /// variables whenever it works out the compiler, such as in
+    /// [`Build::compile`], [`Build::expand`], [`Build::get_compiler`] or a flag
+    /// check that runs the compiler. Like the lines for the variables cc looks
+    /// up in its copy of the environment, each is printed once for a `Build`
+    /// and its clones.
     ///
     /// NOTE that cc does not emit metadata to detect changes for `PATH`, since it could
     /// be changed every compilation yet does not affect the result of compilation
@@ -2103,14 +2116,8 @@ impl Build {
                     (format!("static:-bundle={stdlib}"), true)
                 };
                 let emit = !once
-                    || (self.cargo_output.metadata && {
-                        let mut emitted = self.build_cache.emitted_cpp_link_stdlibs.lock().unwrap();
-                        let first = !emitted.iter().any(|emitted| **emitted == *link_lib);
-                        if first {
-                            emitted.push(link_lib.as_str().into());
-                        }
-                        first
-                    });
+                    || (self.cargo_output.metadata
+                        && push_if_new(&self.build_cache.emitted_cpp_link_stdlibs, &link_lib));
                 if emit {
                     self.cargo_output
                         .print_metadata(&format_args!("cargo:rustc-link-lib={link_lib}"));
@@ -4972,16 +4979,9 @@ impl Build {
         if !self.emit_rerun_if_env_changed || !self.cargo_output.metadata || v == "PATH" {
             return;
         }
-        let mut emitted = self
-            .build_cache
-            .emitted_rerun_if_env_changed
-            .lock()
-            .unwrap();
-        if emitted.iter().any(|emitted| **emitted == *v) {
+        if !push_if_new(&self.build_cache.emitted_rerun_if_env_changed, v) {
             return;
         }
-        emitted.push(v.into());
-        drop(emitted);
         self.cargo_output
             .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
     }
@@ -4989,7 +4989,7 @@ impl Build {
     /// Tell Cargo to rerun the build script when a variable that `compiler`
     /// reads by itself changes. Their values aren't used.
     fn rerun_if_compiler_env_changed(&self, compiler: &Tool, target: &TargetInfo<'_>) {
-        for var in compiler.family.env_vars() {
+        for var in compiler.family.env_vars(target.env == "msvc") {
             self.rerun_if_env_changed(var);
         }
         if target.vendor == "apple" {
