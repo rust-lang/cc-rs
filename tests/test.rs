@@ -3794,6 +3794,27 @@ fn msvc_archive_with_args_in_ar_keeps_the_current_directory() {
 }
 
 #[test]
+fn msvc_archive_arm64ec_members_are_relative_to_out_dir() {
+    // `Test::msvc` sets the archiver itself, so cc wouldn't add `/machine:`.
+    let test = Test::msvc_autodetect();
+    test.gcc()
+        .target("arm64ec-pc-windows-msvc")
+        .compiler(test.td.path().join("cl"))
+        .file("foo.c")
+        .compile("foo");
+
+    // cc adds `/machine:arm64ec` itself; only arguments from the user keep the
+    // current directory.
+    let ar = test.cmd(1);
+    assert_eq!(
+        ar.cwd.canonicalize().unwrap(),
+        test.td.path().canonicalize().unwrap()
+    );
+    ar.must_have("/machine:arm64ec")
+        .must_have("db3b6bfb95261072-foo.o");
+}
+
+#[test]
 fn msvc_archive_batches_are_relative_to_out_dir() {
     let test = Test::msvc();
     // The archiver takes about 4000 bytes of paths at a time, so these go in

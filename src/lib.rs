@@ -3665,13 +3665,11 @@ impl Build {
     ) -> Result<(), Error> {
         let target = self.get_target()?;
 
-        let (mut cmd, program, any_flags) = self.try_get_archiver_and_flags()?;
+        let (mut cmd, program, any_flags, any_args) = self.try_get_archiver_and_flags()?;
         let is_llvm_ar = program.file_name().map_or(false, |name| {
             name.to_string_lossy().contains_ignore_ascii_case("llvm-ar")
         });
         if target.env == "msvc" && !is_llvm_ar {
-            // Arguments from `AR` itself, `ARFLAGS` or `ar_flag`, before ours.
-            let any_args = cmd.get_args().next().is_some();
             // NOTE: -out: here is an I/O flag, and so must be included even if $ARFLAGS/ar_flag is
             // in use. -nologo on the other hand is just a regular flag, and one that we'll skip if
             // the caller has explicitly dictated the flags they want. See
@@ -3756,7 +3754,7 @@ impl Build {
                         *deterministic_ar = Some(true);
                     } else {
                         *deterministic_ar = Some(false);
-                        let (mut cmd, _, _) = self.try_get_archiver_and_flags()?;
+                        let (mut cmd, ..) = self.try_get_archiver_and_flags()?;
                         cmd.env("ZERO_AR_DATE", "1");
                         run(cmd.arg("cq").arg(dst).args(objs), &self.cargo_output)?;
                     }
@@ -4376,8 +4374,12 @@ impl Build {
         Ok(self.try_get_archiver_and_flags()?.0)
     }
 
-    fn try_get_archiver_and_flags(&self) -> Result<(Command, PathBuf, bool), Error> {
-        let (mut cmd, name) = self.get_base_archiver()?;
+    /// Returns the archiver, its name, whether `ARFLAGS` or `ar_flag` gave it
+    /// flags, and whether the user gave it any arguments at all: those flags
+    /// or arguments in `AR` itself. Arguments cc adds, like `/machine:arm64ec`,
+    /// don't count.
+    fn try_get_archiver_and_flags(&self) -> Result<(Command, PathBuf, bool, bool), Error> {
+        let (mut cmd, name, any_ar_args) = self.get_base_archiver()?;
         let mut any_flags = false;
         if let Some(flags) = self.envflags("ARFLAGS")? {
             any_flags = true;
@@ -4387,13 +4389,15 @@ impl Build {
             any_flags = true;
             cmd.arg(&**flag);
         }
-        Ok((cmd, name, any_flags))
+        Ok((cmd, name, any_flags, any_flags || any_ar_args))
     }
 
-    fn get_base_archiver(&self) -> Result<(Command, PathBuf), Error> {
+    /// Returns the archiver, its name, and whether `AR` (or `AR_<target>`,
+    /// `TARGET_AR`, `HOST_AR`) gave it arguments.
+    fn get_base_archiver(&self) -> Result<(Command, PathBuf, bool), Error> {
         if let Some(ref a) = self.archiver {
             let archiver = &**a;
-            return Ok((self.cmd(archiver), archiver.into()));
+            return Ok((self.cmd(archiver), archiver.into(), false));
         }
 
         self.get_base_archiver_variant("AR", "ar")
@@ -4444,13 +4448,15 @@ impl Build {
         &self,
         env: &str,
         tool: &str,
-    ) -> Result<(Command, PathBuf), Error> {
+    ) -> Result<(Command, PathBuf, bool), Error> {
         let target = self.get_target()?;
         let mut name = PathBuf::new();
+        let mut any_args = false;
         let tool_opt: Option<Command> = self
             .env_tool(env)
             .map(|(tool, _wrapper, args)| {
                 name.clone_from(&tool);
+                any_args = !args.is_empty();
                 let mut cmd = self.cmd(tool);
                 cmd.args(args);
                 cmd
@@ -4594,7 +4600,7 @@ impl Build {
             }
         };
 
-        Ok((tool, name))
+        Ok((tool, name, any_args))
     }
 
     // FIXME: Use parsed target instead of raw target.
