@@ -11,7 +11,11 @@ use std::{
     sync::Arc,
 };
 
-use crate::utilities::OnceLock;
+use crate::{
+    target::{TargetInfo, TargetInfoParser},
+    utilities::OnceLock,
+    Error, ErrorKind,
+};
 
 /// Environment variables, in the order they are applied.
 pub(crate) type EnvVars = [(Arc<OsStr>, Arc<OsStr>)];
@@ -68,6 +72,9 @@ pub(crate) struct EnvSnapshot {
     vars: Arc<EnvVars>,
     /// Hash of `vars`, worked out once.
     hash: u64,
+    /// The target Cargo describes in `vars`, parsed on first use. It lives
+    /// here so that a new snapshot can't be paired with an old target.
+    cargo_target: Arc<TargetInfoParser>,
 }
 
 impl EnvSnapshot {
@@ -79,6 +86,7 @@ impl EnvSnapshot {
         Self {
             hash: hasher.finish(),
             vars,
+            cargo_target: Arc::default(),
         }
     }
 
@@ -118,6 +126,29 @@ impl EnvSnapshot {
             .iter()
             .find(|(k, _)| is_same_key(k, key))
             .map(|(_, value)| value)
+    }
+
+    /// Look up a variable that Cargo sets for build scripts, such as `TARGET`,
+    /// as a string.
+    pub(crate) fn get_cargo_var(&self, key: &str) -> Result<&str, Error> {
+        let Some(value) = self.get(OsStr::new(key)) else {
+            return Err(Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!("environment variable {key} not defined"),
+            ));
+        };
+        value.to_str().ok_or_else(|| {
+            Error::new(
+                ErrorKind::EnvVarNotFound,
+                format!("environment variable {key} is not valid utf-8: {value:?}"),
+            )
+        })
+    }
+
+    /// The target Cargo builds for, from `TARGET` and `CARGO_CFG_TARGET_*`.
+    pub(crate) fn cargo_target(&self) -> Result<TargetInfo<'_>, Error> {
+        self.cargo_target
+            .parse_from_cargo_environment_variables(self)
     }
 
     /// Make `cmd` run in this environment rather than the current one.

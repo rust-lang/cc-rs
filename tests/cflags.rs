@@ -27,7 +27,7 @@ fn cflags_order() {
     let mut test = Test::gnu();
 
     // FIXME(madsmtm): Re-enable once `is_flag_supported` works in CI regardless of `target`.
-    // test.process_env.set("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5");
+    // test.env.set("CARGO_ENCODED_RUSTFLAGS", "-Cdwarf-version=5");
 
     test.env.set("CFLAGS", "-Larbitrary1");
     test.env.set("HOST_CFLAGS", "-Larbitrary2");

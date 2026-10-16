@@ -496,7 +496,6 @@ struct BuildCache {
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
     known_flag_support_status_cache: RwLock<VecMap<CompilerFlag, VecMap<Box<OsStr>, bool>>>,
-    target_info_parser: target::TargetInfoParser,
     warned_about_msvc_linker_flags: AtomicBool,
 }
 
@@ -509,12 +508,14 @@ struct BuildCache {
 /// A `Build` reads the process environment once, the first time it needs it
 /// (for example in [`Build::compile`], [`Build::get_compiler`],
 /// [`Build::is_flag_supported`] or [`Build::try_flags_from_environment`]), and
-/// keeps that copy. Its own lookups of variables such as `CC` or `CFLAGS` use
-/// the copy, and the compiler and other tools it runs get the copy as their
-/// whole environment instead of inheriting the process environment, so later
-/// changes to the process environment are not seen. A clone made after that
-/// point keeps the copy, one made before takes its own. Use [`Build::env`] to
-/// change the environment of the child processes.
+/// keeps that copy. Its own lookups of variables such as `CC` or `CFLAGS`, and
+/// of those Cargo sets for build scripts such as `TARGET`, `OUT_DIR` or
+/// `CARGO_CFG_TARGET_FEATURE`, use the copy, and the compiler and other tools
+/// it runs get the copy as their whole environment instead of inheriting the
+/// process environment, so later changes to the process environment are not
+/// seen. A clone made after that point keeps the copy, one made before takes
+/// its own. Use [`Build::env`] to change the environment of the child
+/// processes.
 #[derive(Clone, Debug)]
 pub struct Build {
     include_directories: Vec<Arc<Path>>,
@@ -1675,17 +1676,23 @@ impl Build {
     /// environment, with [`Build::env`] still applied on top. A variable given
     /// more than once takes its last value.
     ///
+    /// cc also reads the variables Cargo sets for build scripts, such as
+    /// `OUT_DIR`, `TARGET`, `OPT_LEVEL` and `CARGO_CFG_*`, from `vars`, unless
+    /// they are set on the `Build` with [`Build::out_dir`], [`Build::target`]
+    /// and the like. So `vars` usually starts from [`std::env::vars_os`].
+    ///
     /// This replaces the environment rather than adding to it. Call it before
     /// using the `Build`. A later call still replaces the environment for what
-    /// cc looks up and runs from then on, but a [`Tool`] returned earlier keeps
-    /// its environment, and the Apple SDK path and deployment target are not
-    /// looked up again once found.
+    /// cc looks up and runs from then on, Cargo's variables included, so a new
+    /// `TARGET` there also changes the target cc compiles for. But a [`Tool`]
+    /// returned earlier keeps its environment, and the Apple SDK path and
+    /// deployment target are not looked up again once found for an SDK.
     ///
-    /// The variables Cargo sets for build scripts, such as `OUT_DIR`, `TARGET`
-    /// and `CARGO_CFG_*`, are read from the process environment either way,
-    /// and so is `CC_ENABLE_DEBUG_OUTPUT`, which [`Build::new`] reads. On
-    /// Windows, the `vswhere` and `cl.exe` that cc runs to find Visual Studio
-    /// also still get the process environment.
+    /// `CC_ENABLE_DEBUG_OUTPUT`, which [`Build::new`] reads, is read from the
+    /// process environment either way, and so are `NUM_JOBS` and Cargo's
+    /// jobserver with the `parallel` feature, since they are shared by every
+    /// `Build` in the process. On Windows, the `vswhere` and `cl.exe` that cc
+    /// runs to find Visual Studio also still get the process environment.
     #[doc(hidden)]
     pub fn set_envs_snapshot<I, K, V>(&mut self, vars: I) -> &mut Build
     where
@@ -1788,7 +1795,7 @@ impl Build {
                 let src = self.ensure_check_file()?;
                 let obj = dir.join("flag_check");
                 Ok(FlagSupportProbeFiles {
-                    dir,
+                    dir: Cow::Borrowed(dir),
                     src,
                     obj,
                     _temp_files: None,
@@ -1994,7 +2001,7 @@ impl Build {
         lib_and_archive_names(output, "compile")?;
         let dst = self.get_out_dir()?;
 
-        let objects = objects_from_files(&self.files, &dst)?;
+        let objects = objects_from_files(&self.files, dst, self.env.inherited())?;
 
         self.compile_objects(&objects)?;
         let library = self.try_create_archive(output, objects.iter().map(|o| &o.dst))?;
@@ -2246,7 +2253,7 @@ impl Build {
     /// This will return a result instead of panicking; see `compile_intermediates()` for the complete description.
     pub fn try_compile_intermediates(&self) -> Result<Vec<PathBuf>, Error> {
         let dst = self.get_out_dir()?;
-        let objects = objects_from_files(&self.files, &dst)?;
+        let objects = objects_from_files(&self.files, dst, self.env.inherited())?;
 
         self.compile_objects(&objects)?;
 
@@ -2601,7 +2608,7 @@ impl Build {
         // Disable default flag generation via `no_default_flags` or environment variable
         let no_defaults = self.no_default_flags || self.get_env_boolean("CRATE_CC_NO_DEFAULTS");
         if !no_defaults {
-            self.add_default_flags(&mut cmd, &target, &opt_level, &mut flag_support_key)?;
+            self.add_default_flags(&mut cmd, &target, opt_level, &mut flag_support_key)?;
         }
 
         // Specify various flags that are not considered part of the default flags above.
@@ -2736,8 +2743,9 @@ impl Build {
                     Some(false) => "-MD",
                     None if !self.is_cargo_target() => "-MD",
                     None => {
-                        let features = cargo_env_var_os("CARGO_CFG_TARGET_FEATURE");
-                        let features = features.as_deref().unwrap_or_default();
+                        let features = self
+                            .get_cargo_env("CARGO_CFG_TARGET_FEATURE")
+                            .unwrap_or_default();
                         if features.to_string_lossy().contains("crt-static") {
                             "-MT"
                         } else {
@@ -2847,7 +2855,7 @@ impl Build {
             let family = cmd.family;
             family.add_debug_flags(
                 cmd,
-                self.get_debug_str().as_deref().unwrap_or_default(),
+                self.get_debug_str().unwrap_or_default(),
                 self.get_dwarf_version(),
             );
         }
@@ -2983,7 +2991,7 @@ impl Build {
                         .then(|| self.apple_deployment_target(target));
 
                     let clang_target =
-                        target.llvm_target(&self.get_raw_target()?, version.as_deref());
+                        target.llvm_target(self.get_raw_target()?, version.as_deref());
                     cmd.push_cc_arg(format!("--target={clang_target}").into());
                 }
             }
@@ -2997,7 +3005,7 @@ impl Build {
                     cmd.push_cc_arg(
                         format!(
                             "--target={}",
-                            target.llvm_target(&self.get_raw_target()?, None)
+                            target.llvm_target(self.get_raw_target()?, None)
                         )
                         .into(),
                     );
@@ -3039,8 +3047,9 @@ impl Build {
                 }
 
                 if self.static_flag.is_none() && self.is_cargo_target() {
-                    let features = cargo_env_var_os("CARGO_CFG_TARGET_FEATURE");
-                    let features = features.as_deref().unwrap_or_default();
+                    let features = self
+                        .get_cargo_env("CARGO_CFG_TARGET_FEATURE")
+                        .unwrap_or_default();
                     if features.to_string_lossy().contains("crt-static") {
                         cmd.args.push("-static".into());
                     }
@@ -3292,7 +3301,7 @@ impl Build {
         target: &TargetInfo<'_>,
         flag_support_key: &mut Option<CompilerFlag>,
     ) -> Result<(), Error> {
-        let Some(env_os) = cargo_env_var_os("CARGO_ENCODED_RUSTFLAGS") else {
+        let Some(env_os) = self.get_cargo_env("CARGO_ENCODED_RUSTFLAGS") else {
             // No encoded RUSTFLAGS -> nothing to do
             return Ok(());
         };
@@ -3317,10 +3326,10 @@ impl Build {
         if cmd.is_like_msvc() && !cmd.is_like_clang_cl() {
             return Ok(());
         }
-        let Some(scope) = cargo_env_var_os("CARGO_TRIM_PATHS_SCOPE") else {
+        let Some(scope) = self.get_cargo_env("CARGO_TRIM_PATHS_SCOPE") else {
             return Ok(());
         };
-        let Some(remap) = cargo_env_var_os("CARGO_TRIM_PATHS_REMAP") else {
+        let Some(remap) = self.get_cargo_env("CARGO_TRIM_PATHS_REMAP") else {
             return Ok(());
         };
 
@@ -3848,7 +3857,7 @@ impl Build {
     }
 
     fn prefer_clang(&self) -> bool {
-        if let Some(env) = cargo_env_var_os("CARGO_ENCODED_RUSTFLAGS") {
+        if let Some(env) = self.get_cargo_env("CARGO_ENCODED_RUSTFLAGS") {
             env.to_string_lossy().contains("linker-plugin-lto")
         } else {
             false
@@ -3857,7 +3866,6 @@ impl Build {
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {
         let out_dir = self.get_out_dir().ok();
-        let out_dir = out_dir.as_deref();
 
         if let Some(c) = &self.compiler {
             return Ok(Tool::new(
@@ -3980,7 +3988,7 @@ impl Build {
                 {
                     clang.into()
                 } else if target.os == "android" {
-                    autodetect_android_compiler(&raw_target, gnu, clang, self.env.inherited())
+                    autodetect_android_compiler(raw_target, gnu, clang, self.env.inherited())
                 } else if target.os == "cloudabi" {
                     format!(
                         "{}-{}-{}-{}",
@@ -3988,7 +3996,7 @@ impl Build {
                     )
                     .into()
                 } else if target.os == "wasi" {
-                    self.autodetect_wasi_compiler(&raw_target, clang)
+                    self.autodetect_wasi_compiler(raw_target, clang)
                 } else if target.arch == "wasm32" || target.arch == "wasm64" {
                     // Compiling WASM is not currently supported by GCC, so
                     // let's default to Clang.
@@ -4003,7 +4011,7 @@ impl Build {
                     // See for details: https://github.com/rust-lang/cc-rs/pull/1319
                     if self.cpp { "q++" } else { "qcc" }.into()
                 } else if self.get_is_cross_compile()? {
-                    let prefix = self.prefix_for_target(&raw_target);
+                    let prefix = self.prefix_for_target(raw_target);
                     match prefix {
                         Some(prefix) => {
                             let cc = if target.abi == "llvm" { clang } else { gnu };
@@ -4156,25 +4164,25 @@ impl Build {
     /// `rustc_wrapper_fallback` accepts it.
     fn apply_rustc_wrapper_fallback(&self, tool: &mut Tool) {
         if let Some(cc_wrapper) = self.rustc_wrapper_fallback() {
-            tool.cc_wrapper_path = Some(Path::new(&cc_wrapper).to_owned());
+            tool.cc_wrapper_path = Some(Path::new(cc_wrapper).to_owned());
         }
     }
 
     /// Returns a fallback `cc_compiler_wrapper` by introspecting `RUSTC_WRAPPER`
-    fn rustc_wrapper_fallback(&self) -> Option<Cow<'_, OsStr>> {
+    fn rustc_wrapper_fallback(&self) -> Option<&OsStr> {
         // No explicit CC wrapper was detected, but check if RUSTC_WRAPPER
         // is defined and is a build accelerator that is compatible with
         // C/C++ compilers (e.g. sccache)
         const VALID_WRAPPERS: &[&str] = &["sccache", "cachepot", "buildcache", "kache"];
 
-        let rustc_wrapper = cargo_env_var_os("RUSTC_WRAPPER")?;
-        let wrapper_path = Path::new(&rustc_wrapper);
+        let rustc_wrapper = self.get_cargo_env("RUSTC_WRAPPER")?;
+        let wrapper_path = Path::new(rustc_wrapper);
         let wrapper_stem = wrapper_path.file_stem()?;
 
         VALID_WRAPPERS
             .iter()
             .any(|wrapper| wrapper_stem.eq_ignore_ascii_case(wrapper))
-            .then_some(Cow::Owned(rustc_wrapper))
+            .then_some(rustc_wrapper)
     }
 
     /// Returns compiler path, optional modifier name from whitelist, and arguments vec
@@ -4191,7 +4199,11 @@ impl Build {
         // interpretation at all, just pass it on through. This'll hopefully get
         // us to support spaces-in-paths.
         if let Some(exe) = check_exe(Path::new(tool).into()) {
-            return Some((exe, self.rustc_wrapper_fallback(), Vec::new()));
+            return Some((
+                exe,
+                self.rustc_wrapper_fallback().map(Cow::Borrowed),
+                Vec::new(),
+            ));
         }
 
         // Ok now we want to handle a couple of scenarios. We'll assume from
@@ -4249,7 +4261,7 @@ impl Build {
 
         Some((
             maybe_wrapper.into(),
-            self.rustc_wrapper_fallback(),
+            self.rustc_wrapper_fallback().map(Cow::Borrowed),
             parts.map(|s| s.to_string()).collect(),
         ))
     }
@@ -4330,7 +4342,7 @@ impl Build {
             .uses_libcxx(
                 &self.build_cache.cached_uses_libcxx,
                 &quiet.cargo_output,
-                quiet.get_out_dir().ok().as_deref(),
+                quiet.get_out_dir().ok(),
             )
             .unwrap_or(false)
     }
@@ -4559,7 +4571,7 @@ impl Build {
                     };
                     self.cmd(&name)
                 } else if self.get_is_cross_compile()? {
-                    match self.prefix_for_target(&self.get_raw_target()?) {
+                    match self.prefix_for_target(self.get_raw_target()?) {
                         Some(prefix) => {
                             // GCC uses $target-gcc-ar, whereas binutils uses $target-ar -- try both.
                             // Prefer -ar if it exists, as builds of `-gcc-ar` have been observed to be
@@ -4611,7 +4623,7 @@ impl Build {
             .map(Cow::Owned)
             .or_else(|| {
                 // Put aside RUSTC_LINKER's prefix to be used as second choice, after CROSS_COMPILE
-                cargo_env_var_os("RUSTC_LINKER").and_then(|var| {
+                self.get_cargo_env("RUSTC_LINKER").and_then(|var| {
                     var.to_string_lossy()
                         .strip_suffix("-gcc")
                         .map(str::to_string)
@@ -4819,16 +4831,13 @@ impl Build {
 
     fn get_target(&self) -> Result<TargetInfo<'_>, Error> {
         match &self.target {
-            Some(t) if Some(OsStr::new(&**t)) != cargo_env_var_os("TARGET").as_deref() => {
+            Some(t) if Some(OsStr::new(&**t)) != self.get_cargo_env("TARGET") => {
                 TargetInfo::from_rustc_target(t)
             }
             // Fetch target information from environment if not set, or if the
             // target was the same as the TARGET environment variable, in
             // case the user did `build.target(&env::var("TARGET").unwrap())`.
-            _ => self
-                .build_cache
-                .target_info_parser
-                .parse_from_cargo_environment_variables(),
+            _ => self.env.inherited().cargo_target(),
         }
     }
 
@@ -4838,31 +4847,31 @@ impl Build {
     /// `CARGO_CFG_*` target-feature environment variables do not apply.
     fn is_cargo_target(&self) -> bool {
         match &self.target {
-            Some(t) => Some(OsStr::new(&**t)) == cargo_env_var_os("TARGET").as_deref(),
+            Some(t) => Some(OsStr::new(&**t)) == self.get_cargo_env("TARGET"),
             None => true,
         }
     }
 
-    fn get_raw_target(&self) -> Result<Cow<'_, str>, Error> {
-        match &self.target {
-            Some(t) => Ok(Cow::Borrowed(t)),
-            None => cargo_env_var("TARGET").map(Cow::Owned),
+    fn get_raw_target(&self) -> Result<&str, Error> {
+        match self.target.as_deref() {
+            Some(t) => Ok(t),
+            None => self.get_cargo_env_str("TARGET"),
         }
     }
 
     fn get_is_cross_compile(&self) -> Result<bool, Error> {
         let target = self.get_raw_target()?;
-        let host: Cow<'_, str> = match &self.host {
-            Some(h) => Cow::Borrowed(h),
-            None => Cow::Owned(cargo_env_var("HOST")?),
+        let host = match &self.host {
+            Some(h) => &**h,
+            None => self.get_cargo_env_str("HOST")?,
         };
         Ok(host != target)
     }
 
-    fn get_opt_level(&self) -> Result<Cow<'_, str>, Error> {
-        match &self.opt_level {
-            Some(ol) => Ok(Cow::Borrowed(ol)),
-            None => cargo_env_var("OPT_LEVEL").map(Cow::Owned),
+    fn get_opt_level(&self) -> Result<&str, Error> {
+        match self.opt_level.as_deref() {
+            Some(ol) => Ok(ol),
+            None => self.get_cargo_env_str("OPT_LEVEL"),
         }
     }
 
@@ -4872,7 +4881,7 @@ impl Build {
     fn get_debug(&self) -> bool {
         match self.get_debug_str() {
             Err(_) => false,
-            Ok(d) => match &*d {
+            Ok(d) => match d {
                 // From https://doc.rust-lang.org/cargo/reference/profiles.html#debug
                 "" | "0" | "false" | "none" => false,
                 _ => true,
@@ -4880,10 +4889,10 @@ impl Build {
         }
     }
 
-    fn get_debug_str(&self) -> Result<Cow<'_, str>, Error> {
-        match &self.debug {
-            Some(d) => Ok(Cow::Borrowed(d)),
-            None => cargo_env_var("DEBUG").map(Cow::Owned),
+    fn get_debug_str(&self) -> Result<&str, Error> {
+        match self.debug.as_deref() {
+            Some(d) => Ok(d),
+            None => self.get_cargo_env_str("DEBUG"),
         }
     }
 
@@ -4913,18 +4922,15 @@ impl Build {
         self.force_frame_pointer.unwrap_or_else(|| self.get_debug())
     }
 
-    fn get_out_dir(&self) -> Result<Cow<'_, Path>, Error> {
-        match &self.out_dir {
-            Some(p) => Ok(Cow::Borrowed(&**p)),
-            None => cargo_env_var_os("OUT_DIR")
-                .map(PathBuf::from)
-                .map(Cow::Owned)
-                .ok_or_else(|| {
-                    Error::new(
-                        ErrorKind::EnvVarNotFound,
-                        "Environment variable OUT_DIR not defined.",
-                    )
-                }),
+    fn get_out_dir(&self) -> Result<&Path, Error> {
+        match self.out_dir.as_deref() {
+            Some(p) => Ok(p),
+            None => self.get_cargo_env("OUT_DIR").map(Path::new).ok_or_else(|| {
+                Error::new(
+                    ErrorKind::EnvVarNotFound,
+                    "Environment variable OUT_DIR not defined.",
+                )
+            }),
         }
     }
 
@@ -4944,6 +4950,24 @@ impl Build {
             OptionOsStrDisplay(r.map(|r| &**r))
         ));
         r
+    }
+
+    /// Look up a variable that Cargo sets for build scripts, such as `TARGET`
+    /// or `OUT_DIR`, in the snapshot.
+    ///
+    /// <https://doc.rust-lang.org/cargo/reference/environment-variables.html#environment-variables-cargo-sets-for-build-scripts>
+    ///
+    /// Cargo doesn't need to be told about these with `rerun-if-env-changed`,
+    /// so unlike [`Build::get_env`] this prints no such line, and
+    /// [`Build::env`] doesn't overwrite them.
+    fn get_cargo_env(&self, key: &str) -> Option<&OsStr> {
+        self.env.inherited().get(OsStr::new(key)).map(|v| &**v)
+    }
+
+    /// [`Build::get_cargo_env`] for a variable that must be set and valid
+    /// UTF-8.
+    fn get_cargo_env_str(&self, key: &str) -> Result<&str, Error> {
+        self.env.inherited().get_cargo_var(key)
     }
 
     /// Look up an environment variable that's allowed to be overwritten by

@@ -8,7 +8,7 @@ mod support;
 fn sanity() {
     // Sanity check - no flags
     let mut test = Test::gnu();
-    test.process_env.set("CARGO_ENCODED_RUSTFLAGS", "");
+    test.env.set("CARGO_ENCODED_RUSTFLAGS", "");
     test.gcc().file("foo.c").compile("foo");
     test.cmd(0)
         .must_not_have("-fno-omit-frame-pointer")
@@ -22,7 +22,7 @@ fn sanity() {
 fn inherits_rustflags() {
     // Correctly inherits flags from rustc
     let mut test = Test::gnu();
-    test.process_env.set(
+    test.env.set(
         "CARGO_ENCODED_RUSTFLAGS",
         "-Cforce-frame-pointers=true\u{1f}-Ccode-model=small\u{1f}-Csoft-float\u{1f}-Cdwarf-version=5\u{1f}-Zstack-protector=strong",
     );
@@ -39,7 +39,7 @@ fn inherits_rustflags() {
 #[test]
 fn inherits_target_features() {
     let mut test = Test::gnu();
-    test.process_env.set(
+    test.env.set(
         "CARGO_ENCODED_RUSTFLAGS",
         "-Ctarget-feature=+ssse3,+avx\u{1f}-C\u{1f}target-feature=+avx2,-sse4a,-sse2,+crt-static,+not-a-feature",
     );
@@ -59,7 +59,7 @@ fn inherits_target_features() {
 fn no_stack_protector() {
     // Do *not* propagate -Zstack-protector=none
     let mut test = Test::gnu();
-    test.process_env.set(
+    test.env.set(
         "CARGO_ENCODED_RUSTFLAGS",
         "-Cforce-frame-pointers=true\u{1f}-Ccode-model=small\u{1f}-Csoft-float\u{1f}-Cdwarf-version=5\u{1f}-Zstack-protector=none",
     );
@@ -79,7 +79,7 @@ fn does_not_inherit_profile_flags() {
     // C compiler's LLVM instrprof runtime and profile format may not match rustc's.
     // https://github.com/rust-lang/cc-rs/issues/1986
     fn check(mut test: Test) {
-        test.process_env.set(
+        test.env.set(
             "CARGO_ENCODED_RUSTFLAGS",
             "-Cprofile-generate=/tmp/pgo-data\u{1f}-Cprofile-use=/tmp/merged.profdata\u{1f}-Cforce-frame-pointers=true",
         );
@@ -104,7 +104,7 @@ fn disabled_linker_plugin_lto_does_not_enable_clang_lto() {
     for value in ["n", "no", "off", "false"] {
         let mut test = Test::clang();
         test.env.set("CC", "clang");
-        test.process_env.set(
+        test.env.set(
             "CARGO_ENCODED_RUSTFLAGS",
             format!("-Clinker-plugin-lto={value}"),
         );
@@ -123,7 +123,7 @@ fn enabled_linker_plugin_lto_preserves_clang_lto() {
     ] {
         let mut test = Test::clang();
         test.env.set("CC", "clang");
-        test.process_env.set("CARGO_ENCODED_RUSTFLAGS", flags);
+        test.env.set("CARGO_ENCODED_RUSTFLAGS", flags);
         test.gcc().file("foo.c").compile("foo");
         test.cmd_for_source("foo.c").must_have("-flto=thin");
     }

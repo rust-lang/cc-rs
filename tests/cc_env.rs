@@ -128,7 +128,7 @@ fn wrapper_name_ignores_case() {
 #[test]
 fn rustc_wrapper_name_ignores_case() {
     let mut test = Test::clang();
-    test.process_env.set("RUSTC_WRAPPER", "SCCACHE.EXE");
+    test.env.set("RUSTC_WRAPPER", "SCCACHE.EXE");
     test.env.set("CC", "clang");
     let compiler = test
         .gcc()
@@ -144,7 +144,7 @@ fn rustc_wrapper_name_ignores_case() {
 #[test]
 fn rustc_wrapper_applies_to_default_compiler_and_nvcc() {
     let mut test = Test::gnu();
-    test.process_env.set("RUSTC_WRAPPER", "sccache");
+    test.env.set("RUSTC_WRAPPER", "sccache");
     for cuda in [false, true] {
         let compiler = test
             .gcc()
@@ -166,7 +166,7 @@ fn rustc_wrapper_applies_to_default_compiler_and_nvcc() {
 #[test]
 fn cc_wrapper_wins_over_rustc_wrapper() {
     let mut test = Test::gnu();
-    test.process_env.set("RUSTC_WRAPPER", "sccache");
+    test.env.set("RUSTC_WRAPPER", "sccache");
     test.env.set("CC", "ccache cc");
     let cmd = test
         .gcc()

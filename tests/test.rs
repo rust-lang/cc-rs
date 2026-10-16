@@ -420,7 +420,7 @@ fn gnu_flag_if_supported() {
 #[test]
 fn flag_if_supported_without_out_dir() {
     let mut test = Test::gnu();
-    test.process_env.remove("OUT_DIR");
+    test.env.remove("OUT_DIR");
     test.collect_flag_supported_probes();
 
     let compiler = test
@@ -502,9 +502,8 @@ fn gnu_crt_static_not_applied_when_target_overridden() {
     let mut test = Test::gnu();
     test.shim("x86_64-linux-musl-gcc")
         .shim("x86_64-linux-musl-ar");
-    test.process_env.set("TARGET", "x86_64-unknown-linux-musl");
-    test.process_env
-        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+    test.env.set("TARGET", "x86_64-unknown-linux-musl");
+    test.env.set("CARGO_CFG_TARGET_FEATURE", "crt-static");
 
     // Case 1: Compiling for Cargo's TARGET -> crt-static triggers -static
     test.gcc()
@@ -518,9 +517,8 @@ fn gnu_crt_static_not_applied_when_target_overridden() {
     let mut test = Test::gnu();
     test.shim("x86_64-linux-gnu-gcc")
         .shim("x86_64-linux-gnu-ar");
-    test.process_env.set("TARGET", "x86_64-unknown-linux-musl");
-    test.process_env
-        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+    test.env.set("TARGET", "x86_64-unknown-linux-musl");
+    test.env.set("CARGO_CFG_TARGET_FEATURE", "crt-static");
 
     // Case 2: Target is overridden (e.g. for HOST tools) -> crt-static must NOT apply
     test.gcc()
@@ -690,9 +688,8 @@ fn msvc_no_static_crt() {
 #[test]
 fn msvc_crt_static_not_applied_when_target_overridden() {
     let mut test = Test::msvc();
-    test.process_env.set("TARGET", "x86_64-pc-windows-msvc");
-    test.process_env
-        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+    test.env.set("TARGET", "x86_64-pc-windows-msvc");
+    test.env.set("CARGO_CFG_TARGET_FEATURE", "crt-static");
 
     // Case 1: Compiling for Cargo's TARGET -> crt-static triggers -MT
     test.gcc()
@@ -704,9 +701,8 @@ fn msvc_crt_static_not_applied_when_target_overridden() {
     drop(test);
 
     let mut test = Test::msvc();
-    test.process_env.set("TARGET", "x86_64-pc-windows-msvc");
-    test.process_env
-        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+    test.env.set("TARGET", "x86_64-pc-windows-msvc");
+    test.env.set("CARGO_CFG_TARGET_FEATURE", "crt-static");
 
     // Case 2: Target is overridden -> crt-static does not apply and defaults to -MD
     test.gcc()
@@ -1567,7 +1563,7 @@ fn out_dir_source_object_name_does_not_depend_on_build_path() {
 
     fn object_name(mut test: Test) -> std::ffi::OsString {
         let out_dir = test.td.path().to_path_buf();
-        test.process_env.set("OUT_DIR", &out_dir);
+        test.env.set("OUT_DIR", &out_dir);
         let intermediates = test
             .gcc()
             .file(out_dir.join("gen.c"))
@@ -1860,12 +1856,12 @@ fn msvc_rustc_wrapper_applies_to_found_cl_exe() {
 
     // Only wrappers known to cache C compilers are used.
     for wrapper in ["", "cargo-miri"] {
-        test.process_env.set("RUSTC_WRAPPER", wrapper);
+        test.env.set("RUSTC_WRAPPER", wrapper);
         let compiler = test.gcc().cargo_warnings(false).get_compiler();
         assert_eq!(compiler.to_command().get_program(), found.path());
     }
 
-    test.process_env.set("RUSTC_WRAPPER", "sccache");
+    test.env.set("RUSTC_WRAPPER", "sccache");
     let compiler = test.gcc().cargo_warnings(false).get_compiler();
     assert_eq!(compiler.path(), found.path());
     assert!(compiler.is_like_msvc() && !compiler.is_like_clang_cl());
@@ -3665,20 +3661,252 @@ fn set_envs_snapshot_last_value_wins() {
     test.cmd(0).must_have("-Dlast").must_not_have("-Dfirst");
 }
 
-/// The variables Cargo sets are still read from the process environment.
+/// The variables Cargo sets are read from the snapshot too.
 #[test]
-fn set_envs_snapshot_leaves_cargo_variables() {
+fn set_envs_snapshot_supplies_cargo_variables() {
     let mut test = Test::gnu();
-    let from_process_env = test.td.path().join("from_process_env");
-    test.process_env.set("OUT_DIR", &from_process_env);
+    test.process_env
+        .set("OUT_DIR", test.td.path().join("from_process_env"));
+    let from_snapshot = test.td.path().join("from_snapshot");
     let objects = test
         .gcc_without_out_dir()
-        .set_envs_snapshot([("OUT_DIR", test.td.path().join("from_snapshot"))])
+        .set_envs_snapshot([("OUT_DIR", &from_snapshot)])
         .file("foo.c")
         .try_compile_intermediates()
         .unwrap();
     assert_eq!(objects.len(), 1);
-    assert!(objects[0].starts_with(&from_process_env), "{objects:?}");
+    assert!(objects[0].starts_with(&from_snapshot), "{objects:?}");
+}
+
+/// A `Build` that isn't told its target, host, opt level and debug setting
+/// reads Cargo's variables for them from its snapshot, not from the process
+/// environment.
+#[test]
+fn cargo_variables_come_from_the_snapshot() {
+    let mut test = Test::gnu();
+    for (key, value) in [
+        ("TARGET", "x86_64-unknown-linux-gnu"),
+        ("HOST", "x86_64-unknown-linux-gnu"),
+        ("OPT_LEVEL", "2"),
+        ("DEBUG", "true"),
+    ] {
+        test.process_env.set(key, value);
+    }
+    test.process_env.remove("CARGO_CFG_TARGET_FEATURE");
+    let mut build = cargo_build(&test);
+    build.set_envs_snapshot([
+        ("TARGET", "i686-unknown-linux-gnu"),
+        ("HOST", "i686-unknown-linux-gnu"),
+        ("OPT_LEVEL", "1"),
+        ("DEBUG", "false"),
+        ("CARGO_CFG_TARGET_FEATURE", "crt-static"),
+        // Read only when `HOST` equals `TARGET`. With the process `HOST`, cc
+        // would see a cross build and read `TARGET_CFLAGS` instead.
+        ("HOST_CFLAGS", "-Dsame_host"),
+    ]);
+    build.file("foo.c").try_compile_intermediates().unwrap();
+    test.cmd(0)
+        .must_have("-m32")
+        .must_not_have("-m64")
+        .must_have("-Dsame_host")
+        .must_have("-O1")
+        .must_not_have("-O2")
+        .must_not_have("-g")
+        .must_have("-static");
+}
+
+/// A target set with [`cc::Build::target`] that equals the snapshot's
+/// `TARGET` takes its details from the snapshot's `CARGO_CFG_TARGET_*`, as
+/// when no target is set. Any other target is worked out from its name.
+#[test]
+fn explicit_cargo_target_uses_cargo_cfg() {
+    let test = Test::gnu();
+    // `CARGO_CFG_TARGET_ARCH` disagrees with the name on purpose, so the
+    // flags show which of the two cc used.
+    let vars = [
+        ("TARGET", "x86_64-unknown-linux-gnu"),
+        ("HOST", "x86_64-unknown-linux-gnu"),
+        ("OPT_LEVEL", "0"),
+        ("DEBUG", "false"),
+        ("CARGO_CFG_TARGET_ARCH", "x86"),
+        ("CARGO_CFG_TARGET_VENDOR", "unknown"),
+        ("CARGO_CFG_TARGET_OS", "linux"),
+        ("CARGO_CFG_TARGET_ENV", "gnu"),
+    ];
+    for target in ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"] {
+        cargo_build(&test)
+            .set_envs_snapshot(vars)
+            .target(target)
+            .file("foo.c")
+            .try_compile_intermediates()
+            .unwrap();
+    }
+    test.cmd(0).must_have("-m32").must_not_have("-m64");
+    test.cmd(1).must_have("-m64").must_not_have("-m32");
+}
+
+/// Cargo's variables are read once, with the rest of the environment, so a
+/// change to the process environment after the first use doesn't reach the
+/// `Build`, while one made before it does.
+#[test]
+fn cargo_variables_are_read_once() {
+    let mut test = Test::gnu();
+    test.clear_process_env();
+    for (key, value) in [
+        ("TARGET", "x86_64-unknown-linux-gnu"),
+        ("HOST", "x86_64-unknown-linux-gnu"),
+        ("OPT_LEVEL", "0"),
+        ("DEBUG", "false"),
+    ] {
+        test.process_env.set(key, value);
+    }
+    test.process_env.remove("CARGO_CFG_TARGET_FEATURE");
+    let mut build = cargo_build(&test);
+    build.file("foo.c");
+    test.process_env
+        .set("CARGO_CFG_TARGET_FEATURE", "crt-static");
+    build.try_compile_intermediates().unwrap();
+    test.process_env.remove("CARGO_CFG_TARGET_FEATURE");
+    build.try_compile_intermediates().unwrap();
+    test.cmd(0).must_have("-static");
+    test.cmd(1).must_have("-static");
+}
+
+/// A `set_envs_snapshot` after the `Build` was used with the target from the
+/// process environment switches it to the target in `vars`, both where cc
+/// reads `TARGET` itself (`CFLAGS_<target>`) and where it uses the target
+/// worked out from it (`-m32`).
+#[test]
+fn set_envs_snapshot_replaces_cargo_target() {
+    const TARGET_FLAGS: [(&str, &str); 2] = [
+        ("CFLAGS_x86_64_unknown_linux_gnu", "-Dfor_x86_64"),
+        ("CFLAGS_i686_unknown_linux_gnu", "-Dfor_i686"),
+    ];
+    let mut test = Test::gnu();
+    test.clear_process_env();
+    for (key, value) in [
+        ("TARGET", "x86_64-unknown-linux-gnu"),
+        ("HOST", "x86_64-unknown-linux-gnu"),
+        ("OPT_LEVEL", "0"),
+        ("DEBUG", "false"),
+    ]
+    .into_iter()
+    .chain(TARGET_FLAGS)
+    {
+        test.process_env.set(key, value);
+    }
+    test.process_env.remove("CARGO_CFG_TARGET_FEATURE");
+    let mut build = cargo_build(&test);
+    build.file("foo.c");
+    build.try_compile_intermediates().unwrap();
+
+    build.set_envs_snapshot(
+        [
+            ("TARGET", "i686-unknown-linux-gnu"),
+            ("HOST", "i686-unknown-linux-gnu"),
+            ("OPT_LEVEL", "0"),
+            ("DEBUG", "false"),
+        ]
+        .into_iter()
+        .chain(TARGET_FLAGS),
+    );
+    build.try_compile_intermediates().unwrap();
+
+    test.cmd(0)
+        .must_have("-m64")
+        .must_not_have("-m32")
+        .must_have("-Dfor_x86_64")
+        .must_not_have("-Dfor_i686");
+    test.cmd(1)
+        .must_have("-m32")
+        .must_not_have("-m64")
+        .must_have("-Dfor_i686")
+        .must_not_have("-Dfor_x86_64");
+}
+
+/// [`cc::Build::env`] reaches the tools cc runs, but not the variables Cargo
+/// sets that cc reads itself.
+#[test]
+fn build_env_does_not_set_cargo_variables() {
+    let test = Test::gnu();
+    cargo_build(&test)
+        .set_envs_snapshot([
+            ("TARGET", "x86_64-unknown-linux-gnu"),
+            ("HOST", "x86_64-unknown-linux-gnu"),
+            ("OPT_LEVEL", "0"),
+            ("DEBUG", "false"),
+        ])
+        .env("TARGET", "i686-unknown-linux-gnu")
+        .env("OPT_LEVEL", "3")
+        .env("CARGO_CFG_TARGET_FEATURE", "crt-static")
+        .file("foo.c")
+        .try_compile_intermediates()
+        .unwrap();
+    test.cmd(0)
+        .must_have("-m64")
+        .must_not_have("-m32")
+        .must_have("-O0")
+        .must_not_have("-O3")
+        .must_not_have("-static");
+}
+
+/// Cargo doesn't need to be told about the variables it sets, so cc prints no
+/// `rerun-if-env-changed` line for them.
+///
+/// This test runs the build in a subprocess so we can read the metadata it
+/// prints.
+#[test]
+fn cargo_variables_print_no_rerun_lines() {
+    const CARGO_VARS: [(&str, &str); 6] = [
+        ("TARGET", "x86_64-unknown-linux-gnu"),
+        ("HOST", "x86_64-unknown-linux-gnu"),
+        ("OPT_LEVEL", "0"),
+        ("DEBUG", "false"),
+        ("CARGO_CFG_TARGET_FEATURE", "crt-static"),
+        ("CARGO_ENCODED_RUSTFLAGS", "-Cforce-frame-pointers=true"),
+    ];
+    if env::var_os("__CC_TEST_CARGO_VARIABLES_RERUN").is_some() {
+        let test = Test::gnu();
+        cargo_build(&test)
+            .set_envs_snapshot(CARGO_VARS)
+            .file("foo.c")
+            .try_compile_intermediates()
+            .unwrap();
+        test.cmd(0).must_have("-static");
+        return;
+    }
+
+    let output = GlobalEnv::output(
+        Command::new(env::current_exe().unwrap())
+            .env("__CC_TEST_CARGO_VARIABLES_RERUN", "1")
+            .args([
+                "--exact",
+                "cargo_variables_print_no_rerun_lines",
+                "--nocapture",
+            ]),
+    );
+    assert!(output.status.success(), "subprocess failed: {:?}", output);
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let rerun_lines: Vec<&str> = stdout
+        .lines()
+        .filter_map(|line| line.split("cargo:rerun-if-env-changed=").nth(1))
+        .collect();
+    // cc's own variables still get one.
+    assert!(rerun_lines.contains(&"CFLAGS"), "{stdout}");
+    for (key, _) in CARGO_VARS {
+        assert!(!rerun_lines.contains(&key), "{key}: {stdout}");
+    }
+}
+
+/// A `Build` for the shim compiler that leaves its target, host, opt level,
+/// debug setting and environment to Cargo's variables, as in a build script.
+fn cargo_build(test: &Test) -> cc::Build {
+    let mut build = cc::Build::new();
+    build
+        .compiler(test.td.path().join("cc"))
+        .out_dir(test.td.path())
+        .env("CC_SHIM_OUT_DIR", test.td.path());
+    build
 }
 
 #[test]
