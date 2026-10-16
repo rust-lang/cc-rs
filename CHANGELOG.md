@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.9.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.8.0...cc-v1.9.0) - 2026-10-16
+
+### Added
+
+- collect compile commands into a `compile_commands.json` ([#1990](https://github.com/rust-lang/cc-rs/pull/1990))
+
+### Fixed
+
+- *(msvc)* pass objects to the archiver relative to the output directory ([#2033](https://github.com/rust-lang/cc-rs/pull/2033))
+- honor disabled linker-plugin LTO ([#2024](https://github.com/rust-lang/cc-rs/pull/2024))
+- apply `RUSTC_WRAPPER` to the `cl.exe` cc finds itself ([#2022](https://github.com/rust-lang/cc-rs/pull/2022))
+
+### Other
+
+- *(parallel)* poll on jobserver helper thread ([#2021](https://github.com/rust-lang/cc-rs/pull/2021))
+- *(parallel)* add jobserver polling for windows ([#2020](https://github.com/rust-lang/cc-rs/pull/2020))
+- Regenerate windows sys bindings ([#2019](https://github.com/rust-lang/cc-rs/pull/2019))
+- *(parallel)* add polling for process exit on windows ([#2016](https://github.com/rust-lang/cc-rs/pull/2016))
+- *(parallel)* poll for process exit on macOS/bsd ([#2014](https://github.com/rust-lang/cc-rs/pull/2014))
+
 ## [1.8.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.7.0...cc-v1.8.0) - 2026-10-11
 
 ### Added
