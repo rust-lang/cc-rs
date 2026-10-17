@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 
 use super::{generated, TargetInfo};
+use crate::utilities::lookup_sorted;
 
 impl TargetInfo<'_> {
     /// The LLVM/Clang target triple.
@@ -60,10 +61,7 @@ impl TargetInfo<'_> {
         //
         // FIXME(madsmtm): This should ideally be removed.
         if version.is_none() {
-            if let Ok(index) = generated::LLVM_TARGETS
-                .binary_search_by_key(&rustc_target, |(rustc_target, _)| rustc_target)
-            {
-                let (_, llvm_target) = &generated::LLVM_TARGETS[index];
+            if let Some(llvm_target) = lookup_sorted(generated::LLVM_TARGETS, rustc_target) {
                 return Cow::Borrowed(llvm_target);
             }
         }

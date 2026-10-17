@@ -1733,6 +1733,10 @@ struct FlagSupportProbeFiles<'a> {
     )>,
 }
 
+/// How an Arm target's architecture starts, the architecture flags GCC gets
+/// for it, and the lowest common denominator FPU of its `eabihf` variant.
+type ArmArch = (&'static str, &'static [&'static str], Option<&'static str>);
+
 /// Invoke or fetch the compiler or archiver.
 impl Build {
     /// Run the compiler to test if it accepts the given flag.
@@ -1923,7 +1927,7 @@ impl Build {
         if compiler.is_like_clang() {
             // Avoid reporting that the arg is unsupported just because the
             // compiler complains that it wasn't used.
-            compiler.push_cc_arg("-Wno-unused-command-line-argument".into());
+            compiler.push_cc_args(&["-Wno-unused-command-line-argument"]);
         }
 
         let mut cmd = compiler.to_command();
@@ -2621,7 +2625,7 @@ impl Build {
             cmd.push_cc_arg(format!("-std{separator}{std}").into());
         }
         for directory in self.include_directories.iter() {
-            cmd.args.push("-I".into());
+            cmd.push_args(&["-I"]);
             cmd.args.push(directory.as_os_str().into());
         }
         if self.warnings_into_errors {
@@ -2724,6 +2728,34 @@ impl Build {
         Ok(cmd)
     }
 
+    /// The architecture flags GCC gets for Arm targets, by how the target's
+    /// architecture starts, and the lowest common denominator FPU of their
+    /// `eabihf` variants. The first match wins.
+    // One row per architecture, which rustfmt would spread over several lines.
+    #[rustfmt::skip]
+    const GNU_ARM_ARCHS: &'static [ArmArch] = &[
+        // Armv6-M targets (no FPU available). ARMv6S-M is an old name for
+        // "ARMv6-M with SVC support" before SVC support became mandatory.
+        // Some versions of GAS care about the difference.
+        ("thumbv6m", &["-march=armv6s-m"], None),
+        // Armv7-M targets (no FPU available)
+        ("thumbv7m", &["-march=armv7-m"], None),
+        ("thumbv7em", &["-march=armv7e-m"], Some("-mfpu=fpv4-sp-d16")),
+        // Armv8-M Baseline (no FPU available)
+        ("thumbv8m.base", &["-march=armv8-m.base"], None),
+        ("thumbv8m.main", &["-march=armv8-m.main"], Some("-mfpu=fpv5-sp-d16")),
+        ("armv6", &["-march=armv6"], Some("-mfpu=vfpv2")),
+        ("thumbv6", &["-march=armv6"], Some("-mfpu=vfpv2")),
+        // Armv7-R: see the Cortex-R4 technical reference manual for the FPU.
+        ("armebv7r", &["-mbig-endian", "-march=armv7-r"], Some("-mfpu=vfpv3-d16")),
+        ("armv7r", &["-march=armv7-r"], Some("-mfpu=vfpv3-d16")),
+        ("thumbv7r", &["-march=armv7-r"], Some("-mfpu=vfpv3-d16")),
+        ("armv7a", &["-march=armv7-a"], Some("-mfpu=vfpv3-d16")),
+        ("thumbv7a", &["-march=armv7-a"], Some("-mfpu=vfpv3-d16")),
+        ("armv8r", &["-march=armv8-r"], Some("-mfpu=fp-armv8")),
+        ("thumbv8r", &["-march=armv8-r"], Some("-mfpu=fp-armv8")),
+    ];
+
     fn add_default_flags(
         &self,
         cmd: &mut Tool,
@@ -2736,7 +2768,7 @@ impl Build {
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc { .. } => {
-                cmd.push_cc_arg("-nologo".into());
+                cmd.push_cc_args(&["-nologo"]);
 
                 let crt_flag = match self.static_crt {
                     Some(true) => "-MT",
@@ -2786,8 +2818,7 @@ impl Build {
                     && target.os != "tvos"
                     && target.os != "visionos"
                 {
-                    cmd.push_cc_arg("-ffunction-sections".into());
-                    cmd.push_cc_arg("-fdata-sections".into());
+                    cmd.push_cc_args(&["-ffunction-sections", "-fdata-sections"]);
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
                 //
@@ -2801,13 +2832,13 @@ impl Build {
                         && target.arch != "wasm32"
                         && target.arch != "wasm64",
                 ) {
-                    cmd.push_cc_arg("-fPIC".into());
+                    cmd.push_cc_args(&["-fPIC"]);
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
                     if (target.os == "linux" || target.os == "android")
                         && !self.use_plt.unwrap_or(true)
                     {
-                        cmd.push_cc_arg("-fno-plt".into());
+                        cmd.push_cc_args(&["-fno-plt"]);
                     }
                 }
 
@@ -2821,7 +2852,7 @@ impl Build {
 
                     // FIXME(madsmtm): Read from `target_features` instead?
                     if raw_target.contains("threads") {
-                        cmd.push_cc_arg("-pthread".into());
+                        cmd.push_cc_args(&["-pthread"]);
                     }
                 }
 
@@ -2850,7 +2881,7 @@ impl Build {
         if self.get_debug() {
             if self.cuda {
                 // NVCC debug flag
-                cmd.args.push("-G".into());
+                cmd.push_args(&["-G"]);
             }
             let family = cmd.family;
             family.add_debug_flags(
@@ -2863,7 +2894,7 @@ impl Build {
         if self.get_force_frame_pointer() {
             let family = cmd.family;
             if let ToolFamily::Gnu | ToolFamily::Clang { .. } = family {
-                cmd.push_cc_arg("-fno-omit-frame-pointer".into());
+                cmd.push_cc_args(&["-fno-omit-frame-pointer"]);
                 let flag = OsString::from("-mno-omit-leaf-frame-pointer");
                 if self
                     .is_flag_supported_inner(&flag, cmd, target, flag_support_key)
@@ -2876,17 +2907,17 @@ impl Build {
 
         if !cmd.is_like_msvc() {
             if target.arch == "x86" {
-                cmd.args.push("-m32".into());
+                cmd.push_args(&["-m32"]);
             } else if target.abi == "x32" {
-                cmd.args.push("-mx32".into());
+                cmd.push_args(&["-mx32"]);
             } else if target.os == "aix" {
                 if cmd.family == ToolFamily::Gnu {
-                    cmd.args.push("-maix64".into());
+                    cmd.push_args(&["-maix64"]);
                 } else {
-                    cmd.args.push("-m64".into());
+                    cmd.push_args(&["-m64"]);
                 }
             } else if target.arch == "x86_64" || target.arch == "powerpc64" {
-                cmd.args.push("-m64".into());
+                cmd.push_args(&["-m64"]);
             }
         }
 
@@ -2917,7 +2948,7 @@ impl Build {
                         // There's no compelling reason to use a different approach when compiling
                         // natively.
                         if self.cpp && self.cpp_set_stdlib.is_none() {
-                            cmd.push_cc_arg("-stdlib=libc++".into());
+                            cmd.push_cc_args(&["-stdlib=libc++"]);
                         }
                     } else if target.arch == "wasm32" && target.os == "linux" {
                         for x in &[
@@ -2936,7 +2967,7 @@ impl Build {
                         cmd.push_cc_arg(
                             format!("--sysroot={}", Path::new(&musl_sysroot).display()).into(),
                         );
-                        cmd.push_cc_arg("-pthread".into());
+                        cmd.push_cc_args(&["-pthread"]);
                     } else if target.abi == "pauthtest" {
                         let pauthtest_sysroot = self.pauthtest_sysroot()?;
                         let pauthtest_resource_dir = self.pauthtest_resource_dir()?;
@@ -2950,9 +2981,9 @@ impl Build {
                             )
                             .into(),
                         );
-                        cmd.push_cc_arg("-march=armv8.3-a+pauth".into());
+                        cmd.push_cc_args(&["-march=armv8.3-a+pauth"]);
                         if self.cpp && self.cpp_set_stdlib.is_none() {
-                            cmd.push_cc_arg("-stdlib=libc++".into());
+                            cmd.push_cc_args(&["-stdlib=libc++"]);
                             cmd.push_cc_arg(
                                 format!(
                                     "-I{}/include/c++/v1",
@@ -2999,7 +3030,7 @@ impl Build {
                 // This is an undocumented flag from MSVC but helps with making
                 // builds more reproducible by avoiding putting timestamps into
                 // files.
-                cmd.push_cc_arg("-Brepro".into());
+                cmd.push_cc_args(&["-Brepro"]);
 
                 if clang_cl {
                     cmd.push_cc_arg(
@@ -3020,12 +3051,12 @@ impl Build {
                         // NOTE: The same applies for STL. See: -
                         // <https://github.com/microsoft/STL/issues/3922>, and -
                         // <https://github.com/microsoft/STL/pull/4741>.
-                        cmd.push_cc_arg("-arch:SSE2".into());
+                        cmd.push_cc_args(&["-arch:SSE2"]);
                     }
                 } else if target.full_arch == "i586" {
-                    cmd.push_cc_arg("-arch:IA32".into());
+                    cmd.push_cc_args(&["-arch:IA32"]);
                 } else if target.full_arch == "arm64ec" {
-                    cmd.push_cc_arg("-arm64EC".into());
+                    cmd.push_cc_args(&["-arm64EC"]);
                 }
                 // There is a check in corecrt.h that will generate a
                 // compilation error if
@@ -3037,13 +3068,12 @@ impl Build {
                 // the SDK, but for all released versions of the
                 // Windows SDK it is required.
                 if target.arch == "arm" {
-                    cmd.args
-                        .push("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1".into());
+                    cmd.push_args(&["-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1"]);
                 }
             }
             ToolFamily::Gnu => {
                 if target.vendor == "kmc" {
-                    cmd.args.push("-finput-charset=utf-8".into());
+                    cmd.push_args(&["-finput-charset=utf-8"]);
                 }
 
                 if self.static_flag.is_none() && self.is_cargo_target() {
@@ -3051,7 +3081,7 @@ impl Build {
                         .get_cargo_env("CARGO_CFG_TARGET_FEATURE")
                         .unwrap_or_default();
                     if features.to_string_lossy().contains("crt-static") {
-                        cmd.args.push("-static".into());
+                        cmd.push_args(&["-static"]);
                     }
                 }
 
@@ -3060,63 +3090,47 @@ impl Build {
                     || target.full_arch.starts_with("thumbv7"))
                     && (target.os == "linux" || target.vendor == "kmc")
                 {
-                    cmd.args.push("-march=armv7-a".into());
+                    cmd.push_args(&["-march=armv7-a"]);
 
                     if target.abi == "eabihf" {
                         // lowest common denominator FPU
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
-                        cmd.args.push("-mfloat-abi=hard".into());
+                        cmd.push_args(&["-mfpu=vfpv3-d16", "-mfloat-abi=hard"]);
                     }
                 }
 
                 // (x86 Android doesn't say "eabi")
                 if target.os == "android" && target.full_arch.contains("v7") {
-                    cmd.args.push("-march=armv7-a".into());
-                    cmd.args.push("-mthumb".into());
+                    cmd.push_args(&["-march=armv7-a", "-mthumb"]);
                     if !target.full_arch.contains("neon") {
                         // On android we can guarantee some extra float instructions
                         // (specified in the android spec online)
                         // NEON guarantees even more; see below.
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
+                        cmd.push_args(&["-mfpu=vfpv3-d16"]);
                     }
-                    cmd.args.push("-mfloat-abi=softfp".into());
+                    cmd.push_args(&["-mfloat-abi=softfp"]);
                 }
 
                 if target.full_arch.contains("neon") {
-                    cmd.args.push("-mfpu=neon".into());
+                    cmd.push_args(&["-mfpu=neon"]);
                 }
 
-                if target.full_arch == "armv4t" && target.os == "linux" {
-                    cmd.args.push("-march=armv4t".into());
-                    cmd.args.push("-marm".into());
-                    cmd.args.push("-mfloat-abi=soft".into());
-                }
-
-                if target.full_arch == "armv5te" && target.os == "linux" {
-                    cmd.args.push("-march=armv5te".into());
-                    cmd.args.push("-marm".into());
-                    cmd.args.push("-mfloat-abi=soft".into());
-                }
-
-                // For us arm == armv6 by default
-                if target.full_arch == "arm" && target.os == "linux" {
-                    cmd.args.push("-march=armv6".into());
-                    cmd.args.push("-marm".into());
-                    if target.abi == "eabihf" {
-                        cmd.args.push("-mfpu=vfp".into());
-                    } else {
-                        cmd.args.push("-mfloat-abi=soft".into());
+                if target.os == "linux" {
+                    match target.full_arch {
+                        "armv4t" => cmd.push_args(&["-march=armv4t", "-marm", "-mfloat-abi=soft"]),
+                        "armv5te" => {
+                            cmd.push_args(&["-march=armv5te", "-marm", "-mfloat-abi=soft"])
+                        }
+                        // For us arm == armv6 by default
+                        "arm" if target.abi == "eabihf" => {
+                            cmd.push_args(&["-march=armv6", "-marm", "-mfpu=vfp"])
+                        }
+                        "arm" => cmd.push_args(&["-march=armv6", "-marm", "-mfloat-abi=soft"]),
+                        // Turn codegen down on i586 to avoid some instructions.
+                        "i586" => cmd.push_args(&["-march=pentium"]),
+                        // Set codegen level for i686 correctly
+                        "i686" => cmd.push_args(&["-march=i686"]),
+                        _ => {}
                     }
-                }
-
-                // Turn codegen down on i586 to avoid some instructions.
-                if target.full_arch == "i586" && target.os == "linux" {
-                    cmd.args.push("-march=pentium".into());
-                }
-
-                // Set codegen level for i686 correctly
-                if target.full_arch == "i686" && target.os == "linux" {
-                    cmd.args.push("-march=i686".into());
                 }
 
                 // Looks like `musl-gcc` makes it hard for `-m32` to make its way
@@ -3125,7 +3139,7 @@ impl Build {
                 // typically only be used for build scripts which transitively use
                 // these flags that try to compile executables.
                 if target.arch == "x86" && target.env == "musl" {
-                    cmd.args.push("-Wl,-melf_i386".into());
+                    cmd.push_args(&["-Wl,-melf_i386"]);
                 }
 
                 //
@@ -3134,84 +3148,19 @@ impl Build {
 
                 // Set Float ABI for all Arm bare-metal targets using EABIHF
                 if target.arch == "arm" && target.os == "none" && target.abi == "eabihf" {
-                    cmd.args.push("-mfloat-abi=hard".into())
+                    cmd.push_args(&["-mfloat-abi=hard"]);
                 }
                 // Set -mthumb for all Thumb targets
                 if target.full_arch.starts_with("thumb") {
-                    cmd.args.push("-mthumb".into());
+                    cmd.push_args(&["-mthumb"]);
                 }
-                // Armv6-M targets (no FPU available)
-                if target.full_arch.starts_with("thumbv6m") {
-                    // ARMv6S-M is an old name for "ARMv6-M with SVC support"
-                    // before SVC support became mandatory. Some versions of GAS care
-                    // about the difference.
-                    cmd.args.push("-march=armv6s-m".into());
-                }
-                // Armv7-M targets (no FPU available)
-                if target.full_arch.starts_with("thumbv7m") {
-                    cmd.args.push("-march=armv7-m".into());
-                }
-                // Armv7E-M targets
-                if target.full_arch.starts_with("thumbv7em") {
-                    cmd.args.push("-march=armv7e-m".into());
-                    if target.abi == "eabihf" {
-                        cmd.args.push("-mfpu=fpv4-sp-d16".into())
-                    }
-                }
-                // Armv8-M Baseline (no FPU available)
-                if target.full_arch.starts_with("thumbv8m.base") {
-                    cmd.args.push("-march=armv8-m.base".into());
-                }
-                // Armv8-M Mainline targets
-                if target.full_arch.starts_with("thumbv8m.main") {
-                    cmd.args.push("-march=armv8-m.main".into());
-                    if target.abi == "eabihf" {
-                        cmd.args.push("-mfpu=fpv5-sp-d16".into())
-                    }
-                }
-                // ARMv6 targets
-                if target.full_arch.starts_with("armv6")
-                    || (target.full_arch.starts_with("thumbv6")
-                        && !target.full_arch.starts_with("thumbv6m"))
-                {
-                    cmd.args.push("-march=armv6".into());
-                    if target.abi == "eabihf" {
-                        // lowest common denominator FPU
-                        cmd.args.push("-mfpu=vfpv2".into());
-                    }
-                }
-                // ARMv7-R targets
-                if target.full_arch.starts_with("armebv7r")
-                    || target.full_arch.starts_with("armv7r")
-                    || target.full_arch.starts_with("thumbv7r")
-                {
-                    if target.full_arch.starts_with("armeb") {
-                        cmd.args.push("-mbig-endian".into());
-                    }
-                    cmd.args.push("-march=armv7-r".into());
-                    if target.abi == "eabihf" {
-                        // lowest common denominator FPU
-                        // (see Cortex-R4 technical reference manual)
-                        cmd.args.push("-mfpu=vfpv3-d16".into())
-                    }
-                }
-                // Armv7-A targets
-                if target.full_arch.starts_with("armv7a")
-                    || target.full_arch.starts_with("thumbv7a")
-                {
-                    cmd.args.push("-march=armv7-a".into());
-                    if target.abi == "eabihf" {
-                        // lowest common denominator FPU
-                        cmd.args.push("-mfpu=vfpv3-d16".into());
-                    }
-                }
-                // Armv8-R targets
-                if target.full_arch.starts_with("armv8r")
-                    || target.full_arch.starts_with("thumbv8r")
-                {
-                    cmd.args.push("-march=armv8-r".into());
-                    if target.abi == "eabihf" {
-                        cmd.args.push("-mfpu=fp-armv8".into())
+                for (prefix, flags, eabihf_fpu) in Self::GNU_ARM_ARCHS {
+                    if target.full_arch.starts_with(prefix) {
+                        cmd.push_args(flags);
+                        if let (Some(fpu), "eabihf") = (eabihf_fpu, target.abi) {
+                            cmd.push_args(&[fpu]);
+                        }
+                        break;
                     }
                 }
 
@@ -3223,22 +3172,20 @@ impl Build {
                             target.os,
                             "linux" | "freebsd" | "netbsd" | "managarm" | "redox"
                         ) {
-                            cmd.args.push(("-march=rv64gc").into());
-                            cmd.args.push("-mabi=lp64d".into());
+                            cmd.push_args(&["-march=rv64gc", "-mabi=lp64d"]);
                         } else {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=lp64".into());
+                            cmd.args.push(format!("-march=rv{arch}").into());
+                            cmd.push_args(&["-mabi=lp64"]);
                         }
                     } else if arch.starts_with("32") {
                         if target.os == "linux" {
-                            cmd.args.push(("-march=rv32gc").into());
-                            cmd.args.push("-mabi=ilp32d".into());
+                            cmd.push_args(&["-march=rv32gc", "-mabi=ilp32d"]);
                         } else {
-                            cmd.args.push(("-march=rv".to_owned() + arch).into());
-                            cmd.args.push("-mabi=ilp32".into());
+                            cmd.args.push(format!("-march=rv{arch}").into());
+                            cmd.push_args(&["-mabi=ilp32"]);
                         }
                     } else {
-                        cmd.args.push("-mcmodel=medany".into());
+                        cmd.push_args(&["-mcmodel=medany"]);
                     }
                 }
             }
@@ -3247,8 +3194,7 @@ impl Build {
         if raw_target == "wasm32v1-none" {
             // `wasm32v1-none` target only exists in `rustc`, so we need to change the compilation flags:
             // https://doc.rust-lang.org/rustc/platform-support/wasm32v1-none.html
-            cmd.push_cc_arg("-mcpu=mvp".into());
-            cmd.push_cc_arg("-mmutable-globals".into());
+            cmd.push_cc_args(&["-mcpu=mvp", "-mmutable-globals"]);
         }
 
         if target.os == "solaris" || target.os == "illumos" {
@@ -3266,7 +3212,7 @@ impl Build {
             //
             // We're typically building C code to eventually link into a Rust program. Many Rust
             // programs are multi-threaded in some form. So, set the flag by default.
-            cmd.args.push("-D_REENTRANT".into());
+            cmd.push_args(&["-D_REENTRANT"]);
         }
 
         if target.vendor == "apple" {
@@ -3274,10 +3220,10 @@ impl Build {
         }
 
         if self.static_flag.unwrap_or(false) {
-            cmd.args.push("-static".into());
+            cmd.push_args(&["-static"]);
         }
         if self.shared_flag.unwrap_or(false) {
-            cmd.args.push("-shared".into());
+            cmd.push_args(&["-shared"]);
         }
 
         if self.cpp {
@@ -3474,29 +3420,28 @@ impl Build {
             // runs as `llvm-ml64`. It takes the last `-m`, so one in the
             // user's arguments still wins.
             match target.arch {
-                "x86_64" => cmd.args.push("-m64".into()),
-                "x86" => cmd.args.push("-m32".into()),
+                "x86_64" => cmd.push_args(&["-m64"]),
+                "x86" => cmd.push_args(&["-m32"]),
                 _ => {}
             }
         }
         cmd.args.extend(args.into_iter().map(OsString::from));
-        cmd.args.push("-nologo".into()); // undocumented, yet working with armasm[64]
+        cmd.push_args(&["-nologo"]); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
-            cmd.args.push("-I".into());
+            cmd.push_args(&["-I"]);
             cmd.args.push(directory.as_os_str().into());
         }
         if is_arm(&target) {
             if self.get_debug() {
-                cmd.args.push("-g".into());
+                cmd.push_args(&["-g"]);
             }
 
             if target.arch == "arm64ec" {
-                cmd.args.push("-machine".into());
-                cmd.args.push("ARM64EC".into());
+                cmd.push_args(&["-machine", "ARM64EC"]);
             }
 
             for (key, value) in self.definitions.iter() {
-                cmd.args.push("-PreDefine".into());
+                cmd.push_args(&["-PreDefine"]);
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
                         cmd.args.push(format!("{key} SETA {i}").into());
@@ -3512,7 +3457,7 @@ impl Build {
         } else {
             // llvm-ml ignores `-Zi` with a warning.
             if self.get_debug() && !is_llvm_ml {
-                cmd.args.push("-Zi".into());
+                cmd.push_args(&["-Zi"]);
             }
 
             for (key, value) in self.definitions.iter() {
@@ -3525,7 +3470,7 @@ impl Build {
         }
 
         if target.arch == "x86" {
-            cmd.args.push("-safeseh".into());
+            cmd.push_args(&["-safeseh"]);
         }
 
         Ok(cmd)
@@ -3783,7 +3728,7 @@ impl Build {
         // https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-arch
         if cmd.is_like_gnu() {
             let arch = map_darwin_target_from_rust_to_compiler_architecture(&target);
-            cmd.args.push("-arch".into());
+            cmd.push_args(&["-arch"]);
             cmd.args.push(arch.into());
         }
 
@@ -3810,7 +3755,7 @@ impl Build {
             ));
             let sdk_path = self.apple_sdk_root(&target)?;
 
-            cmd.args.push("-isysroot".into());
+            cmd.push_args(&["-isysroot"]);
             cmd.args.push(OsStr::new(&sdk_path).to_owned());
             cmd.env
                 .push((OsStr::new("SDKROOT").into(), Arc::clone(&sdk_path)));
@@ -3949,7 +3894,7 @@ impl Build {
                             ToolFamily::Clang { zig_cc: false },
                             self.env.inherited().clone(),
                         );
-                        t.args.push("/c".into());
+                        t.push_args(&["/c"]);
                         t.args.push(format!("{tool}.bat").into());
                         Some(t)
                     } else {
@@ -4092,7 +4037,7 @@ impl Build {
                     let (_, version) = target.split_at(target.rfind('d').unwrap() + 1);
                     if let Ok(version) = version.parse::<u32>() {
                         if version > 15 && version < 25 {
-                            tool.args.push("-mstackrealign".into());
+                            tool.push_args(&["-mstackrealign"]);
                         }
                     }
                 }
@@ -4615,6 +4560,164 @@ impl Build {
         Ok((tool, name, any_args))
     }
 
+    /// The GNU toolchain prefix of the targets that have one, sorted by target,
+    /// see [`Build::prefix_for_target`].
+    const GNU_PREFIXES: &'static [(&'static str, &'static str)] = &[
+        // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
+        ("aarch64-pc-windows-gnullvm", "aarch64-w64-mingw32"),
+        ("aarch64-unknown-helenos", "aarch64-helenos"),
+        ("aarch64-unknown-linux-gnu", "aarch64-linux-gnu"),
+        ("aarch64-unknown-linux-musl", "aarch64-linux-musl"),
+        ("aarch64-unknown-linux-relibc", "aarch64-linux-relibc"),
+        ("aarch64-unknown-netbsd", "aarch64--netbsd"),
+        ("aarch64-uwp-windows-gnu", "aarch64-w64-mingw32"),
+        ("aarch64_be-unknown-linux-gnu", "aarch64_be-linux-gnu"),
+        ("arm-unknown-linux-gnueabi", "arm-linux-gnueabi"),
+        ("arm-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+        ("arm-unknown-linux-musleabi", "arm-linux-musleabi"),
+        ("arm-unknown-linux-musleabihf", "arm-linux-musleabihf"),
+        ("arm-unknown-netbsd-eabi", "arm--netbsdelf-eabi"),
+        ("armeb-unknown-linux-gnueabi", "armeb-linux-gnueabi"),
+        ("armebv7r-none-eabi", "arm-none-eabi"),
+        ("armebv7r-none-eabihf", "arm-none-eabi"),
+        ("armv4t-none-eabi", "arm-none-eabi"),
+        ("armv4t-unknown-linux-gnueabi", "arm-linux-gnueabi"),
+        ("armv5te-none-eabi", "arm-none-eabi"),
+        ("armv5te-unknown-helenos-eabi", "arm-helenos"),
+        ("armv5te-unknown-linux-gnueabi", "arm-linux-gnueabi"),
+        ("armv5te-unknown-linux-musleabi", "arm-linux-gnueabi"),
+        ("armv6-none-eabi", "arm-none-eabi"),
+        ("armv6-none-eabihf", "arm-none-eabi"),
+        ("armv6-unknown-netbsd-eabihf", "armv6--netbsdelf-eabihf"),
+        ("armv7-unknown-linux-gnueabi", "arm-linux-gnueabi"),
+        ("armv7-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+        ("armv7-unknown-linux-musleabihf", "arm-linux-musleabihf"),
+        ("armv7-unknown-netbsd-eabihf", "armv7--netbsdelf-eabihf"),
+        ("armv7a-none-eabi", "arm-none-eabi"),
+        ("armv7a-none-eabihf", "arm-none-eabi"),
+        ("armv7neon-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+        ("armv7neon-unknown-linux-musleabihf", "arm-linux-musleabihf"),
+        ("armv7r-none-eabi", "arm-none-eabi"),
+        ("armv7r-none-eabihf", "arm-none-eabi"),
+        ("armv8r-none-eabihf", "arm-none-eabi"),
+        ("hexagon-unknown-linux-musl", "hexagon-linux-musl"),
+        ("i586-unknown-linux-musl", "musl"),
+        ("i686-pc-windows-gnu", "i686-w64-mingw32"),
+        ("i686-pc-windows-gnullvm", "i686-w64-mingw32"),
+        ("i686-unknown-helenos", "i686-helenos"),
+        ("i686-unknown-linux-musl", "musl"),
+        ("i686-unknown-netbsd", "i486--netbsdelf"),
+        ("i686-uwp-windows-gnu", "i686-w64-mingw32"),
+        ("loongarch64-unknown-linux-gnu", "loongarch64-linux-gnu"),
+        ("m68k-unknown-linux-gnu", "m68k-linux-gnu"),
+        ("mips-unknown-linux-gnu", "mips-linux-gnu"),
+        ("mips-unknown-linux-musl", "mips-linux-musl"),
+        ("mips64-unknown-linux-gnuabi64", "mips64-linux-gnuabi64"),
+        ("mips64el-unknown-linux-gnuabi64", "mips64el-linux-gnuabi64"),
+        ("mipsel-unknown-linux-gnu", "mipsel-linux-gnu"),
+        ("mipsel-unknown-linux-musl", "mipsel-linux-musl"),
+        ("mipsisa32r6-unknown-linux-gnu", "mipsisa32r6-linux-gnu"),
+        ("mipsisa32r6el-unknown-linux-gnu", "mipsisa32r6el-linux-gnu"),
+        (
+            "mipsisa64r6-unknown-linux-gnuabi64",
+            "mipsisa64r6-linux-gnuabi64",
+        ),
+        (
+            "mipsisa64r6el-unknown-linux-gnuabi64",
+            "mipsisa64r6el-linux-gnuabi64",
+        ),
+        ("powerpc-unknown-helenos", "ppc-helenos"),
+        ("powerpc-unknown-linux-gnu", "powerpc-linux-gnu"),
+        ("powerpc-unknown-linux-gnuspe", "powerpc-linux-gnuspe"),
+        ("powerpc-unknown-netbsd", "powerpc--netbsd"),
+        ("powerpc64-unknown-linux-gnu", "powerpc64-linux-gnu"),
+        ("powerpc64le-unknown-linux-gnu", "powerpc64le-linux-gnu"),
+        ("riscv32gc-unknown-linux-gnu", "riscv32-linux-gnu"),
+        ("riscv32gc-unknown-linux-musl", "riscv32-linux-musl"),
+        ("riscv32imac-esp-espidf", "riscv32-esp-elf"),
+        ("riscv32imc-esp-espidf", "riscv32-esp-elf"),
+        ("riscv64a23-unknown-linux-gnu", "riscv64-linux-gnu"),
+        ("riscv64gc-unknown-linux-gnu", "riscv64-linux-gnu"),
+        ("riscv64gc-unknown-linux-musl", "riscv64-linux-musl"),
+        ("riscv64gc-unknown-netbsd", "riscv64--netbsd"),
+        ("s390x-unknown-linux-gnu", "s390x-linux-gnu"),
+        ("sparc-unknown-linux-gnu", "sparc-linux-gnu"),
+        ("sparc64-unknown-helenos", "sparc64-helenos"),
+        ("sparc64-unknown-linux-gnu", "sparc64-linux-gnu"),
+        ("sparc64-unknown-netbsd", "sparc64--netbsd"),
+        ("sparcv9-sun-solaris", "sparcv9-sun-solaris"),
+        ("thumbv4t-none-eabi", "arm-none-eabi"),
+        ("thumbv5te-none-eabi", "arm-none-eabi"),
+        ("thumbv6-none-eabi", "arm-none-eabi"),
+        ("thumbv6m-none-eabi", "arm-none-eabi"),
+        ("thumbv7-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+        ("thumbv7-unknown-linux-musleabihf", "arm-linux-musleabihf"),
+        ("thumbv7a-none-eabi", "arm-none-eabi"),
+        ("thumbv7a-none-eabihf", "arm-none-eabi"),
+        ("thumbv7em-none-eabi", "arm-none-eabi"),
+        ("thumbv7em-none-eabihf", "arm-none-eabi"),
+        ("thumbv7m-none-eabi", "arm-none-eabi"),
+        ("thumbv7neon-unknown-linux-gnueabihf", "arm-linux-gnueabihf"),
+        (
+            "thumbv7neon-unknown-linux-musleabihf",
+            "arm-linux-musleabihf",
+        ),
+        ("thumbv7r-none-eabi", "arm-none-eabi"),
+        ("thumbv7r-none-eabihf", "arm-none-eabi"),
+        ("thumbv8m.base-none-eabi", "arm-none-eabi"),
+        ("thumbv8m.main-none-eabi", "arm-none-eabi"),
+        ("thumbv8m.main-none-eabihf", "arm-none-eabi"),
+        ("thumbv8r-none-eabihf", "arm-none-eabi"),
+        ("x86_64-pc-windows-gnu", "x86_64-w64-mingw32"),
+        ("x86_64-pc-windows-gnullvm", "x86_64-w64-mingw32"),
+        ("x86_64-rumprun-netbsd", "x86_64-rumprun-netbsd"),
+        ("x86_64-unknown-helenos", "amd64-helenos"),
+        ("x86_64-unknown-netbsd", "x86_64--netbsd"),
+        ("x86_64-uwp-windows-gnu", "x86_64-w64-mingw32"),
+        ("xtensa-esp32-espidf", "xtensa-esp-elf"),
+        ("xtensa-esp32-none-elf", "xtensa-esp-elf"),
+        ("xtensa-esp32s2-espidf", "xtensa-esp-elf"),
+        ("xtensa-esp32s2-none-elf", "xtensa-esp-elf"),
+        ("xtensa-esp32s3-espidf", "xtensa-esp-elf"),
+        ("xtensa-esp32s3-none-elf", "xtensa-esp-elf"),
+    ];
+
+    const RISCV32_ELF: &'static [&'static str] = &[
+        "riscv32-unknown-elf",
+        "riscv64-unknown-elf",
+        "riscv-none-embed",
+    ];
+    const RISCV64_ELF: &'static [&'static str] = &[
+        "riscv64-unknown-elf",
+        "riscv32-unknown-elf",
+        "riscv-none-embed",
+    ];
+
+    /// Targets with several compatible GNU toolchain prefixes, most likely first.
+    /// The first one with a compiler on `PATH` is used, see
+    /// [`Build::find_working_gnu_prefix`].
+    const GNU_PREFIX_CANDIDATES: &'static [(&'static str, &'static [&'static str])] = &[
+        // `x86_64-linux-gnu` transparently supports gcc-multilib
+        (
+            "i686-unknown-linux-gnu",
+            &["i686-linux-gnu", "x86_64-linux-gnu"],
+        ),
+        ("riscv32i-unknown-none-elf", Self::RISCV32_ELF),
+        ("riscv32im-unknown-none-elf", Self::RISCV32_ELF),
+        ("riscv32imac-unknown-none-elf", Self::RISCV32_ELF),
+        ("riscv32imafc-unknown-none-elf", Self::RISCV32_ELF),
+        ("riscv32imac-unknown-xous-elf", Self::RISCV32_ELF),
+        ("riscv32imc-unknown-none-elf", Self::RISCV32_ELF),
+        ("riscv64gc-unknown-none-elf", Self::RISCV64_ELF),
+        ("riscv64imac-unknown-none-elf", Self::RISCV64_ELF),
+        ("x86_64-unknown-linux-gnu", &["x86_64-linux-gnu"]),
+        ("x86_64-unknown-linux-musl", &["x86_64-linux-musl", "musl"]),
+        (
+            "x86_64-unknown-linux-relibc",
+            &["x86_64-linux-relibc", "relibc"],
+        ),
+    ];
+
     // FIXME: Use parsed target instead of raw target.
     fn prefix_for_target(&self, target: &str) -> Option<Cow<'static, str>> {
         // CROSS_COMPILE is of the form: "arm-linux-gnueabi-"
@@ -4631,171 +4734,16 @@ impl Build {
                 })
             })
             .or_else(|| {
-                match target {
-                    // Note: there is no `aarch64-pc-windows-gnu` target, only `-gnullvm`
-                    "aarch64-pc-windows-gnullvm" => Some("aarch64-w64-mingw32"),
-                    "aarch64-uwp-windows-gnu" => Some("aarch64-w64-mingw32"),
-                    "aarch64-unknown-helenos" => Some("aarch64-helenos"),
-                    "aarch64-unknown-linux-gnu" => Some("aarch64-linux-gnu"),
-                    "aarch64_be-unknown-linux-gnu" => Some("aarch64_be-linux-gnu"),
-                    "aarch64-unknown-linux-musl" => Some("aarch64-linux-musl"),
-                    "aarch64-unknown-linux-relibc" => Some("aarch64-linux-relibc"),
-                    "aarch64-unknown-netbsd" => Some("aarch64--netbsd"),
-                    "arm-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                    "armv4t-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                    "armv5te-unknown-helenos-eabi" => Some("arm-helenos"),
-                    "armv5te-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                    "armv5te-unknown-linux-musleabi" => Some("arm-linux-gnueabi"),
-                    "arm-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                    "arm-unknown-linux-musleabi" => Some("arm-linux-musleabi"),
-                    "arm-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                    "arm-unknown-netbsd-eabi" => Some("arm--netbsdelf-eabi"),
-                    "armeb-unknown-linux-gnueabi" => Some("armeb-linux-gnueabi"),
-                    "armv6-unknown-netbsd-eabihf" => Some("armv6--netbsdelf-eabihf"),
-                    "armv7-unknown-linux-gnueabi" => Some("arm-linux-gnueabi"),
-                    "armv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                    "armv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                    "armv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                    "armv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                    "thumbv7-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                    "thumbv7-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                    "thumbv7neon-unknown-linux-gnueabihf" => Some("arm-linux-gnueabihf"),
-                    "thumbv7neon-unknown-linux-musleabihf" => Some("arm-linux-musleabihf"),
-                    "armv7-unknown-netbsd-eabihf" => Some("armv7--netbsdelf-eabihf"),
-                    "hexagon-unknown-linux-musl" => Some("hexagon-linux-musl"),
-                    "i586-unknown-linux-musl" => Some("musl"),
-                    "i686-pc-windows-gnu" => Some("i686-w64-mingw32"),
-                    "i686-pc-windows-gnullvm" => Some("i686-w64-mingw32"),
-                    "i686-uwp-windows-gnu" => Some("i686-w64-mingw32"),
-                    "i686-unknown-helenos" => Some("i686-helenos"),
-                    "i686-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
-                        "i686-linux-gnu",
-                        "x86_64-linux-gnu", // transparently support gcc-multilib
-                    ]), // explicit None if not found, so caller knows to fall back
-                    "i686-unknown-linux-musl" => Some("musl"),
-                    "i686-unknown-netbsd" => Some("i486--netbsdelf"),
-                    "loongarch64-unknown-linux-gnu" => Some("loongarch64-linux-gnu"),
-                    "m68k-unknown-linux-gnu" => Some("m68k-linux-gnu"),
-                    "mips-unknown-linux-gnu" => Some("mips-linux-gnu"),
-                    "mips-unknown-linux-musl" => Some("mips-linux-musl"),
-                    "mipsel-unknown-linux-gnu" => Some("mipsel-linux-gnu"),
-                    "mipsel-unknown-linux-musl" => Some("mipsel-linux-musl"),
-                    "mips64-unknown-linux-gnuabi64" => Some("mips64-linux-gnuabi64"),
-                    "mips64el-unknown-linux-gnuabi64" => Some("mips64el-linux-gnuabi64"),
-                    "mipsisa32r6-unknown-linux-gnu" => Some("mipsisa32r6-linux-gnu"),
-                    "mipsisa32r6el-unknown-linux-gnu" => Some("mipsisa32r6el-linux-gnu"),
-                    "mipsisa64r6-unknown-linux-gnuabi64" => Some("mipsisa64r6-linux-gnuabi64"),
-                    "mipsisa64r6el-unknown-linux-gnuabi64" => Some("mipsisa64r6el-linux-gnuabi64"),
-                    "powerpc-unknown-helenos" => Some("ppc-helenos"),
-                    "powerpc-unknown-linux-gnu" => Some("powerpc-linux-gnu"),
-                    "powerpc-unknown-linux-gnuspe" => Some("powerpc-linux-gnuspe"),
-                    "powerpc-unknown-netbsd" => Some("powerpc--netbsd"),
-                    "powerpc64-unknown-linux-gnu" => Some("powerpc64-linux-gnu"),
-                    "powerpc64le-unknown-linux-gnu" => Some("powerpc64le-linux-gnu"),
-                    "riscv32i-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv32-unknown-elf",
-                        "riscv64-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv32im-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv32-unknown-elf",
-                        "riscv64-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv32imac-esp-espidf" => Some("riscv32-esp-elf"),
-                    "riscv32imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv32-unknown-elf",
-                        "riscv64-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv32imafc-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv32-unknown-elf",
-                        "riscv64-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv32imac-unknown-xous-elf" => self.find_working_gnu_prefix(&[
-                        "riscv32-unknown-elf",
-                        "riscv64-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv32imc-esp-espidf" => Some("riscv32-esp-elf"),
-                    "riscv32imc-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv32-unknown-elf",
-                        "riscv64-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv64gc-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv64-unknown-elf",
-                        "riscv32-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv64imac-unknown-none-elf" => self.find_working_gnu_prefix(&[
-                        "riscv64-unknown-elf",
-                        "riscv32-unknown-elf",
-                        "riscv-none-embed",
-                    ]),
-                    "riscv64gc-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
-                    "riscv64a23-unknown-linux-gnu" => Some("riscv64-linux-gnu"),
-                    "riscv32gc-unknown-linux-gnu" => Some("riscv32-linux-gnu"),
-                    "riscv64gc-unknown-linux-musl" => Some("riscv64-linux-musl"),
-                    "riscv32gc-unknown-linux-musl" => Some("riscv32-linux-musl"),
-                    "riscv64gc-unknown-netbsd" => Some("riscv64--netbsd"),
-                    "s390x-unknown-linux-gnu" => Some("s390x-linux-gnu"),
-                    "sparc-unknown-linux-gnu" => Some("sparc-linux-gnu"),
-                    "sparc64-unknown-helenos" => Some("sparc64-helenos"),
-                    "sparc64-unknown-linux-gnu" => Some("sparc64-linux-gnu"),
-                    "sparc64-unknown-netbsd" => Some("sparc64--netbsd"),
-                    "sparcv9-sun-solaris" => Some("sparcv9-sun-solaris"),
-                    "armv4t-none-eabi" => Some("arm-none-eabi"),
-                    "armv5te-none-eabi" => Some("arm-none-eabi"),
-                    "armv6-none-eabi" => Some("arm-none-eabi"),
-                    "armv6-none-eabihf" => Some("arm-none-eabi"),
-                    "armv7a-none-eabi" => Some("arm-none-eabi"),
-                    "armv7a-none-eabihf" => Some("arm-none-eabi"),
-                    "armebv7r-none-eabi" => Some("arm-none-eabi"),
-                    "armebv7r-none-eabihf" => Some("arm-none-eabi"),
-                    "armv7r-none-eabi" => Some("arm-none-eabi"),
-                    "armv7r-none-eabihf" => Some("arm-none-eabi"),
-                    "armv8r-none-eabihf" => Some("arm-none-eabi"),
-                    "thumbv4t-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv5te-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv6-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7a-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7a-none-eabihf" => Some("arm-none-eabi"),
-                    "thumbv7r-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7r-none-eabihf" => Some("arm-none-eabi"),
-                    "thumbv8r-none-eabihf" => Some("arm-none-eabi"),
-                    "thumbv6m-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7em-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv7em-none-eabihf" => Some("arm-none-eabi"),
-                    "thumbv7m-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv8m.base-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv8m.main-none-eabi" => Some("arm-none-eabi"),
-                    "thumbv8m.main-none-eabihf" => Some("arm-none-eabi"),
-                    "x86_64-pc-windows-gnu" => Some("x86_64-w64-mingw32"),
-                    "x86_64-pc-windows-gnullvm" => Some("x86_64-w64-mingw32"),
-                    "x86_64-uwp-windows-gnu" => Some("x86_64-w64-mingw32"),
-                    "x86_64-rumprun-netbsd" => Some("x86_64-rumprun-netbsd"),
-                    "x86_64-unknown-helenos" => Some("amd64-helenos"),
-                    "x86_64-unknown-linux-gnu" => self.find_working_gnu_prefix(&[
-                        "x86_64-linux-gnu", // rustfmt wrap
-                    ]), // explicit None if not found, so caller knows to fall back
-                    "x86_64-unknown-linux-musl" => {
-                        self.find_working_gnu_prefix(&["x86_64-linux-musl", "musl"])
-                    }
-                    "x86_64-unknown-linux-relibc" => {
-                        self.find_working_gnu_prefix(&["x86_64-linux-relibc", "relibc"])
-                    }
-                    "x86_64-unknown-netbsd" => Some("x86_64--netbsd"),
-                    "xtensa-esp32-espidf"
-                    | "xtensa-esp32-none-elf"
-                    | "xtensa-esp32s2-espidf"
-                    | "xtensa-esp32s2-none-elf"
-                    | "xtensa-esp32s3-espidf"
-                    | "xtensa-esp32s3-none-elf" => Some("xtensa-esp-elf"),
-                    _ => None,
+                if let Some(prefix) = lookup_sorted(Self::GNU_PREFIXES, target) {
+                    return Some(Cow::Borrowed(prefix));
                 }
-                .map(Cow::Borrowed)
+                for (candidate, prefixes) in Self::GNU_PREFIX_CANDIDATES {
+                    if *candidate == target {
+                        // explicit None if not found, so caller knows to fall back
+                        return self.find_working_gnu_prefix(prefixes).map(Cow::Borrowed);
+                    }
+                }
+                None
             })
     }
 
@@ -5185,7 +5133,8 @@ impl Build {
         // A long time ago they used libstdc++, but since macOS 10.9 and iOS 7 libc++ has been the library the SDKs provide to link against.
         // If a `cc`` config wants to use C++, we round up to these versions as the baseline.
         let maybe_cpp_version_baseline = |deployment_target_ver: Arc<str>| -> Option<Arc<str>> {
-            if !self.cpp {
+            // watchOS, tvOS, visionOS, and others are all new enough that libc++ is their baseline.
+            if !self.cpp || !matches!(target.os, "macos" | "ios") {
                 return Some(deployment_target_ver);
             }
 
@@ -5225,7 +5174,6 @@ impl Build {
                         return None;
                     }
                 }
-                // watchOS, tvOS, visionOS, and others are all new enough that libc++ is their baseline.
                 _ => {}
             }
 
@@ -5244,38 +5192,24 @@ impl Build {
         //
         // The ordering of env -> XCode SDK -> old rustc defaults is intentional for performance when using
         // an explicit target.
-        let version: Arc<str> = match target.os {
-            "macos" => deployment_from_env("MACOSX_DEPLOYMENT_TARGET")
-                .and_then(maybe_cpp_version_baseline)
-                .or_else(default_deployment_from_sdk)
-                .unwrap_or_else(|| {
-                    if target.arch == "aarch64" {
-                        "11.0".into()
-                    } else {
-                        let default: Arc<str> = Arc::from("10.7");
-                        maybe_cpp_version_baseline(default.clone()).unwrap_or(default)
-                    }
-                }),
-
-            "ios" => deployment_from_env("IPHONEOS_DEPLOYMENT_TARGET")
-                .and_then(maybe_cpp_version_baseline)
-                .or_else(default_deployment_from_sdk)
-                .unwrap_or_else(|| "7.0".into()),
-
-            "watchos" => deployment_from_env("WATCHOS_DEPLOYMENT_TARGET")
-                .or_else(default_deployment_from_sdk)
-                .unwrap_or_else(|| "5.0".into()),
-
-            "tvos" => deployment_from_env("TVOS_DEPLOYMENT_TARGET")
-                .or_else(default_deployment_from_sdk)
-                .unwrap_or_else(|| "9.0".into()),
-
-            "visionos" => deployment_from_env("XROS_DEPLOYMENT_TARGET")
-                .or_else(default_deployment_from_sdk)
-                .unwrap_or_else(|| "1.0".into()),
-
+        let (env, fallback) = match target.os {
+            "macos" if target.arch == "aarch64" => ("MACOSX_DEPLOYMENT_TARGET", "11.0"),
+            "macos" => ("MACOSX_DEPLOYMENT_TARGET", "10.7"),
+            "ios" => ("IPHONEOS_DEPLOYMENT_TARGET", "7.0"),
+            "watchos" => ("WATCHOS_DEPLOYMENT_TARGET", "5.0"),
+            "tvos" => ("TVOS_DEPLOYMENT_TARGET", "9.0"),
+            "visionos" => ("XROS_DEPLOYMENT_TARGET", "1.0"),
             os => unreachable!("unknown Apple OS: {}", os),
         };
+        let version = deployment_from_env(env)
+            .and_then(maybe_cpp_version_baseline)
+            .or_else(default_deployment_from_sdk)
+            .unwrap_or_else(|| {
+                let fallback: Arc<str> = fallback.into();
+                // Too low for C++ only on x86_64 macOS, where the SDK's target
+                // definitions handle it.
+                maybe_cpp_version_baseline(fallback.clone()).unwrap_or(fallback)
+            });
 
         self.build_cache
             .apple_versions_cache
@@ -5737,6 +5671,12 @@ fn check_exe(exe: PathBuf) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn gnu_prefixes_are_sorted() {
+        // `prefix_for_target` searches them by bisection.
+        assert!(Build::GNU_PREFIXES.windows(2).all(|w| w[0].0 < w[1].0));
+    }
 
     #[test]
     fn test_android_clang_compiler_uses_target_arg_internally() {
