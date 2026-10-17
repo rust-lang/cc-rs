@@ -14,6 +14,17 @@ use std::{
 #[cfg(feature = "parallel")]
 use std::{cell::Cell, ffi::OsString};
 
+/// The value of `key` in `table`, a list of keys and values.
+pub(crate) fn lookup(table: &[(&str, &'static str)], key: &str) -> Option<&'static str> {
+    // A plain loop, as iterator adapters take more code.
+    for (k, v) in table {
+        if *k == key {
+            return Some(v);
+        }
+    }
+    None
+}
+
 /// A map for the few entries of a cache, looked up by going through them.
 ///
 /// Unlike `HashMap` and `BTreeMap`, which are generated anew for every type of
