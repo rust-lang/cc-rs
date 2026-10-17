@@ -424,7 +424,7 @@ impl<'a> TargetInfo<'a> {
             "lynx" => "unknown",
             "oe" => "unknown",
             // Some Linux distributions set their name as the target vendor,
-            // so we have to assume that it can be an arbitary string.
+            // so we have to assume that it can be an arbitrary string.
             vendor => vendor,
         };
 
