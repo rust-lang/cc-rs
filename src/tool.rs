@@ -484,6 +484,18 @@ impl Tool {
         self.args.push(flag);
     }
 
+    /// [`push_cc_arg`](Self::push_cc_arg) for each of `flags`.
+    pub(crate) fn push_cc_args(&mut self, flags: &[&str]) {
+        for flag in flags {
+            self.push_cc_arg(flag.into());
+        }
+    }
+
+    /// Push `args` to the end of the compiler's arguments as they are.
+    pub(crate) fn push_args(&mut self, args: &[&str]) {
+        self.args.extend(args.iter().map(OsString::from));
+    }
+
     /// Checks if an argument or flag has already been specified or conflicts.
     ///
     /// Currently only checks optimization flags.
