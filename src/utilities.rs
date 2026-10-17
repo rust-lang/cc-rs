@@ -79,7 +79,7 @@ where
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let len = self.slice.len();
         for (index, os_str) in self.slice.iter().enumerate() {
-            // TODO: Use OsStr::display once it is stablised,
+            // TODO: Use OsStr::display once it is stabilised,
             // Path and OsStr has the same `Display` impl
             write!(f, "{}", Path::new(os_str).display())?;
             if index + 1 < len {
@@ -97,7 +97,7 @@ where
     T: AsRef<OsStr>,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // TODO: Use OsStr::display once it is stablised
+        // TODO: Use OsStr::display once it is stabilised
         // Path and OsStr has the same `Display` impl
         if let Some(os_str) = self.0.as_ref() {
             write!(f, "Some({})", Path::new(os_str).display())
