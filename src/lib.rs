@@ -527,6 +527,7 @@ pub struct Build {
     asm_flags: Vec<Arc<OsStr>>,
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
+    source_root: Option<Arc<Path>>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<Arc<str>>>,
     cpp_link_stdlib_static: bool,
@@ -660,6 +661,7 @@ impl Build {
             asm_flags: Vec::new(),
             no_default_flags: false,
             files: Vec::new(),
+            source_root: None,
             shared_flag: None,
             static_flag: None,
             cpp: false,
@@ -989,6 +991,34 @@ impl Build {
         for file in p.into_iter() {
             self.file(file);
         }
+        self
+    }
+
+    /// Set an additional root used to generate stable object filenames for
+    /// source files outside Cargo's manifest and output directories.
+    ///
+    /// Source directories beneath this root are hashed relative to it, rather
+    /// than by their machine-specific absolute paths. This does not remap
+    /// debug information embedded by the compiler.
+    ///
+    /// The root and source paths must use the same path representation.
+    /// In particular, an absolute source path requires an absolute root.
+    ///
+    /// If a source is also under `OUT_DIR` or `CARGO_MANIFEST_DIR`, those take
+    /// precedence over this root.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// let root = std::path::PathBuf::from("/external/compiler-rt");
+    ///
+    /// cc::Build::new()
+    ///     .source_root(&root)
+    ///     .file(root.join("lib/builtins/absvdi2.c"))
+    ///     .compile("compiler-rt");
+    /// ```
+    pub fn source_root<P: AsRef<Path>>(&mut self, root: P) -> &mut Build {
+        self.source_root = Some(root.as_ref().into());
         self
     }
 
@@ -2000,8 +2030,12 @@ impl Build {
         // Reject a bad name before compiling anything.
         lib_and_archive_names(output, "compile")?;
         let dst = self.get_out_dir()?;
-
-        let objects = objects_from_files(&self.files, dst, self.env.inherited())?;
+        let objects = objects_from_files(
+            &self.files,
+            dst,
+            self.env.inherited(),
+            self.source_root.as_deref(),
+        )?;
 
         self.compile_objects(&objects)?;
         let library = self.try_create_archive(output, objects.iter().map(|o| &o.dst))?;
@@ -2253,7 +2287,12 @@ impl Build {
     /// This will return a result instead of panicking; see `compile_intermediates()` for the complete description.
     pub fn try_compile_intermediates(&self) -> Result<Vec<PathBuf>, Error> {
         let dst = self.get_out_dir()?;
-        let objects = objects_from_files(&self.files, dst, self.env.inherited())?;
+        let objects = objects_from_files(
+            &self.files,
+            dst,
+            self.env.inherited(),
+            self.source_root.as_deref(),
+        )?;
 
         self.compile_objects(&objects)?;
 
