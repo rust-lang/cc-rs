@@ -187,6 +187,11 @@
 //!
 //! If none of these variables exist, cc-rs uses built-in defaults.
 //!
+//! The compiler also reads some variables by itself, such as `CPATH` for GCC
+//! and Clang, `INCLUDE` and `CL` for MSVC, and `SDKROOT` on Apple targets. cc
+//! tells Cargo to rerun the build script when these change too, see
+//! [`Build::emit_rerun_if_env_changed`] for the full list.
+//!
 //! In addition to the above optional environment variables, `cc-rs` has some
 //! functions with hard requirements on some variables supplied by [cargo's
 //! build-script driver][cargo] that it has the `TARGET`, `OUT_DIR`, `OPT_LEVEL`,
@@ -495,8 +500,21 @@ struct BuildCache {
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
+    /// The variables `cargo:rerun-if-env-changed` was printed for.
+    emitted_rerun_if_env_changed: Mutex<Vec<Box<str>>>,
     known_flag_support_status_cache: RwLock<VecMap<CompilerFlag, VecMap<Box<OsStr>, bool>>>,
     warned_about_msvc_linker_flags: AtomicBool,
+}
+
+/// Add `value` to `emitted` unless it is already there, and tell whether it
+/// was added.
+fn push_if_new(emitted: &Mutex<Vec<Box<str>>>, value: &str) -> bool {
+    let mut emitted = emitted.lock().unwrap();
+    let new = !emitted.iter().any(|emitted| **emitted == *value);
+    if new {
+        emitted.push(value.into());
+    }
+    new
 }
 
 /// A builder for compilation of a native library.
@@ -1559,6 +1577,42 @@ impl Build {
     /// rebuild when detected environment changes, by default build script is
     /// always run on every compilation if no rerun cargo metadata is emitted.
     ///
+    /// The `cargo:rerun-if-env-changed` lines name the variables cc reads, and
+    /// those that the compiler, or a program it runs, reads by itself and that
+    /// change what it compiles or which programs it runs:
+    ///
+    /// - GCC and Clang, clang-cl included: `CPATH`, `C_INCLUDE_PATH`,
+    ///   `CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH`, `OBJCPLUS_INCLUDE_PATH`,
+    ///   `COMPILER_PATH` and `SOURCE_DATE_EPOCH`
+    /// - GCC: `GCC_EXEC_PREFIX`
+    /// - Clang, clang-cl included: `CCC_OVERRIDE_OPTIONS` and
+    ///   `CLANG_NO_DEFAULT_CONFIG`
+    /// - `zig cc`: `ZIG_LIB_DIR` and `ZIG_LIBC`
+    /// - cl.exe, and Clang on MSVC targets: `INCLUDE` and `EXTERNAL_INCLUDE`
+    /// - Clang on MSVC targets: `VCToolsInstallDir` and `VCINSTALLDIR`
+    /// - cl.exe and clang-cl: `CL` and `_CL_`, and for cl.exe `LIBPATH`
+    /// - `ml.exe` and `ml64.exe`, for `.asm` files: `ML`
+    /// - nvcc, for CUDA: `NVCC_PREPEND_FLAGS`, `NVCC_APPEND_FLAGS` and
+    ///   `NVCC_CCBIN`, and on MSVC targets `VSCMD_VER`
+    /// - emcc, on Emscripten targets: `EMCC_CFLAGS`, `EMCC_LOCAL_PORTS`,
+    ///   `EM_CONFIG`, `EM_CACHE`, `EM_PORTS`, `EM_LLVM_ROOT`,
+    ///   `EM_CLANG_ADD_VERSION` and `EM_COMPILER_WRAPPER`
+    /// - `xcrun`, on Apple targets, where cc runs it to find the SDK, and on
+    ///   macOS hosts, where the compilers in `/usr/bin` run through it:
+    ///   `DEVELOPER_DIR`, `TOOLCHAINS` and `SDKROOT`
+    /// - Apple targets: the target's deployment target variable, such as
+    ///   `MACOSX_DEPLOYMENT_TARGET`, and for Clang `RC_DEBUG_OPTIONS` and
+    ///   `RC_DEBUG_PREFIX_MAP`
+    ///
+    /// Variables that only change diagnostics, logs, temporary files or
+    /// linking are left out, such as `GCC_COLORS`, `CC_PRINT_OPTIONS`, `TMPDIR`
+    /// and `LIBRARY_PATH`. cc prints the lines for the compiler's variables
+    /// whenever it works out the compiler, such as in [`Build::compile`],
+    /// [`Build::expand`], [`Build::get_compiler`] or a flag check that runs the
+    /// compiler, and the line for `ML` when it compiles `.asm` files. Like the
+    /// lines for the variables cc looks up in its copy of the environment,
+    /// each is printed once for a `Build` and its clones.
+    ///
     /// NOTE that cc does not emit metadata to detect changes for `PATH`, since it could
     /// be changed every compilation yet does not affect the result of compilation
     /// (i.e. rust-analyzer adds temporary directory to `PATH`).
@@ -2085,14 +2139,8 @@ impl Build {
                     (format!("static:-bundle={stdlib}"), true)
                 };
                 let emit = !once
-                    || (self.cargo_output.metadata && {
-                        let mut emitted = self.build_cache.emitted_cpp_link_stdlibs.lock().unwrap();
-                        let first = !emitted.iter().any(|emitted| **emitted == *link_lib);
-                        if first {
-                            emitted.push(link_lib.as_str().into());
-                        }
-                        first
-                    });
+                    || (self.cargo_output.metadata
+                        && push_if_new(&self.build_cache.emitted_cpp_link_stdlibs, &link_lib));
                 if emit {
                     self.cargo_output
                         .print_metadata(&format_args!("cargo:rustc-link-lib={link_lib}"));
@@ -2579,6 +2627,7 @@ impl Build {
         let target = self.get_target()?;
 
         let mut cmd = self.get_base_compiler()?;
+        self.rerun_if_compiler_env_changed(&cmd, &target);
         // Shared by every flag probe below, see `is_flag_supported_inner`.
         let mut flag_support_key = None;
 
@@ -3415,6 +3464,11 @@ impl Build {
             .file_stem()
             .and_then(OsStr::to_str)
             .map_or(false, |stem| stem.starts_with_ignore_ascii_case("llvm-ml"));
+        if !is_arm(&target) && !is_llvm_ml {
+            // ml.exe and ml64.exe take default options from it, see
+            // https://learn.microsoft.com/en-us/cpp/assembler/masm/ml-and-ml64-command-line-reference
+            self.rerun_if_env_changed("ML");
+        }
         if is_llvm_ml {
             // llvm-ml assembles for 32-bit x86 unless it is told otherwise or
             // runs as `llvm-ml64`. It takes the last `-m`, so one in the
@@ -4807,13 +4861,16 @@ impl Build {
         }
     }
 
+    fn get_host(&self) -> Result<&str, Error> {
+        match &self.host {
+            Some(h) => Ok(h),
+            None => self.get_cargo_env_str("HOST"),
+        }
+    }
+
     fn get_is_cross_compile(&self) -> Result<bool, Error> {
         let target = self.get_raw_target()?;
-        let host = match &self.host {
-            Some(h) => &**h,
-            None => self.get_cargo_env_str("HOST")?,
-        };
-        Ok(host != target)
+        Ok(self.get_host()? != target)
     }
 
     fn get_opt_level(&self) -> Result<&str, Error> {
@@ -4885,12 +4942,7 @@ impl Build {
     /// Look up an environment variable in the snapshot, and tell Cargo that we
     /// used it.
     fn get_env(&self, v: &str) -> Option<&Arc<OsStr>> {
-        // Excluding `PATH` prevents spurious rebuilds on Windows, see
-        // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
-        if self.emit_rerun_if_env_changed && v != "PATH" {
-            self.cargo_output
-                .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
-        }
+        self.rerun_if_env_changed(v);
         let r = self.env.inherited().get(OsStr::new(v));
         self.cargo_output.print_metadata(&format_args!(
             "{} = {}",
@@ -4946,6 +4998,116 @@ impl Build {
             Some(s) => env_value_is_true(s),
             // Not set -> default to `false`.
             None => false,
+        }
+    }
+
+    /// Tell Cargo to rerun the build script when the variable `v` changes,
+    /// unless this `Build`, a clone of it or one of its flag checks already
+    /// did.
+    fn rerun_if_env_changed(&self, v: &str) {
+        // Excluding `PATH` prevents spurious rebuilds on Windows, see
+        // <https://github.com/rust-lang/cc-rs/pull/1215> for details.
+        if !self.emit_rerun_if_env_changed || !self.cargo_output.metadata || v == "PATH" {
+            return;
+        }
+        if !push_if_new(&self.build_cache.emitted_rerun_if_env_changed, v) {
+            return;
+        }
+        self.cargo_output
+            .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
+    }
+
+    /// Tell Cargo to rerun the build script when a variable changes that
+    /// `compiler`, or a program it runs, reads by itself and that changes what
+    /// it compiles or which programs it runs. Their values aren't used.
+    fn rerun_if_compiler_env_changed(&self, compiler: &Tool, target: &TargetInfo<'_>) {
+        let gcc = compiler.family == ToolFamily::Gnu;
+        let clang_cl = compiler.family == ToolFamily::Msvc { clang_cl: true };
+        let cl_exe = compiler.family == ToolFamily::Msvc { clang_cl: false };
+        // Clang in every driver mode.
+        let clang = clang_cl || matches!(compiler.family, ToolFamily::Clang { .. });
+        let zig_cc = compiler.family == ToolFamily::Clang { zig_cc: true };
+        let msvc_target = target.env == "msvc";
+        let apple_target = target.vendor == "apple";
+        let macos_host = matches!(self.get_host(), Ok(host) if host.ends_with("-apple-darwin"));
+        let groups: &[(bool, &[&str])] = &[
+            // https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html
+            // and Clang's `Clang.cpp` and `Driver.cpp`.
+            (
+                gcc || clang,
+                &[
+                    "CPATH",
+                    "C_INCLUDE_PATH",
+                    "CPLUS_INCLUDE_PATH",
+                    "OBJC_INCLUDE_PATH",
+                    "OBJCPLUS_INCLUDE_PATH",
+                    "COMPILER_PATH",
+                    "SOURCE_DATE_EPOCH",
+                ],
+            ),
+            (gcc, &["GCC_EXEC_PREFIX"]),
+            // Clang's `driver.cpp` and `Driver.cpp`.
+            (clang, &["CCC_OVERRIDE_OPTIONS", "CLANG_NO_DEFAULT_CONFIG"]),
+            // Zig's `main.zig`.
+            (zig_cc, &["ZIG_LIB_DIR", "ZIG_LIBC"]),
+            // cl.exe reads `EXTERNAL_INCLUDE` only with
+            // `/external:env:EXTERNAL_INCLUDE`. Visual Studio's developer
+            // prompts set both.
+            (
+                cl_exe || (clang && msvc_target),
+                &["INCLUDE", "EXTERNAL_INCLUDE"],
+            ),
+            // Clang finds Visual Studio through these, for its headers and
+            // `_MSC_VER`, see LLVM's `MSVCPaths.cpp`.
+            (clang && msvc_target, &["VCToolsInstallDir", "VCINSTALLDIR"]),
+            // https://learn.microsoft.com/en-us/cpp/build/reference/cl-environment-variables
+            (cl_exe || clang_cl, &["CL", "_CL_"]),
+            (cl_exe, &["LIBPATH"]),
+            // https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/#nvcc-environment-variables
+            // `NVCC_CCBIN` counts only when cc doesn't pass `-ccbin`. On
+            // Windows nvcc skips Visual Studio's batch file for cl.exe only
+            // when `VSCMD_VER` is set.
+            (
+                self.cuda,
+                &["NVCC_PREPEND_FLAGS", "NVCC_APPEND_FLAGS", "NVCC_CCBIN"],
+            ),
+            (self.cuda && msvc_target, &["VSCMD_VER"]),
+            // Emscripten's `emcc.py` and `tools/config.py`.
+            (
+                target.os == "emscripten",
+                &[
+                    "EMCC_CFLAGS",
+                    "EMCC_LOCAL_PORTS",
+                    "EM_CONFIG",
+                    "EM_CACHE",
+                    "EM_PORTS",
+                    "EM_LLVM_ROOT",
+                    "EM_CLANG_ADD_VERSION",
+                    "EM_COMPILER_WRAPPER",
+                ],
+            ),
+            // `xcrun`, which cc runs for the SDK on Apple targets, and which
+            // runs the compilers in `/usr/bin` on macOS.
+            (
+                apple_target || macos_host,
+                &["DEVELOPER_DIR", "TOOLCHAINS", "SDKROOT"],
+            ),
+            // Clang's `Darwin.cpp`.
+            (apple_target, &["RC_DEBUG_OPTIONS", "RC_DEBUG_PREFIX_MAP"]),
+        ];
+        for &(reads, vars) in groups {
+            if reads {
+                for var in vars {
+                    self.rerun_if_env_changed(var);
+                }
+            }
+        }
+        if apple_target {
+            // The compiler reads it when cc doesn't pass the deployment target
+            // itself, and cc reads it when it does.
+            if let Some(var) = target.apple_deployment_target_var() {
+                self.rerun_if_env_changed(var);
+            }
         }
     }
 
