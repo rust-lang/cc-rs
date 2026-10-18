@@ -1918,26 +1918,70 @@ fn msvc_prefer_clang_cl_over_msvc_env_rerun() {
     assert_eq!(rerun_lines("x86_64-unknown-linux-gnu"), 0);
 }
 
-/// The variables GCC and Clang, clang-cl included, read by themselves.
-const GNU_COMPILER_ENV: [&str; 5] = [
+// The variables that compilers read by themselves, grouped by who reads them.
+/// GCC and Clang, clang-cl included.
+const GCC_AND_CLANG_ENV: &[&str] = &[
     "CPATH",
     "C_INCLUDE_PATH",
     "CPLUS_INCLUDE_PATH",
     "OBJC_INCLUDE_PATH",
     "OBJCPLUS_INCLUDE_PATH",
+    "COMPILER_PATH",
+    "SOURCE_DATE_EPOCH",
 ];
-/// The variables the compiler reads on MSVC targets.
-const MSVC_INCLUDE_ENV: [&str; 2] = ["INCLUDE", "EXTERNAL_INCLUDE"];
-/// The variables cl.exe and clang-cl read by themselves.
-const CL_ENV: [&str; 2] = ["CL", "_CL_"];
-/// The variables the compiler reads on Apple targets.
-const APPLE_COMPILER_ENV: [&str; 6] = [
-    "SDKROOT",
+const GCC_ENV: &[&str] = &["GCC_EXEC_PREFIX"];
+/// Clang in every driver mode.
+const CLANG_ENV: &[&str] = &["CCC_OVERRIDE_OPTIONS", "CLANG_NO_DEFAULT_CONFIG"];
+const ZIG_ENV: &[&str] = &["ZIG_LIB_DIR", "ZIG_LIBC"];
+/// cl.exe, and Clang on MSVC targets.
+const MSVC_INCLUDE_ENV: &[&str] = &["INCLUDE", "EXTERNAL_INCLUDE"];
+/// Clang on MSVC targets.
+const CLANG_MSVC_ENV: &[&str] = &["VCToolsInstallDir", "VCINSTALLDIR"];
+/// cl.exe and clang-cl.
+const CL_ENV: &[&str] = &["CL", "_CL_"];
+const CL_EXE_ENV: &[&str] = &["LIBPATH"];
+/// ml.exe and ml64.exe.
+const MASM_ENV: &[&str] = &["ML"];
+const NVCC_ENV: &[&str] = &["NVCC_PREPEND_FLAGS", "NVCC_APPEND_FLAGS", "NVCC_CCBIN"];
+/// nvcc on MSVC targets.
+const NVCC_MSVC_ENV: &[&str] = &["VSCMD_VER"];
+const EMCC_ENV: &[&str] = &[
+    "EMCC_CFLAGS",
+    "EMCC_LOCAL_PORTS",
+    "EM_CONFIG",
+    "EM_CACHE",
+    "EM_PORTS",
+    "EM_LLVM_ROOT",
+    "EM_CLANG_ADD_VERSION",
+    "EM_COMPILER_WRAPPER",
+];
+/// Apple targets and macOS hosts.
+const XCRUN_ENV: &[&str] = &["DEVELOPER_DIR", "TOOLCHAINS", "SDKROOT"];
+/// Apple targets.
+const APPLE_CLANG_ENV: &[&str] = &["RC_DEBUG_OPTIONS", "RC_DEBUG_PREFIX_MAP"];
+const DEPLOYMENT_TARGET_ENV: &[&str] = &[
     "MACOSX_DEPLOYMENT_TARGET",
     "IPHONEOS_DEPLOYMENT_TARGET",
     "TVOS_DEPLOYMENT_TARGET",
     "WATCHOS_DEPLOYMENT_TARGET",
     "XROS_DEPLOYMENT_TARGET",
+];
+const COMPILER_ENV: &[&[&str]] = &[
+    GCC_AND_CLANG_ENV,
+    GCC_ENV,
+    CLANG_ENV,
+    ZIG_ENV,
+    MSVC_INCLUDE_ENV,
+    CLANG_MSVC_ENV,
+    CL_ENV,
+    CL_EXE_ENV,
+    MASM_ENV,
+    NVCC_ENV,
+    NVCC_MSVC_ENV,
+    EMCC_ENV,
+    XCRUN_ENV,
+    APPLE_CLANG_ENV,
+    DEPLOYMENT_TARGET_ENV,
 ];
 /// Names the build that a `compiler_env_*` test runs in its subprocess.
 const COMPILER_ENV_CASE: &str = "__CC_TEST_COMPILER_ENV_CASE";
@@ -1945,61 +1989,93 @@ const COMPILER_ENV_CASE: &str = "__CC_TEST_COMPILER_ENV_CASE";
 /// Runs the build `case` of a `compiler_env_*` test. These run in a
 /// subprocess, since cc prints its `cargo:` lines to stdout.
 fn compiler_env_build(case: &str) {
+    const LINUX: &str = "x86_64-unknown-linux-gnu";
+    const MSVC: &str = "x86_64-pc-windows-msvc";
     let mut test = Test::gnu();
-    test.shim("clang")
-        .shim("clang-cl")
-        .shim("cl")
-        .shim("lib.exe");
+    for shim in [
+        "clang", "clang-cl", "cl", "lib.exe", "zigcc", "nvcc", "ml64", "llvm-ml", "armasm64",
+    ] {
+        test.shim(shim);
+    }
     // On Apple targets cc takes the SDK and the deployment target from these
     // instead of asking `xcrun`.
     let sdk_root = test.td.path().to_owned();
     test.env.set("SDKROOT", sdk_root);
     test.env.set("IPHONEOS_DEPLOYMENT_TARGET", "17.0");
     test.env.set("MACOSX_DEPLOYMENT_TARGET", "11.0");
-    let (target, compiler, archiver) = match case {
-        "msvc" => ("x86_64-pc-windows-msvc", "cl", "lib.exe"),
-        "clang-cl" => ("x86_64-pc-windows-msvc", "clang-cl", "lib.exe"),
-        "clang-msvc" => ("x86_64-pc-windows-msvc", "clang", "lib.exe"),
-        "ios" | "ios-no-defaults" => ("aarch64-apple-ios", "clang", "ar"),
-        "macos" => ("x86_64-apple-darwin", "clang", "ar"),
-        "tvos" => ("aarch64-apple-tvos", "clang", "ar"),
-        "watchos" => ("aarch64-apple-watchos", "clang", "ar"),
-        "visionos" => ("aarch64-apple-visionos", "clang", "ar"),
-        _ => ("x86_64-unknown-linux-gnu", "cc", "ar"),
+    let (target, host, compiler, archiver) = match case {
+        "clang" => (LINUX, LINUX, "clang", "ar"),
+        "zig" => (LINUX, LINUX, "zigcc", "ar"),
+        "msvc" | "masm-ml" | "masm-llvm-ml" => (MSVC, LINUX, "cl", "lib.exe"),
+        "masm-arm" => ("aarch64-pc-windows-msvc", LINUX, "cl", "lib.exe"),
+        "clang-cl" => (MSVC, LINUX, "clang-cl", "lib.exe"),
+        "clang-msvc" => (MSVC, LINUX, "clang", "lib.exe"),
+        "cuda" => (LINUX, LINUX, "nvcc", "ar"),
+        "cuda-msvc" => (MSVC, LINUX, "nvcc", "lib.exe"),
+        "emscripten" => ("wasm32-unknown-emscripten", LINUX, "clang", "ar"),
+        "macos-host" => (LINUX, "aarch64-apple-darwin", "cc", "ar"),
+        "ios" | "ios-no-defaults" => ("aarch64-apple-ios", LINUX, "clang", "ar"),
+        "macos" => ("x86_64-apple-darwin", LINUX, "clang", "ar"),
+        "tvos" => ("aarch64-apple-tvos", LINUX, "clang", "ar"),
+        "watchos" => ("aarch64-apple-watchos", LINUX, "clang", "ar"),
+        "visionos" => ("aarch64-apple-visionos", LINUX, "clang", "ar"),
+        _ => (LINUX, LINUX, "cc", "ar"),
     };
+    match case {
+        "masm-ml" => test.env.set("CC_MASM_ASM", "ml64"),
+        "masm-llvm-ml" => test.env.set("CC_MASM_ASM", "llvm-ml"),
+        "masm-arm" => test.env.set("CC_MASM_ASM", "armasm64"),
+        _ => {}
+    }
     let mut build = test.gcc();
     build
         .target(target)
-        .host("x86_64-unknown-linux-gnu")
+        .host(host)
         .compiler(test.td.path().join(compiler))
         .archiver(test.td.path().join(archiver))
-        .cargo_warnings(false)
-        .file("foo.c");
+        .cargo_warnings(false);
     match case {
         // Two files, compiled twice.
-        "gnu" | "msvc" | "clang-cl" | "clang-msvc" | "ios" | "macos" => {
-            build.file("bar.c");
+        "gnu" | "clang" | "zig" | "msvc" | "clang-cl" | "clang-msvc" | "emscripten"
+        | "macos-host" | "ios" | "macos" => {
+            build.file("foo.c").file("bar.c");
+            build.try_compile("foo").unwrap();
+            build.try_compile("foo").unwrap();
+        }
+        "masm-ml" | "masm-llvm-ml" | "masm-arm" => {
+            build.file("foo.asm").file("bar.asm");
+            build.try_compile("foo").unwrap();
+            build.try_compile("foo").unwrap();
+        }
+        "cuda" | "cuda-msvc" => {
+            build.cuda(true).cudart("none").file("foo.cu");
             build.try_compile("foo").unwrap();
             build.try_compile("foo").unwrap();
         }
         "ios-no-defaults" | "tvos" | "watchos" | "visionos" => {
-            build.no_default_flags(true).try_compile("foo").unwrap();
+            build
+                .file("foo.c")
+                .no_default_flags(true)
+                .try_compile("foo")
+                .unwrap();
         }
         "expand" => {
             // The shim can't preprocess, but the compiler is worked out first.
-            assert!(build.try_expand().is_err());
+            assert!(build.file("foo.c").try_expand().is_err());
         }
         "flag-check" => {
             assert!(build.is_flag_supported("-Wall").unwrap());
         }
         "off" => {
             build
+                .file("foo.c")
                 .emit_rerun_if_env_changed(false)
                 .try_compile("foo")
                 .unwrap();
         }
         // Clones that print nothing don't keep the original from printing.
         "off-clones" => {
+            build.file("foo.c");
             build
                 .clone()
                 .emit_rerun_if_env_changed(false)
@@ -2034,53 +2110,112 @@ fn compiler_env_rerun_lines(name: &str, case: &str) -> Vec<String> {
         .collect()
 }
 
+/// Checks that the build `case` of the test `name` printed
+/// `cargo:rerun-if-env-changed` once for each variable in `expected`, and not
+/// for the other variables compilers read.
 #[track_caller]
-fn assert_rerun_count(lines: &[String], vars: &[&str], count: usize) {
-    for var in vars {
-        assert_eq!(
-            lines.iter().filter(|line| line == var).count(),
-            count,
-            "{var} in {lines:?}"
-        );
+fn assert_compiler_env(name: &str, case: &str, expected: &[&[&str]]) {
+    let lines = compiler_env_rerun_lines(name, case);
+    for var in COMPILER_ENV.iter().flat_map(|vars| vars.iter()) {
+        let want = usize::from(expected.iter().any(|vars| vars.contains(var)));
+        let got = lines.iter().filter(|line| line.as_str() == *var).count();
+        assert_eq!(got, want, "{var} in case {case}: {lines:?}");
     }
 }
 
-/// cc tells Cargo to rerun the build script when a variable that GCC or Clang
-/// reads by itself changes, once per `Build`, whether it compiles, expands or
-/// checks a flag.
+/// cc tells Cargo to rerun the build script when a variable that GCC, Clang
+/// or `zig cc` reads by itself changes, once per `Build`, whether it compiles,
+/// expands or checks a flag, and for `xcrun` on macOS hosts.
 #[test]
 fn compiler_env_rerun_gnu() {
     if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
         compiler_env_build(case.to_str().unwrap());
         return;
     }
+    let name = "compiler_env_rerun_gnu";
     for case in ["gnu", "expand", "flag-check"] {
-        let lines = compiler_env_rerun_lines("compiler_env_rerun_gnu", case);
-        assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
-        assert_rerun_count(&lines, &MSVC_INCLUDE_ENV, 0);
-        assert_rerun_count(&lines, &CL_ENV, 0);
-        assert_rerun_count(&lines, &APPLE_COMPILER_ENV, 0);
+        assert_compiler_env(name, case, &[GCC_AND_CLANG_ENV, GCC_ENV]);
     }
+    assert_compiler_env(name, "clang", &[GCC_AND_CLANG_ENV, CLANG_ENV]);
+    assert_compiler_env(name, "zig", &[GCC_AND_CLANG_ENV, CLANG_ENV, ZIG_ENV]);
+    assert_compiler_env(name, "macos-host", &[GCC_AND_CLANG_ENV, GCC_ENV, XCRUN_ENV]);
 }
 
-/// The same on MSVC targets, for cl.exe, clang-cl and Clang.
+/// The same on MSVC targets, for cl.exe, clang-cl and Clang, and for the
+/// assemblers of `.asm` files.
 #[test]
 fn compiler_env_rerun_msvc() {
     if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
         compiler_env_build(case.to_str().unwrap());
         return;
     }
-    for (case, gnu, cl) in [("msvc", 0, 1), ("clang-cl", 1, 1), ("clang-msvc", 1, 0)] {
-        let lines = compiler_env_rerun_lines("compiler_env_rerun_msvc", case);
-        assert_rerun_count(&lines, &MSVC_INCLUDE_ENV, 1);
-        assert_rerun_count(&lines, &GNU_COMPILER_ENV, gnu);
-        assert_rerun_count(&lines, &CL_ENV, cl);
-        assert_rerun_count(&lines, &APPLE_COMPILER_ENV, 0);
-    }
+    let name = "compiler_env_rerun_msvc";
+    let cl_exe = [MSVC_INCLUDE_ENV, CL_ENV, CL_EXE_ENV];
+    assert_compiler_env(name, "msvc", &cl_exe);
+    assert_compiler_env(
+        name,
+        "clang-cl",
+        &[
+            GCC_AND_CLANG_ENV,
+            CLANG_ENV,
+            MSVC_INCLUDE_ENV,
+            CLANG_MSVC_ENV,
+            CL_ENV,
+        ],
+    );
+    assert_compiler_env(
+        name,
+        "clang-msvc",
+        &[
+            GCC_AND_CLANG_ENV,
+            CLANG_ENV,
+            MSVC_INCLUDE_ENV,
+            CLANG_MSVC_ENV,
+        ],
+    );
+    assert_compiler_env(
+        name,
+        "masm-ml",
+        &[MSVC_INCLUDE_ENV, CL_ENV, CL_EXE_ENV, MASM_ENV],
+    );
+    // llvm-ml, armasm and armasm64 don't read `ML`.
+    assert_compiler_env(name, "masm-llvm-ml", &cl_exe);
+    assert_compiler_env(name, "masm-arm", &cl_exe);
 }
 
-/// On Apple targets, also for `SDKROOT` and the target's deployment target,
-/// whether cc reads them itself or not, and only once when it does.
+/// The same for nvcc, besides the variables of the host compiler.
+#[test]
+fn compiler_env_rerun_cuda() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    let name = "compiler_env_rerun_cuda";
+    assert_compiler_env(name, "cuda", &[GCC_AND_CLANG_ENV, GCC_ENV, NVCC_ENV]);
+    assert_compiler_env(
+        name,
+        "cuda-msvc",
+        &[GCC_AND_CLANG_ENV, GCC_ENV, NVCC_ENV, NVCC_MSVC_ENV],
+    );
+}
+
+/// The same for emcc on Emscripten targets, besides the variables of Clang.
+#[test]
+fn compiler_env_rerun_emscripten() {
+    if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
+        compiler_env_build(case.to_str().unwrap());
+        return;
+    }
+    assert_compiler_env(
+        "compiler_env_rerun_emscripten",
+        "emscripten",
+        &[GCC_AND_CLANG_ENV, CLANG_ENV, EMCC_ENV],
+    );
+}
+
+/// On Apple targets, also for `xcrun`, Clang's Apple variables and the
+/// target's deployment target, whether cc reads `SDKROOT` and the deployment
+/// target itself or not, and only once when it does.
 #[test]
 fn compiler_env_rerun_apple() {
     if let Some(case) = env::var_os(COMPILER_ENV_CASE) {
@@ -2098,16 +2233,17 @@ fn compiler_env_rerun_apple() {
         // cc reads only the deployment target.
         ("macos", "MACOSX_DEPLOYMENT_TARGET"),
     ] {
-        let lines = compiler_env_rerun_lines("compiler_env_rerun_apple", case);
-        assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
-        assert_rerun_count(&lines, &["SDKROOT", deployment_target], 1);
-        let others: Vec<&str> = APPLE_COMPILER_ENV
-            .into_iter()
-            .filter(|var| *var != "SDKROOT" && *var != deployment_target)
-            .collect();
-        assert_rerun_count(&lines, &others, 0);
-        assert_rerun_count(&lines, &MSVC_INCLUDE_ENV, 0);
-        assert_rerun_count(&lines, &CL_ENV, 0);
+        assert_compiler_env(
+            "compiler_env_rerun_apple",
+            case,
+            &[
+                GCC_AND_CLANG_ENV,
+                CLANG_ENV,
+                XCRUN_ENV,
+                APPLE_CLANG_ENV,
+                &[deployment_target],
+            ],
+        );
     }
 }
 
@@ -2119,10 +2255,9 @@ fn compiler_env_rerun_off() {
         compiler_env_build(case.to_str().unwrap());
         return;
     }
-    let lines = compiler_env_rerun_lines("compiler_env_rerun_off", "off");
-    assert_rerun_count(&lines, &GNU_COMPILER_ENV, 0);
-    let lines = compiler_env_rerun_lines("compiler_env_rerun_off", "off-clones");
-    assert_rerun_count(&lines, &GNU_COMPILER_ENV, 1);
+    let name = "compiler_env_rerun_off";
+    assert_compiler_env(name, "off", &[]);
+    assert_compiler_env(name, "off-clones", &[GCC_AND_CLANG_ENV, GCC_ENV]);
 }
 
 /// Each `cargo:rerun-if-env-changed` line is printed once per `Build`, even
@@ -2133,10 +2268,11 @@ fn rerun_if_env_changed_once_per_build() {
         compiler_env_build(case.to_str().unwrap());
         return;
     }
-    for case in ["gnu", "msvc", "ios"] {
+    for case in ["gnu", "msvc", "masm-ml", "cuda", "emscripten", "ios"] {
         let lines = compiler_env_rerun_lines("rerun_if_env_changed_once_per_build", case);
         for line in &lines {
-            assert_rerun_count(&lines, &[line], 1);
+            let count = lines.iter().filter(|other| *other == line).count();
+            assert_eq!(count, 1, "{line} in case {case}: {lines:?}");
         }
     }
 }

@@ -1578,17 +1578,40 @@ impl Build {
     /// always run on every compilation if no rerun cargo metadata is emitted.
     ///
     /// The `cargo:rerun-if-env-changed` lines name the variables cc reads, and
-    /// those the compiler reads by itself: `CPATH`, `C_INCLUDE_PATH`,
-    /// `CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH` and `OBJCPLUS_INCLUDE_PATH` for
-    /// GCC and Clang, clang-cl included, `INCLUDE` and `EXTERNAL_INCLUDE` on
-    /// MSVC targets, `CL` and `_CL_` for cl.exe and clang-cl, and on Apple
-    /// targets `SDKROOT` and the target's deployment target variable, such as
-    /// `MACOSX_DEPLOYMENT_TARGET`. cc prints the lines for the compiler's
-    /// variables whenever it works out the compiler, such as in
-    /// [`Build::compile`], [`Build::expand`], [`Build::get_compiler`] or a flag
-    /// check that runs the compiler. Like the lines for the variables cc looks
-    /// up in its copy of the environment, each is printed once for a `Build`
-    /// and its clones.
+    /// those that the compiler, or a program it runs, reads by itself and that
+    /// change what it compiles or which programs it runs:
+    ///
+    /// - GCC and Clang, clang-cl included: `CPATH`, `C_INCLUDE_PATH`,
+    ///   `CPLUS_INCLUDE_PATH`, `OBJC_INCLUDE_PATH`, `OBJCPLUS_INCLUDE_PATH`,
+    ///   `COMPILER_PATH` and `SOURCE_DATE_EPOCH`
+    /// - GCC: `GCC_EXEC_PREFIX`
+    /// - Clang, clang-cl included: `CCC_OVERRIDE_OPTIONS` and
+    ///   `CLANG_NO_DEFAULT_CONFIG`
+    /// - `zig cc`: `ZIG_LIB_DIR` and `ZIG_LIBC`
+    /// - cl.exe, and Clang on MSVC targets: `INCLUDE` and `EXTERNAL_INCLUDE`
+    /// - Clang on MSVC targets: `VCToolsInstallDir` and `VCINSTALLDIR`
+    /// - cl.exe and clang-cl: `CL` and `_CL_`, and for cl.exe `LIBPATH`
+    /// - `ml.exe` and `ml64.exe`, for `.asm` files: `ML`
+    /// - nvcc, for CUDA: `NVCC_PREPEND_FLAGS`, `NVCC_APPEND_FLAGS` and
+    ///   `NVCC_CCBIN`, and on MSVC targets `VSCMD_VER`
+    /// - emcc, on Emscripten targets: `EMCC_CFLAGS`, `EMCC_LOCAL_PORTS`,
+    ///   `EM_CONFIG`, `EM_CACHE`, `EM_PORTS`, `EM_LLVM_ROOT`,
+    ///   `EM_CLANG_ADD_VERSION` and `EM_COMPILER_WRAPPER`
+    /// - `xcrun`, on Apple targets, where cc runs it to find the SDK, and on
+    ///   macOS hosts, where the compilers in `/usr/bin` run through it:
+    ///   `DEVELOPER_DIR`, `TOOLCHAINS` and `SDKROOT`
+    /// - Apple targets: the target's deployment target variable, such as
+    ///   `MACOSX_DEPLOYMENT_TARGET`, and for Clang `RC_DEBUG_OPTIONS` and
+    ///   `RC_DEBUG_PREFIX_MAP`
+    ///
+    /// Variables that only change diagnostics, logs, temporary files or
+    /// linking are left out, such as `GCC_COLORS`, `CC_PRINT_OPTIONS`, `TMPDIR`
+    /// and `LIBRARY_PATH`. cc prints the lines for the compiler's variables
+    /// whenever it works out the compiler, such as in [`Build::compile`],
+    /// [`Build::expand`], [`Build::get_compiler`] or a flag check that runs the
+    /// compiler, and the line for `ML` when it compiles `.asm` files. Like the
+    /// lines for the variables cc looks up in its copy of the environment,
+    /// each is printed once for a `Build` and its clones.
     ///
     /// NOTE that cc does not emit metadata to detect changes for `PATH`, since it could
     /// be changed every compilation yet does not affect the result of compilation
@@ -3441,6 +3464,11 @@ impl Build {
             .file_stem()
             .and_then(OsStr::to_str)
             .map_or(false, |stem| stem.starts_with_ignore_ascii_case("llvm-ml"));
+        if !is_arm(&target) && !is_llvm_ml {
+            // ml.exe and ml64.exe take default options from it, see
+            // https://learn.microsoft.com/en-us/cpp/assembler/masm/ml-and-ml64-command-line-reference
+            self.rerun_if_env_changed("ML");
+        }
         if is_llvm_ml {
             // llvm-ml assembles for 32-bit x86 unless it is told otherwise or
             // runs as `llvm-ml64`. It takes the last `-m`, so one in the
@@ -4833,13 +4861,16 @@ impl Build {
         }
     }
 
+    fn get_host(&self) -> Result<&str, Error> {
+        match &self.host {
+            Some(h) => Ok(h),
+            None => self.get_cargo_env_str("HOST"),
+        }
+    }
+
     fn get_is_cross_compile(&self) -> Result<bool, Error> {
         let target = self.get_raw_target()?;
-        let host = match &self.host {
-            Some(h) => &**h,
-            None => self.get_cargo_env_str("HOST")?,
-        };
-        Ok(host != target)
+        Ok(self.get_host()? != target)
     }
 
     fn get_opt_level(&self) -> Result<&str, Error> {
@@ -4986,16 +5017,94 @@ impl Build {
             .print_metadata(&format_args!("cargo:rerun-if-env-changed={v}"));
     }
 
-    /// Tell Cargo to rerun the build script when a variable that `compiler`
-    /// reads by itself changes. Their values aren't used.
+    /// Tell Cargo to rerun the build script when a variable changes that
+    /// `compiler`, or a program it runs, reads by itself and that changes what
+    /// it compiles or which programs it runs. Their values aren't used.
     fn rerun_if_compiler_env_changed(&self, compiler: &Tool, target: &TargetInfo<'_>) {
-        for var in compiler.family.env_vars(target.env == "msvc") {
-            self.rerun_if_env_changed(var);
+        let gcc = compiler.family == ToolFamily::Gnu;
+        let clang_cl = compiler.family == ToolFamily::Msvc { clang_cl: true };
+        let cl_exe = compiler.family == ToolFamily::Msvc { clang_cl: false };
+        // Clang in every driver mode.
+        let clang = clang_cl || matches!(compiler.family, ToolFamily::Clang { .. });
+        let zig_cc = compiler.family == ToolFamily::Clang { zig_cc: true };
+        let msvc_target = target.env == "msvc";
+        let apple_target = target.vendor == "apple";
+        let macos_host = matches!(self.get_host(), Ok(host) if host.ends_with("-apple-darwin"));
+        let groups: &[(bool, &[&str])] = &[
+            // https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html
+            // and Clang's `Clang.cpp` and `Driver.cpp`.
+            (
+                gcc || clang,
+                &[
+                    "CPATH",
+                    "C_INCLUDE_PATH",
+                    "CPLUS_INCLUDE_PATH",
+                    "OBJC_INCLUDE_PATH",
+                    "OBJCPLUS_INCLUDE_PATH",
+                    "COMPILER_PATH",
+                    "SOURCE_DATE_EPOCH",
+                ],
+            ),
+            (gcc, &["GCC_EXEC_PREFIX"]),
+            // Clang's `driver.cpp` and `Driver.cpp`.
+            (clang, &["CCC_OVERRIDE_OPTIONS", "CLANG_NO_DEFAULT_CONFIG"]),
+            // Zig's `main.zig`.
+            (zig_cc, &["ZIG_LIB_DIR", "ZIG_LIBC"]),
+            // cl.exe reads `EXTERNAL_INCLUDE` only with
+            // `/external:env:EXTERNAL_INCLUDE`. Visual Studio's developer
+            // prompts set both.
+            (
+                cl_exe || (clang && msvc_target),
+                &["INCLUDE", "EXTERNAL_INCLUDE"],
+            ),
+            // Clang finds Visual Studio through these, for its headers and
+            // `_MSC_VER`, see LLVM's `MSVCPaths.cpp`.
+            (clang && msvc_target, &["VCToolsInstallDir", "VCINSTALLDIR"]),
+            // https://learn.microsoft.com/en-us/cpp/build/reference/cl-environment-variables
+            (cl_exe || clang_cl, &["CL", "_CL_"]),
+            (cl_exe, &["LIBPATH"]),
+            // https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/#nvcc-environment-variables
+            // `NVCC_CCBIN` counts only when cc doesn't pass `-ccbin`. On
+            // Windows nvcc skips Visual Studio's batch file for cl.exe only
+            // when `VSCMD_VER` is set.
+            (
+                self.cuda,
+                &["NVCC_PREPEND_FLAGS", "NVCC_APPEND_FLAGS", "NVCC_CCBIN"],
+            ),
+            (self.cuda && msvc_target, &["VSCMD_VER"]),
+            // Emscripten's `emcc.py` and `tools/config.py`.
+            (
+                target.os == "emscripten",
+                &[
+                    "EMCC_CFLAGS",
+                    "EMCC_LOCAL_PORTS",
+                    "EM_CONFIG",
+                    "EM_CACHE",
+                    "EM_PORTS",
+                    "EM_LLVM_ROOT",
+                    "EM_CLANG_ADD_VERSION",
+                    "EM_COMPILER_WRAPPER",
+                ],
+            ),
+            // `xcrun`, which cc runs for the SDK on Apple targets, and which
+            // runs the compilers in `/usr/bin` on macOS.
+            (
+                apple_target || macos_host,
+                &["DEVELOPER_DIR", "TOOLCHAINS", "SDKROOT"],
+            ),
+            // Clang's `Darwin.cpp`.
+            (apple_target, &["RC_DEBUG_OPTIONS", "RC_DEBUG_PREFIX_MAP"]),
+        ];
+        for &(reads, vars) in groups {
+            if reads {
+                for var in vars {
+                    self.rerun_if_env_changed(var);
+                }
+            }
         }
-        if target.vendor == "apple" {
-            // The compiler reads these when cc doesn't pass the SDK or the
-            // deployment target itself, and cc reads them when it does.
-            self.rerun_if_env_changed("SDKROOT");
+        if apple_target {
+            // The compiler reads it when cc doesn't pass the deployment target
+            // itself, and cc reads it when it does.
             if let Some(var) = target.apple_deployment_target_var() {
                 self.rerun_if_env_changed(var);
             }
