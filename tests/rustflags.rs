@@ -128,3 +128,31 @@ fn enabled_linker_plugin_lto_preserves_clang_lto() {
         test.cmd_for_source("foo.c").must_have("-flto=thin");
     }
 }
+
+#[test]
+fn linker_plugin_lto_prefers_clang() {
+    for (flags, program) in [
+        ("-Clinker-plugin-lto", "clang"),
+        ("-Clinker-plugin-lto=yes", "clang"),
+        ("-Clinker-plugin-lto=/path/to/LLVMgold.so", "clang"),
+        ("-C\u{1f}linker-plugin-lto", "clang"),
+        ("-Clinker-plugin-lto=no\u{1f}-Clinker-plugin-lto", "clang"),
+        ("-Clinker-plugin-lto=n", "cc"),
+        ("-Clinker-plugin-lto=no", "cc"),
+        ("-Clinker-plugin-lto=off", "cc"),
+        ("-Clinker-plugin-lto=false", "cc"),
+        ("--codegen\u{1f}linker-plugin-lto=no", "cc"),
+        ("-Clinker-plugin-lto\u{1f}-Clinker-plugin-lto=no", "cc"),
+        ("-L/opt/linker-plugin-lto/lib", "cc"),
+        ("", "cc"),
+    ] {
+        let mut test = Test::gnu();
+        test.shim("clang");
+        // cc looks for `clang` on the inherited `PATH`, not on the one set
+        // with `Build::env`.
+        test.env.set("PATH", test.td.path());
+        test.env.set("CARGO_ENCODED_RUSTFLAGS", flags);
+        test.gcc().file("foo.c").compile("foo");
+        test.cmd_for_source("foo.c").must_run(program);
+    }
+}

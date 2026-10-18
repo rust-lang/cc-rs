@@ -281,6 +281,11 @@ impl<'this> RustcCodegenFlags<'this> {
         }
     }
 
+    /// Whether the last `-Clinker-plugin-lto` enables linker-plugin LTO.
+    pub(crate) fn linker_plugin_lto(&self) -> bool {
+        self.linker_plugin_lto.unwrap_or(false)
+    }
+
     // Rust and clang/cc don't agree on what equivalent flags should look like.
     pub(crate) fn cc_flags(
         &self,
@@ -435,7 +440,7 @@ impl<'this> RustcCodegenFlags<'this> {
                 }
 
                 // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
-                if self.linker_plugin_lto.unwrap_or(false) {
+                if self.linker_plugin_lto() {
                     // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-flto
                     // In order to use linker-plugin-lto to achieve cross-lang lto, cc has to use thin LTO
                     // to compile the c/c++ libraries because llvm linker plugin/lld uses thin LTO by default.
