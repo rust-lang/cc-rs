@@ -484,6 +484,31 @@ impl Tool {
         self.args.push(flag);
     }
 
+    /// [`push_cc_arg`](Self::push_cc_arg) for a string literal. Converting
+    /// it here rather than at each call keeps the callers small.
+    pub(crate) fn push_cc_str(&mut self, flag: &str) {
+        self.push_cc_arg(flag.into());
+    }
+
+    /// [`push_cc_arg`](Self::push_cc_arg) for each of `flags`.
+    pub(crate) fn push_cc_args(&mut self, flags: &[&str]) {
+        for flag in flags {
+            self.push_cc_str(flag);
+        }
+    }
+
+    /// Push `arg` to the end of the compiler's arguments as it is.
+    pub(crate) fn push_arg_str(&mut self, arg: &str) {
+        self.args.push(arg.into());
+    }
+
+    /// Push `args` to the end of the compiler's arguments as they are.
+    pub(crate) fn push_args(&mut self, args: &[&str]) {
+        for arg in args {
+            self.push_arg_str(arg);
+        }
+    }
+
     /// Checks if an argument or flag has already been specified or conflicts.
     ///
     /// Currently only checks optimization flags.

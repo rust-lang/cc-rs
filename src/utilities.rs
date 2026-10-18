@@ -319,6 +319,12 @@ pub(crate) fn cell_push<T>(cell: &Cell<Vec<T>>, element: T) {
     cell_modify(cell, |vec| vec.push(element));
 }
 
+/// The value of `key` in `table`, a list of keys and values sorted by key.
+pub(crate) fn lookup_sorted(table: &[(&str, &'static str)], key: &str) -> Option<&'static str> {
+    let i = table.binary_search_by_key(&key, |&(k, _)| k).ok()?;
+    Some(table[i].1)
+}
+
 #[cfg(test)]
 mod tests {
     use super::IgnoreAsciiCase;
