@@ -1927,7 +1927,7 @@ impl Build {
         if compiler.is_like_clang() {
             // Avoid reporting that the arg is unsupported just because the
             // compiler complains that it wasn't used.
-            compiler.push_cc_args(&["-Wno-unused-command-line-argument"]);
+            compiler.push_cc_str("-Wno-unused-command-line-argument");
         }
 
         let mut cmd = compiler.to_command();
@@ -2625,7 +2625,7 @@ impl Build {
             cmd.push_cc_arg(format!("-std{separator}{std}").into());
         }
         for directory in self.include_directories.iter() {
-            cmd.push_args(&["-I"]);
+            cmd.push_arg_str("-I");
             cmd.args.push(directory.as_os_str().into());
         }
         if self.warnings_into_errors {
@@ -2768,7 +2768,7 @@ impl Build {
         // If the flag is not conditioned on target variable, it belongs here :)
         match cmd.family {
             ToolFamily::Msvc { .. } => {
-                cmd.push_cc_args(&["-nologo"]);
+                cmd.push_cc_str("-nologo");
 
                 let crt_flag = match self.static_crt {
                     Some(true) => "-MT",
@@ -2832,13 +2832,13 @@ impl Build {
                         && target.arch != "wasm32"
                         && target.arch != "wasm64",
                 ) {
-                    cmd.push_cc_args(&["-fPIC"]);
+                    cmd.push_cc_str("-fPIC");
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
                     if (target.os == "linux" || target.os == "android")
                         && !self.use_plt.unwrap_or(true)
                     {
-                        cmd.push_cc_args(&["-fno-plt"]);
+                        cmd.push_cc_str("-fno-plt");
                     }
                 }
 
@@ -2852,7 +2852,7 @@ impl Build {
 
                     // FIXME(madsmtm): Read from `target_features` instead?
                     if raw_target.contains("threads") {
-                        cmd.push_cc_args(&["-pthread"]);
+                        cmd.push_cc_str("-pthread");
                     }
                 }
 
@@ -2881,7 +2881,7 @@ impl Build {
         if self.get_debug() {
             if self.cuda {
                 // NVCC debug flag
-                cmd.push_args(&["-G"]);
+                cmd.push_arg_str("-G");
             }
             let family = cmd.family;
             family.add_debug_flags(
@@ -2894,7 +2894,7 @@ impl Build {
         if self.get_force_frame_pointer() {
             let family = cmd.family;
             if let ToolFamily::Gnu | ToolFamily::Clang { .. } = family {
-                cmd.push_cc_args(&["-fno-omit-frame-pointer"]);
+                cmd.push_cc_str("-fno-omit-frame-pointer");
                 let flag = OsString::from("-mno-omit-leaf-frame-pointer");
                 if self
                     .is_flag_supported_inner(&flag, cmd, target, flag_support_key)
@@ -2907,17 +2907,17 @@ impl Build {
 
         if !cmd.is_like_msvc() {
             if target.arch == "x86" {
-                cmd.push_args(&["-m32"]);
+                cmd.push_arg_str("-m32");
             } else if target.abi == "x32" {
-                cmd.push_args(&["-mx32"]);
+                cmd.push_arg_str("-mx32");
             } else if target.os == "aix" {
                 if cmd.family == ToolFamily::Gnu {
-                    cmd.push_args(&["-maix64"]);
+                    cmd.push_arg_str("-maix64");
                 } else {
-                    cmd.push_args(&["-m64"]);
+                    cmd.push_arg_str("-m64");
                 }
             } else if target.arch == "x86_64" || target.arch == "powerpc64" {
-                cmd.push_args(&["-m64"]);
+                cmd.push_arg_str("-m64");
             }
         }
 
@@ -2948,7 +2948,7 @@ impl Build {
                         // There's no compelling reason to use a different approach when compiling
                         // natively.
                         if self.cpp && self.cpp_set_stdlib.is_none() {
-                            cmd.push_cc_args(&["-stdlib=libc++"]);
+                            cmd.push_cc_str("-stdlib=libc++");
                         }
                     } else if target.arch == "wasm32" && target.os == "linux" {
                         for x in &[
@@ -2967,7 +2967,7 @@ impl Build {
                         cmd.push_cc_arg(
                             format!("--sysroot={}", Path::new(&musl_sysroot).display()).into(),
                         );
-                        cmd.push_cc_args(&["-pthread"]);
+                        cmd.push_cc_str("-pthread");
                     } else if target.abi == "pauthtest" {
                         let pauthtest_sysroot = self.pauthtest_sysroot()?;
                         let pauthtest_resource_dir = self.pauthtest_resource_dir()?;
@@ -2981,9 +2981,9 @@ impl Build {
                             )
                             .into(),
                         );
-                        cmd.push_cc_args(&["-march=armv8.3-a+pauth"]);
+                        cmd.push_cc_str("-march=armv8.3-a+pauth");
                         if self.cpp && self.cpp_set_stdlib.is_none() {
-                            cmd.push_cc_args(&["-stdlib=libc++"]);
+                            cmd.push_cc_str("-stdlib=libc++");
                             cmd.push_cc_arg(
                                 format!(
                                     "-I{}/include/c++/v1",
@@ -3030,7 +3030,7 @@ impl Build {
                 // This is an undocumented flag from MSVC but helps with making
                 // builds more reproducible by avoiding putting timestamps into
                 // files.
-                cmd.push_cc_args(&["-Brepro"]);
+                cmd.push_cc_str("-Brepro");
 
                 if clang_cl {
                     cmd.push_cc_arg(
@@ -3051,12 +3051,12 @@ impl Build {
                         // NOTE: The same applies for STL. See: -
                         // <https://github.com/microsoft/STL/issues/3922>, and -
                         // <https://github.com/microsoft/STL/pull/4741>.
-                        cmd.push_cc_args(&["-arch:SSE2"]);
+                        cmd.push_cc_str("-arch:SSE2");
                     }
                 } else if target.full_arch == "i586" {
-                    cmd.push_cc_args(&["-arch:IA32"]);
+                    cmd.push_cc_str("-arch:IA32");
                 } else if target.full_arch == "arm64ec" {
-                    cmd.push_cc_args(&["-arm64EC"]);
+                    cmd.push_cc_str("-arm64EC");
                 }
                 // There is a check in corecrt.h that will generate a
                 // compilation error if
@@ -3068,12 +3068,12 @@ impl Build {
                 // the SDK, but for all released versions of the
                 // Windows SDK it is required.
                 if target.arch == "arm" {
-                    cmd.push_args(&["-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1"]);
+                    cmd.push_arg_str("-D_ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE=1");
                 }
             }
             ToolFamily::Gnu => {
                 if target.vendor == "kmc" {
-                    cmd.push_args(&["-finput-charset=utf-8"]);
+                    cmd.push_arg_str("-finput-charset=utf-8");
                 }
 
                 if self.static_flag.is_none() && self.is_cargo_target() {
@@ -3081,7 +3081,7 @@ impl Build {
                         .get_cargo_env("CARGO_CFG_TARGET_FEATURE")
                         .unwrap_or_default();
                     if features.to_string_lossy().contains("crt-static") {
-                        cmd.push_args(&["-static"]);
+                        cmd.push_arg_str("-static");
                     }
                 }
 
@@ -3090,7 +3090,7 @@ impl Build {
                     || target.full_arch.starts_with("thumbv7"))
                     && (target.os == "linux" || target.vendor == "kmc")
                 {
-                    cmd.push_args(&["-march=armv7-a"]);
+                    cmd.push_arg_str("-march=armv7-a");
 
                     if target.abi == "eabihf" {
                         // lowest common denominator FPU
@@ -3105,13 +3105,13 @@ impl Build {
                         // On android we can guarantee some extra float instructions
                         // (specified in the android spec online)
                         // NEON guarantees even more; see below.
-                        cmd.push_args(&["-mfpu=vfpv3-d16"]);
+                        cmd.push_arg_str("-mfpu=vfpv3-d16");
                     }
-                    cmd.push_args(&["-mfloat-abi=softfp"]);
+                    cmd.push_arg_str("-mfloat-abi=softfp");
                 }
 
                 if target.full_arch.contains("neon") {
-                    cmd.push_args(&["-mfpu=neon"]);
+                    cmd.push_arg_str("-mfpu=neon");
                 }
 
                 if target.os == "linux" {
@@ -3126,9 +3126,9 @@ impl Build {
                         }
                         "arm" => cmd.push_args(&["-march=armv6", "-marm", "-mfloat-abi=soft"]),
                         // Turn codegen down on i586 to avoid some instructions.
-                        "i586" => cmd.push_args(&["-march=pentium"]),
+                        "i586" => cmd.push_arg_str("-march=pentium"),
                         // Set codegen level for i686 correctly
-                        "i686" => cmd.push_args(&["-march=i686"]),
+                        "i686" => cmd.push_arg_str("-march=i686"),
                         _ => {}
                     }
                 }
@@ -3139,7 +3139,7 @@ impl Build {
                 // typically only be used for build scripts which transitively use
                 // these flags that try to compile executables.
                 if target.arch == "x86" && target.env == "musl" {
-                    cmd.push_args(&["-Wl,-melf_i386"]);
+                    cmd.push_arg_str("-Wl,-melf_i386");
                 }
 
                 //
@@ -3148,17 +3148,17 @@ impl Build {
 
                 // Set Float ABI for all Arm bare-metal targets using EABIHF
                 if target.arch == "arm" && target.os == "none" && target.abi == "eabihf" {
-                    cmd.push_args(&["-mfloat-abi=hard"]);
+                    cmd.push_arg_str("-mfloat-abi=hard");
                 }
                 // Set -mthumb for all Thumb targets
                 if target.full_arch.starts_with("thumb") {
-                    cmd.push_args(&["-mthumb"]);
+                    cmd.push_arg_str("-mthumb");
                 }
                 for (prefix, flags, eabihf_fpu) in Self::GNU_ARM_ARCHS {
                     if target.full_arch.starts_with(prefix) {
                         cmd.push_args(flags);
                         if let (Some(fpu), "eabihf") = (eabihf_fpu, target.abi) {
-                            cmd.push_args(&[fpu]);
+                            cmd.push_arg_str(fpu);
                         }
                         break;
                     }
@@ -3175,17 +3175,17 @@ impl Build {
                             cmd.push_args(&["-march=rv64gc", "-mabi=lp64d"]);
                         } else {
                             cmd.args.push(format!("-march=rv{arch}").into());
-                            cmd.push_args(&["-mabi=lp64"]);
+                            cmd.push_arg_str("-mabi=lp64");
                         }
                     } else if arch.starts_with("32") {
                         if target.os == "linux" {
                             cmd.push_args(&["-march=rv32gc", "-mabi=ilp32d"]);
                         } else {
                             cmd.args.push(format!("-march=rv{arch}").into());
-                            cmd.push_args(&["-mabi=ilp32"]);
+                            cmd.push_arg_str("-mabi=ilp32");
                         }
                     } else {
-                        cmd.push_args(&["-mcmodel=medany"]);
+                        cmd.push_arg_str("-mcmodel=medany");
                     }
                 }
             }
@@ -3212,7 +3212,7 @@ impl Build {
             //
             // We're typically building C code to eventually link into a Rust program. Many Rust
             // programs are multi-threaded in some form. So, set the flag by default.
-            cmd.push_args(&["-D_REENTRANT"]);
+            cmd.push_arg_str("-D_REENTRANT");
         }
 
         if target.vendor == "apple" {
@@ -3220,10 +3220,10 @@ impl Build {
         }
 
         if self.static_flag.unwrap_or(false) {
-            cmd.push_args(&["-static"]);
+            cmd.push_arg_str("-static");
         }
         if self.shared_flag.unwrap_or(false) {
-            cmd.push_args(&["-shared"]);
+            cmd.push_arg_str("-shared");
         }
 
         if self.cpp {
@@ -3420,20 +3420,20 @@ impl Build {
             // runs as `llvm-ml64`. It takes the last `-m`, so one in the
             // user's arguments still wins.
             match target.arch {
-                "x86_64" => cmd.push_args(&["-m64"]),
-                "x86" => cmd.push_args(&["-m32"]),
+                "x86_64" => cmd.push_arg_str("-m64"),
+                "x86" => cmd.push_arg_str("-m32"),
                 _ => {}
             }
         }
         cmd.args.extend(args.into_iter().map(OsString::from));
-        cmd.push_args(&["-nologo"]); // undocumented, yet working with armasm[64]
+        cmd.push_arg_str("-nologo"); // undocumented, yet working with armasm[64]
         for directory in self.include_directories.iter() {
-            cmd.push_args(&["-I"]);
+            cmd.push_arg_str("-I");
             cmd.args.push(directory.as_os_str().into());
         }
         if is_arm(&target) {
             if self.get_debug() {
-                cmd.push_args(&["-g"]);
+                cmd.push_arg_str("-g");
             }
 
             if target.arch == "arm64ec" {
@@ -3441,7 +3441,7 @@ impl Build {
             }
 
             for (key, value) in self.definitions.iter() {
-                cmd.push_args(&["-PreDefine"]);
+                cmd.push_arg_str("-PreDefine");
                 if let Some(ref value) = *value {
                     if let Ok(i) = value.parse::<i32>() {
                         cmd.args.push(format!("{key} SETA {i}").into());
@@ -3457,7 +3457,7 @@ impl Build {
         } else {
             // llvm-ml ignores `-Zi` with a warning.
             if self.get_debug() && !is_llvm_ml {
-                cmd.push_args(&["-Zi"]);
+                cmd.push_arg_str("-Zi");
             }
 
             for (key, value) in self.definitions.iter() {
@@ -3470,7 +3470,7 @@ impl Build {
         }
 
         if target.arch == "x86" {
-            cmd.push_args(&["-safeseh"]);
+            cmd.push_arg_str("-safeseh");
         }
 
         Ok(cmd)
@@ -3728,7 +3728,7 @@ impl Build {
         // https://clang.llvm.org/docs/CommandGuide/clang.html#cmdoption-arch
         if cmd.is_like_gnu() {
             let arch = map_darwin_target_from_rust_to_compiler_architecture(&target);
-            cmd.push_args(&["-arch"]);
+            cmd.push_arg_str("-arch");
             cmd.args.push(arch.into());
         }
 
@@ -3755,7 +3755,7 @@ impl Build {
             ));
             let sdk_path = self.apple_sdk_root(&target)?;
 
-            cmd.push_args(&["-isysroot"]);
+            cmd.push_arg_str("-isysroot");
             cmd.args.push(OsStr::new(&sdk_path).to_owned());
             cmd.env
                 .push((OsStr::new("SDKROOT").into(), Arc::clone(&sdk_path)));
@@ -3894,7 +3894,7 @@ impl Build {
                             ToolFamily::Clang { zig_cc: false },
                             self.env.inherited().clone(),
                         );
-                        t.push_args(&["/c"]);
+                        t.push_arg_str("/c");
                         t.args.push(format!("{tool}.bat").into());
                         Some(t)
                     } else {
@@ -4037,7 +4037,7 @@ impl Build {
                     let (_, version) = target.split_at(target.rfind('d').unwrap() + 1);
                     if let Ok(version) = version.parse::<u32>() {
                         if version > 15 && version < 25 {
-                            tool.push_args(&["-mstackrealign"]);
+                            tool.push_arg_str("-mstackrealign");
                         }
                     }
                 }
@@ -5124,7 +5124,8 @@ impl Build {
             Some(Arc::from(core::str::from_utf8(&version).ok()?.trim()))
         };
 
-        let deployment_from_env = |name: &str| -> Option<Arc<str>> {
+        let deployment_from_env = || -> Option<Arc<str>> {
+            let name = target.apple_deployment_target_var()?;
             self.get_env_overridable(name)?.to_str().map(Arc::from)
         };
 
@@ -5192,16 +5193,16 @@ impl Build {
         //
         // The ordering of env -> XCode SDK -> old rustc defaults is intentional for performance when using
         // an explicit target.
-        let (env, fallback) = match target.os {
-            "macos" if target.arch == "aarch64" => ("MACOSX_DEPLOYMENT_TARGET", "11.0"),
-            "macos" => ("MACOSX_DEPLOYMENT_TARGET", "10.7"),
-            "ios" => ("IPHONEOS_DEPLOYMENT_TARGET", "7.0"),
-            "watchos" => ("WATCHOS_DEPLOYMENT_TARGET", "5.0"),
-            "tvos" => ("TVOS_DEPLOYMENT_TARGET", "9.0"),
-            "visionos" => ("XROS_DEPLOYMENT_TARGET", "1.0"),
+        let fallback = match target.os {
+            "macos" if target.arch == "aarch64" => "11.0",
+            "macos" => "10.7",
+            "ios" => "7.0",
+            "watchos" => "5.0",
+            "tvos" => "9.0",
+            "visionos" => "1.0",
             os => unreachable!("unknown Apple OS: {}", os),
         };
-        let version = deployment_from_env(env)
+        let version = deployment_from_env()
             .and_then(maybe_cpp_version_baseline)
             .or_else(default_deployment_from_sdk)
             .unwrap_or_else(|| {
