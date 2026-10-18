@@ -1,0 +1,11 @@
+[package]
+name = "sanitizer-test"
+version = "0.1.0"
+edition.workspace = true
+publish = false
+
+[build-dependencies]
+cc = { path = "../.." }
+
+[lints]
+workspace = true

@@ -26,6 +26,7 @@ members = [
     "dev-tools/cc-test",
     "dev-tools/gen-target-info",
     "dev-tools/gen-windows-sys-binding",
+    "dev-tools/sanitizer-test",
     "dev-tools/wasi-test",
     "find-msvc-tools",
 ]
