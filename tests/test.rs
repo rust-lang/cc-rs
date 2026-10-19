@@ -4221,6 +4221,60 @@ fn set_envs_snapshot_replaces_cargo_target() {
         .must_not_have("-Dfor_x86_64");
 }
 
+/// A `set_envs_snapshot` after the `Build` was used switches it to the
+/// `CARGO_ENCODED_RUSTFLAGS` in `vars`.
+#[test]
+fn set_envs_snapshot_replaces_rustflags() {
+    let test = Test::gnu();
+    let snapshot = |rustflags| {
+        [
+            ("TARGET", "x86_64-unknown-linux-gnu"),
+            ("HOST", "x86_64-unknown-linux-gnu"),
+            ("OPT_LEVEL", "0"),
+            ("DEBUG", "false"),
+            ("CARGO_ENCODED_RUSTFLAGS", rustflags),
+        ]
+    };
+    let mut build = cargo_build(&test);
+    build
+        .set_envs_snapshot(snapshot("-Ccode-model=small"))
+        .file("foo.c");
+    build.try_compile_intermediates().unwrap();
+    build.set_envs_snapshot(snapshot("-Ccode-model=large"));
+    build.try_compile_intermediates().unwrap();
+
+    test.cmd(0)
+        .must_have("-mcmodel=small")
+        .must_not_have("-mcmodel=large");
+    test.cmd(1)
+        .must_have("-mcmodel=large")
+        .must_not_have("-mcmodel=small");
+}
+
+/// `CARGO_ENCODED_RUSTFLAGS` that don't parse fail every compile of the
+/// `Build`, not only the first.
+#[test]
+fn invalid_rustflags_fail_every_compile() {
+    let test = Test::gnu();
+    let mut build = cargo_build(&test);
+    build
+        .set_envs_snapshot([
+            ("TARGET", "x86_64-unknown-linux-gnu"),
+            ("HOST", "x86_64-unknown-linux-gnu"),
+            ("OPT_LEVEL", "0"),
+            ("DEBUG", "false"),
+            ("CARGO_ENCODED_RUSTFLAGS", "-Ccode-model"),
+        ])
+        .file("foo.c");
+    for _ in 0..2 {
+        let err = build.try_compile_intermediates().unwrap_err();
+        assert_eq!(
+            err.to_string(),
+            "InvalidFlag: -Ccode-model must have a value"
+        );
+    }
+}
+
 /// [`cc::Build::env`] reaches the tools cc runs, but not the variables Cargo
 /// sets that cc reads itself.
 #[test]

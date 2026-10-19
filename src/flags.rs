@@ -4,22 +4,22 @@ use std::borrow::Cow;
 use std::ffi::OsStr;
 
 #[derive(Debug, PartialEq, Default)]
-pub(crate) struct RustcCodegenFlags<'a> {
-    branch_protection: Option<&'a str>,
-    code_model: Option<&'a str>,
+pub(crate) struct RustcCodegenFlags {
+    branch_protection: Option<Box<str>>,
+    code_model: Option<Box<str>>,
     no_vectorize_loops: bool,
     no_vectorize_slp: bool,
-    control_flow_guard: Option<&'a str>,
-    lto: Option<&'a str>,
-    relocation_model: Option<&'a str>,
+    control_flow_guard: Option<Box<str>>,
+    lto: Option<Box<str>>,
+    relocation_model: Option<Box<str>>,
     embed_bitcode: Option<bool>,
     force_frame_pointers: Option<bool>,
     no_redzone: Option<bool>,
     soft_float: Option<bool>,
     dwarf_version: Option<u32>,
-    stack_protector: Option<&'a str>,
+    stack_protector: Option<Box<str>>,
     linker_plugin_lto: Option<bool>,
-    target_features: Vec<&'a str>,
+    target_features: Vec<Box<str>>,
 }
 
 // https://doc.rust-lang.org/reference/attributes/codegen.html#x86-or-x86_64
@@ -80,9 +80,9 @@ const X86_RENAMED_FEATURES: &[(&str, &str)] = &[
     ("rdrand", "rdrnd"),
 ];
 
-impl<'this> RustcCodegenFlags<'this> {
+impl RustcCodegenFlags {
     // Parse flags obtained from CARGO_ENCODED_RUSTFLAGS
-    pub(crate) fn parse(rustflags_env: &'this str) -> Result<Self, Error> {
+    pub(crate) fn parse(rustflags_env: &str) -> Result<Self, Error> {
         fn is_flag_prefix(flag: &str) -> bool {
             [
                 "-Z",
@@ -136,7 +136,7 @@ impl<'this> RustcCodegenFlags<'this> {
         Ok(codegen_flags)
     }
 
-    fn set_rustc_flag(&mut self, prefix: &str, flag: &'this str) -> Result<(), Error> {
+    fn set_rustc_flag(&mut self, prefix: &str, flag: &str) -> Result<(), Error> {
         // Convert a textual representation of a bool-like rustc flag argument into an actual bool
         fn arg_to_bool(arg: impl AsRef<str>) -> Option<bool> {
             match arg.as_ref() {
@@ -180,7 +180,7 @@ impl<'this> RustcCodegenFlags<'this> {
         match flag {
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#code-model
             "-Ccode-model" => {
-                self.code_model = flag_not_empty(value)?;
+                self.code_model = flag_not_empty(value)?.map(Into::into);
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#no-vectorize-loops
             "-Cno-vectorize-loops" => self.no_vectorize_loops = true,
@@ -189,11 +189,13 @@ impl<'this> RustcCodegenFlags<'this> {
             // `-Cprofile-generate` and `-Cprofile-use` are deliberately *not* parsed, so that
             // they are never forwarded to the C compiler. See the note in `cc_flags` below.
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#control-flow-guard
-            "-Ccontrol-flow-guard" => self.control_flow_guard = value.or(Some("true")),
+            "-Ccontrol-flow-guard" => {
+                self.control_flow_guard = Some(value.unwrap_or("true").into())
+            }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#lto
             //
             // This variable is currently unused, we just keep it in case we need it in future
-            "-Clto" => self.lto = value.or(Some("true")),
+            "-Clto" => self.lto = Some(value.unwrap_or("true").into()),
             // https://doc.rust-lang.org/rustc/linker-plugin-lto.html
             "-Clinker-plugin-lto" => {
                 // A non-boolean value names the linker plugin and also enables LTO.
@@ -201,7 +203,7 @@ impl<'this> RustcCodegenFlags<'this> {
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#relocation-model
             "-Crelocation-model" => {
-                self.relocation_model = flag_not_empty(value)?;
+                self.relocation_model = flag_not_empty(value)?.map(Into::into);
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#embed-bitcode
             "-Cembed-bitcode" => self.embed_bitcode = value.map_or(Some(true), arg_to_bool),
@@ -217,7 +219,7 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://doc.rust-lang.org/beta/unstable-book/compiler-flags/branch-protection.html
             // FIXME: Drop the -Z variant and update the doc link once the option is stabilised
             "-Zbranch-protection" | "-Cbranch-protection" => {
-                self.branch_protection = flag_not_empty(value)?;
+                self.branch_protection = flag_not_empty(value)?.map(Into::into);
             }
             // https://doc.rust-lang.org/beta/rustc/codegen-options/index.html#dwarf-version
             "-Cdwarf-version" => {
@@ -226,13 +228,17 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://github.com/rust-lang/rust/issues/114903
             // FIXME: Drop the -Z variant and update the doc link once the option is stabilized
             "-Zstack-protector" | "-Cstack-protector" => {
-                self.stack_protector = flag_not_empty(value)?;
+                self.stack_protector = flag_not_empty(value)?.map(Into::into);
             }
             // https://doc.rust-lang.org/rustc/codegen-options/index.html#target-feature
             "-Ctarget-feature" => {
                 if let Some(value) = flag_not_empty(value)? {
-                    self.target_features
-                        .extend(value.split(',').filter(|feature| !feature.is_empty()));
+                    self.target_features.extend(
+                        value
+                            .split(',')
+                            .filter(|feature| !feature.is_empty())
+                            .map(Into::into),
+                    );
                 }
             }
             _ => {}
@@ -273,7 +279,7 @@ impl<'this> RustcCodegenFlags<'this> {
     /// The parsed value of `-Ccontrol-flow-guard`, or `None` for one cc
     /// doesn't know.
     fn control_flow_guard(&self) -> Option<ControlFlowGuard> {
-        match self.control_flow_guard? {
+        match self.control_flow_guard.as_deref()? {
             "y" | "yes" | "on" | "true" | "checks" => Some(ControlFlowGuard::Checks),
             "nochecks" => Some(ControlFlowGuard::NoChecks),
             "n" | "no" | "off" | "false" => Some(ControlFlowGuard::Off),
@@ -320,7 +326,7 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html#index-mbranch-protection (Aarch64)
             // https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html#index-mbranch-protection-1 (ARM)
             // https://developer.arm.com/documentation/101754/0619/armclang-Reference/armclang-Command-line-Options/-mbranch-protection
-            if let Some(value) = self.branch_protection {
+            if let Some(value) = self.branch_protection.as_deref() {
                 push_if_supported(
                     format!("-mbranch-protection={}", value.replace(",", "+")).into(),
                 );
@@ -328,7 +334,7 @@ impl<'this> RustcCodegenFlags<'this> {
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mcmodel
             // https://gcc.gnu.org/onlinedocs/gcc/Option-Summary.html (several archs, search for `-mcmodel=`).
             // FIXME(madsmtm): Parse the model, to make sure we pass the correct value (depending on arch).
-            if let Some(value) = self.code_model {
+            if let Some(value) = self.code_model.as_deref() {
                 push_if_supported(format!("-mcmodel={value}").into());
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fno-vectorize
@@ -341,7 +347,7 @@ impl<'this> RustcCodegenFlags<'this> {
             if self.no_vectorize_slp {
                 push_if_supported("-fno-slp-vectorize".into());
             }
-            if let Some(value) = self.relocation_model {
+            if let Some(value) = self.relocation_model.as_deref() {
                 let cc_flag = match value {
                     // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fPIC
                     // https://gcc.gnu.org/onlinedocs/gcc/Code-Gen-Options.html#index-fPIC
@@ -395,7 +401,7 @@ impl<'this> RustcCodegenFlags<'this> {
             }
             // https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fstack-protector
             // https://gcc.gnu.org/onlinedocs/gcc/Instrumentation-Options.html#index-fstack-protector
-            if let Some(value) = self.stack_protector {
+            if let Some(value) = self.stack_protector.as_deref() {
                 // don't need to propagate stack-protector on MSVC since /GS is already the default
                 // https://learn.microsoft.com/en-us/cpp/build/reference/gs-buffer-security-check?view=msvc-170
                 //
@@ -533,7 +539,7 @@ mod tests {
     #[test]
     fn codegen_type() {
         let expected = RustcCodegenFlags {
-            code_model: Some("tiny"),
+            code_model: Some("tiny".into()),
             ..RustcCodegenFlags::default()
         };
         check("-Ccode-model=tiny", &expected);
@@ -547,7 +553,7 @@ mod tests {
         check(
             "-ccode-model=tiny\u{1f}-Ccode-model=small",
             &RustcCodegenFlags {
-                code_model: Some("small"),
+                code_model: Some("small".into()),
                 ..RustcCodegenFlags::default()
             },
         );
@@ -562,7 +568,7 @@ mod tests {
     #[test]
     fn stack_protector() {
         let expected = RustcCodegenFlags {
-            stack_protector: Some("strong"),
+            stack_protector: Some("strong".into()),
             ..RustcCodegenFlags::default()
         };
         check("-Zstack-protector=strong", &expected);
@@ -572,7 +578,7 @@ mod tests {
     #[test]
     fn three_valid_prefixes() {
         let expected = RustcCodegenFlags {
-            lto: Some("true"),
+            lto: Some("true".into()),
             ..RustcCodegenFlags::default()
         };
         check("-L\u{1f}-L\u{1f}-Clto", &expected);
@@ -693,21 +699,21 @@ mod tests {
         check(
             &flags.join("\u{1f}"),
             &RustcCodegenFlags {
-                code_model: Some("tiny"),
-                control_flow_guard: Some("yes"),
+                code_model: Some("tiny".into()),
+                control_flow_guard: Some("yes".into()),
                 embed_bitcode: Some(false),
                 force_frame_pointers: Some(true),
-                lto: Some("false"),
+                lto: Some("false".into()),
                 no_redzone: Some(true),
                 no_vectorize_loops: true,
                 no_vectorize_slp: true,
-                relocation_model: Some("pic"),
+                relocation_model: Some("pic".into()),
                 soft_float: Some(true),
-                branch_protection: Some("bti,pac-ret,leaf"),
+                branch_protection: Some("bti,pac-ret,leaf".into()),
                 dwarf_version: Some(5),
-                stack_protector: Some("strong"),
+                stack_protector: Some("strong".into()),
                 linker_plugin_lto: Some(true),
-                target_features: vec!["+sve"],
+                target_features: vec!["+sve".into()],
             },
         );
     }
@@ -715,7 +721,7 @@ mod tests {
     #[test]
     fn target_features() {
         let expected = RustcCodegenFlags {
-            target_features: vec!["+avx2", "-sse4a"],
+            target_features: vec!["+avx2".into(), "-sse4a".into()],
             ..RustcCodegenFlags::default()
         };
         check("-Ctarget-feature=+avx2,-sse4a", &expected);
@@ -726,7 +732,7 @@ mod tests {
         check(
             "-Ctarget-feature=+avx\u{1f}-Ctarget-feature=+avx2,-avx",
             &RustcCodegenFlags {
-                target_features: vec!["+avx", "+avx2", "-avx"],
+                target_features: vec!["+avx".into(), "+avx2".into(), "-avx".into()],
                 ..RustcCodegenFlags::default()
             },
         );
