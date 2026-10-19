@@ -3962,9 +3962,14 @@ impl Build {
         cmd
     }
 
+    /// Whether to look for `clang` (or `clang++`) first when no compiler is
+    /// set, so that C and C++ code can take part in rustc's linker-plugin LTO.
     fn prefer_clang(&self) -> bool {
         if let Some(env) = self.get_cargo_env("CARGO_ENCODED_RUSTFLAGS") {
-            env.to_string_lossy().contains("linker-plugin-lto")
+            // Flags that don't parse are left for rustc and
+            // `add_inherited_rustflags` to report.
+            RustcCodegenFlags::parse(&env.to_string_lossy())
+                .map_or(false, |flags| flags.linker_plugin_lto())
         } else {
             false
         }
