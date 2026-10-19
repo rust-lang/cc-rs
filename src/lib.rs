@@ -3402,7 +3402,10 @@ impl Build {
         target: &TargetInfo<'_>,
         flag_support_key: &mut Option<CompilerFlag>,
     ) -> Result<(), Error> {
-        let codegen_flags = self.env.inherited().rustc_codegen_flags()?;
+        let Some(codegen_flags) = self.env.inherited().rustc_codegen_flags()? else {
+            // No encoded RUSTFLAGS -> nothing to do
+            return Ok(());
+        };
         codegen_flags.cc_flags(self, cmd, target, flag_support_key);
         Ok(())
     }
@@ -3960,10 +3963,10 @@ impl Build {
     fn prefer_clang(&self) -> bool {
         // Flags that don't parse are left for rustc and
         // `add_inherited_rustflags` to report.
-        self.env
-            .inherited()
-            .rustc_codegen_flags()
-            .map_or(false, |flags| flags.linker_plugin_lto())
+        matches!(
+            self.env.inherited().rustc_codegen_flags(),
+            Ok(Some(flags)) if flags.linker_plugin_lto()
+        )
     }
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {

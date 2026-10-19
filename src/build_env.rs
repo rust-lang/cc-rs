@@ -80,8 +80,9 @@ struct EnvSnapshotInner {
     hash: u64,
     /// The target Cargo describes in `vars`, parsed on first use.
     cargo_target: TargetInfoParser,
-    /// `CARGO_ENCODED_RUSTFLAGS` from `vars`, parsed on first use.
-    rustc_codegen_flags: OnceLock<Result<RustcCodegenFlags, Error>>,
+    /// `CARGO_ENCODED_RUSTFLAGS` from `vars`, parsed on first use, or `None`
+    /// if it is not set.
+    rustc_codegen_flags: OnceLock<Result<Option<RustcCodegenFlags>, Error>>,
 }
 
 impl EnvSnapshot {
@@ -161,15 +162,16 @@ impl EnvSnapshot {
             .parse_from_cargo_environment_variables(self)
     }
 
-    /// The flags in `CARGO_ENCODED_RUSTFLAGS`, or no flags if it is not set.
-    pub(crate) fn rustc_codegen_flags(&self) -> Result<&RustcCodegenFlags, Error> {
+    /// The flags in `CARGO_ENCODED_RUSTFLAGS`, or `None` if it is not set.
+    pub(crate) fn rustc_codegen_flags(&self) -> Result<Option<&RustcCodegenFlags>, Error> {
         self.0
             .rustc_codegen_flags
             .get_or_init(|| match self.get(OsStr::new("CARGO_ENCODED_RUSTFLAGS")) {
-                Some(flags) => RustcCodegenFlags::parse(&flags.to_string_lossy()),
-                None => Ok(RustcCodegenFlags::default()),
+                Some(flags) => RustcCodegenFlags::parse(&flags.to_string_lossy()).map(Some),
+                None => Ok(None),
             })
             .as_ref()
+            .map(Option::as_ref)
             .map_err(Error::clone)
     }
 
