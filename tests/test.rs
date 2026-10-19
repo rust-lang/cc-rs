@@ -415,6 +415,29 @@ fn gnu_flag_if_supported() {
         .must_not_have("-Wflag-does-not-exist");
 }
 
+/// `flag` and `flag_if_supported` reach the command line in the order they
+/// were called in.
+/// <https://github.com/rust-lang/cc-rs/issues/855>
+#[test]
+fn flag_and_flag_if_supported_keep_order() {
+    let test = Test::gnu();
+    test.gcc()
+        .file("foo.c")
+        .env("CC_SHIM_FAIL_IF_ARG", "-Wflag-does-not-exist")
+        .flag_if_supported("-xc")
+        .flag("-xc++")
+        .flag_if_supported("-Wflag-does-not-exist")
+        .flag("-std=c++11")
+        .flag_if_supported("-Wshadow")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have_in_order("-xc", "-xc++")
+        .must_have_in_order("-xc++", "-std=c++11")
+        .must_have_in_order("-std=c++11", "-Wshadow")
+        .must_not_have("-Wflag-does-not-exist");
+}
+
 /// `flag_if_supported` must probe even when `OUT_DIR` is unset.
 /// <https://github.com/rust-lang/cc-rs/issues/1765>
 #[test]
@@ -638,12 +661,8 @@ fn clang_cl_link_flag_is_ignored() {
 
 #[test]
 fn msvc_link_flag_if_supported_is_ignored() {
-    // `flag_if_supported("/link")` must not reach cl either. Each list of
-    // flags is cut at its own `/link`: the entries after it in the
-    // `flag_if_supported` list are dropped without being probed. `flag`
-    // entries are a separate list that cc puts before the `flag_if_supported`
-    // ones on the command line, so cl would never pass them to the linker, and
-    // they are kept.
+    // `flag_if_supported("/link")` must not reach cl either, and the entries
+    // after it are dropped without being probed, the same as after `flag`.
     let test = Test::msvc();
     let mut build = test.gcc();
     build
@@ -653,6 +672,25 @@ fn msvc_link_flag_if_supported_is_ignored() {
         .file("foo.c");
     assert!(!build.is_flag_supported("/link").unwrap());
     build.compile("foo");
+
+    test.cmd(0)
+        .must_have("/GS-")
+        .must_not_have("/link")
+        .must_not_have("/NODEFAULTLIB")
+        .must_have_in_order("-c", "foo.c");
+}
+
+#[test]
+fn msvc_flag_after_link_flag_if_supported_is_ignored() {
+    // What comes after `/link` is meant for the linker whichever method
+    // added the `/link`, so a later `flag` is dropped as well.
+    let test = Test::msvc();
+    test.gcc()
+        .flag("/GS-")
+        .flag_if_supported("/link")
+        .flag("/NODEFAULTLIB")
+        .file("foo.c")
+        .compile("foo");
 
     test.cmd(0)
         .must_have("/GS-")

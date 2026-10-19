@@ -539,8 +539,7 @@ pub struct Build {
     include_directories: Vec<Arc<Path>>,
     definitions: Vec<(Arc<str>, Option<Arc<str>>)>,
     objects: Vec<Arc<Path>>,
-    flags: Vec<Arc<OsStr>>,
-    flags_supported: Vec<Arc<OsStr>>,
+    flags: Vec<BuildFlag>,
     ar_flags: Vec<Arc<OsStr>>,
     asm_flags: Vec<Arc<OsStr>>,
     no_default_flags: bool,
@@ -645,6 +644,22 @@ impl Display for Error {
 
 impl std::error::Error for Error {}
 
+/// A flag from [`Build::flag`] or [`Build::flag_if_supported`]. Both go in
+/// one list so that the command line keeps the order they were added in.
+#[derive(Clone, Debug)]
+enum BuildFlag {
+    Always(Arc<OsStr>),
+    IfSupported(Arc<OsStr>),
+}
+
+impl AsRef<OsStr> for BuildFlag {
+    fn as_ref(&self) -> &OsStr {
+        match self {
+            BuildFlag::Always(flag) | BuildFlag::IfSupported(flag) => flag,
+        }
+    }
+}
+
 /// Represents an object.
 ///
 /// This is a source file -> object file pair.
@@ -674,7 +689,6 @@ impl Build {
             definitions: Vec::new(),
             objects: Vec::new(),
             flags: Vec::new(),
-            flags_supported: Vec::new(),
             ar_flags: Vec::new(),
             asm_flags: Vec::new(),
             no_default_flags: false,
@@ -812,7 +826,7 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn flag(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
-        self.flags.push(flag.as_ref().into());
+        self.flags.push(BuildFlag::Always(flag.as_ref().into()));
         self
     }
 
@@ -850,7 +864,9 @@ impl Build {
     ///     .remove_flag("unwanted_flag");
     /// ```
     pub fn remove_flag(&mut self, flag: &str) -> &mut Build {
-        self.flags.retain(|other_flag| &**other_flag != flag);
+        self.flags.retain(
+            |other_flag| !matches!(other_flag, BuildFlag::Always(other_flag) if &**other_flag == flag),
+        );
         self
     }
 
@@ -891,6 +907,8 @@ impl Build {
 
     /// Add an arbitrary flag to the invocation of the compiler if it supports it
     ///
+    /// The flag keeps its place among the flags added with [`Build::flag`].
+    ///
     /// # Example
     ///
     /// ```no_run
@@ -901,7 +919,8 @@ impl Build {
     ///     .compile("foo");
     /// ```
     pub fn flag_if_supported(&mut self, flag: impl AsRef<OsStr>) -> &mut Build {
-        self.flags_supported.push(flag.as_ref().into());
+        self.flags
+            .push(BuildFlag::IfSupported(flag.as_ref().into()));
         self
     }
 
@@ -938,7 +957,7 @@ impl Build {
         self.flags.extend(
             flags
                 .into_iter()
-                .map(|flag| Arc::from(OsString::from(flag).as_os_str())),
+                .map(|flag| BuildFlag::Always(Arc::from(OsString::from(flag).as_os_str()))),
         );
         Ok(self)
     }
@@ -2760,22 +2779,20 @@ impl Build {
 
         // Set flags configured in the builder (do this second-to-last, to allow these to override
         // everything above).
+        // The entries after `/link` are dropped without being probed.
         let (flags, linker_flags) = split_off_msvc_linker_flags(cmd.family, &self.flags);
-        let mut ignored_flags: Vec<&OsStr> = linker_flags.iter().map(|f| &**f).collect();
+        let mut ignored_flags: Vec<&OsStr> = linker_flags.iter().map(AsRef::as_ref).collect();
         for flag in flags {
-            cmd.args.push((**flag).into());
-        }
-        // Like `self.flags` above, drop `/link` and the entries after it in
-        // this list without probing them.
-        let (flags_supported, linker_flags) =
-            split_off_msvc_linker_flags(cmd.family, &self.flags_supported);
-        ignored_flags.extend(linker_flags.iter().map(|f| &**f));
-        for flag in flags_supported {
-            if self
-                .is_flag_supported_inner(flag, &cmd, &target, &mut flag_support_key)
-                .unwrap_or(false)
-            {
-                cmd.push_cc_arg((**flag).into());
+            match flag {
+                BuildFlag::Always(flag) => cmd.args.push((**flag).into()),
+                BuildFlag::IfSupported(flag) => {
+                    if self
+                        .is_flag_supported_inner(flag, &cmd, &target, &mut flag_support_key)
+                        .unwrap_or(false)
+                    {
+                        cmd.push_cc_arg((**flag).into());
+                    }
+                }
             }
         }
         for (key, value) in self.definitions.iter() {
