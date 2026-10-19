@@ -156,3 +156,13 @@ fn linker_plugin_lto_prefers_clang() {
         test.cmd_for_source("foo.c").must_run(program);
     }
 }
+
+#[test]
+fn no_rustflags_does_not_prefer_clang() {
+    let mut test = Test::gnu();
+    test.shim("clang");
+    test.env.set("PATH", test.td.path());
+    test.env.remove("CARGO_ENCODED_RUSTFLAGS");
+    test.gcc().file("foo.c").compile("foo");
+    test.cmd_for_source("foo.c").must_run("cc");
+}

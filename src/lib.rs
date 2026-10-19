@@ -482,7 +482,6 @@ mod utilities;
 use utilities::*;
 
 mod flags;
-use flags::*;
 
 /// Key of the flag support cache, next to the flag itself: everything else the
 /// probe `Build` in [`Build::is_flag_supported_inner`] is made from. Built by
@@ -3403,13 +3402,10 @@ impl Build {
         target: &TargetInfo<'_>,
         flag_support_key: &mut Option<CompilerFlag>,
     ) -> Result<(), Error> {
-        let Some(env_os) = self.get_cargo_env("CARGO_ENCODED_RUSTFLAGS") else {
+        let Some(codegen_flags) = self.env.inherited().rustc_codegen_flags()? else {
             // No encoded RUSTFLAGS -> nothing to do
             return Ok(());
         };
-
-        let env = env_os.to_string_lossy();
-        let codegen_flags = RustcCodegenFlags::parse(&env)?;
         codegen_flags.cc_flags(self, cmd, target, flag_support_key);
         Ok(())
     }
@@ -3965,14 +3961,12 @@ impl Build {
     /// Whether to look for `clang` (or `clang++`) first when no compiler is
     /// set, so that C and C++ code can take part in rustc's linker-plugin LTO.
     fn prefer_clang(&self) -> bool {
-        if let Some(env) = self.get_cargo_env("CARGO_ENCODED_RUSTFLAGS") {
-            // Flags that don't parse are left for rustc and
-            // `add_inherited_rustflags` to report.
-            RustcCodegenFlags::parse(&env.to_string_lossy())
-                .map_or(false, |flags| flags.linker_plugin_lto())
-        } else {
-            false
-        }
+        // Flags that don't parse are left for rustc and
+        // `add_inherited_rustflags` to report.
+        matches!(
+            self.env.inherited().rustc_codegen_flags(),
+            Ok(Some(flags)) if flags.linker_plugin_lto()
+        )
     }
 
     fn get_base_compiler(&self) -> Result<Tool, Error> {

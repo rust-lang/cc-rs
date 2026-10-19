@@ -12,6 +12,7 @@ use std::{
 };
 
 use crate::{
+    flags::RustcCodegenFlags,
     target::{TargetInfo, TargetInfoParser},
     utilities::OnceLock,
     Error, ErrorKind,
@@ -66,28 +67,36 @@ impl BuildEnv {
 }
 
 /// A copy of the process environment, or the variables given to
-/// `Build::set_envs_snapshot`. Clones share the copy.
+/// `Build::set_envs_snapshot`. Clones share the copy, and what cc parses from
+/// it.
 #[derive(Clone)]
-pub(crate) struct EnvSnapshot {
-    vars: Arc<EnvVars>,
+pub(crate) struct EnvSnapshot(Arc<EnvSnapshotInner>);
+
+/// What is parsed from `vars` lives here, so that a new snapshot can't be
+/// paired with values parsed from an old one.
+struct EnvSnapshotInner {
+    vars: Box<EnvVars>,
     /// Hash of `vars`, worked out once.
     hash: u64,
-    /// The target Cargo describes in `vars`, parsed on first use. It lives
-    /// here so that a new snapshot can't be paired with an old target.
-    cargo_target: Arc<TargetInfoParser>,
+    /// The target Cargo describes in `vars`, parsed on first use.
+    cargo_target: TargetInfoParser,
+    /// `CARGO_ENCODED_RUSTFLAGS` from `vars`, parsed on first use, or `None`
+    /// if it is not set.
+    rustc_codegen_flags: OnceLock<Result<Option<RustcCodegenFlags>, Error>>,
 }
 
 impl EnvSnapshot {
-    fn new(vars: Arc<EnvVars>) -> Self {
+    fn new(vars: Box<EnvVars>) -> Self {
         // A fixed hasher, so that equal snapshots get equal hashes for the
         // whole process.
         let mut hasher = DefaultHasher::new();
         vars.hash(&mut hasher);
-        Self {
+        Self(Arc::new(EnvSnapshotInner {
             hash: hasher.finish(),
             vars,
-            cargo_target: Arc::default(),
-        }
+            cargo_target: TargetInfoParser::default(),
+            rustc_codegen_flags: OnceLock::new(),
+        }))
     }
 
     /// Copy the process environment as it is now. A variable it holds twice,
@@ -107,7 +116,7 @@ impl EnvSnapshot {
                 None => deduped.push((key, value)),
             }
         }
-        Self::new(deduped.into())
+        Self::new(deduped.into_boxed_slice())
     }
 
     #[cfg(test)]
@@ -122,7 +131,8 @@ impl EnvSnapshot {
     /// Look up `key` the way [`env::var_os`] would have when the snapshot was
     /// taken, except that a variable held twice gives its last value.
     pub(crate) fn get(&self, key: &OsStr) -> Option<&Arc<OsStr>> {
-        self.vars
+        self.0
+            .vars
             .iter()
             .find(|(k, _)| is_same_key(k, key))
             .map(|(_, value)| value)
@@ -147,8 +157,22 @@ impl EnvSnapshot {
 
     /// The target Cargo builds for, from `TARGET` and `CARGO_CFG_TARGET_*`.
     pub(crate) fn cargo_target(&self) -> Result<TargetInfo<'_>, Error> {
-        self.cargo_target
+        self.0
+            .cargo_target
             .parse_from_cargo_environment_variables(self)
+    }
+
+    /// The flags in `CARGO_ENCODED_RUSTFLAGS`, or `None` if it is not set.
+    pub(crate) fn rustc_codegen_flags(&self) -> Result<Option<&RustcCodegenFlags>, Error> {
+        self.0
+            .rustc_codegen_flags
+            .get_or_init(|| match self.get(OsStr::new("CARGO_ENCODED_RUSTFLAGS")) {
+                Some(flags) => RustcCodegenFlags::parse(&flags.to_string_lossy()).map(Some),
+                None => Ok(None),
+            })
+            .as_ref()
+            .map(Option::as_ref)
+            .map_err(Error::clone)
     }
 
     /// Make `cmd` run in this environment rather than the current one.
@@ -159,13 +183,14 @@ impl EnvSnapshot {
     /// clears anything set on `cmd`'s environment before, so call it first.
     pub(crate) fn apply(&self, cmd: &mut Command) {
         cmd.env_clear();
-        cmd.envs(pairs(&self.vars));
+        cmd.envs(pairs(&self.0.vars));
     }
 }
 
 impl PartialEq for EnvSnapshot {
     fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.vars, &other.vars) || (self.hash == other.hash && self.vars == other.vars)
+        Arc::ptr_eq(&self.0, &other.0)
+            || (self.0.hash == other.0.hash && self.0.vars == other.0.vars)
     }
 }
 
@@ -174,7 +199,7 @@ impl Eq for EnvSnapshot {}
 impl fmt::Debug for EnvSnapshot {
     // The values may hold secrets, and a `Build` can end up in a log.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "EnvSnapshot(<{} variables>)", self.vars.len())
+        write!(f, "EnvSnapshot(<{} variables>)", self.0.vars.len())
     }
 }
 
@@ -239,7 +264,7 @@ mod tests {
     fn snapshot_lookup_shares_the_value() {
         let snapshot = snapshot(&[("CC_TEST_SHARED", "a")]);
         let value = snapshot.get(OsStr::new("CC_TEST_SHARED")).unwrap();
-        assert!(Arc::ptr_eq(value, &snapshot.vars[0].1));
+        assert!(Arc::ptr_eq(value, &snapshot.0.vars[0].1));
     }
 
     #[test]
@@ -303,9 +328,9 @@ mod tests {
         let a = snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "2")]);
         // Same variables, captured separately.
         let same = snapshot(&[("CC_TEST_A", "1"), ("CC_TEST_B", "2")]);
-        assert!(!Arc::ptr_eq(&a.vars, &same.vars));
+        assert!(!Arc::ptr_eq(&a.0, &same.0));
         assert_eq!(a, same);
-        assert_eq!(a.hash, same.hash);
+        assert_eq!(a.0.hash, same.0.hash);
         assert_eq!(a, a.clone());
 
         for other in [
