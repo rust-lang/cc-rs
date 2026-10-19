@@ -483,6 +483,74 @@ jobs:
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
 
+  # Run C code that cc instruments for the sanitizer from `CARGO_CFG_SANITIZE`,
+  # in each configuration where cc passes the sanitizer on.
+  sanitizers:
+    name: Test sanitizers
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # This target turns on AddressSanitizer and has a prebuilt standard
+          # library for it. Nightly, since stable rustc leaves the `sanitize`
+          # cfg out of `--print cfg`, so Cargo doesn't set `CARGO_CFG_SANITIZE`.
+          - os: ubuntu-latest
+            rust: nightly
+            target: x86_64-unknown-linux-gnuasan
+            CC: gcc
+          - os: ubuntu-latest
+            rust: nightly
+            target: x86_64-unknown-linux-gnuasan
+            CC: clang
+          # The standard library isn't instrumented here, which is fine for
+          # checking the C code.
+          - os: windows-latest
+            rust: nightly
+            target: x86_64-pc-windows-msvc
+            RUSTFLAGS: -Zsanitizer=address -Cunsafe-allow-abi-mismatch=sanitizer
+    env:
+      CC: ${{ matrix.CC }}
+      RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        with:
+          cache: false
+          target: ${{ matrix.target }}
+          toolchain: ${{ matrix.rust }}
+      # Puts the MSVC AddressSanitizer runtime DLL on `PATH`.
+      - name: setup dev environment
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        if: runner.os == 'Windows'
+      # Bash steps put Git's `link` ahead of MSVC's `link.exe` on `PATH`, and
+      # with the dev environment set up rustc would run it.
+      - name: remove Git's link
+        if: runner.os == 'Windows'
+        shell: bash
+        run: rm /usr/bin/link.exe
+      - run: cargo update
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Run without errors
+        shell: bash
+        run: cargo run -p sanitizer-test --target ${{ matrix.target }}
+      - name: Check that the sanitizer reports the error in the C code
+        shell: bash
+        run: |
+          if cargo run -p sanitizer-test --target ${{ matrix.target }} -- overflow 2> "$RUNNER_TEMP/stderr.txt"; then
+            cat "$RUNNER_TEMP/stderr.txt"
+            echo "the out of bounds read in the C code was not reported"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/stderr.txt"
+          grep -q "AddressSanitizer: heap-buffer-overflow" "$RUNNER_TEMP/stderr.txt"
+      # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
+      - name: check clean Git workting tree
+        uses: ./.github/actions/check-clean-git-working-tree
+
   msrv:
     name: MSRV
     runs-on: ubuntu-latest
@@ -596,6 +664,7 @@ jobs:
       - check-wasm
       - test-wasi
       - cuda
+      - sanitizers
       - msrv
       - clippy
       - check-format

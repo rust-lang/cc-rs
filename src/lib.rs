@@ -206,6 +206,20 @@
 //!   instead of `-MD` to MSVC and clang-cl, unless [`Build::static_crt`] is set,
 //!   and `-static` to GCC. This only applies when the build is for Cargo's
 //!   `TARGET`.
+//! * `CARGO_CFG_SANITIZE` - the sanitizers rustc instruments the Rust code
+//!   for, from `-Zsanitizer` or from a target such as
+//!   `x86_64-unknown-linux-gnuasan`. Cargo sets it only with a nightly rustc,
+//!   since stable rustc leaves this cfg out of `--print cfg`. If it contains
+//!   `address`, `cc` passes
+//!   `-fsanitize=address` too, so that the C code is instrumented as well. It
+//!   does so only for GCC and Clang on `x86_64` Linux with glibc and for
+//!   `cl.exe` on `x86_64` Windows, the configurations CI tests with rustc's
+//!   runtime, not for CUDA, and only when the build is for Cargo's `TARGET`.
+//!   Elsewhere, and for the other sanitizers, add the flags yourself with
+//!   [`Build::flag`] where they work. The flag is one of the default flags, so
+//!   [`Build::no_default_flags`] and `CRATE_CC_NO_DEFAULTS` leave it out, and
+//!   with GCC and Clang `-fno-sanitize=address` in `CFLAGS` or `CXXFLAGS`
+//!   turns it off again.
 //!
 //! [cargo]: https://doc.rust-lang.org/cargo/reference/build-scripts.html#inputs-to-the-build-script
 //!
@@ -3343,7 +3357,44 @@ impl Build {
             }
         }
 
+        self.add_sanitizer_flags(cmd, target);
+
         Ok(())
+    }
+
+    /// Instrument the C code for the sanitizers that rustc instruments the
+    /// Rust code for, which Cargo lists in `CARGO_CFG_SANITIZE`.
+    ///
+    /// Only `address` is passed on, and only to the compilers and targets that
+    /// CI builds and runs it with: GCC and Clang on `x86_64` Linux with glibc,
+    /// whose objects work with the runtime from rustc's LLVM, and `cl.exe` on
+    /// `x86_64` Windows, where rustc links the runtime that matches `cl.exe`
+    /// (`/INFERASANLIBS`). Elsewhere the flag may not fit: objects from Apple
+    /// Clang need Apple's runtime rather than rustc's, and on bare-metal
+    /// targets rustc reports `kernel-address` as `address` too. `hwaddress`
+    /// can't become `address`: rustc links only the `hwasan` runtime for it.
+    fn add_sanitizer_flags(&self, cmd: &mut Tool, target: &TargetInfo<'_>) {
+        // The target (arch, os, env, abi) CI tests each compiler with.
+        let tested = match cmd.family {
+            ToolFamily::Gnu | ToolFamily::Clang { .. } => ("x86_64", "linux", "gnu", ""),
+            ToolFamily::Msvc { clang_cl: false } => ("x86_64", "windows", "msvc", ""),
+            ToolFamily::Msvc { clang_cl: true } => return,
+        };
+        if (target.arch, target.os, target.env, target.abi) != tested
+            || cmd.cuda
+            || !self.is_cargo_target()
+        {
+            return;
+        }
+        let Some(sanitizers) = self
+            .get_cargo_env("CARGO_CFG_SANITIZE")
+            .and_then(OsStr::to_str)
+        else {
+            return;
+        };
+        if sanitizers.split(',').any(|name| name == "address") {
+            cmd.push_cc_str("-fsanitize=address");
+        }
     }
 
     fn add_inherited_rustflags(
