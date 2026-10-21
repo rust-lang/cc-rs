@@ -2339,6 +2339,16 @@ fn gnu_ar_deterministic_flag_fallback() {
     test.cmd(3).must_have("s").must_not_have("sD");
 }
 
+/// The lines of the `-filelist` file a libtool invocation was given.
+fn libtool_filelist(ar: &support::Execution) -> Vec<String> {
+    let i = ar.args.iter().position(|arg| arg == "-filelist").unwrap();
+    std::fs::read_to_string(&ar.args[i + 1])
+        .unwrap()
+        .lines()
+        .map(String::from)
+        .collect()
+}
+
 #[test]
 fn libtool_archiver() {
     let test = Test::gnu();
@@ -2349,13 +2359,20 @@ fn libtool_archiver() {
         .compile("foo");
 
     let dst = test.td.path().join("libfoo.a");
-    test.cmd(1)
-        .must_run("libtool")
+    let list = test.td.path().join("libfoo.a.filelist");
+    let ar = test.cmd(1);
+    ar.must_run("libtool")
         .must_have("-static")
         .must_have("-D")
         .must_have_in_order("-o", dst.to_str().unwrap())
+        .must_have_in_order("-filelist", list.to_str().unwrap())
         .must_not_have("cq")
         .must_not_have("cqD");
+    // The objects are in the list, not on the command line.
+    let compile = test.cmd(0);
+    let obj = &compile.args[compile.args.iter().position(|a| a == "-o").unwrap() + 1];
+    ar.must_not_have(obj);
+    assert_eq!(libtool_filelist(&ar), std::slice::from_ref(obj));
     // `libtool -static` writes the symbol table itself, so there is no
     // separate `s` step like there is for `ar`.
     assert!(!test.td.path().join("out2").exists());
@@ -2378,6 +2395,7 @@ fn libtool_archiver_name_variants() {
         test.cmd(1)
             .must_run(name)
             .must_have("-static")
+            .must_have("-filelist")
             .must_not_have("cqD");
         assert!(!test.td.path().join("out2").exists(), "{name}");
     }
@@ -2398,11 +2416,12 @@ fn libtool_archiver_keeps_arflags() {
 }
 
 #[test]
-fn libtool_archiver_batches() {
+fn libtool_archiver_takes_all_objects_in_one_call() {
     let test = Test::gnu();
     test.shim("libtool");
-    // The archiver takes about 4000 bytes of paths at a time, so these go in
-    // two batches: `foo.o` and the first, then the second.
+    // `ar` takes about 4000 bytes of paths at a time, so it would get these
+    // in two batches. libtool can't add to an existing library, so it gets
+    // them all at once, in order, through the list.
     let objects: Vec<_> = (0..2)
         .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
         .collect();
@@ -2411,46 +2430,23 @@ fn libtool_archiver_batches() {
         .file("foo.c")
         .object(&objects[0])
         .object(&objects[1])
+        .object("relative.o")
         .compile("foo");
 
-    let dst = test.td.path().join("libfoo.a");
-    let tmp = test.td.path().join("libfoo.a.tmp.a");
-    // libtool can't append, so the second batch merges the library from the
-    // first one, moved aside, with the new objects.
-    test.cmd(1)
-        .must_have_in_order("-o", dst.to_str().unwrap())
-        .must_have(&objects[0])
-        .must_not_have(&tmp)
-        .must_not_have(&objects[1]);
-    test.cmd(2)
-        .must_have_in_order("-o", dst.to_str().unwrap())
-        .must_have_in_order(tmp.to_str().unwrap(), objects[1].to_str().unwrap())
-        .must_not_have(&objects[0]);
-    assert!(!test.td.path().join("out3").exists());
-    assert!(dst.exists());
-    assert!(!tmp.exists());
-}
-
-#[test]
-fn libtool_archiver_failed_batch_removes_temporary_library() {
-    let test = Test::gnu();
-    test.shim("libtool");
-    let objects: Vec<_> = (0..2)
-        .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
-        .collect();
-    let tmp = test.td.path().join("libfoo.a.tmp.a");
-    let result = test
-        .gcc()
-        .archiver(test.td.path().join("libtool"))
-        .env("CC_SHIM_FAIL_IF_ARG", &tmp)
-        .file("foo.c")
-        .object(&objects[0])
-        .object(&objects[1])
-        .try_compile("foo");
-
-    assert!(result.is_err());
-    test.cmd(2).must_have(&tmp);
-    assert!(!tmp.exists());
+    let ar = test.cmd(1);
+    ar.must_not_have(&objects[0]).must_not_have(&objects[1]);
+    let list = libtool_filelist(&ar);
+    assert_eq!(list.len(), 4, "{list:?}");
+    assert!(list[0].ends_with("foo.o"), "{list:?}");
+    assert_eq!(
+        list[1..3],
+        [objects[0].to_str().unwrap(), objects[1].to_str().unwrap()]
+    );
+    // Relative paths stay relative to the directory libtool runs in, as they
+    // would on its command line.
+    assert_eq!(list[3], "relative.o");
+    assert_eq!(ar.cwd, env::current_dir().unwrap());
+    assert!(!test.td.path().join("out2").exists());
 }
 
 /// Stderr from a failed `ar D` probe

@@ -3693,17 +3693,27 @@ impl Build {
         let mut objs = objs
             .chain(self.objects.iter().map(core::ops::Deref::deref))
             .peekable();
-        let mut batch = Vec::new();
-        while objs.peek().is_some() {
-            let mut remaining_len = 4000;
-            while let Some(path) =
-                objs.next_if(|peek| batch.is_empty() || peek.as_os_str().len() <= remaining_len)
-            {
-                batch.push(path);
-                remaining_len = remaining_len.saturating_sub(path.as_os_str().len());
+
+        // libtool can't add to an existing library, so it gets every object
+        // in one call instead of in batches. See `assemble_libtool`.
+        let libtool = is_libtool(&self.try_get_archiver_and_flags()?.1);
+        let mut libtool_objs = Vec::new();
+        if libtool {
+            libtool_objs.extend(objs);
+            self.assemble_libtool(dst, &libtool_objs)?;
+        } else {
+            let mut batch = Vec::new();
+            while objs.peek().is_some() {
+                let mut remaining_len = 4000;
+                while let Some(path) =
+                    objs.next_if(|peek| batch.is_empty() || peek.as_os_str().len() <= remaining_len)
+                {
+                    batch.push(path);
+                    remaining_len = remaining_len.saturating_sub(path.as_os_str().len());
+                }
+                self.assemble_progressive(dst, &batch, &mut deterministic_ar)?;
+                batch.clear();
             }
-            self.assemble_progressive(dst, &batch, &mut deterministic_ar)?;
-            batch.clear();
         }
 
         if self.cuda && self.cuda_file_count() > 0 {
@@ -3715,7 +3725,13 @@ impl Build {
             let mut nvcc = self.get_compiler().to_command();
             nvcc.arg("--device-link").arg("-o").arg(&dlink).arg(dst);
             run(&mut nvcc, &self.cargo_output)?;
-            self.assemble_progressive(dst, &[dlink.as_path()], &mut deterministic_ar)?;
+            if libtool {
+                let mut objs: Vec<&Path> = libtool_objs.clone();
+                objs.push(&dlink);
+                self.assemble_libtool(dst, &objs)?;
+            } else {
+                self.assemble_progressive(dst, &[dlink.as_path()], &mut deterministic_ar)?;
+            }
         }
 
         let target = self.get_target()?;
@@ -3738,7 +3754,7 @@ impl Build {
                     ));
                 }
             };
-        } else if is_libtool(&self.try_get_archiver_and_flags()?.1) {
+        } else if libtool {
             // `libtool -static` always writes the symbol table itself, and it
             // doesn't understand `ar`'s `s` mode.
         } else {
@@ -3825,30 +3841,6 @@ impl Build {
                 cmd.args(objs);
             }
             run(&mut cmd, &self.cargo_output)?;
-        } else if is_libtool(&program) {
-            // -static: create a static library.
-            // -D: zero out timestamps, UIDs, and GIDs, like `ar`'s `D` modifier.
-            // -o: the path of the library to write.
-            //
-            // NOTE: These are added even if flags were passed using
-            // $ARFLAGS/ar_flag, because they dictate the _mode_ libtool runs
-            // in, like `cq` does for `ar` below.
-            cmd.arg("-static").arg("-D").arg("-o").arg(dst);
-            // libtool can't append to an existing library, but it does accept
-            // static libraries as inputs and pulls in all of their members.
-            // So move the library from the previous batches aside and pass it
-            // in along with this batch's objects.
-            if dst.exists() {
-                let mut tmp_name = dst.file_name().unwrap_or_default().to_os_string();
-                tmp_name.push(".tmp.a");
-                let tmp_archive = dst.with_file_name(tmp_name);
-                fs::rename(dst, &tmp_archive)?;
-                let result = run(cmd.arg(&tmp_archive).args(objs), &self.cargo_output);
-                let _ = fs::remove_file(&tmp_archive);
-                result?;
-            } else {
-                run(cmd.args(objs), &self.cargo_output)?;
-            }
         } else {
             // Set an environment variable to tell the OSX archiver to ensure
             // that all dates listed in the archive are zero, improving
@@ -3901,6 +3893,51 @@ impl Build {
         }
 
         Ok(())
+    }
+
+    /// Write the library `dst` with libtool, from all of `objs` at once.
+    ///
+    /// `ar` gets objects in batches to keep each command line short, adding
+    /// each batch to the library the previous ones wrote. libtool can't add to
+    /// an existing library, so instead it reads the objects from a file with
+    /// `-filelist`, one path per line, next to the library.
+    fn assemble_libtool(&self, dst: &Path, objs: &[&Path]) -> Result<(), Error> {
+        let mut list = Vec::new();
+        for obj in objs {
+            #[cfg(unix)]
+            list.extend_from_slice(std::os::unix::ffi::OsStrExt::as_bytes(obj.as_os_str()));
+            #[cfg(not(unix))]
+            list.extend_from_slice(
+                obj.to_str()
+                    .ok_or_else(|| {
+                        Error::new(
+                            ErrorKind::InvalidArgument,
+                            format!("libtool can't read the object path {}", obj.display()),
+                        )
+                    })?
+                    .as_bytes(),
+            );
+            list.push(b'\n');
+        }
+        let mut list_path = dst.as_os_str().to_owned();
+        list_path.push(".filelist");
+        let list_path = PathBuf::from(list_path);
+        fs::write(&list_path, list)?;
+
+        // NOTE: These are added even if flags were passed using
+        // $ARFLAGS/ar_flag, because they dictate the _mode_ libtool runs in,
+        // like `cq` does for `ar`.
+        // -static: create a static library.
+        // -D: zero out timestamps, UIDs, and GIDs, like `ar`'s `D` modifier.
+        // -o: the path of the library to write.
+        let mut cmd = self.try_get_archiver()?;
+        cmd.arg("-static")
+            .arg("-D")
+            .arg("-o")
+            .arg(dst)
+            .arg("-filelist")
+            .arg(&list_path);
+        run(&mut cmd, &self.cargo_output)
     }
 
     fn apple_flags(&self, cmd: &mut Tool) -> Result<(), Error> {
