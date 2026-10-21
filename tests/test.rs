@@ -2339,6 +2339,120 @@ fn gnu_ar_deterministic_flag_fallback() {
     test.cmd(3).must_have("s").must_not_have("sD");
 }
 
+#[test]
+fn libtool_archiver() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    test.gcc()
+        .archiver(test.td.path().join("libtool"))
+        .file("foo.c")
+        .compile("foo");
+
+    let dst = test.td.path().join("libfoo.a");
+    test.cmd(1)
+        .must_run("libtool")
+        .must_have("-static")
+        .must_have("-D")
+        .must_have_in_order("-o", dst.to_str().unwrap())
+        .must_not_have("cq")
+        .must_not_have("cqD");
+    // `libtool -static` writes the symbol table itself, so there is no
+    // separate `s` step like there is for `ar`.
+    assert!(!test.td.path().join("out2").exists());
+}
+
+#[test]
+fn libtool_archiver_name_variants() {
+    for name in [
+        "llvm-libtool-darwin",
+        "x86_64-apple-darwin-libtool",
+        "LIBTOOL",
+    ] {
+        let test = Test::gnu();
+        test.shim(name);
+        test.gcc()
+            .archiver(test.td.path().join(name))
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(1)
+            .must_run(name)
+            .must_have("-static")
+            .must_not_have("cqD");
+        assert!(!test.td.path().join("out2").exists(), "{name}");
+    }
+}
+
+#[test]
+fn libtool_archiver_keeps_arflags() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    test.gcc()
+        .archiver(test.td.path().join("libtool"))
+        .ar_flag("-no_warning_for_no_symbols")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(1)
+        .must_have_in_order("-no_warning_for_no_symbols", "-static");
+}
+
+#[test]
+fn libtool_archiver_batches() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    // The archiver takes about 4000 bytes of paths at a time, so these go in
+    // two batches: `foo.o` and the first, then the second.
+    let objects: Vec<_> = (0..2)
+        .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
+        .collect();
+    test.gcc()
+        .archiver(test.td.path().join("libtool"))
+        .file("foo.c")
+        .object(&objects[0])
+        .object(&objects[1])
+        .compile("foo");
+
+    let dst = test.td.path().join("libfoo.a");
+    let tmp = test.td.path().join("libfoo.a.tmp.a");
+    // libtool can't append, so the second batch merges the library from the
+    // first one, moved aside, with the new objects.
+    test.cmd(1)
+        .must_have_in_order("-o", dst.to_str().unwrap())
+        .must_have(&objects[0])
+        .must_not_have(&tmp)
+        .must_not_have(&objects[1]);
+    test.cmd(2)
+        .must_have_in_order("-o", dst.to_str().unwrap())
+        .must_have_in_order(tmp.to_str().unwrap(), objects[1].to_str().unwrap())
+        .must_not_have(&objects[0]);
+    assert!(!test.td.path().join("out3").exists());
+    assert!(dst.exists());
+    assert!(!tmp.exists());
+}
+
+#[test]
+fn libtool_archiver_failed_batch_removes_temporary_library() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    let objects: Vec<_> = (0..2)
+        .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
+        .collect();
+    let tmp = test.td.path().join("libfoo.a.tmp.a");
+    let result = test
+        .gcc()
+        .archiver(test.td.path().join("libtool"))
+        .env("CC_SHIM_FAIL_IF_ARG", &tmp)
+        .file("foo.c")
+        .object(&objects[0])
+        .object(&objects[1])
+        .try_compile("foo");
+
+    assert!(result.is_err());
+    test.cmd(2).must_have(&tmp);
+    assert!(!tmp.exists());
+}
+
 /// Stderr from a failed `ar D` probe
 /// should not be forwarded as `cargo:warning=`.
 ///

@@ -5841,9 +5841,9 @@ fn is_llvm_mingw_wrapper(clang_path: &Path) -> bool {
 /// Whether the archiver is Apple's `libtool` or `llvm-libtool-darwin`, which
 /// take `-static -o <lib> <inputs>` instead of `ar`'s `cq <lib> <inputs>`.
 fn is_libtool(archiver: &Path) -> bool {
-    archiver
-        .file_name()
-        .map_or(false, |name| name.to_string_lossy().contains_ignore_ascii_case("libtool"))
+    archiver.file_name().map_or(false, |name| {
+        name.to_string_lossy().contains_ignore_ascii_case("libtool")
+    })
 }
 
 // FIXME: Use parsed target.
