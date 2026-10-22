@@ -2339,6 +2339,120 @@ fn gnu_ar_deterministic_flag_fallback() {
     test.cmd(3).must_have("s").must_not_have("sD");
 }
 
+/// The lines of the `-filelist` file a libtool invocation was given.
+fn libtool_filelist(ar: &support::Execution) -> Vec<String> {
+    let i = ar.args.iter().position(|arg| arg == "-filelist").unwrap();
+    let arg = &ar.args[i + 1];
+    let path = arg
+        .strip_suffix(',')
+        .expect("-filelist has a trailing comma");
+    std::fs::read_to_string(path)
+        .unwrap()
+        .lines()
+        .map(String::from)
+        .collect()
+}
+
+#[test]
+fn libtool_archiver() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    test.gcc()
+        .archiver(test.td.path().join("libtool"))
+        .file("foo.c")
+        .compile("foo");
+
+    let dst = test.td.path().join("libfoo.a");
+    let list = test.td.path().join("libfoo.a.filelist");
+    let ar = test.cmd(1);
+    ar.must_run("libtool")
+        .must_have("-static")
+        .must_have("-D")
+        .must_have_in_order("-o", dst.to_str().unwrap())
+        .must_have_in_order("-filelist", &format!("{},", list.to_str().unwrap()))
+        .must_not_have("cq")
+        .must_not_have("cqD");
+    // The objects are in the list, not on the command line.
+    let compile = test.cmd(0);
+    let obj = &compile.args[compile.args.iter().position(|a| a == "-o").unwrap() + 1];
+    ar.must_not_have(obj);
+    assert_eq!(libtool_filelist(&ar), std::slice::from_ref(obj));
+    // `libtool -static` writes the symbol table itself, so there is no
+    // separate `s` step like there is for `ar`.
+    assert!(!test.td.path().join("out2").exists());
+}
+
+#[test]
+fn libtool_archiver_name_variants() {
+    for name in [
+        "llvm-libtool-darwin",
+        "x86_64-apple-darwin-libtool",
+        "LIBTOOL",
+    ] {
+        let test = Test::gnu();
+        test.shim(name);
+        test.gcc()
+            .archiver(test.td.path().join(name))
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(1)
+            .must_run(name)
+            .must_have("-static")
+            .must_have("-filelist")
+            .must_not_have("cqD");
+        assert!(!test.td.path().join("out2").exists(), "{name}");
+    }
+}
+
+#[test]
+fn libtool_archiver_keeps_arflags() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    test.gcc()
+        .archiver(test.td.path().join("libtool"))
+        .ar_flag("-no_warning_for_no_symbols")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(1)
+        .must_have_in_order("-no_warning_for_no_symbols", "-static");
+}
+
+#[test]
+fn libtool_archiver_takes_all_objects_in_one_call() {
+    let test = Test::gnu();
+    test.shim("libtool");
+    // `ar` takes about 4000 bytes of paths at a time, so it would get these
+    // in two batches. libtool can't add to an existing library, so it gets
+    // them all at once, in order, through the list.
+    let objects: Vec<_> = (0..2)
+        .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
+        .collect();
+    test.gcc()
+        .archiver(test.td.path().join("libtool"))
+        .file("foo.c")
+        .object(&objects[0])
+        .object(&objects[1])
+        .object("relative.o")
+        .compile("foo");
+
+    let ar = test.cmd(1);
+    ar.must_not_have(&objects[0]).must_not_have(&objects[1]);
+    let list = libtool_filelist(&ar);
+    assert_eq!(list.len(), 4, "{list:?}");
+    assert!(list[0].ends_with("foo.o"), "{list:?}");
+    assert_eq!(
+        list[1..3],
+        [objects[0].to_str().unwrap(), objects[1].to_str().unwrap()]
+    );
+    // Relative paths stay relative to the directory libtool runs in, as they
+    // would on its command line.
+    assert_eq!(list[3], "relative.o");
+    assert_eq!(ar.cwd, env::current_dir().unwrap());
+    assert!(!test.td.path().join("out2").exists());
+}
+
 /// Stderr from a failed `ar D` probe
 /// should not be forwarded as `cargo:warning=`.
 ///
