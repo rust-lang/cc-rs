@@ -290,6 +290,17 @@ impl<'a> TargetInfo<'a> {
             });
         }
 
+        if target == "wasm32-none-component" {
+            return Ok(Self {
+                full_arch: "wasm32",
+                arch: "wasm32",
+                vendor: "none",
+                os: "component",
+                env: "",
+                abi: "",
+            });
+        }
+
         let mut components = target.split('-');
 
         // Insist that the target name contains at least a valid architecture.
