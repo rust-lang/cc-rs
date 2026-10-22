@@ -35,7 +35,7 @@ fn try_wait_on_child(
         Ok(Some(status)) => {
             stderr_forwarder.forward_all(cmd);
 
-            println!("{status}");
+            cargo_output.print_debug(&status);
 
             if status.success() {
                 Ok(Some(()))
