@@ -247,6 +247,8 @@ const ENVABIS: &[(&str, (&str, &str))] = &[
     // Undesirable to expose to user code (yet):
     // https://github.com/rust-lang/rust/pull/131166#issuecomment-2389541917
     ("freestanding", ("", "")),
+    // wasm32-none-component
+    ("component", ("", "")),
 ];
 
 /// Parse environment and ABI from the last component of the target name.
@@ -285,17 +287,6 @@ impl<'a> TargetInfo<'a> {
                 arch: "x86_64",
                 vendor: "unknown",
                 os: "linux",
-                env: "",
-                abi: "",
-            });
-        }
-
-        if target == "wasm32-none-component" {
-            return Ok(Self {
-                full_arch: "wasm32",
-                arch: "wasm32",
-                vendor: "none",
-                os: "component",
                 env: "",
                 abi: "",
             });
