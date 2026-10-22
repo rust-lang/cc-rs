@@ -3930,13 +3930,15 @@ impl Build {
         // -static: create a static library.
         // -D: zero out timestamps, UIDs, and GIDs, like `ar`'s `D` modifier.
         // -o: the path of the library to write.
+        let mut filelist_arg = list_path.as_os_str().to_owned();
+        filelist_arg.push(",");
         let mut cmd = self.try_get_archiver()?;
         cmd.arg("-static")
             .arg("-D")
             .arg("-o")
             .arg(dst)
             .arg("-filelist")
-            .arg(&list_path);
+            .arg(filelist_arg);
         run(&mut cmd, &self.cargo_output)
     }
 

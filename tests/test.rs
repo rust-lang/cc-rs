@@ -2342,7 +2342,11 @@ fn gnu_ar_deterministic_flag_fallback() {
 /// The lines of the `-filelist` file a libtool invocation was given.
 fn libtool_filelist(ar: &support::Execution) -> Vec<String> {
     let i = ar.args.iter().position(|arg| arg == "-filelist").unwrap();
-    std::fs::read_to_string(&ar.args[i + 1])
+    let arg = &ar.args[i + 1];
+    let path = arg
+        .strip_suffix(',')
+        .expect("-filelist has a trailing comma");
+    std::fs::read_to_string(path)
         .unwrap()
         .lines()
         .map(String::from)
@@ -2365,7 +2369,7 @@ fn libtool_archiver() {
         .must_have("-static")
         .must_have("-D")
         .must_have_in_order("-o", dst.to_str().unwrap())
-        .must_have_in_order("-filelist", list.to_str().unwrap())
+        .must_have_in_order("-filelist", &format!("{},", list.to_str().unwrap()))
         .must_not_have("cq")
         .must_not_have("cqD");
     // The objects are in the list, not on the command line.
