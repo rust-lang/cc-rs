@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.9.0...cc-v1.10.0) - 2026-10-23
+
+### Added
+
+- Initial libtool support ([#1618](https://github.com/rust-lang/cc-rs/pull/1618))
+
+### Fixed
+
+- *(parallel)* print the child's exit status as debug output ([#2055](https://github.com/rust-lang/cc-rs/pull/2055))
+- *(target-parsing)* wasm32-none-component ([#2054](https://github.com/rust-lang/cc-rs/pull/2054))
+
+### Other
+
+- Regenerate target info ([#2053](https://github.com/rust-lang/cc-rs/pull/2053))
+
 ## [1.9.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.8.0...cc-v1.9.0) - 2026-10-19
 
 ### Added
