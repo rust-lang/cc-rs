@@ -316,6 +316,64 @@ fn gnu_x86_64_no_plt() {
 }
 
 #[test]
+fn gnu_x86_64_linux_pins_baseline_cpu() {
+    for target in &["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"] {
+        let test = Test::gnu();
+        test.gcc()
+            .target(target)
+            .host(target)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0).must_have("-march=x86-64");
+    }
+}
+
+#[test]
+fn gnu_x86_64_keeps_compiler_default_outside_linux() {
+    for target in &[
+        "x86_64-apple-darwin",
+        "x86_64-pc-windows-gnu",
+        "x86_64-unknown-freebsd",
+    ] {
+        let test = Test::gnu();
+        test.gcc()
+            .target(target)
+            .host(target)
+            .file("foo.c")
+            .compile("foo");
+
+        test.cmd(0).must_not_have("-march=x86-64");
+    }
+}
+
+#[test]
+fn gnu_x86_64_linux_pins_baseline_cpu_through_nvcc() {
+    // nvcc takes only its own options, so the host compiler's go through `-Xcompiler`.
+    let target = "x86_64-unknown-linux-gnu";
+    let mut test = Test::gnu();
+    test.shim("nvcc");
+    test.env.set("NVCC", test.td.path().join("nvcc"));
+    let compiler = test
+        .gcc()
+        .target(target)
+        .host(target)
+        .cuda(true)
+        .try_get_compiler()
+        .unwrap();
+    let args: Vec<_> = compiler
+        .args()
+        .iter()
+        .map(|arg| arg.to_str().unwrap())
+        .collect();
+    assert!(
+        args.windows(2)
+            .any(|pair| pair == ["-Xcompiler", "-march=x86-64"]),
+        "{args:?}"
+    );
+}
+
+#[test]
 fn gnu_aarch64_none_no_pic() {
     for target in &["aarch64-unknown-none-softfloat", "aarch64-unknown-none"] {
         let test = Test::gnu();

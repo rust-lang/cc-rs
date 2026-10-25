@@ -20,6 +20,7 @@ pub(crate) struct RustcCodegenFlags {
     stack_protector: Option<Box<str>>,
     linker_plugin_lto: Option<bool>,
     target_features: Vec<Box<str>>,
+    target_cpu: Option<Box<str>>,
 }
 
 // https://doc.rust-lang.org/reference/attributes/codegen.html#x86-or-x86_64
@@ -241,6 +242,10 @@ impl RustcCodegenFlags {
                     );
                 }
             }
+            // https://doc.rust-lang.org/rustc/codegen-options/index.html#target-cpu
+            // Not passed on, since rustc and C compilers name CPUs differently (#268). It only
+            // tells cc-rs whether rustc is still on the target's default CPU.
+            "-Ctarget-cpu" => self.target_cpu = flag_not_empty(value)?.map(Into::into),
             _ => {}
         }
         Ok(())
@@ -290,6 +295,11 @@ impl RustcCodegenFlags {
     /// Whether the last `-Clinker-plugin-lto` enables linker-plugin LTO.
     pub(crate) fn linker_plugin_lto(&self) -> bool {
         self.linker_plugin_lto.unwrap_or(false)
+    }
+
+    /// The CPU named by the last `-Ctarget-cpu`, if any.
+    pub(crate) fn target_cpu(&self) -> Option<&str> {
+        self.target_cpu.as_deref()
     }
 
     // Rust and clang/cc don't agree on what equivalent flags should look like.
@@ -604,6 +614,7 @@ mod tests {
             "-Cdwarf-version=5",
             "-Zstack-protector=strong",
             "-Ctarget-feature=+sve",
+            "-Ctarget-cpu=native",
             // Set flags we don't recognise but rustc supports next
             // rustc flags
             "--cfg",
@@ -692,7 +703,6 @@ mod tests {
             "-Csplit-debuginfo=packed",
             "-Cstrip=symbols",
             "-Csymbol-mangling-version=v0",
-            "-Ctarget-cpu=native",
             // Unstable options
             "-Ztune-cpu=machine",
         ];
@@ -714,6 +724,7 @@ mod tests {
                 stack_protector: Some("strong".into()),
                 linker_plugin_lto: Some(true),
                 target_features: vec!["+sve".into()],
+                target_cpu: Some("native".into()),
             },
         );
     }
@@ -736,6 +747,20 @@ mod tests {
                 ..RustcCodegenFlags::default()
             },
         );
+    }
+
+    #[test]
+    fn target_cpu() {
+        let expected = RustcCodegenFlags {
+            target_cpu: Some("x86-64-v3".into()),
+            ..RustcCodegenFlags::default()
+        };
+        check("-Ctarget-cpu=x86-64-v3", &expected);
+        check("-C\u{1f}target-cpu=x86-64-v3", &expected);
+        check("--codegen\u{1f}target-cpu=x86-64-v3", &expected);
+        check("--codegen=target-cpu=x86-64-v3", &expected);
+        // The last one wins, as in rustc.
+        check("-Ctarget-cpu=native\u{1f}-Ctarget-cpu=x86-64-v3", &expected);
     }
 
     #[test]

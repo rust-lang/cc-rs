@@ -68,3 +68,45 @@ fn msvc_link_flag_in_cflags_is_ignored() {
         .must_not_have("/NODEFAULTLIB")
         .must_have("foo.c");
 }
+
+/// `x86_64` Linux gets `-march=x86-64` as a default flag, so builder and environment
+/// flags can still raise the baseline.
+#[test]
+fn x86_64_linux_baseline_cpu_can_be_raised() {
+    let mut test = Test::gnu();
+    test.env.set("CFLAGS", "-march=x86-64-v3");
+
+    test.gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .flag("-march=x86-64-v2")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_have_in_order("-march=x86-64", "-march=x86-64-v2")
+        .must_have_in_order("-march=x86-64-v2", "-march=x86-64-v3");
+}
+
+#[test]
+fn no_default_flags_drop_x86_64_linux_baseline_cpu() {
+    let target = "x86_64-unknown-linux-gnu";
+    let test = Test::gnu();
+    test.gcc()
+        .target(target)
+        .host(target)
+        .no_default_flags(true)
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_not_have("-march=x86-64");
+    drop(test);
+
+    let mut test = Test::gnu();
+    test.env.set("CRATE_CC_NO_DEFAULTS", "1");
+    test.gcc()
+        .target(target)
+        .host(target)
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_not_have("-march=x86-64");
+}
