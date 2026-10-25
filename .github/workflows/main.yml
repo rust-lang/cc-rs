@@ -387,8 +387,13 @@ jobs:
           toolchain: nightly
       - run: cargo update
       - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      # Not in `tests-pass` (#1836): nightly std for this tier 3 target breaks
+      # whenever std adds a platform API before motor has it (currently
+      # rust-lang/rust#164522), so these steps may fail without failing the job.
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }}
+        continue-on-error: true
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }} --release
+        continue-on-error: true
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
