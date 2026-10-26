@@ -767,6 +767,13 @@ fn msvc_std_c() {
     test.cmd(0).must_have("-std:c11");
 }
 
+/// `src` joined to cl.exe's `-Tp`, the way cc passes a `.cc` source.
+fn joined_tp(src: &std::path::Path) -> std::ffi::OsString {
+    let mut arg = std::ffi::OsString::from("-Tp");
+    arg.push(src);
+    arg
+}
+
 #[test]
 fn msvc_cpp_cc_source_not_treated_as_object() {
     // Regression test for issue #1877
@@ -777,7 +784,7 @@ fn msvc_cpp_cc_source_not_treated_as_object() {
     // `-Fo` output (e.g. `*-mimalloc-static.o`) is never generated.
     // libmimalloc-sys 0.1.49 writes `OUT_DIR/mimalloc-static.cc` when
     // `cpp(true)` on MSVC. Use per-file `-Tp` only for `.cc` rather than `/TP`,
-    // which would compile every following input as C++.
+    // which would compile every input as C++.
 
     let test = Test::msvc();
     let src = test.td.path().join("mimalloc-static.cc");
@@ -798,23 +805,17 @@ fn msvc_cpp_cc_source_not_treated_as_object() {
         intermediates[0]
     );
 
+    // The path is joined to `-Tp`, so wrappers that parse cl's arguments
+    // can't read `-Tp` as a flag of its own and the path as another input.
     test.cmd(0)
-        .must_have("-Tp")
+        .must_have(joined_tp(&src))
+        .must_not_have("-Tp")
+        .must_not_have(&src)
         .must_not_have("-TP")
         .must_have("-std:c++17")
-        .must_have("-c")
-        .must_have(&src);
+        .must_have("-c");
 
     let compile_args = &test.cmd(0).args;
-    let src_pos = compile_args
-        .iter()
-        .position(|arg| std::path::Path::new(arg) == src.as_path())
-        .expect("`.cc` source should be passed to the compiler");
-    assert_eq!(
-        compile_args[src_pos - 1],
-        "-Tp",
-        "`.cc` must be the immediate argument to `-Tp`, not a positional object: {compile_args:?}"
-    );
     assert!(
         compile_args
             .iter()
@@ -830,18 +831,44 @@ fn msvc_cpp_cc_source_not_treated_as_object() {
 }
 
 #[test]
+fn msvc_cpp_expand_cc_source_joins_tp() {
+    // `expand` passes the source to cl the same way as a compile.
+    let test = Test::msvc();
+    let src = test.td.path().join("mimalloc-static.cc");
+    // The shim records the command, then declines to preprocess.
+    assert!(test
+        .gcc()
+        .cpp(true)
+        .file(&src)
+        .cargo_warnings(false)
+        .try_expand()
+        .is_err());
+
+    test.cmd_for_source(joined_tp(&src))
+        .must_have("-E")
+        .must_not_have("-Tp")
+        .must_not_have(&src);
+}
+
+#[test]
 fn msvc_cpp_does_not_pass_tp_for_c_or_cpp() {
     // `-Tp` is only required for `.cc`. Passing it (or `/TP`) for `.c` would
     // compile C as C++.
     let test = Test::msvc();
     let c_src = test.td.path().join("foo.c");
     let cpp_src = test.td.path().join("bar.cpp");
+    let cc_src = test.td.path().join("baz.cc");
     test.gcc()
         .cpp(true)
         .file(&c_src)
         .file(&cpp_src)
+        .file(&cc_src)
         .compile("foo");
 
+    // With `parallel`, this also covers the parallel path.
+    test.cmd_for_source(joined_tp(&cc_src))
+        .must_not_have("-Tp")
+        .must_not_have(&cc_src);
     test.cmd_for_source(&c_src)
         .must_not_have("-Tp")
         .must_not_have("/Tp")
