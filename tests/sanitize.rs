@@ -6,6 +6,8 @@ mod support;
 use crate::support::Test;
 
 const FLAG: &str = "-fsanitize=address";
+/// Passed to GCC with [`FLAG`].
+const NO_ICF: &str = "-fno-ipa-icf-variables";
 
 /// A `Test` with `TARGET` and `CARGO_CFG_SANITIZE` set as Cargo sets them for a
 /// build script.
@@ -23,7 +25,8 @@ fn build(test: &Test, target: &str) -> cc::Build {
 }
 
 fn has_any_sanitizer_flag(args: &[String]) -> bool {
-    args.iter().any(|arg| arg.starts_with("-fsanitize"))
+    args.iter()
+        .any(|arg| arg.starts_with("-fsanitize") || arg == NO_ICF)
 }
 
 #[test]
@@ -34,13 +37,34 @@ fn address_gnu() {
     test.cmd(0).must_run("cc").must_have(FLAG);
 }
 
+/// GCC merges identical read-only variables from `-O2` on, and rustc's runtime
+/// reports the merged object as an ODR violation. Like the sanitizer flag, the
+/// flag comes before `CFLAGS`, which can turn merging on again.
+#[test]
+fn address_gnu_no_icf_variables() {
+    let target = "x86_64-unknown-linux-gnu";
+    let mut test = sanitized(Test::gnu(), target, "address");
+    test.env.set("CFLAGS", "-fipa-icf-variables");
+    build(&test, target).compile("foo");
+    let cmd = test.cmd(0);
+    cmd.must_run("cc")
+        .must_have_in_order(NO_ICF, "-fipa-icf-variables");
+    let count = cmd.args.iter().filter(|arg| *arg == NO_ICF).count();
+    assert_eq!(count, 1, "{:?}", cmd.args);
+}
+
+/// Clang marks variables local to the object so that the runtime skips that
+/// check for them.
 #[test]
 fn address_clang() {
     let target = "x86_64-unknown-linux-gnu";
     let mut test = sanitized(Test::clang(), target, "address");
     test.env.set("CC", "clang");
     build(&test, target).compile("foo");
-    test.cmd(0).must_run("clang").must_have(FLAG);
+    test.cmd(0)
+        .must_run("clang")
+        .must_have(FLAG)
+        .must_not_have(NO_ICF);
 }
 
 #[test]
@@ -48,7 +72,23 @@ fn address_msvc() {
     let target = "x86_64-pc-windows-msvc";
     let test = sanitized(Test::msvc(), target, "address");
     build(&test, target).compile("foo");
-    test.cmd(0).must_run("cl").must_have(FLAG);
+    test.cmd(0)
+        .must_run("cl")
+        .must_have(FLAG)
+        .must_not_have(NO_ICF);
+}
+
+/// Without a sanitizer GCC keeps merging variables.
+#[test]
+fn no_sanitizer_gets_no_flag() {
+    let target = "x86_64-unknown-linux-gnu";
+    let mut test = Test::gnu();
+    test.env.set("TARGET", target);
+    test.env.remove("CARGO_CFG_SANITIZE");
+    build(&test, target).compile("foo");
+    let cmd = test.cmd(0);
+    cmd.must_run("cc");
+    assert!(!has_any_sanitizer_flag(&cmd.args), "{:?}", cmd.args);
 }
 
 /// The `x86_64-unknown-linux-gnuasan` target turns on `address` by default.
@@ -60,7 +100,7 @@ fn address_gnuasan_target() {
         .host("x86_64-unknown-linux-gnu")
         .compiler(test.td.path().join("cc"))
         .compile("foo");
-    test.cmd(0).must_run("cc").must_have(FLAG);
+    test.cmd(0).must_run("cc").must_have(FLAG).must_have(NO_ICF);
 }
 
 /// Cargo joins the sanitizers with commas. The flag is passed once, and only
@@ -71,8 +111,10 @@ fn sanitizer_list() {
     let test = sanitized(Test::gnu(), target, "leak,address");
     build(&test, target).compile("foo");
     let cmd = test.cmd(0);
-    let count = cmd.args.iter().filter(|arg| *arg == FLAG).count();
-    assert_eq!(count, 1, "{:?}", cmd.args);
+    for flag in [FLAG, NO_ICF] {
+        let count = cmd.args.iter().filter(|arg| *arg == flag).count();
+        assert_eq!(count, 1, "{:?}", cmd.args);
+    }
     cmd.must_not_have("-fsanitize=leak");
 }
 
@@ -207,6 +249,7 @@ fn cuda_gets_no_flag() {
             .collect();
         assert_eq!(compiler.path().file_stem().unwrap() == "nvcc", cuda);
         assert_eq!(args.iter().any(|arg| arg == FLAG), !cuda, "{args:?}");
+        assert_eq!(args.iter().any(|arg| arg == NO_ICF), !cuda, "{args:?}");
     }
 }
 
