@@ -1089,10 +1089,10 @@ impl Build {
     ///    `None` for MSVC and `stdc++` for anything else, or `c++` there if the
     ///    compiler is a Clang that uses libc++, see [C++ support](crate#c-support).
     ///
-    /// On MSVC this also passes `-Tp` immediately before each `.cc` source file
-    /// to ensure that they are compiled as C++ rather than assumed to be
-    /// object files. The per-file form is used instead of `/TP`, which would
-    /// compile every following input as C++. clang-cl recognizes `.cc` itself
+    /// On MSVC this also passes each `.cc` source file as `-Tp<file>`, one
+    /// argument, to ensure that they are compiled as C++ rather than assumed
+    /// to be object files. The per-file form is used instead of `/TP`, which
+    /// would compile every input as C++. clang-cl recognizes `.cc` itself
     /// and is not passed `-Tp`.
     pub fn cpp(&mut self, cpp: bool) -> &mut Build {
         self.cpp = cpp;
@@ -2571,8 +2571,12 @@ impl Build {
     /// Append a source path to `cmd`, using MSVC's per-file `-Tp` for `.cc`
     /// sources so they are not treated as objects.
     ///
-    /// `-Tp` applies only to the immediately following file, unlike `/TP` which
-    /// would compile every subsequent input as C++ (including C sources).
+    /// `-Tp<path>` applies only to the file it names, unlike `/TP` which would
+    /// compile every input as C++ (including C sources). The path is joined to
+    /// `-Tp` in one argument, spelled with `-`: cl.exe also takes `-Tp <path>`
+    /// and `/Tp<path>`, but compiler wrappers such as sccache before 0.19 read
+    /// the first as an unknown flag followed by the input and the second as an
+    /// input path, and break the command.
     /// clang-cl recognizes `.cc` and is not passed `-Tp` (it uses `--` instead).
     fn add_compile_source_arg(
         &self,
@@ -2589,7 +2593,10 @@ impl Build {
             // file (mimalloc 0.1.52 writes `OUT_DIR/mimalloc-static.cc`) is
             // assumed to be an object unless `-Tp` forces C++ compilation
             // (#1877).
-            cmd.arg("-Tp");
+            let mut arg = OsString::from("-Tp");
+            arg.push(src);
+            cmd.arg(arg);
+            return;
         }
 
         if compiler.supports_path_delimiter() && !is_assembler_msvc {
