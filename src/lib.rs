@@ -478,7 +478,9 @@ use build_env::{BuildEnv, EnvSnapshot, EnvVars};
 
 mod tool;
 pub use tool::Tool;
-use tool::{CompilerFamilyLookupCache, CppStdlibLookupCache, DirectCompiler, ToolFamily};
+use tool::{
+    CompilerCommandKey, CompilerFamilyLookupCache, CppStdlibLookupCache, DirectCompiler, ToolFamily,
+};
 
 mod tempfile;
 
@@ -515,7 +517,7 @@ struct BuildCache {
     apple_sdk_root_cache: RwLock<VecMap<&'static str, Arc<OsStr>>>,
     apple_versions_cache: RwLock<VecMap<&'static str, Arc<str>>>,
     /// See [`Build::macos_trampoline`].
-    macos_trampolines: RwLock<VecMap<Box<OsStr>, Option<Arc<DirectCompiler>>>>,
+    macos_trampolines: RwLock<VecMap<CompilerCommandKey, Option<Arc<DirectCompiler>>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
@@ -5438,12 +5440,19 @@ impl Build {
             return None;
         }
         let name = compiler.file_name()?;
+        // xcrun's answer depends on the environment, so builds that share
+        // this cache only share an entry when their environments match.
+        let key = CompilerCommandKey::new(
+            &mut std::iter::once(name),
+            self.env.inherited().clone(),
+            self.env.explicit.clone().into_boxed_slice(),
+        );
         if let Some(direct) = self
             .build_cache
             .macos_trampolines
             .read()
             .expect("macos_trampolines lock failed")
-            .get(name)
+            .get(&key)
         {
             return direct.clone();
         }
@@ -5452,7 +5461,7 @@ impl Build {
             .macos_trampolines
             .write()
             .expect("macos_trampolines lock failed")
-            .insert(name.into(), direct.clone());
+            .insert(key, direct.clone());
         direct
     }
 

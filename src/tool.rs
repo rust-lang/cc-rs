@@ -23,8 +23,9 @@ pub(crate) type CompilerFamilyLookupCache = VecMap<CompilerCommandKey, ToolFamil
 /// Whether a compiler command uses libc++, see [`Tool::uses_libcxx`].
 pub(crate) type CppStdlibLookupCache = VecMap<CompilerCommandKey, bool>;
 
-/// Key of the [`CompilerFamilyLookupCache`] and the [`CppStdlibLookupCache`]:
-/// a compiler command and the environment it runs in.
+/// Key of the [`CompilerFamilyLookupCache`], the [`CppStdlibLookupCache`] and
+/// the macOS trampoline cache: a compiler command and the environment it runs
+/// in.
 #[derive(Debug, PartialEq)]
 pub(crate) struct CompilerCommandKey {
     /// The hashable content of the compiler's path followed by its arguments.
@@ -38,7 +39,7 @@ pub(crate) struct CompilerCommandKey {
 }
 
 impl CompilerCommandKey {
-    fn new(
+    pub(crate) fn new(
         command: &mut dyn Iterator<Item = &OsStr>,
         inherited: EnvSnapshot,
         explicit: Box<EnvVars>,

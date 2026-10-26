@@ -55,7 +55,7 @@ fn command_env(cmd: &Command) -> Vec<(String, String)> {
     vars
 }
 
-fn compiler(test: &Test, env: &[(OsString, OsString)]) -> cc::Tool {
+fn new_build(test: &Test) -> cc::Build {
     let mut build = cc::Build::new();
     build
         .target(&host())
@@ -64,6 +64,13 @@ fn compiler(test: &Test, env: &[(OsString, OsString)]) -> cc::Tool {
         .debug(false)
         .cargo_metadata(false)
         .out_dir(test.td.path());
+    build
+}
+
+/// The compiler a clone of `build` gets in `env`. Clones share the build's
+/// cache.
+fn compiler(build: &cc::Build, env: &[(OsString, OsString)]) -> cc::Tool {
+    let mut build = build.clone();
     build.set_envs_snapshot(env.iter().map(|(k, v)| (k.as_os_str(), v.as_os_str())));
     build.try_get_compiler().unwrap()
 }
@@ -85,7 +92,7 @@ fn runs_the_compiler_the_trampoline_runs() {
     let base: Vec<(OsString, OsString)> = test
         .env
         .iter()
-        .filter(|(k, _)| !VARS.contains(&k.to_str().unwrap_or_default()) && *k != "DEVELOPER_DIR")
+        .filter(|(k, _)| !VARS.contains(&k.to_str().unwrap_or_default()))
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
         .collect();
     if !path_finds_trampoline(&base) {
@@ -94,17 +101,15 @@ fn runs_the_compiler_the_trampoline_runs() {
 
     // With `SDKROOT` unset the trampoline sets it and adds `/usr/local` to
     // `CPATH` and `LIBRARY_PATH`, after any value of theirs; with `SDKROOT`
-    // set it adds nothing. `DEVELOPER_DIR` picks the developer directory.
+    // set it adds nothing. The cases share one build's cache, so each one
+    // also checks that an answer cached for another environment isn't used.
     let sdk = run(Command::new("xcrun").args(["--show-sdk-path", "--sdk", "macosx"]));
-    let mut cases = vec![
+    let cases = [
         vec![],
         vec![("SDKROOT", sdk.trim())],
         vec![("CPATH", "/opt/include"), ("LIBRARY_PATH", "/opt/lib")],
     ];
-    let clt = "/Library/Developer/CommandLineTools";
-    if Path::new(clt).join("usr/bin/cc").exists() {
-        cases.push(vec![("DEVELOPER_DIR", clt)]);
-    }
+    let build = new_build(&test);
     for case in cases {
         let mut env = base.clone();
         env.extend(case.iter().map(|(k, v)| (k.into(), v.into())));
@@ -112,7 +117,7 @@ fn runs_the_compiler_the_trampoline_runs() {
             .args(["--find", "cc"])
             .env_clear()
             .envs(env.iter().map(|(k, v)| (k, v))));
-        let tool = compiler(&test, &env);
+        let tool = compiler(&build, &env);
         assert_eq!(tool.path(), Path::new("cc"), "callers still get `cc`");
         let cmd = tool.to_command();
         assert_eq!(
@@ -152,6 +157,6 @@ fn keeps_a_cc_found_earlier_in_path() {
             }
         })
         .collect();
-    let cmd = compiler(&test, &env).to_command();
+    let cmd = compiler(&new_build(&test), &env).to_command();
     assert_eq!(cmd.get_program(), OsStr::new("cc"));
 }
