@@ -3247,6 +3247,11 @@ impl Build {
                         "i586" => cmd.push_arg_str("-march=pentium"),
                         // Set codegen level for i686 correctly
                         "i686" => cmd.push_arg_str("-march=i686"),
+                        // Match rustc's CPU. A distribution can build GCC with a
+                        // higher default, e.g. `x86-64-v2` on RHEL 9.
+                        "x86_64" if matches!(self.rustc_target_cpu(), None | Some("x86-64")) => {
+                            cmd.push_cc_str("-march=x86-64")
+                        }
                         _ => {}
                     }
                 }
@@ -3408,6 +3413,19 @@ impl Build {
         };
         codegen_flags.cc_flags(self, cmd, target, flag_support_key);
         Ok(())
+    }
+
+    /// The CPU named by `-Ctarget-cpu`, if cc-rs [inherits rustflags](Build::inherit_rustflags)
+    /// and rustc is given one.
+    fn rustc_target_cpu(&self) -> Option<&str> {
+        if !self.inherit_rustflags {
+            return None;
+        }
+        // Flags that don't parse are left for `add_inherited_rustflags` to report.
+        match self.env.inherited().rustc_codegen_flags() {
+            Ok(Some(flags)) => flags.target_cpu(),
+            _ => None,
+        }
     }
 
     /// Translate cargo's `-Ztrim-paths` remap rules into compiler flags.

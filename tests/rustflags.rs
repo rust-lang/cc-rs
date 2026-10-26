@@ -56,6 +56,53 @@ fn inherits_target_features() {
 }
 
 #[test]
+fn target_cpu_keeps_compiler_default() {
+    // The CPU is not passed on, but it tells cc-rs that rustc is not on the target's
+    // default, so the `-march=x86-64` pin for x86_64 Linux no longer applies.
+    let mut test = Test::gnu();
+    test.env
+        .set("CARGO_ENCODED_RUSTFLAGS", "-Ctarget-cpu=x86-64-v3");
+    test.gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0)
+        .must_not_have("-march=x86-64")
+        .must_not_have("-march=x86-64-v3");
+}
+
+#[test]
+fn default_target_cpu_still_pins_march() {
+    // `-Ctarget-cpu=x86-64` is the target's default CPU, so the pin still applies.
+    let mut test = Test::gnu();
+    test.env
+        .set("CARGO_ENCODED_RUSTFLAGS", "-Ctarget-cpu=x86-64");
+    test.gcc()
+        .target("x86_64-unknown-linux-gnu")
+        .host("x86_64-unknown-linux-gnu")
+        .file("foo.c")
+        .compile("foo");
+    test.cmd(0).must_have("-march=x86-64");
+}
+
+#[test]
+fn target_cpu_is_ignored_without_inherit_rustflags() {
+    // Neither another CPU nor a flag that doesn't parse matters then.
+    for flags in ["-Ctarget-cpu=x86-64-v3", "-Ctarget-cpu"] {
+        let mut test = Test::gnu();
+        test.env.set("CARGO_ENCODED_RUSTFLAGS", flags);
+        test.gcc()
+            .target("x86_64-unknown-linux-gnu")
+            .host("x86_64-unknown-linux-gnu")
+            .inherit_rustflags(false)
+            .file("foo.c")
+            .compile("foo");
+        test.cmd(0).must_have("-march=x86-64");
+    }
+}
+
+#[test]
 fn no_stack_protector() {
     // Do *not* propagate -Zstack-protector=none
     let mut test = Test::gnu();
