@@ -246,7 +246,7 @@ jobs:
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: startsWith(matrix.build, 'windows-clang')
 
-      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         if: ${{ ! matrix.no_run }}
         with:
           tool: cargo-nextest
@@ -283,7 +283,7 @@ jobs:
            cache: false
            toolchain: stable
 
-       - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+       - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
          with:
            tool: cargo-nextest
 
@@ -470,7 +470,7 @@ jobs:
 
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
-      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
           tool: cargo-nextest
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -578,7 +578,7 @@ jobs:
           cache: false
           target: ${{ env.TARGETS }}
           toolchain: ${{ env.MSRV }}
-      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
           tool: |
             cargo-hack
@@ -611,7 +611,7 @@ jobs:
           cache: false
           components: clippy
           toolchain: stable
-      - uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+      - uses: taiki-e/install-action@a4d3f3f761dcd95cce1b72cb61cb6d1963438177 # v2.87.30
         with:
           tool: |
             cargo-hack
