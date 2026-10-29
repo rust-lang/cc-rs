@@ -4979,3 +4979,157 @@ fn create_archive_and_emit_link_directives_match_compile() {
         }
     }
 }
+
+#[test]
+fn reproducible_codeview_clang_cl() {
+    let test = Test::msvc();
+    test.shim("clang-cl.exe");
+
+    test.gcc()
+        .compiler(test.td.path().join("clang-cl.exe"))
+        .reproducible_codeview(true)
+        .file("foo.c")
+        .compile("foo");
+
+    let cmd = test.cmd(0);
+
+    cmd.must_have("/clang:-gno-codeview-command-line")
+        .must_have("/clang:-fdebug-compilation-dir=.")
+        .must_have("-Xclang");
+
+    let object_names: Vec<_> = cmd
+        .args
+        .iter()
+        .filter(|arg| arg.starts_with("-object-file-name="))
+        .collect();
+
+    assert_eq!(
+        object_names.len(),
+        1,
+        "expected exactly one CodeView object name"
+    );
+
+    let object_name = object_names[0].strip_prefix("-object-file-name=").unwrap();
+    println!("CodeView object name: {object_name:?}");
+
+    assert!(
+        object_name.ends_with(".o") || object_name.ends_with(".obj"),
+        "unexpected CodeView object name: {object_name:?}"
+    );
+    assert!(!object_name.contains('\\'));
+    assert!(!object_name.contains('/'));
+
+    // Ensure clang-cl receives -Xclang and its value consecutively.
+    let has_object_name_pair = cmd
+        .args
+        .windows(2)
+        .any(|pair| pair[0] == "-Xclang" && pair[1].starts_with("-object-file-name="));
+
+    assert!(
+        has_object_name_pair,
+        "expected -Xclang immediately before object-name flag"
+    );
+}
+
+#[test]
+fn reproducible_codeview_native_msvc_is_unchanged() {
+    let test = Test::msvc();
+
+    test.gcc()
+        .reproducible_codeview(true)
+        .file("foo.c")
+        .compile("foo");
+
+    let cmd = test.cmd(0);
+    cmd.must_not_have("/clang:-gno-codeview-command-line")
+        .must_not_have("/clang:-fdebug-compilation-dir=.")
+        .must_not_have("-Xclang");
+
+    assert!(!cmd
+        .args
+        .iter()
+        .any(|arg| arg.starts_with("-object-file-name=")));
+}
+
+#[test]
+fn reproducible_codeview_disabled_by_default() {
+    let test = Test::msvc();
+    test.shim("clang-cl.exe");
+
+    test.gcc()
+        .compiler(test.td.path().join("clang-cl.exe"))
+        .file("foo.c")
+        .compile("foo");
+
+    let cmd = test.cmd(0);
+    cmd.must_not_have("/clang:-gno-codeview-command-line")
+        .must_not_have("/clang:-fdebug-compilation-dir=.")
+        .must_not_have("-Xclang");
+
+    assert!(!cmd
+        .args
+        .iter()
+        .any(|arg| arg.starts_with("-object-file-name=")));
+}
+#[test]
+fn explicit_source_remap_clang_cl() {
+    let mut test = Test::msvc();
+    test.shim("clang-cl.exe");
+    test.collect_flag_supported_probes();
+
+    test.gcc()
+        .compiler(test.td.path().join("clang-cl.exe"))
+        .remap_source_path("C:/fixture/src", ".")
+        .remap_source_path("C:/fixture/other", "other")
+        .file("foo.c")
+        .compile("foo");
+
+    let cmd = test.cmd(0);
+
+    cmd.must_have("/clang:-fmacro-prefix-map=C:/fixture/src=.")
+        .must_have("/clang:-fdebug-prefix-map=C:/fixture/src=.")
+        .must_have("/clang:-fmacro-prefix-map=C:/fixture/other=other")
+        .must_have("/clang:-fdebug-prefix-map=C:/fixture/other=other");
+
+    // Check that the first mapping comes before the second.
+    cmd.must_have_in_order(
+        "/clang:-fmacro-prefix-map=C:/fixture/src=.",
+        "/clang:-fmacro-prefix-map=C:/fixture/other=other",
+    );
+}
+
+#[test]
+fn explicit_source_remap_clang() {
+    let mut test = Test::clang();
+    test.collect_flag_supported_probes();
+
+    test.gcc()
+        .compiler(test.td.path().join("clang"))
+        .remap_source_path("/fixture/src", ".")
+        .file("foo.c")
+        .compile("foo");
+
+    let cmd = test.cmd(0);
+
+    cmd.must_have("-fmacro-prefix-map=/fixture/src=.")
+        .must_have("-fdebug-prefix-map=/fixture/src=.")
+        .must_not_have("/clang:-fmacro-prefix-map=/fixture/src=.")
+        .must_not_have("/clang:-fdebug-prefix-map=/fixture/src=.");
+}
+
+#[test]
+fn explicit_source_remap_native_msvc_is_unchanged() {
+    let test = Test::msvc();
+
+    test.gcc()
+        .remap_source_path("C:/fixture/src", ".")
+        .file("foo.c")
+        .compile("foo");
+
+    let cmd = test.cmd(0);
+
+    cmd.must_not_have("/clang:-fmacro-prefix-map=C:/fixture/src=.")
+        .must_not_have("/clang:-fdebug-prefix-map=C:/fixture/src=.")
+        .must_not_have("-fmacro-prefix-map=C:/fixture/src=.")
+        .must_not_have("-fdebug-prefix-map=C:/fixture/src=.");
+}
