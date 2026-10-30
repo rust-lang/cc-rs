@@ -140,7 +140,11 @@
 //! * `SDKROOT` - the Apple SDK path that `cc` passes with `-isysroot`, instead
 //!   of the one from `xcrun`, on Apple targets other than macOS and on macOS
 //!   with a compiler from an Xcode toolchain (`.xctoolchain`). It is ignored if
-//!   it isn't an existing absolute path or is clearly for another platform.
+//!   it isn't an existing absolute path or is clearly for another platform. When
+//!   `cc` would run `cc`, `c++`, `clang` or `clang++` from `/usr/bin` on macOS,
+//!   which are trampolines that ask `xcrun` which compiler to run on every call,
+//!   it runs the compiler that `xcrun --find` returns instead, setting `SDKROOT` and
+//!   adding `/usr/local` to `CPATH` and `LIBRARY_PATH` as the trampoline would.
 //! * `MACOSX_DEPLOYMENT_TARGET`, `IPHONEOS_DEPLOYMENT_TARGET`,
 //!   `TVOS_DEPLOYMENT_TARGET`, `WATCHOS_DEPLOYMENT_TARGET` and
 //!   `XROS_DEPLOYMENT_TARGET` - the minimum OS version that `cc` compiles for on
@@ -474,7 +478,9 @@ use build_env::{BuildEnv, EnvSnapshot, EnvVars};
 
 mod tool;
 pub use tool::Tool;
-use tool::{CompilerFamilyLookupCache, CppStdlibLookupCache, ToolFamily};
+use tool::{
+    CompilerCommandKey, CompilerFamilyLookupCache, CppStdlibLookupCache, DirectCompiler, ToolFamily,
+};
 
 mod tempfile;
 
@@ -510,6 +516,8 @@ enum PrefixMapFlag {
 struct BuildCache {
     apple_sdk_root_cache: RwLock<VecMap<&'static str, Arc<OsStr>>>,
     apple_versions_cache: RwLock<VecMap<&'static str, Arc<str>>>,
+    /// See [`Build::macos_trampoline`].
+    macos_trampolines: RwLock<VecMap<CompilerCommandKey, Option<Arc<DirectCompiler>>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
@@ -4227,6 +4235,9 @@ impl Build {
                     out_dir,
                 );
                 self.apply_rustc_wrapper_fallback(&mut t);
+                if t.cc_wrapper_path.is_none() {
+                    t.direct = self.macos_trampoline(&t.path, &target);
+                }
                 t
             }
         };
@@ -5433,6 +5444,107 @@ impl Build {
             ));
         };
         Ok(OsStr::new(sdk_path.trim()).into())
+    }
+
+    /// The compilers in `/usr/bin` on macOS are trampolines. Every call asks
+    /// xcrun for the active developer directory (`DEVELOPER_DIR` or
+    /// `xcode-select`) and toolchain (`TOOLCHAINS`), then runs the toolchain's
+    /// compiler with the SDK in `SDKROOT` and `/usr/local` added to `CPATH`
+    /// and `LIBRARY_PATH`, all of which it skips when `SDKROOT` is already set
+    /// (rust-lang/rust#131477 describes it). When cc would run one, it asks
+    /// xcrun once per build instead and runs that compiler the same way.
+    ///
+    /// `None` when `compiler` isn't such a trampoline or xcrun can't answer,
+    /// and cc then runs `compiler` as before.
+    fn macos_trampoline(
+        &self,
+        compiler: &Path,
+        target: &TargetInfo<'_>,
+    ) -> Option<Arc<DirectCompiler>> {
+        if !cfg!(target_os = "macos") || target.os != "macos" {
+            return None;
+        }
+        let name = compiler.file_name()?;
+        // xcrun's answer depends on the environment, so builds that share
+        // this cache only share an entry when their environments match.
+        let key = CompilerCommandKey::new(
+            &mut std::iter::once(name),
+            self.env.inherited().clone(),
+            self.env.explicit.clone().into_boxed_slice(),
+        );
+        if let Some(direct) = self
+            .build_cache
+            .macos_trampolines
+            .read()
+            .expect("macos_trampolines lock failed")
+            .get(&key)
+        {
+            return direct.clone();
+        }
+        let direct = self.macos_trampoline_inner(compiler, name).map(Arc::new);
+        self.build_cache
+            .macos_trampolines
+            .write()
+            .expect("macos_trampolines lock failed")
+            .insert(key, direct.clone());
+        direct
+    }
+
+    fn macos_trampoline_inner(&self, compiler: &Path, name: &OsStr) -> Option<DirectCompiler> {
+        // A `cc` earlier in `PATH` (a ccache wrapper, Xcode's build phases,
+        // Nix) is the user's choice, so only Apple's own trampoline is
+        // replaced. `PATH` already decided which `cc` cc ran, so reading it
+        // here gives Cargo no new reason to rerun the build script.
+        let path = self.env_snapshot_value("PATH")?;
+        if self.which(compiler, Some(path))? != Path::new("/usr/bin").join(name) {
+            return None;
+        }
+        let output = |cmd: &mut Command| -> Option<String> {
+            let output = spawn_and_wait_for_output(cmd, &self.cargo_output).ok()?;
+            if !output.status.success() {
+                return None;
+            }
+            Some(String::from_utf8(output.stdout).ok()?.trim().to_owned())
+        };
+        let real = PathBuf::from(output(self.cmd("xcrun").arg("--find").arg(name))?);
+        if !real.is_absolute() {
+            return None;
+        }
+        let mut env = Vec::new();
+        if self
+            .get_env_overridable("SDKROOT")
+            .map_or(true, |sdk| sdk.is_empty())
+        {
+            let sdk = output(self.cmd("xcrun").arg("--show-sdk-path"))?;
+            env.push((OsStr::new("SDKROOT").into(), OsStr::new(&sdk).into()));
+            for (var, dir) in [
+                ("CPATH", "/usr/local/include"),
+                ("LIBRARY_PATH", "/usr/local/lib"),
+            ] {
+                let mut value = OsString::new();
+                if let Some(old) = self.env_snapshot_value(var).filter(|old| !old.is_empty()) {
+                    value.push(old);
+                    value.push(":");
+                }
+                value.push(dir);
+                env.push((OsStr::new(var).into(), value.into()));
+            }
+        }
+        Some(DirectCompiler {
+            path: real.into(),
+            env: env.into(),
+        })
+    }
+
+    /// [`Build::get_env_overridable`] without asking Cargo to rerun the build
+    /// script when the variable changes.
+    fn env_snapshot_value(&self, key: &str) -> Option<&OsStr> {
+        self.env
+            .explicit
+            .iter()
+            .find(|(k, _)| k.as_ref() == key)
+            .map(|(_, v)| &**v)
+            .or_else(|| self.env.inherited().get(OsStr::new(key)).map(|v| &**v))
     }
 
     fn apple_sdk_root(&self, target: &TargetInfo<'_>) -> Result<Arc<OsStr>, Error> {
