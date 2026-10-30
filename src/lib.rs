@@ -558,6 +558,7 @@ pub struct Build {
     no_default_flags: bool,
     files: Vec<Arc<Path>>,
     source_root: Option<Arc<Path>>,
+    source_path_remaps: Vec<(Arc<Path>, Arc<Path>)>,
     cpp: bool,
     cpp_link_stdlib: Option<Option<Arc<str>>>,
     cpp_link_stdlib_static: bool,
@@ -594,6 +595,7 @@ pub struct Build {
     build_cache: Arc<BuildCache>,
     inherit_rustflags: bool,
     inherit_trim_paths: bool,
+    reproducible_codeview: bool,
     prefer_clang_cl_over_msvc: bool,
 }
 
@@ -707,6 +709,7 @@ impl Build {
             no_default_flags: false,
             files: Vec::new(),
             source_root: None,
+            source_path_remaps: Vec::new(),
             shared_flag: None,
             static_flag: None,
             cpp: false,
@@ -740,6 +743,7 @@ impl Build {
             build_cache: Arc::default(),
             inherit_rustflags: true,
             inherit_trim_paths: true,
+            reproducible_codeview: false,
             prefer_clang_cl_over_msvc: false,
         }
     }
@@ -1069,6 +1073,72 @@ impl Build {
     /// ```
     pub fn source_root<P: AsRef<Path>>(&mut self, root: P) -> &mut Build {
         self.source_root = Some(root.as_ref().into());
+        self
+    }
+
+    /// Remap a source-path prefix in C/C++ debug information and macros.
+    ///
+    /// `from` is the prefix to replace, and `to` is its replacement.
+    /// The prefixes are passed to the compiler as-is, without being
+    /// resolved relative to `source_root`, the project root, or `OUT_DIR`.
+    ///
+    /// `from` should match the path representation seen by the compiler.
+    /// For example, when compiling `src/foo.c`, mapping `src/` to `/`
+    /// changes that prefix to `/`. If the compiler sees an absolute
+    /// source path, use the corresponding absolute prefix instead.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// // Relative source path.
+    /// cc::Build::new()
+    ///     .file("src/foo.c")
+    ///     .remap_source_path("src/", "/")
+    ///     .compile("foo");
+    ///
+    /// // Absolute source path.
+    /// cc::Build::new()
+    ///     .file("/project/src/foo.c")
+    ///     .remap_source_path("/project", ".")
+    ///     .compile("foo");
+    /// ```
+    ///
+    /// For supported GCC/Clang compilers, emits `-fdebug-prefix-map` and
+    /// `-fmacro-prefix-map`. clang-cl receives these through `/clang:`.
+    ///
+    /// Native MSVC does not support these flags, so no remapping is applied
+    /// for that compiler.
+    ///
+    /// This is independent of `source_root`, which controls object filenames.
+    pub fn remap_source_path<P: AsRef<Path>, Q: AsRef<Path>>(
+        &mut self,
+        from: P,
+        to: Q,
+    ) -> &mut Build {
+        let from = from.as_ref();
+        let to = to.as_ref();
+        assert!(
+            !from.as_os_str().to_string_lossy().contains('='),
+            "source path remap `from` must not contain '=': {}",
+            from.display()
+        );
+        self.source_path_remaps.push((from.into(), to.into()));
+        self
+    }
+
+    /// Normalize build-directory-dependent `CodeView` records emitted by clang-cl.
+    ///
+    /// Uses the generated object's filename for the `CodeView` object-name record,
+    /// omits the embedded compiler command line, and sets the debug compilation
+    /// directory to `.`.
+    ///
+    /// This option is disabled by default and currently applies only to
+    /// clang-cl compilation of C and C++ sources.
+    ///
+    /// Source paths embedded in debug information or predefined macros must
+    /// still be remapped separately.
+    pub fn reproducible_codeview(&mut self, enabled: bool) -> &mut Build {
+        self.reproducible_codeview = enabled;
         self
     }
 
@@ -2548,6 +2618,23 @@ impl Build {
                 is_arm,
             },
         );
+        if self.reproducible_codeview && compiler.is_like_clang_cl() && !is_asm && !self.cuda {
+            // The destination filename is already derived by objects_from_files()
+            // using stable, collision-aware source identities.
+            // Do not embed OUT_DIR or other absolute output paths in CodeView.
+            let object_name = obj.dst.file_name().ok_or_else(|| {
+                Error::new(ErrorKind::InvalidArgument, "object output has no filename")
+            })?;
+
+            let mut name_flag = OsString::from("-object-file-name=");
+            name_flag.push(object_name);
+
+            cmd.arg("-Xclang");
+            cmd.arg(name_flag);
+            cmd.arg("/clang:-gno-codeview-command-line");
+            cmd.arg("/clang:-fdebug-compilation-dir=.");
+        }
+
         // armasm and armasm64 don't require -c option
         if !is_assembler_msvc || !is_arm {
             cmd.arg("-c");
@@ -2796,6 +2883,9 @@ impl Build {
         if self.inherit_trim_paths {
             self.add_trim_paths_flags(&mut cmd, &target, &mut flag_support_key)?;
         }
+
+        // Add explicit source-path remappings configured by the caller.
+        self.add_source_path_remap_flags(&mut cmd, &target, &mut flag_support_key)?;
 
         // Set flags configured in the builder (do this second-to-last, to allow these to override
         // everything above).
@@ -3422,6 +3512,66 @@ impl Build {
         Ok(())
     }
 
+    /// Append supported prefix-map options for a `from=to` mapping.
+    ///
+    /// The caller is responsible for checking flag support.
+    fn push_prefix_map_flags(
+        cmd: &mut Tool,
+        mapping: &[&OsStr],
+        macro_supported: bool,
+        debug_supported: bool,
+    ) {
+        let driver_prefix = if cmd.is_like_clang_cl() {
+            "/clang:"
+        } else {
+            ""
+        };
+
+        for (supported, flag_name) in [
+            (macro_supported, "-fmacro-prefix-map="),
+            (debug_supported, "-fdebug-prefix-map="),
+        ] {
+            if !supported {
+                continue;
+            }
+
+            let mut flag = OsString::from(driver_prefix);
+            flag.push(flag_name);
+            for part in mapping {
+                flag.push(part);
+            }
+            cmd.push_cc_arg(flag);
+        }
+    }
+
+    /// Add explicit caller-provided path remappings.
+    fn add_source_path_remap_flags(
+        &self,
+        cmd: &mut Tool,
+        target: &TargetInfo<'_>,
+        flag_support_key: &mut Option<CompilerFlag>,
+    ) -> Result<(), Error> {
+        if self.source_path_remaps.is_empty() || (cmd.is_like_msvc() && !cmd.is_like_clang_cl()) {
+            return Ok(());
+        }
+
+        let macro_supported =
+            self.probe_prefix_map_flag(PrefixMapFlag::Macro, cmd, target, flag_support_key);
+        let debug_supported =
+            self.probe_prefix_map_flag(PrefixMapFlag::Debug, cmd, target, flag_support_key);
+
+        for (from, to) in &self.source_path_remaps {
+            Self::push_prefix_map_flags(
+                cmd,
+                &[from.as_os_str(), OsStr::new("="), to.as_os_str()],
+                macro_supported,
+                debug_supported,
+            );
+        }
+
+        Ok(())
+    }
+
     /// The CPU named by `-Ctarget-cpu`, if cc-rs [inherits rustflags](Build::inherit_rustflags)
     /// and rustc is given one.
     fn rustc_target_cpu(&self) -> Option<&str> {
@@ -3493,31 +3643,14 @@ impl Build {
             return Ok(());
         }
 
-        // clang-cl parses Clang driver options when wrapped in `/clang:`.
-        // <https://clang.llvm.org/docs/UsersManual.html#the-clang-option>
-        let clang_driver = if cmd.is_like_clang_cl() {
-            "/clang:"
-        } else {
-            ""
-        };
-
         for pair in env::split_paths(&remap) {
             let pair = pair.as_os_str();
+
             if pair.is_empty() {
                 continue;
             }
-            if macro_scope {
-                let mut flag = OsString::from(clang_driver);
-                flag.push("-fmacro-prefix-map=");
-                flag.push(pair);
-                cmd.push_cc_arg(flag);
-            }
-            if object_scope {
-                let mut flag = OsString::from(clang_driver);
-                flag.push("-fdebug-prefix-map=");
-                flag.push(pair);
-                cmd.push_cc_arg(flag);
-            }
+
+            Self::push_prefix_map_flags(cmd, &[pair], macro_scope, object_scope);
         }
         Ok(())
     }
