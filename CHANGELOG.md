@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.10.0...cc-v1.11.0) - 2026-10-30
+
+### Added
+
+- add reproducible CodeView and source path remapping ([#2071](https://github.com/rust-lang/cc-rs/pull/2071))
+
+### Fixed
+
+- pass `.cc` sources to cl.exe as one `-Tp<path>` argument ([#2063](https://github.com/rust-lang/cc-rs/pull/2063))
+- pass -march=x86-64 to GCC on x86_64 Linux ([#2061](https://github.com/rust-lang/cc-rs/pull/2061))
+
 ## [1.10.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.9.0...cc-v1.10.0) - 2026-10-23
 
 ### Added
