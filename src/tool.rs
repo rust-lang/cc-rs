@@ -23,8 +23,9 @@ pub(crate) type CompilerFamilyLookupCache = VecMap<CompilerCommandKey, ToolFamil
 /// Whether a compiler command uses libc++, see [`Tool::uses_libcxx`].
 pub(crate) type CppStdlibLookupCache = VecMap<CompilerCommandKey, bool>;
 
-/// Key of the [`CompilerFamilyLookupCache`] and the [`CppStdlibLookupCache`]:
-/// a compiler command and the environment it runs in.
+/// Key of the [`CompilerFamilyLookupCache`], the [`CppStdlibLookupCache`] and
+/// the macOS trampoline cache: a compiler command and the environment it runs
+/// in.
 #[derive(Debug, PartialEq)]
 pub(crate) struct CompilerCommandKey {
     /// The hashable content of the compiler's path followed by its arguments.
@@ -38,7 +39,7 @@ pub(crate) struct CompilerCommandKey {
 }
 
 impl CompilerCommandKey {
-    fn new(
+    pub(crate) fn new(
         command: &mut dyn Iterator<Item = &OsStr>,
         inherited: EnvSnapshot,
         explicit: Box<EnvVars>,
@@ -141,6 +142,18 @@ pub struct Tool {
     pub(crate) cuda: bool,
     pub(crate) removed_args: Vec<OsString>,
     pub(crate) has_internal_target_arg: bool,
+    /// When `path` is one of macOS's trampolines in `/usr/bin`, the compiler
+    /// it would run and the environment it would run it with. Commands run
+    /// this compiler directly; `path` stays what was found, for callers that
+    /// run it themselves.
+    pub(crate) direct: Option<Arc<DirectCompiler>>,
+}
+
+/// See [`Tool::direct`].
+#[derive(Debug)]
+pub(crate) struct DirectCompiler {
+    pub(crate) path: Box<Path>,
+    pub(crate) env: Box<[(Arc<OsStr>, Arc<OsStr>)]>,
 }
 
 impl Tool {
@@ -220,6 +233,7 @@ impl Tool {
             cuda: false,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
+            direct: None,
         }
     }
 
@@ -419,6 +433,7 @@ impl Tool {
             cuda,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
+            direct: None,
         }
     }
 
@@ -568,9 +583,14 @@ impl Tool {
                 cmd.arg(&self.path);
                 cmd
             }
-            None => Command::new(&self.path),
+            None => Command::new(self.direct.as_ref().map_or(&*self.path, |d| &*d.path)),
         };
         self.inherited_env.apply(&mut cmd);
+        if let Some(direct) = &self.direct {
+            for (k, v) in direct.env.iter() {
+                cmd.env(k, v);
+            }
+        }
         cmd.args(&self.cc_wrapper_args);
 
         cmd.args(args.filter(|a| !self.removed_args.iter().any(|r| r.as_os_str() == *a)));
