@@ -456,17 +456,22 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Install cuda-minimal-build-11-8
+      - name: Install cuda-minimal-build-13-4
         working-directory: ${{ runner.temp }}
         shell: bash
-        run: |    
-          # Fetch the keyring matching Ubuntu 24.04
-          wget https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2404/x86_64/cuda-keyring_1.1-1_all.deb
+        run: |
+          # Use NVIDIA's repo for the runner's Ubuntu release (e.g. ubuntu2604),
+          # so the job keeps working when `ubuntu-latest` moves.
+          distro="ubuntu$(. /etc/os-release && echo "${VERSION_ID//./}")"
+          wget "https://developer.download.nvidia.com/compute/cuda/repos/${distro}/x86_64/cuda-keyring_1.1-1_all.deb"
           sudo dpkg -i cuda-keyring_1.1-1_all.deb
           sudo apt-get update
 
-          # Install modern CUDA minimal build (native GCC 13 support)
-          sudo apt-get -y install cuda-minimal-build-12-6
+          # nvcc rejects host compilers newer than it knows. CUDA 13.4 accepts
+          # GCC <= 16 and Clang <= 22, which covers the runner's default gcc and
+          # clang++ (Ubuntu 26.04: GCC 15, Clang 21); CUDA 12.6 stops at GCC 13
+          # and Clang 18.
+          sudo apt-get -y install cuda-minimal-build-13-4
 
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
