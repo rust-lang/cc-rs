@@ -21,6 +21,12 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # PowerShell, the default on Windows, ends a step with the exit code of
+        # its last command. Make it stop at the first command that fails, as
+        # `bash -e` does on the other runners.
+        shell: "${{ startsWith(matrix.os, 'windows') && 'pwsh -Command $ErrorActionPreference=''stop''; $PSNativeCommandUseErrorActionPreference=$true; & ''{0}''' || 'bash -e {0}' }}"
     strategy:
       matrix:
         build:
@@ -260,8 +266,6 @@ jobs:
         if: matrix.no_run
         run: |
           cargo test --no-run --workspace --all-targets --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
-      # One command per step: on Windows the default shell is PowerShell, and a
-      # step there only fails if its last command does.
       - name: Compile and Run tests
         if: ${{ ! matrix.no_run }}
         run: cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
