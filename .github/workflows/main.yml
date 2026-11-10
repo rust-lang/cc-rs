@@ -640,7 +640,7 @@ jobs:
           cache: false
           components: rustfmt
           toolchain: stable
-      - uses: tombi-toml/setup-tombi@88295e71426671820b98934ea75ea352d73eba8b # v1.9.8
+      - uses: tombi-toml/setup-tombi@865293658362cc5a3c0ba075e875af683d39fb44 # v1.9.9
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Check Rust formatting
         run: cargo fmt -- --check
