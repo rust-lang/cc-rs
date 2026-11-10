@@ -260,11 +260,14 @@ jobs:
         if: matrix.no_run
         run: |
           cargo test --no-run --workspace --all-targets --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      # One command per step: on Windows the default shell is PowerShell, and a
+      # step there only fails if its last command does.
       - name: Compile and Run tests
         if: ${{ ! matrix.no_run }}
-        run: |
-          cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
-          cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+        run: cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      - name: Run doc tests
+        if: ${{ ! matrix.no_run }}
+        run: cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree
