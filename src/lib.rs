@@ -219,7 +219,13 @@
 //!   [`Build::flag`] where they work. The flag is one of the default flags, so
 //!   [`Build::no_default_flags`] and `CRATE_CC_NO_DEFAULTS` leave it out, and
 //!   with GCC and Clang `-fno-sanitize=address` in `CFLAGS` or `CXXFLAGS`
-//!   turns it off again.
+//!   turns it off again. With GCC, `cc` also passes `-fno-ipa-icf-variables`,
+//!   since rustc's runtime reports the variables that GCC merges as ODR
+//!   violations. `-fipa-icf` or `-fipa-icf-variables` in `CFLAGS` or
+//!   `CXXFLAGS` turns merging on again. rustc links that runtime into the
+//!   executables it builds, so C code that goes into a program the build
+//!   script links itself needs the runtime there or, with GCC and Clang,
+//!   `-fno-sanitize=address` from [`Build::flag`].
 //!
 //! [cargo]: https://doc.rust-lang.org/cargo/reference/build-scripts.html#inputs-to-the-build-script
 //!
@@ -3495,6 +3501,12 @@ impl Build {
         };
         if sanitizers.split(',').any(|name| name == "address") {
             cmd.push_cc_str("-fsanitize=address");
+            // From `-O2` on, GCC merges identical read-only variables and still
+            // registers each of them with ASan. The runtime from rustc's LLVM
+            // reports the merged object as an ODR violation; GCC's own doesn't.
+            if cmd.is_like_gnu() {
+                cmd.push_cc_str("-fno-ipa-icf-variables");
+            }
         }
     }
 
