@@ -1,6 +1,6 @@
 //! On macOS the compilers in `/usr/bin` are trampolines that ask xcrun which
-//! compiler to run on every call. cc runs that compiler itself, with the
-//! environment the trampoline would give it.
+//! compiler to run on every call. cc asks once and runs that compiler, passing
+//! it the SDK the way it does for any Xcode toolchain compiler.
 #![cfg(target_os = "macos")]
 #![allow(clippy::disallowed_methods)]
 
@@ -13,52 +13,46 @@ use crate::support::Test;
 
 mod support;
 
-/// The variables the trampoline sets for the compiler it runs.
-const VARS: [&str; 3] = ["SDKROOT", "CPATH", "LIBRARY_PATH"];
+type Env = Vec<(OsString, OsString)>;
 
 fn host() -> String {
     format!("{}-apple-darwin", std::env::consts::ARCH)
 }
 
-fn run(cmd: &mut Command) -> String {
-    let output = cmd.output().unwrap();
-    assert!(output.status.success(), "{cmd:?} failed");
-    String::from_utf8(output.stdout).unwrap()
-}
-
-/// `VARS` as a compiler run through the trampoline sees them, from
-/// `xcrun env -0` in `env`.
-fn trampoline_env(env: &[(OsString, OsString)]) -> Vec<(String, String)> {
-    let out = run(Command::new("xcrun")
-        .args(["env", "-0"])
+/// xcrun's trimmed answer in `env`, or `None` if it fails.
+fn xcrun(env: &Env, args: &[&str]) -> Option<String> {
+    let output = Command::new("xcrun")
+        .args(args)
         .env_clear()
-        .envs(env.iter().map(|(k, v)| (k, v))));
-    let mut vars: Vec<(String, String)> = out
-        .split('\0')
-        .filter_map(|kv| kv.split_once('='))
-        .filter(|(k, _)| VARS.contains(k))
-        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .collect();
-    vars.sort();
-    vars
+        .envs(env.iter().map(|(k, v)| (k, v)))
+        .output()
+        .unwrap();
+    output
+        .status
+        .success()
+        .then(|| String::from_utf8(output.stdout).unwrap().trim().to_owned())
 }
 
-/// `VARS` as a command cc built sets them.
-fn command_env(cmd: &Command) -> Vec<(String, String)> {
-    let mut vars: Vec<(String, String)> = cmd
-        .get_envs()
-        .filter_map(|(k, v)| Some((k.to_str()?, v?.to_str()?)))
-        .filter(|(k, _)| VARS.contains(k))
+/// `test`'s environment without `SDKROOT`, or `None` when its `PATH` doesn't
+/// find Apple's `/usr/bin/<name>` first.
+fn trampoline_env(test: &Test, name: &str) -> Option<Env> {
+    let env: Env = test
+        .env
+        .iter()
+        .filter(|(k, _)| *k != "SDKROOT")
         .map(|(k, v)| (k.to_owned(), v.to_owned()))
         .collect();
-    vars.sort();
-    vars
+    let (_, path) = env.iter().find(|(k, _)| k == "PATH")?;
+    let found = std::env::split_paths(path)
+        .map(|dir| dir.join(name))
+        .find(|tool| tool.is_file())?;
+    (found == Path::new("/usr/bin").join(name)).then_some(env)
 }
 
-fn new_build(test: &Test) -> cc::Build {
+fn new_build(test: &Test, target: &str) -> cc::Build {
     let mut build = cc::Build::new();
     build
-        .target(&host())
+        .target(target)
         .host(&host())
         .opt_level(0)
         .debug(false)
@@ -69,94 +63,94 @@ fn new_build(test: &Test) -> cc::Build {
 
 /// The compiler a clone of `build` gets in `env`. Clones share the build's
 /// cache.
-fn compiler(build: &cc::Build, env: &[(OsString, OsString)]) -> cc::Tool {
+fn compiler(build: &cc::Build, env: &Env) -> cc::Tool {
     let mut build = build.clone();
     build.set_envs_snapshot(env.iter().map(|(k, v)| (k.as_os_str(), v.as_os_str())));
     build.try_get_compiler().unwrap()
 }
 
-/// Whether `PATH` in `env` finds Apple's `/usr/bin/cc` first.
-fn path_finds_trampoline(env: &[(OsString, OsString)]) -> bool {
-    let Some((_, path)) = env.iter().find(|(k, _)| k == "PATH") else {
-        return false;
-    };
-    std::env::split_paths(path)
-        .map(|dir| dir.join("cc"))
-        .find(|cc| cc.is_file())
-        .map_or(false, |cc| cc == Path::new("/usr/bin/cc"))
+/// Whether `tool`, run the way cc runs it, compiles a file that includes
+/// `<stdio.h>`, which it can't without an SDK.
+fn compiles_with_stdio(test: &Test, tool: &cc::Tool) -> bool {
+    let src = test.td.path().join("stdio.c");
+    std::fs::write(
+        &src,
+        "#include <stdio.h>\nint main(void) { return puts(\"\"); }\n",
+    )
+    .unwrap();
+    tool.to_command()
+        .arg("-c")
+        .arg(&src)
+        .arg("-o")
+        .arg(test.td.path().join("stdio.o"))
+        .status()
+        .unwrap()
+        .success()
 }
 
 #[test]
-fn runs_the_compiler_the_trampoline_runs() {
+fn runs_the_compiler_xcrun_finds() {
     let test = Test::new();
-    let base: Vec<(OsString, OsString)> = test
-        .env
+    let Some(env) = trampoline_env(&test, "cc") else {
+        return;
+    };
+    let tool = compiler(&new_build(&test, &host()), &env);
+    assert_eq!(
+        tool.path(),
+        Path::new(&xcrun(&env, &["--find", "cc"]).unwrap())
+    );
+    let sdk = xcrun(&env, &["--show-sdk-path", "--sdk", "macosx"]).unwrap();
+    let sysroot = tool
+        .args()
         .iter()
-        .filter(|(k, _)| !VARS.contains(&k.to_str().unwrap_or_default()))
-        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .collect();
-    if !path_finds_trampoline(&base) {
+        .position(|arg| arg == "-isysroot")
+        .map(|i| tool.args()[i + 1].as_os_str());
+    assert_eq!(sysroot, Some(OsStr::new(&sdk)));
+    assert!(compiles_with_stdio(&test, &tool));
+}
+
+#[test]
+fn runs_the_compiler_xcrun_finds_for_ios() {
+    let test = Test::new();
+    let Some(env) = trampoline_env(&test, "clang") else {
+        return;
+    };
+    if xcrun(&env, &["--show-sdk-path", "--sdk", "iphoneos"]).is_none() {
         return;
     }
-
-    // With `SDKROOT` unset the trampoline sets it and adds `/usr/local` to
-    // `CPATH` and `LIBRARY_PATH`, after any value of theirs; with `SDKROOT`
-    // set it adds nothing. The cases share one build's cache, so each one
-    // also checks that an answer cached for another environment isn't used.
-    let sdk = run(Command::new("xcrun").args(["--show-sdk-path", "--sdk", "macosx"]));
-    let cases = [
-        vec![],
-        vec![("SDKROOT", sdk.trim())],
-        vec![("CPATH", "/opt/include"), ("LIBRARY_PATH", "/opt/lib")],
-    ];
-    let build = new_build(&test);
-    for case in cases {
-        let mut env = base.clone();
-        env.extend(case.iter().map(|(k, v)| (k.into(), v.into())));
-        let real = run(Command::new("xcrun")
-            .args(["--find", "cc"])
-            .env_clear()
-            .envs(env.iter().map(|(k, v)| (k, v))));
-        let tool = compiler(&build, &env);
-        assert_eq!(tool.path(), Path::new("cc"), "callers still get `cc`");
-        let cmd = tool.to_command();
-        assert_eq!(
-            Path::new(cmd.get_program()),
-            Path::new(real.trim()),
-            "{case:?}"
-        );
-        assert_eq!(command_env(&cmd), trampoline_env(&env), "{case:?}");
-    }
+    let tool = compiler(&new_build(&test, "aarch64-apple-ios"), &env);
+    assert_eq!(
+        tool.path(),
+        Path::new(&xcrun(&env, &["--find", "clang"]).unwrap())
+    );
+    assert!(compiles_with_stdio(&test, &tool));
 }
 
 #[test]
 fn keeps_a_cc_found_earlier_in_path() {
     let test = Test::new();
-    let env: Vec<(OsString, OsString)> = test
-        .env
-        .iter()
-        .map(|(k, v)| (k.to_owned(), v.to_owned()))
-        .collect();
-    if !path_finds_trampoline(&env) {
+    let Some(env) = trampoline_env(&test, "cc") else {
         return;
-    }
+    };
     // Like a ccache or Xcode directory ahead of `/usr/bin` in `PATH`.
     let dir = test.td.path().join("bin");
     std::fs::create_dir(&dir).unwrap();
     symlink("/usr/bin/cc", dir.join("cc")).unwrap();
-    let env: Vec<(OsString, OsString)> = env
-        .into_iter()
+    let shadowed: Env = env
+        .iter()
         .map(|(k, v)| {
-            if k == "PATH" {
-                let mut path = dir.clone().into_os_string();
-                path.push(":");
-                path.push(v);
-                (k, path)
-            } else {
-                (k, v)
+            if k != "PATH" {
+                return (k.clone(), v.clone());
             }
+            let mut path = dir.clone().into_os_string();
+            path.push(":");
+            path.push(v);
+            (k.clone(), path)
         })
         .collect();
-    let cmd = compiler(&new_build(&test), &env).to_command();
-    assert_eq!(cmd.get_program(), OsStr::new("cc"));
+    // One build for both, so the answer cached for `env` mustn't be used for
+    // `shadowed`.
+    let build = new_build(&test, &host());
+    assert_ne!(compiler(&build, &env).path(), Path::new("cc"));
+    assert_eq!(compiler(&build, &shadowed).path(), Path::new("cc"));
 }
