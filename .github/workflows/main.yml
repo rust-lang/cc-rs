@@ -21,6 +21,12 @@ jobs:
   test:
     name: Test
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # PowerShell, the default on Windows, ends a step with the exit code of
+        # its last command. Make it stop at the first command that fails, as
+        # `bash -e` does on the other runners.
+        shell: "${{ startsWith(matrix.os, 'windows') && 'pwsh -Command $ErrorActionPreference=''stop''; $PSNativeCommandUseErrorActionPreference=$true; & ''{0}''' || 'bash -e {0}' }}"
     strategy:
       matrix:
         build:
@@ -262,9 +268,10 @@ jobs:
           cargo test --no-run --workspace --all-targets --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       - name: Compile and Run tests
         if: ${{ ! matrix.no_run }}
-        run: |
-          cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
-          cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+        run: cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+      - name: Run doc tests
+        if: ${{ ! matrix.no_run }}
+        run: cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: ./.github/actions/check-clean-git-working-tree

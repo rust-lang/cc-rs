@@ -337,9 +337,12 @@ fn gnu_x86_64_keeps_compiler_default_outside_linux() {
         "x86_64-unknown-freebsd",
     ] {
         let test = Test::gnu();
+        // On a Windows host cc would run `gcc.exe` for the MinGW target, which
+        // is not one of the shims.
         test.gcc()
             .target(target)
             .host(target)
+            .compiler(test.td.path().join("cc"))
             .file("foo.c")
             .compile("foo");
 
@@ -4674,7 +4677,15 @@ fn msvc_archive_with_args_in_ar_keeps_the_current_directory() {
 #[test]
 fn msvc_archive_arm64ec_members_are_relative_to_out_dir() {
     // `Test::msvc` sets the archiver itself, so cc wouldn't add `/machine:`.
-    let test = Test::msvc_autodetect();
+    let mut test = Test::msvc_autodetect();
+    // cc looks `lib.exe` up itself here. Where the ARM64 MSVC tools are
+    // installed that finds the real one, so describe a developer prompt for
+    // this target whose `PATH` has only the shim. A tool found this way runs
+    // in the snapshot without `Build::env`, so the shim's variable goes there.
+    test.env.set("VCINSTALLDIR", test.td.path());
+    test.env.set("VSCMD_ARG_TGT_ARCH", "arm64");
+    test.env.set("PATH", test.td.path());
+    test.env.set("CC_SHIM_OUT_DIR", test.td.path());
     test.gcc()
         .target("arm64ec-pc-windows-msvc")
         .compiler(test.td.path().join("cl"))
