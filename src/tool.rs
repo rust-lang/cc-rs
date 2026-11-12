@@ -23,8 +23,9 @@ pub(crate) type CompilerFamilyLookupCache = VecMap<CompilerCommandKey, ToolFamil
 /// Whether a compiler command uses libc++, see [`Tool::uses_libcxx`].
 pub(crate) type CppStdlibLookupCache = VecMap<CompilerCommandKey, bool>;
 
-/// Key of the [`CompilerFamilyLookupCache`] and the [`CppStdlibLookupCache`]:
-/// a compiler command and the environment it runs in.
+/// Key of the [`CompilerFamilyLookupCache`], the [`CppStdlibLookupCache`] and
+/// the Apple trampoline cache: a compiler command and the environment it runs
+/// in.
 #[derive(Debug, PartialEq)]
 pub(crate) struct CompilerCommandKey {
     /// The hashable content of the compiler's path followed by its arguments.
@@ -38,7 +39,7 @@ pub(crate) struct CompilerCommandKey {
 }
 
 impl CompilerCommandKey {
-    fn new(
+    pub(crate) fn new(
         command: &mut dyn Iterator<Item = &OsStr>,
         inherited: EnvSnapshot,
         explicit: Box<EnvVars>,
@@ -665,14 +666,16 @@ impl Tool {
         matches!(self.family, ToolFamily::Clang { .. })
     }
 
-    /// Whether the tool is AppleClang under .xctoolchain
+    /// Whether the tool is AppleClang from an Xcode toolchain (`.xctoolchain`)
+    /// or the Command Line Tools, which, unlike the trampolines in `/usr/bin`,
+    /// doesn't find an SDK by itself.
     #[cfg(target_vendor = "apple")]
-    pub(crate) fn is_xctoolchain_clang(&self) -> bool {
+    pub(crate) fn is_apple_toolchain_clang(&self) -> bool {
         let path = self.path.to_string_lossy();
-        path.contains(".xctoolchain/")
+        path.contains(".xctoolchain/") || path.starts_with("/Library/Developer/CommandLineTools/")
     }
     #[cfg(not(target_vendor = "apple"))]
-    pub(crate) fn is_xctoolchain_clang(&self) -> bool {
+    pub(crate) fn is_apple_toolchain_clang(&self) -> bool {
         false
     }
 

@@ -139,8 +139,12 @@
 //!   Emscripten targets.
 //! * `SDKROOT` - the Apple SDK path that `cc` passes with `-isysroot`, instead
 //!   of the one from `xcrun`, on Apple targets other than macOS and on macOS
-//!   with a compiler from an Xcode toolchain (`.xctoolchain`). It is ignored if
-//!   it isn't an existing absolute path or is clearly for another platform.
+//!   with a compiler from an Xcode toolchain (`.xctoolchain`) or the Command
+//!   Line Tools. It is ignored if it isn't an existing absolute path or is
+//!   clearly for another platform. When `cc` would run `cc`, `c++`, `clang` or
+//!   `clang++` from `/usr/bin` on macOS, which are trampolines that ask `xcrun`
+//!   which compiler to run on every call, it runs the compiler that
+//!   `xcrun --find` returns instead.
 //! * `MACOSX_DEPLOYMENT_TARGET`, `IPHONEOS_DEPLOYMENT_TARGET`,
 //!   `TVOS_DEPLOYMENT_TARGET`, `WATCHOS_DEPLOYMENT_TARGET` and
 //!   `XROS_DEPLOYMENT_TARGET` - the minimum OS version that `cc` compiles for on
@@ -480,7 +484,7 @@ use build_env::{BuildEnv, EnvSnapshot, EnvVars};
 
 mod tool;
 pub use tool::Tool;
-use tool::{CompilerFamilyLookupCache, CppStdlibLookupCache, ToolFamily};
+use tool::{CompilerCommandKey, CompilerFamilyLookupCache, CppStdlibLookupCache, ToolFamily};
 
 mod tempfile;
 
@@ -516,6 +520,8 @@ enum PrefixMapFlag {
 struct BuildCache {
     apple_sdk_root_cache: RwLock<VecMap<&'static str, Arc<OsStr>>>,
     apple_versions_cache: RwLock<VecMap<&'static str, Arc<str>>>,
+    /// See [`Build::apple_trampoline`].
+    apple_trampolines: RwLock<VecMap<CompilerCommandKey, Option<Arc<Path>>>>,
     cached_compiler_family: RwLock<CompilerFamilyLookupCache>,
     cached_uses_libcxx: RwLock<CppStdlibLookupCache>,
     emitted_cpp_link_stdlibs: Mutex<Vec<Box<str>>>,
@@ -4140,7 +4146,7 @@ impl Build {
         }
 
         // AppleClang sometimes requires sysroot even on macOS
-        if cmd.is_xctoolchain_clang() || target.os != "macos" {
+        if cmd.is_apple_toolchain_clang() || target.os != "macos" {
             self.cargo_output.print_metadata(&format_args!(
                 "Detecting {:?} SDK path for {}",
                 target.os,
@@ -4372,6 +4378,11 @@ impl Build {
                     out_dir,
                 );
                 self.apply_rustc_wrapper_fallback(&mut t);
+                if t.cc_wrapper_path.is_none() {
+                    if let Some(path) = self.apple_trampoline(&t.path, &target) {
+                        t.path = path.to_path_buf();
+                    }
+                }
                 t
             }
         };
@@ -5578,6 +5589,77 @@ impl Build {
             ));
         };
         Ok(OsStr::new(sdk_path.trim()).into())
+    }
+
+    /// The compilers in `/usr/bin` on macOS are trampolines. Every call asks
+    /// xcrun for the active developer directory (`DEVELOPER_DIR` or
+    /// `xcode-select`) and toolchain (`TOOLCHAINS`), then runs the toolchain's
+    /// compiler (rust-lang/rust#131477 describes it). When cc would run one,
+    /// it asks xcrun once per build instead and runs that compiler, which gets
+    /// its SDK from [`Build::apple_flags`] like any Xcode toolchain compiler.
+    ///
+    /// `None` when `compiler` isn't such a trampoline or xcrun can't answer,
+    /// and cc then runs `compiler` as before.
+    fn apple_trampoline(&self, compiler: &Path, target: &TargetInfo<'_>) -> Option<Arc<Path>> {
+        if !cfg!(target_os = "macos") || target.vendor != "apple" {
+            return None;
+        }
+        let name = compiler.file_name()?;
+        // xcrun's answer depends on the environment, so builds that share
+        // this cache only share an entry when their environments match.
+        let key = CompilerCommandKey::new(
+            &mut std::iter::once(name),
+            self.env.inherited().clone(),
+            self.env.explicit.clone().into_boxed_slice(),
+        );
+        if let Some(path) = self
+            .build_cache
+            .apple_trampolines
+            .read()
+            .expect("apple_trampolines lock failed")
+            .get(&key)
+        {
+            return path.clone();
+        }
+        let path = self.apple_trampoline_inner(compiler, name);
+        self.build_cache
+            .apple_trampolines
+            .write()
+            .expect("apple_trampolines lock failed")
+            .insert(key, path.clone());
+        path
+    }
+
+    fn apple_trampoline_inner(&self, compiler: &Path, name: &OsStr) -> Option<Arc<Path>> {
+        // A `cc` earlier in `PATH` (a ccache wrapper, Xcode's build phases,
+        // Nix) is the user's choice, so only Apple's own trampoline is
+        // replaced. `PATH` already decided which `cc` cc ran, so reading it
+        // here gives Cargo no new reason to rerun the build script.
+        let path = self.env_snapshot_value("PATH")?;
+        if self.which(compiler, Some(path))? != Path::new("/usr/bin").join(name) {
+            return None;
+        }
+        let output = spawn_and_wait_for_output(
+            self.cmd("xcrun").arg("--find").arg(name),
+            &self.cargo_output,
+        )
+        .ok()?;
+        if !output.status.success() {
+            return None;
+        }
+        let real = PathBuf::from(String::from_utf8(output.stdout).ok()?.trim());
+        real.is_absolute().then(|| real.into())
+    }
+
+    /// [`Build::get_env_overridable`] without asking Cargo to rerun the build
+    /// script when the variable changes.
+    fn env_snapshot_value(&self, key: &str) -> Option<&OsStr> {
+        self.env
+            .explicit
+            .iter()
+            .find(|(k, _)| k.as_ref() == key)
+            .map(|(_, v)| &**v)
+            .or_else(|| self.env.inherited().get(OsStr::new(key)).map(|v| &**v))
     }
 
     fn apple_sdk_root(&self, target: &TargetInfo<'_>) -> Result<Arc<OsStr>, Error> {
