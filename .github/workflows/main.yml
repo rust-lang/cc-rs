@@ -206,7 +206,7 @@ jobs:
         if: matrix.build == 'mingw32'
         shell: pwsh
         run: |
-          $msysRoot = "${{ steps.msys2.outputs.msys2-location }}"
+          $msysRoot = "${env:STEPS_MSYS2_OUTPUTS_MSYS2_LOCATION}"
           $binDir = Join-Path $msysRoot "mingw32\bin"
           $gcc32 = Join-Path $binDir "gcc.exe"
           if (-not $gcc32) {
@@ -221,6 +221,8 @@ jobs:
           # Set the target-specific linker and C compiler variables
           echo "CARGO_TARGET_I686_PC_WINDOWS_GNU_LINKER=$gcc32" >> $env:GITHUB_ENV
           echo "CC_i686_pc_windows_gnu=$gcc32" >> $env:GITHUB_ENV
+        env:
+          STEPS_MSYS2_OUTPUTS_MSYS2_LOCATION: ${{ steps.msys2.outputs.msys2-location }}
       - name: Install llvm tools (for llvm-ar)
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
         run: sudo apt-get install llvm
