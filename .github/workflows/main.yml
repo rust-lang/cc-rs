@@ -274,7 +274,7 @@ jobs:
         run: cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   test-linker-plugin-lto:
      name: Test linker-plugin-lto
@@ -302,7 +302,7 @@ jobs:
            RUSTFLAGS: -C linker-plugin-lto
        # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
        - name: check clean Git workting tree
-         uses: ./.github/actions/check-clean-git-working-tree
+         uses: $/.github/actions/check-clean-git-working-tree
 
   # This is separate from the matrix above because there is no prebuilt rust-std component for these targets.
   check-build-std:
@@ -346,7 +346,7 @@ jobs:
       - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel,compile-commands
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   check-wasm:
     name: Test wasm
@@ -371,7 +371,7 @@ jobs:
       - run: cargo test --no-run --target ${{ matrix.target }} --features parallel,compile-commands
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   # This is separate from the matrix above because there is no prebuilt
   # rust-std component for this target (tier 3), and no C toolchain for it is
@@ -398,7 +398,7 @@ jobs:
       - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }} --release
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   test-wasi:
     name: Test wasm32-wasi* targets
@@ -454,7 +454,7 @@ jobs:
 
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   cuda:
     name: Test CUDA support
@@ -493,7 +493,7 @@ jobs:
           CXX=clang++ cargo nextest run --manifest-path dev-tools/cc-test/Cargo.toml --features test_cuda
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   # Run C code that cc instruments for the sanitizer from `CARGO_CFG_SANITIZE`,
   # in each configuration where cc passes the sanitizer on.
@@ -561,7 +561,7 @@ jobs:
           grep -q "AddressSanitizer: heap-buffer-overflow" "$RUNNER_TEMP/stderr.txt"
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   msrv:
     name: MSRV
@@ -583,7 +583,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Get msrv
-        uses: ./.github/actions/get-msrv
+        uses: $/.github/actions/get-msrv
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
@@ -632,7 +632,7 @@ jobs:
       - run: cargo hack clippy --no-deps --workspace --all-targets --feature-powerset --ignore-private -- -D warnings
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
-        uses: ./.github/actions/check-clean-git-working-tree
+        uses: $/.github/actions/check-clean-git-working-tree
 
   check-format:
     name: Check formatting
