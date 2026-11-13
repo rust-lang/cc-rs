@@ -163,6 +163,8 @@ jobs:
             target: x86_64-pc-windows-msvc
             CC: clang-cl
             CXX: clang-cl
+    env:
+      MATRIX_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -242,13 +244,14 @@ jobs:
           echo "SDKROOT=$(pwd)/iPhoneOS18.1.sdk" >> $GITHUB_ENV
       - name: Set up Apple cross-compilation
         if: startsWith(matrix.build, 'cross-macos') || startsWith(matrix.build, 'cross-ios')
+        shell: bash
         run: |
           # Test with clang/llvm for now, has better cross-compilation support (GCC requires downloading a different toolchain)
           echo "CC=clang" >> $GITHUB_ENV
           echo "CXX=clang++" >> $GITHUB_ENV
           echo "AR=llvm-ar" >> $GITHUB_ENV
           # Link with rust-lld
-          UPPERCASE_TARGET_NAME=$(echo "${{ matrix.target }}" | tr '[:lower:]-' '[:upper:]_')
+          UPPERCASE_TARGET_NAME=$(echo "${MATRIX_TARGET}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${UPPERCASE_TARGET_NAME}_LINKER=rust-lld" >> $GITHUB_ENV
       - name: setup dev environment
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
@@ -262,18 +265,22 @@ jobs:
       - run: cargo update
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Build and run binaries and tests
+        shell: bash
         run: |
-          cargo build --bins --tests --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+          cargo build --bins --tests --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
       - name: Compile all test targets but not run
+        shell: bash
         if: matrix.no_run
         run: |
-          cargo test --no-run --workspace --all-targets --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+          cargo test --no-run --workspace --all-targets --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
       - name: Compile and Run tests
+        shell: bash
         if: ${{ ! matrix.no_run }}
-        run: cargo nextest run --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+        run: cargo nextest run --workspace --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
       - name: Run doc tests
+        shell: bash
         if: ${{ ! matrix.no_run }}
-        run: cargo test --doc --workspace --target ${{ matrix.target }} ${{ matrix.cargo_flags }}
+        run: cargo test --doc --workspace --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: $/.github/actions/check-clean-git-working-tree
@@ -330,6 +337,8 @@ jobs:
           # - armv7k-apple-watchos
           - aarch64-apple-visionos
           - aarch64-apple-visionos-sim
+    env:
+      MATRIX_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -343,9 +352,9 @@ jobs:
           build-warnings: ""
       - run: cargo update
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }}
-      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --release
-      - run: cargo test -Z build-std=std --no-run --workspace --target ${{ matrix.target }} --features parallel,compile-commands
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${MATRIX_TARGET}
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${MATRIX_TARGET} --release
+      - run: cargo test -Z build-std=std --no-run --workspace --target ${MATRIX_TARGET} --features parallel,compile-commands
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: $/.github/actions/check-clean-git-working-tree
@@ -356,6 +365,8 @@ jobs:
     strategy:
       matrix:
         target: [wasm32-unknown-unknown]
+    env:
+      MATRIX_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -368,9 +379,9 @@ jobs:
           toolchain: stable
       - run: cargo update
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - run: cargo test --no-run --target ${{ matrix.target }}
-      - run: cargo test --no-run --target ${{ matrix.target }} --release
-      - run: cargo test --no-run --target ${{ matrix.target }} --features parallel,compile-commands
+      - run: cargo test --no-run --target ${MATRIX_TARGET}
+      - run: cargo test --no-run --target ${MATRIX_TARGET} --release
+      - run: cargo test --no-run --target ${MATRIX_TARGET} --features parallel,compile-commands
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: $/.github/actions/check-clean-git-working-tree
@@ -384,6 +395,8 @@ jobs:
     strategy:
       matrix:
         target: [x86_64-unknown-motor]
+    env:
+      MATRIX_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -396,8 +409,8 @@ jobs:
           toolchain: nightly
       - run: cargo update
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
-      - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }}
-      - run: cargo check -Z build-std=std,panic_abort -p cc --target ${{ matrix.target }} --release
+      - run: cargo check -Z build-std=std,panic_abort -p cc --target ${MATRIX_TARGET}
+      - run: cargo check -Z build-std=std,panic_abort -p cc --target ${MATRIX_TARGET} --release
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: $/.github/actions/check-clean-git-working-tree
@@ -411,6 +424,8 @@ jobs:
         - wasm32-wasip1
         - wasm32-wasip2
         - wasm32-wasip1-threads
+    env:
+      MATRIX_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -452,7 +467,7 @@ jobs:
           cache-all-crates: "true"
 
       - name: Run tests
-        run: cargo +nightly build -p wasi-test --target ${{ matrix.target }}
+        run: cargo +nightly build -p wasi-test --target ${MATRIX_TARGET}
 
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
@@ -526,6 +541,7 @@ jobs:
     env:
       CC: ${{ matrix.CC }}
       RUSTFLAGS: ${{ matrix.RUSTFLAGS }}
+      MATRIX_TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -550,11 +566,11 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - name: Run without errors
         shell: bash
-        run: cargo run -p sanitizer-test --target ${{ matrix.target }}
+        run: cargo run -p sanitizer-test --target ${MATRIX_TARGET}
       - name: Check that the sanitizer reports the error in the C code
         shell: bash
         run: |
-          if cargo run -p sanitizer-test --target ${{ matrix.target }} -- overflow 2> "$RUNNER_TEMP/stderr.txt"; then
+          if cargo run -p sanitizer-test --target ${MATRIX_TARGET} -- overflow 2> "$RUNNER_TEMP/stderr.txt"; then
             cat "$RUNNER_TEMP/stderr.txt"
             echo "the out of bounds read in the C code was not reported"
             exit 1
