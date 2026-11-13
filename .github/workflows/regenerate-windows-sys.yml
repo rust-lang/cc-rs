@@ -18,7 +18,7 @@ jobs:
     name: Regenerate windows sys bindings & Open Pull Request if necessary
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: write # Required by `git push`.
       pull-requests: write # Required by `gh pr create` to create a PR.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

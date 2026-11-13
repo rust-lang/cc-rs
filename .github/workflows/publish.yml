@@ -15,7 +15,7 @@ jobs:
     environment: publish
     permissions:
       pull-requests: read # Required by `release-plz/action` to detect the release PR and its commits.
-      contents: write
+      contents: write # Required by `release-plz/action` to push tags and create releases.
       id-token: write     # Required for OIDC token exchange
     steps:
       - name: Checkout repository
