@@ -30,13 +30,14 @@ jobs:
           git checkout -b regenerate-target-info-${{ github.run_id }}
 
       - name: Get msrv
+        id: get-msrv
         uses: $/.github/actions/get-msrv
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
           cache: false
-          toolchain: ${{ env.MSRV }}, stable, nightly
+          toolchain: ${{ steps.get-msrv.outputs.MSRV }}, stable, nightly
 
       - name: Create lockfile
         run: cargo update
