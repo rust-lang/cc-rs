@@ -27,7 +27,7 @@ jobs:
 
       - name: Generate branch name
         run: |
-          git checkout -b regenerate-target-info-${{ github.run_id }}
+          git checkout -b regenerate-target-info-${GITHUB_RUN_ID}
 
       - name: Get msrv
         id: get-msrv
