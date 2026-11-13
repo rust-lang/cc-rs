@@ -27,7 +27,7 @@ jobs:
 
       - name: Generate branch name
         run: |
-          git checkout -b regenerate-windows-sys-${{ github.run_id }}
+          git checkout -b regenerate-windows-sys-${GITHUB_RUN_ID}
 
       - name: Create lockfile
         run: cargo update
