@@ -255,8 +255,15 @@ jobs:
           UPPERCASE_TARGET_NAME=$(echo "${MATRIX_TARGET}" | tr '[:lower:]-' '[:upper:]_')
           echo "CARGO_TARGET_${UPPERCASE_TARGET_NAME}_LINKER=rust-lld" >> $GITHUB_ENV
       - name: setup dev environment
+        id: msvc-dev-cmd
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
         if: startsWith(matrix.build, 'windows-clang')
+
+      # See: https://github.com/ilammy/msvc-dev-cmd#name-conflicts-with-shell-bash
+      - name: Remove `/usr/bin/link`
+        if: steps.msvc-dev-cmd.outcome == 'success'
+        shell: bash
+        run: rm -rf /usr/bin/link
 
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
         if: ${{ ! matrix.no_run }}
