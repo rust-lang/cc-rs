@@ -15,7 +15,7 @@ jobs:
       group: release-plz-${{ github.ref }}
       cancel-in-progress: false
     permissions:
-      pull-requests: write
+      pull-requests: write # Required by `release-plz/action` to create and update pull requests.
       contents: write
     steps:
       - name: Checkout repository
