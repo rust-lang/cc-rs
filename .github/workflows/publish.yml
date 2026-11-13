@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: publish
     permissions:
-      pull-requests: write
+      pull-requests: read # Required by `release-plz/action` to detect the release PR and its commits.
       contents: write
       id-token: write     # Required for OIDC token exchange
     steps:
