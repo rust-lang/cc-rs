@@ -4709,6 +4709,10 @@ impl Build {
     /// environment variables (a number of which are inspected here), and then
     /// falling back to the default configuration.
     ///
+    /// Like [`Tool::to_command`], the command gets the whole environment, which
+    /// its `Debug` output lists on Unix. To log the command, print its program
+    /// and arguments instead.
+    ///
     /// # Panics
     ///
     /// Panics if an error occurred while determining the architecture.
@@ -4766,6 +4770,10 @@ impl Build {
     /// conventions for this path, e.g. looking at the explicitly set compiler,
     /// environment variables (a number of which are inspected here), and then
     /// falling back to the default configuration.
+    ///
+    /// Like [`Tool::to_command`], the command gets the whole environment, which
+    /// its `Debug` output lists on Unix. To log the command, print its program
+    /// and arguments instead.
     ///
     /// # Panics
     ///

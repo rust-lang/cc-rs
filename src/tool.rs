@@ -556,6 +556,14 @@ impl Tool {
     /// spawned. Its environment is set in full: the copy of the process
     /// environment this `Tool` was made with (a [`Build`](crate::Build)'s copy,
     /// see its docs), then [`Tool::get_envs`].
+    ///
+    /// On Unix, the `Debug` output of a `Command` lists every variable set on
+    /// it, so printing this one with `{:?}` prints the whole environment,
+    /// secrets included. A build script's output is kept under `target/`, from
+    /// where it can end up in a shared cache or a CI log. To log the command,
+    /// print its program and arguments ([`Command::get_program`] and
+    /// [`Command::get_args`]), or print the `Tool`, whose `Debug` output
+    /// leaves the copied environment out.
     pub fn to_command(&self) -> Command {
         self.command_with_args(&mut self.args.iter().map(OsString::as_os_str))
     }
