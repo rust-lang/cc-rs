@@ -18,8 +18,8 @@ jobs:
     name: Regenerate target info & Open Pull Request if necessary
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write # Required by `git push`.
+      pull-requests: write # Required by `gh pr create` to create a PR.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,16 +27,17 @@ jobs:
 
       - name: Generate branch name
         run: |
-          git checkout -b regenerate-target-info-${{ github.run_id }}
+          git checkout -b regenerate-target-info-${GITHUB_RUN_ID}
 
       - name: Get msrv
-        uses: ./.github/actions/get-msrv
+        id: get-msrv
+        uses: $/.github/actions/get-msrv
 
       - name: Install Rust
         uses: actions-rust-lang/setup-rust-toolchain@a188e68d0fd2bd36ad51dccb2b07ba6e75105f30 # v2.0.1
         with:
           cache: false
-          toolchain: ${{ env.MSRV }}, stable, nightly
+          toolchain: ${{ steps.get-msrv.outputs.MSRV }}, stable, nightly
 
       - name: Create lockfile
         run: cargo update

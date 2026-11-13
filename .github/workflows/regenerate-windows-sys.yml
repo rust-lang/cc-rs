@@ -18,8 +18,8 @@ jobs:
     name: Regenerate windows sys bindings & Open Pull Request if necessary
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
+      contents: write # Required by `git push`.
+      pull-requests: write # Required by `gh pr create` to create a PR.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Generate branch name
         run: |
-          git checkout -b regenerate-windows-sys-${{ github.run_id }}
+          git checkout -b regenerate-windows-sys-${GITHUB_RUN_ID}
 
       - name: Create lockfile
         run: cargo update
