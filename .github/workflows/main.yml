@@ -165,6 +165,7 @@ jobs:
             CXX: clang-cl
     env:
       MATRIX_TARGET: ${{ matrix.target }}
+      MATRIX_CARGO_FLAGS: ${{ matrix.cargo_flags }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -267,20 +268,20 @@ jobs:
       - name: Build and run binaries and tests
         shell: bash
         run: |
-          cargo build --bins --tests --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
+          cargo build --bins --tests --target ${MATRIX_TARGET} ${MATRIX_CARGO_FLAGS}
       - name: Compile all test targets but not run
         shell: bash
         if: matrix.no_run
         run: |
-          cargo test --no-run --workspace --all-targets --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
+          cargo test --no-run --workspace --all-targets --target ${MATRIX_TARGET} ${MATRIX_CARGO_FLAGS}
       - name: Compile and Run tests
         shell: bash
         if: ${{ ! matrix.no_run }}
-        run: cargo nextest run --workspace --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
+        run: cargo nextest run --workspace --target ${MATRIX_TARGET} ${MATRIX_CARGO_FLAGS}
       - name: Run doc tests
         shell: bash
         if: ${{ ! matrix.no_run }}
-        run: cargo test --doc --workspace --target ${MATRIX_TARGET} ${{ matrix.cargo_flags }}
+        run: cargo test --doc --workspace --target ${MATRIX_TARGET} ${MATRIX_CARGO_FLAGS}
       # check that there are no uncommitted changes to prevent bugs like https://github.com/rust-lang/cc-rs/issues/1411
       - name: check clean Git workting tree
         uses: $/.github/actions/check-clean-git-working-tree
