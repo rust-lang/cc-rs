@@ -30,6 +30,10 @@ pub trait BuildMessageLogger: Send + Sync + 'static {
     /// - [`CompileCommand`](BuildMessageKind::CompileCommand): the
     ///   [`CompileCommand`]
     ///
+    /// cc sets the whole environment on the commands it runs, so on Unix the
+    /// `Debug` output of the `Command` in `extra` lists every variable and its
+    /// value. To log it, print its program and arguments instead.
+    ///
     /// The logger can't fail the build, but a panic in it reaches the caller
     /// of the `Build` method that was running.
     fn log(&self, kind: BuildMessageKind, msg: BuildMessage<'_>, extra: &dyn Any);
