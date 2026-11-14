@@ -3043,16 +3043,15 @@ impl Build {
                 }
                 // Disable generation of PIC on bare-metal for now: rust-lld doesn't support this yet
                 //
-                // `rustc` also defaults to disable PIC on WASM:
+                // `rustc` also defaults to disable PIC on WASM (but not Emscripten):
                 // <https://github.com/rust-lang/rust/blob/1.82.0/compiler/rustc_target/src/spec/base/wasm.rs#L101-L108>
-                if self.pic.unwrap_or(
-                    target.os != "windows"
-                        && target.os != "none"
-                        && target.os != "uefi"
-                        && target.os != "vita"
-                        && target.arch != "wasm32"
-                        && target.arch != "wasm64",
-                ) {
+                let no_pic = target.os == "windows"
+                    || target.os == "none"
+                    || target.os == "uefi"
+                    || target.os == "vita"
+                    || (target.arch == "wasm32"
+                        || target.arch == "wasm64" && target.os != "emscripten");
+                if self.pic.unwrap_or(!no_pic) {
                     cmd.push_cc_str("-fPIC");
                     // PLT only applies if code is compiled with PIC support,
                     // and only for ELF targets.
