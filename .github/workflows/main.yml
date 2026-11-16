@@ -265,7 +265,7 @@ jobs:
         shell: bash
         run: rm -rf /usr/bin/link
 
-      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         if: ${{ ! matrix.no_run }}
         with:
           tool: cargo-nextest
@@ -307,7 +307,7 @@ jobs:
            cache: false
            toolchain: stable
 
-       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
          with:
            tool: cargo-nextest
 
@@ -507,7 +507,7 @@ jobs:
 
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
       - run: cargo update
-      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: cargo-nextest
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -617,7 +617,7 @@ jobs:
           cache: false
           target: ${{ env.TARGETS }}
           toolchain: ${{ steps.get-msrv.outputs.MSRV }}
-      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: |
             cargo-hack
@@ -650,7 +650,7 @@ jobs:
           cache: false
           components: clippy
           toolchain: stable
-      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2.90.1
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2.90.3
         with:
           tool: |
             cargo-hack
