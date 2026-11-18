@@ -13,4 +13,3 @@ include = ["Cargo.toml"]
 [[schemas.overrides]]
 targets = [""]
 format.rules.table-keys-order.enabled = false
-
