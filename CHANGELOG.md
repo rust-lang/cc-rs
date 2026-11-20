@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.3](https://github.com/rust-lang/cc-rs/compare/cc-v1.11.2...cc-v1.11.3) - 2026-11-20
+
+### Other
+
+- say which arguments the archiver gets on MSVC targets ([#2109](https://github.com/rust-lang/cc-rs/pull/2109))
+- note that `Debug` of the commands cc returns lists the environment on Unix ([#2098](https://github.com/rust-lang/cc-rs/pull/2098))
+
 ## [1.11.2](https://github.com/rust-lang/cc-rs/compare/cc-v1.11.1...cc-v1.11.2) - 2026-11-13
 
 ### Fixed
