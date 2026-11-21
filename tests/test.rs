@@ -1165,6 +1165,24 @@ mod msvc_masm_fallback {
         out.push(test.td.path().join("libfoo.a"));
         assert_eq!(test.cmd_for_source(out).program, llvm_bin.join("llvm-lib"));
     }
+
+    #[test]
+    fn clang_cl_archiver_is_llvm_lib_next_to_it_arm64ec() {
+        let test = Test::new();
+        let llvm_bin = clang_cl_with(&test, "llvm-lib");
+        test.gcc()
+            .target("arm64ec-pc-windows-msvc")
+            .host("arm64ec-pc-windows-msvc")
+            .compiler(llvm_bin.join("clang-cl"))
+            .file("foo.c")
+            .compile("foo");
+
+        let mut out = OsString::from("-out:");
+        out.push(test.td.path().join("libfoo.a"));
+        let archive = test.cmd_for_source(out);
+        assert_eq!(archive.program, llvm_bin.join("llvm-lib"));
+        archive.must_have("/machine:arm64ec");
+    }
 }
 
 #[test]
