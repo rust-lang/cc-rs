@@ -4890,20 +4890,28 @@ impl Build {
                     // here.
 
                     let compiler = self.get_base_compiler()?;
-                    if let Some(lib) = self.find_llvm_tool_next_to_clang_cl(&compiler, "llvm-lib") {
+
+                    let mut cmd = if let Some(lib) =
+                        self.find_llvm_tool_next_to_clang_cl(&compiler, "llvm-lib")
+                    {
                         name = lib;
                         self.cmd(&name)
                     } else {
                         name = PathBuf::from("lib.exe");
-                        let mut cmd = match self.find_msvc_tools_find(&target, "lib.exe") {
+                        match self.find_msvc_tools_find(&target, "lib.exe") {
                             Some(t) => t,
                             None => self.cmd("lib.exe"),
-                        };
-                        if target.full_arch == "arm64ec" {
-                            cmd.arg("/machine:arm64ec");
                         }
-                        cmd
+                    };
+
+                    // `lib.exe` and `llvm-lib` seem to infer `arm64` for `arm64ec` objects, so we
+                    // need to explicitly specify `/machine:arm64ec` instead of relying on inferred
+                    // machine type.
+                    if target.full_arch == "arm64ec" {
+                        cmd.arg("/machine:arm64ec");
                     }
+
+                    cmd
                 } else if target.os == "illumos" {
                     // The default 'ar' on illumos uses a non-standard flags,
                     // but the OS comes bundled with a GNU-compatible variant.
