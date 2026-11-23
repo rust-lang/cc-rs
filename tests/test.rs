@@ -4564,6 +4564,7 @@ fn cargo_variables_print_no_rerun_lines() {
         .collect();
     // cc's own variables still get one.
     assert!(rerun_lines.contains(&"CFLAGS"), "{stdout}");
+    assert!(rerun_lines.contains(&"CPPFLAGS"), "{stdout}");
     for (key, _) in CARGO_VARS {
         assert!(!rerun_lines.contains(&key), "{key}: {stdout}");
     }

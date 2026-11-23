@@ -69,6 +69,122 @@ fn msvc_link_flag_in_cflags_is_ignored() {
         .must_have("foo.c");
 }
 
+/// `CPPFLAGS` is passed for C, C++ and preprocessed assembly, after the
+/// builder's flags and before `CFLAGS` or `CXXFLAGS`, so that those can
+/// override it.
+#[test]
+fn cppflags_before_cflags_or_cxxflags() {
+    for (cpp, src, flags_var) in [(false, "foo.c", "CFLAGS"), (true, "foo.cpp", "CXXFLAGS")] {
+        let mut test = Test::gnu();
+        test.env.set("CPPFLAGS", "-Dfrom_cppflags -Ifrom_cppflags");
+        test.env.set(flags_var, "-Dfrom_flags");
+
+        test.gcc()
+            .cpp(cpp)
+            .define("from_builder", None)
+            .file(src)
+            .file("bar.S")
+            .compile("foo");
+
+        for src in [src, "bar.S"] {
+            test.cmd_for_source(src)
+                .must_have_in_order("-Dfrom_builder", "-Dfrom_cppflags")
+                .must_have_in_order("-Dfrom_cppflags", "-Ifrom_cppflags")
+                .must_have_in_order("-Ifrom_cppflags", "-Dfrom_flags");
+        }
+    }
+}
+
+/// Every form of `CPPFLAGS` that is set is used, the more specific ones last,
+/// as for `CFLAGS`.
+#[test]
+fn cppflags_target_prefixes() {
+    let mut test = Test::gnu();
+    test.env.set("CPPFLAGS", "-Dplain");
+    // The build cross compiles, so it reads `TARGET_CPPFLAGS`, not this.
+    test.env.set("HOST_CPPFLAGS", "-Dhost");
+    test.env.set("TARGET_CPPFLAGS", "-Dtarget");
+    test.env
+        .set("CPPFLAGS_x86_64_unknown_none", "-Dunderscores");
+    test.env.set("CPPFLAGS_x86_64-unknown-none", "-Ddashes");
+    test.env.set("CFLAGS", "-Dcflags");
+
+    test.gcc()
+        .target("x86_64-unknown-none")
+        .file("foo.c")
+        .compile("foo");
+
+    test.cmd(0)
+        .must_not_have("-Dhost")
+        .must_have_in_order("-Dplain", "-Dtarget")
+        .must_have_in_order("-Dtarget", "-Dunderscores")
+        .must_have_in_order("-Dunderscores", "-Ddashes")
+        .must_have_in_order("-Ddashes", "-Dcflags");
+}
+
+/// Unlike `CFLAGS`, `CPPFLAGS` holds no set of warning flags, so the default
+/// ones stay.
+#[test]
+fn gnu_warnings_if_cppflags() {
+    let mut test = Test::gnu();
+    test.env.set("CPPFLAGS", "-Dfrom_cppflags");
+
+    test.gcc().file("foo.c").compile("foo");
+
+    test.cmd(0)
+        .must_have("-Dfrom_cppflags")
+        .must_have("-Wall")
+        .must_have("-Wextra");
+}
+
+/// `/link` and what follows it in `CPPFLAGS` are dropped like in `CFLAGS`,
+/// without dropping `CFLAGS`.
+#[test]
+fn msvc_link_flag_in_cppflags_is_ignored() {
+    let mut test = Test::msvc();
+    test.env
+        .set("CPPFLAGS", "/Dfrom_cppflags /link /NODEFAULTLIB");
+    test.env.set("CFLAGS", "/W3");
+
+    test.gcc().file("foo.c").compile("foo");
+
+    test.cmd(0)
+        .must_have_in_order("/Dfrom_cppflags", "/W3")
+        .must_not_have("/link")
+        .must_not_have("/NODEFAULTLIB")
+        .must_have("foo.c");
+}
+
+/// nvcc takes only its own options, so `CPPFLAGS` goes to the host compiler
+/// through `-Xcompiler`, like `CXXFLAGS`.
+#[test]
+fn cuda_cppflags_through_xcompiler() {
+    let target = "x86_64-unknown-linux-gnu";
+    let mut test = Test::gnu();
+    test.shim("nvcc");
+    test.env.set("NVCC", test.td.path().join("nvcc"));
+    test.env.set("CPPFLAGS", "-Dfrom_cppflags");
+
+    let compiler = test
+        .gcc()
+        .target(target)
+        .host(target)
+        .cuda(true)
+        .try_get_compiler()
+        .unwrap();
+
+    let args: Vec<_> = compiler
+        .args()
+        .iter()
+        .map(|arg| arg.to_str().unwrap())
+        .collect();
+    assert!(
+        args.windows(2)
+            .any(|pair| pair == ["-Xcompiler", "-Dfrom_cppflags"]),
+        "{args:?}"
+    );
+}
+
 /// `x86_64` Linux gets `-march=x86-64` as a default flag, so builder and environment
 /// flags can still raise the baseline.
 #[test]
