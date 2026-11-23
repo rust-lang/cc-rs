@@ -4624,10 +4624,12 @@ fn msvc_create_archive() {
 fn msvc_archive_members_are_relative_to_out_dir() {
     let test = Test::msvc();
     let elsewhere = test.td.path().parent().unwrap().join("elsewhere.o");
+    // Tests run in the package folder, so `Cargo.toml` exists from the current
+    // directory. The shim doesn't read objects.
     test.gcc()
         .file("foo.c")
         .object(&elsewhere)
-        .object("relative.o")
+        .object("Cargo.toml")
         .compile("foo");
 
     // lib.exe names each member by the path it is given, so the objects in
@@ -4643,7 +4645,30 @@ fn msvc_archive_members_are_relative_to_out_dir() {
     ar.must_have(out)
         .must_have("9bb0a3195b9dd27a-foo.o")
         .must_have(&elsewhere)
-        .must_have(env::current_dir().unwrap().join("relative.o"));
+        .must_have(env::current_dir().unwrap().join("Cargo.toml"));
+}
+
+#[test]
+fn msvc_archive_passes_unknown_names_as_given() {
+    let test = Test::msvc();
+    test.gcc()
+        .file("foo.c")
+        .object("Ole32.lib")
+        .object("missing/foo.obj")
+        .compile("foo");
+
+    // Names that aren't found from the current directory are passed as given,
+    // and lib.exe looks for them in OUT_DIR and then along `LIB`.
+    let ar = test.cmd(1);
+    assert_eq!(
+        ar.cwd.canonicalize().unwrap(),
+        test.td.path().canonicalize().unwrap()
+    );
+    let current_dir = env::current_dir().unwrap();
+    ar.must_have("Ole32.lib")
+        .must_not_have(current_dir.join("Ole32.lib"))
+        .must_have("missing/foo.obj")
+        .must_not_have(current_dir.join("missing/foo.obj"));
 }
 
 #[test]
@@ -4725,7 +4750,8 @@ fn msvc_archive_arm64ec_members_are_relative_to_out_dir() {
 fn msvc_archive_batches_are_relative_to_out_dir() {
     let test = Test::msvc();
     // The archiver takes about 4000 bytes of paths at a time, so these go in
-    // two batches: `foo.o` and the first, then the second and `relative.o`.
+    // two batches: `foo.o` and the first, then the second and `Cargo.toml`,
+    // which exists from the current directory.
     let objects: Vec<_> = (0..2)
         .map(|i| test.td.path().join(format!("{i:0>3000}.o")))
         .collect();
@@ -4733,7 +4759,7 @@ fn msvc_archive_batches_are_relative_to_out_dir() {
         .file("foo.c")
         .object(&objects[0])
         .object(&objects[1])
-        .object("relative.o")
+        .object("Cargo.toml")
         .compile("foo");
 
     // Every batch runs in OUT_DIR, and a relative object from elsewhere is
@@ -4750,7 +4776,7 @@ fn msvc_archive_batches_are_relative_to_out_dir() {
         .must_have(objects[0].file_name().unwrap());
     test.cmd(2)
         .must_have(objects[1].file_name().unwrap())
-        .must_have(env::current_dir().unwrap().join("relative.o"));
+        .must_have(env::current_dir().unwrap().join("Cargo.toml"));
 }
 
 #[test]
