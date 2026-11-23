@@ -4013,7 +4013,14 @@ impl Build {
                 for obj in objs {
                     match obj.strip_prefix(dir) {
                         Ok(relative) => cmd.arg(relative),
-                        Err(_) if obj.is_relative() => cmd.arg(current_dir.join(obj)),
+                        // A relative object that exists from the current
+                        // directory is passed by its absolute path. Any other
+                        // name is passed as given, so the archiver looks for it
+                        // in the folder it runs in and then along `LIB`, where it
+                        // finds system libraries such as `Ole32.lib`.
+                        Err(_) if obj.is_relative() && obj.exists() => {
+                            cmd.arg(current_dir.join(obj))
+                        }
                         Err(_) => cmd.arg(obj),
                     };
                 }
