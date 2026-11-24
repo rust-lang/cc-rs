@@ -70,6 +70,12 @@
 //! * `CFLAGS` - a series of space separated flags passed to compilers. Note that
 //!   individual flags cannot currently contain spaces, so doing
 //!   something like: `-L=foo\ bar` is not possible.
+//!   Flags in `CFLAGS`, `CPPFLAGS` or `CXXFLAGS` that change the ABI, such as
+//!   `-D_TIME_BITS=64` and `-D_FILE_OFFSET_BITS=64` on 32-bit glibc targets,
+//!   are passed as given. `cc` can't tell which ABI the Rust code expects, so
+//!   the Rust side has to be built to match. The `libc` crate, for example,
+//!   keeps a 32-bit `time_t` and `off_t` on those targets unless it is
+//!   configured for 64-bit ones.
 //! * `CPPFLAGS` - flags for the C preprocessor, such as `-D` and `-I`, split
 //!   like `CFLAGS`. They are passed for both C and C++, right before the flags
 //!   from `CFLAGS` or `CXXFLAGS`, so that those can override them, and they
