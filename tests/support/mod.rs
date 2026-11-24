@@ -67,15 +67,16 @@ impl EnvsSnapshot {
 /// Variables a developer's or CI's environment may set that change what the
 /// tests see: cc prefers `CC`, `CXX`, `AR` and `CC_MASM_ASM` to the shims,
 /// `CC_PREFER_CLANG_CL_OVER_MSVC` changes which compiler cc looks for on MSVC
-/// targets, and some tests check that a flag is *not* passed, which `CFLAGS` or
-/// `CXXFLAGS` could add.
-const CLEARED_VARS: [&str; 7] = [
+/// targets, and some tests check that a flag is *not* passed, which `CFLAGS`,
+/// `CPPFLAGS` or `CXXFLAGS` could add.
+const CLEARED_VARS: [&str; 8] = [
     "CC",
     "CXX",
     "AR",
     "CC_MASM_ASM",
     "CC_PREFER_CLANG_CL_OVER_MSVC",
     "CFLAGS",
+    "CPPFLAGS",
     "CXXFLAGS",
 ];
 
