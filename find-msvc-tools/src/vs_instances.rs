@@ -55,7 +55,7 @@ impl IntoIterator for VsInstances {
     fn into_iter(self) -> Self::IntoIter {
         match self {
             VsInstances::ComBased(e) => {
-                Box::new(e.into_iter().filter_map(Result::ok).map(VsInstance::Com))
+                Box::new(e.into_iter().map_while(Result::ok).map(VsInstance::Com))
             }
             VsInstances::VswhereBased(v) => Box::new(std::iter::once(VsInstance::Vswhere(v))),
         }
