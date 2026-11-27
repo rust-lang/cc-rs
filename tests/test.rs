@@ -376,6 +376,63 @@ fn gnu_x86_64_linux_pins_baseline_cpu_through_nvcc() {
     );
 }
 
+/// nvcc gets the family of the host compiler it runs, so cc doesn't detect the
+/// family of nvcc itself, which would run nvcc without `-ccbin`.
+#[test]
+fn cuda_takes_family_from_host_compiler() {
+    // The host compiler, and a default flag of its family that nvcc gets
+    // through `-Xcompiler`.
+    for (target, host, archiver, host_flag) in [
+        ("x86_64-unknown-linux-gnu", "c++", "ar", "-fPIC"),
+        ("x86_64-pc-windows-msvc", "cl", "lib.exe", "-nologo"),
+    ] {
+        for ccbin in [true, false] {
+            let mut test = Test::gnu();
+            test.shim("nvcc").shim("cl").shim("lib.exe");
+            test.env.set("NVCC", test.td.path().join("nvcc"));
+            test.env.set("CXX", host);
+            test.collect_family_detection_probes();
+            let mut build = test.gcc();
+            build
+                .target(target)
+                .host(target)
+                .cuda(true)
+                .cudart("none")
+                .ccbin(ccbin)
+                .archiver(test.td.path().join(archiver))
+                .file("foo.cu");
+            build.try_compile("foo").unwrap();
+
+            assert!(test.family_detection_probes_must_run(host) > 0);
+            // nvcc runs in the build's environment, which holds `NVCC`.
+            let nvcc = build.try_get_compiler().unwrap().to_command();
+            assert!(
+                nvcc.get_envs().any(|(key, _)| key == "NVCC"),
+                "{target}: nvcc doesn't run in the build's environment"
+            );
+            let compile = test.cmd_for_source("foo.cu");
+            assert_eq!(compile.program, test.td.path().join("nvcc"));
+            if ccbin {
+                compile.must_have(format!("-ccbin={host}"));
+            } else {
+                assert!(
+                    !compile.args.iter().any(|arg| arg.starts_with("-ccbin")),
+                    "{:?}",
+                    compile.args
+                );
+            }
+            assert!(
+                compile
+                    .args
+                    .windows(2)
+                    .any(|pair| pair == ["-Xcompiler", host_flag]),
+                "{target}: {:?}",
+                compile.args
+            );
+        }
+    }
+}
+
 #[test]
 fn gnu_aarch64_none_no_pic() {
     for target in &["aarch64-unknown-none-softfloat", "aarch64-unknown-none"] {

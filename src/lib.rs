@@ -4419,22 +4419,17 @@ impl Build {
                 Err(_) => PathBuf::from("nvcc"),
                 Ok(nvcc) => PathBuf::from(nvcc),
             };
-            let mut nvcc_tool = Tool::with_features(
-                nvcc,
-                vec![],
-                self.cuda,
-                &self.env,
-                &self.build_cache.cached_compiler_family,
-                &self.cargo_output,
-                out_dir,
-            );
+            // The flags cc picks by family are the host compiler's, which nvcc
+            // passes on with `-Xcompiler`, so nvcc gets the host compiler's
+            // family. Detecting nvcc's own would run it without `-ccbin`.
+            let mut nvcc_tool = Tool::with_family(nvcc, tool.family, self.env.inherited().clone());
+            nvcc_tool.cuda = true;
             if self.ccbin {
                 nvcc_tool
                     .args
                     .push(format!("-ccbin={}", tool.path.display()).into());
             }
             self.apply_rustc_wrapper_fallback(&mut nvcc_tool);
-            nvcc_tool.family = tool.family;
             nvcc_tool
         } else {
             tool
