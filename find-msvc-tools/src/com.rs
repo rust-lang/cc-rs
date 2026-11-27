@@ -99,6 +99,11 @@ impl BStr {
     }
     pub fn to_osstring(&self) -> OsString {
         let len = unsafe { SysStringLen(self.0) };
+        if self.0.is_null() || len == 0 {
+            return OsString::new();
+        }
+        // SAFETY: `self.0` is non-null and `SysStringLen` returned `len > 0`
+        // initialized UTF-16 code units.
         let slice = unsafe { from_raw_parts(self.0, len as usize) };
         OsStringExt::from_wide(slice)
     }
@@ -106,5 +111,17 @@ impl BStr {
 impl Drop for BStr {
     fn drop(&mut self) {
         unsafe { SysFreeString(self.0) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn null_bstr_converts_to_empty_osstring() {
+        // An empty BSTR is legally represented as a null pointer in COM.
+        let bstr = unsafe { BStr::from_raw(null()) };
+        assert!(bstr.to_osstring().is_empty());
     }
 }

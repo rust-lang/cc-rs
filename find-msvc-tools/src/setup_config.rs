@@ -259,25 +259,154 @@ impl SetupInstance {
     }
 }
 
-pub struct EnumSetupInstances(ComPtr<IEnumSetupInstances>);
+pub struct EnumSetupInstances {
+    inner: ComPtr<IEnumSetupInstances>,
+    done: bool,
+}
 
 impl EnumSetupInstances {
     pub unsafe fn from_raw(obj: *mut IEnumSetupInstances) -> EnumSetupInstances {
-        EnumSetupInstances(ComPtr::from_raw(obj))
+        EnumSetupInstances {
+            inner: ComPtr::from_raw(obj),
+            done: false,
+        }
     }
 }
 
 impl Iterator for EnumSetupInstances {
     type Item = Result<SetupInstance, i32>;
     fn next(&mut self) -> Option<Result<SetupInstance, i32>> {
+        if self.done {
+            return None;
+        }
         let mut obj = null_mut();
-        let err = unsafe { self.0.Next(1, &mut obj, null_mut()) };
+        let err = unsafe { self.inner.Next(1, &mut obj, null_mut()) };
         if err < 0 {
+            self.done = true;
             return Some(Err(err));
         }
-        if err == S_FALSE {
+        if err == S_FALSE || obj.is_null() {
+            self.done = true;
             return None;
         }
         Some(Ok(unsafe { SetupInstance::from_raw(obj) }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::vs_instances::VsInstances;
+    use crate::winapi::{IUnknown, IUnknownVtbl, REFIID};
+    use std::cell::{Cell, RefCell};
+    use std::collections::VecDeque;
+
+    const E_FAIL: HRESULT = -2147467259; // 0x80004005
+
+    thread_local! {
+        static MOCK_RESULTS: RefCell<VecDeque<HRESULT>> = RefCell::new(VecDeque::new());
+        static MOCK_NEXT_CALLS: Cell<usize> = const { Cell::new(0) };
+    }
+
+    fn reset_mock(results: &[HRESULT]) {
+        MOCK_RESULTS.with(|q| {
+            let mut q = q.borrow_mut();
+            q.clear();
+            q.extend(results.iter().copied());
+        });
+        MOCK_NEXT_CALLS.with(|c| c.set(0));
+    }
+
+    fn mock_next_calls() -> usize {
+        MOCK_NEXT_CALLS.with(Cell::get)
+    }
+
+    unsafe extern "system" fn mock_query_interface(
+        _: *mut IUnknown,
+        _: REFIID,
+        ppv: *mut *mut core::ffi::c_void,
+    ) -> HRESULT {
+        if !ppv.is_null() {
+            *ppv = null_mut();
+        }
+        E_FAIL
+    }
+
+    unsafe extern "system" fn mock_add_ref(_: *mut IUnknown) -> ULONG {
+        1
+    }
+
+    unsafe extern "system" fn mock_release(_: *mut IUnknown) -> ULONG {
+        0
+    }
+
+    unsafe extern "system" fn mock_next(
+        _: *mut IEnumSetupInstances,
+        _: ULONG,
+        rgelt: *mut *mut ISetupInstance,
+        _: *mut ULONG,
+    ) -> HRESULT {
+        MOCK_NEXT_CALLS.with(|c| c.set(c.get() + 1));
+        if !rgelt.is_null() {
+            *rgelt = null_mut();
+        }
+        MOCK_RESULTS.with(|q| q.borrow_mut().pop_front().unwrap_or(S_FALSE))
+    }
+
+    unsafe extern "system" fn mock_skip(_: *mut IEnumSetupInstances, _: ULONG) -> HRESULT {
+        E_FAIL
+    }
+
+    unsafe extern "system" fn mock_reset(_: *mut IEnumSetupInstances) -> HRESULT {
+        E_FAIL
+    }
+
+    unsafe extern "system" fn mock_clone(
+        _: *mut IEnumSetupInstances,
+        _: *mut *mut IEnumSetupInstances,
+    ) -> HRESULT {
+        E_FAIL
+    }
+
+    static MOCK_VTBL: IEnumSetupInstancesVtbl = IEnumSetupInstancesVtbl {
+        parent: IUnknownVtbl {
+            QueryInterface: mock_query_interface,
+            AddRef: mock_add_ref,
+            Release: mock_release,
+        },
+        Next: mock_next,
+        Skip: mock_skip,
+        Reset: mock_reset,
+        Clone: mock_clone,
+    };
+
+    #[test]
+    fn enum_setup_instances_stops_after_com_error() {
+        reset_mock(&[E_FAIL, S_FALSE]);
+        let mut iface = IEnumSetupInstances { lpVtbl: &MOCK_VTBL };
+        let mut iter = unsafe { EnumSetupInstances::from_raw(std::ptr::addr_of_mut!(iface)) };
+        assert_eq!(iter.next().unwrap().err(), Some(E_FAIL));
+        assert!(iter.next().is_none());
+        assert_eq!(mock_next_calls(), 1);
+    }
+
+    #[test]
+    fn vs_instances_com_based_terminates_on_com_error() {
+        // Script a trailing S_FALSE so a broken retry fails the call count instead of hanging.
+        reset_mock(&[E_FAIL, S_FALSE]);
+        let mut iface = IEnumSetupInstances { lpVtbl: &MOCK_VTBL };
+        let enumerator = unsafe { EnumSetupInstances::from_raw(std::ptr::addr_of_mut!(iface)) };
+        let items: Vec<_> = VsInstances::ComBased(enumerator).into_iter().collect();
+        assert!(items.is_empty());
+        assert_eq!(mock_next_calls(), 1);
+    }
+
+    #[test]
+    fn enum_setup_instances_handles_null_output_on_ok() {
+        reset_mock(&[0, S_FALSE]); // S_OK with null rgelt
+        let mut iface = IEnumSetupInstances { lpVtbl: &MOCK_VTBL };
+        let mut iter = unsafe { EnumSetupInstances::from_raw(std::ptr::addr_of_mut!(iface)) };
+        assert!(iter.next().is_none());
+        assert_eq!(mock_next_calls(), 1);
     }
 }
