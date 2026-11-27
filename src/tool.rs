@@ -172,29 +172,9 @@ impl Tool {
         cargo_output: &CargoOutput,
         out_dir: Option<&Path>,
     ) -> Self {
-        Self::with_features(
+        Self::with_args(
             path,
             vec![],
-            false,
-            env,
-            cached_compiler_family,
-            cargo_output,
-            out_dir,
-        )
-    }
-
-    pub(crate) fn with_args(
-        path: PathBuf,
-        args: Vec<String>,
-        env: &BuildEnv,
-        cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
-        cargo_output: &CargoOutput,
-        out_dir: Option<&Path>,
-    ) -> Self {
-        Self::with_features(
-            path,
-            args,
-            false,
             env,
             cached_compiler_family,
             cargo_output,
@@ -223,10 +203,9 @@ impl Tool {
         }
     }
 
-    pub(crate) fn with_features(
+    pub(crate) fn with_args(
         path: PathBuf,
         args: Vec<String>,
-        cuda: bool,
         env: &BuildEnv,
         cached_compiler_family: &RwLock<CompilerFamilyLookupCache>,
         cargo_output: &CargoOutput,
@@ -416,7 +395,7 @@ impl Tool {
             env_os_strings: OnceLock::new(),
             inherited_env: env.inherited().clone(),
             family,
-            cuda,
+            cuda: false,
             removed_args: Vec::new(),
             has_internal_target_arg: false,
         }
