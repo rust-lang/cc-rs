@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0](https://github.com/rust-lang/cc-rs/compare/cc-v1.11.3...cc-v1.12.0) - 2026-11-27
+
+### Added
+
+- pass `CPPFLAGS` to C and C++ compiles ([#2115](https://github.com/rust-lang/cc-rs/pull/2115))
+
+### Fixed
+
+- *(find-msvc-tools)* guard null BSTR UB and COM enumerator infinite loop ([#2119](https://github.com/rust-lang/cc-rs/pull/2119))
+- *(msvc)* let the archiver find `Ole32.lib` and other objects given by name ([#2114](https://github.com/rust-lang/cc-rs/pull/2114))
+- *(arm64ec)* explicitly specify `/machine:arm64ec` for `arm64ec-pc-windows-msvc` ([#2111](https://github.com/rust-lang/cc-rs/pull/2111))
+
+### Other
+
+- Regenerate target info ([#2118](https://github.com/rust-lang/cc-rs/pull/2118))
+
 ## [1.11.3](https://github.com/rust-lang/cc-rs/compare/cc-v1.11.2...cc-v1.11.3) - 2026-11-20
 
 ### Other
