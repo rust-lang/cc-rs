@@ -327,6 +327,22 @@ impl Test {
         self.execution(self.probe_slot(FAMILY_DETECTION_PROBES, i))
     }
 
+    /// Checks that every family detection probe recorded after
+    /// [`Test::collect_family_detection_probes`] ran a program with the file
+    /// stem `stem`, and that a slot was left, so no probe went unrecorded.
+    /// Returns how many probes ran.
+    #[track_caller]
+    pub fn family_detection_probes_must_run(&self, stem: &str) -> usize {
+        for i in 0..PROBE_SLOTS {
+            let path = self.probe_slot(FAMILY_DETECTION_PROBES, i);
+            if !path.exists() {
+                return i;
+            }
+            self.execution(path).must_run(stem);
+        }
+        panic!("every family detection probe slot was taken, so a probe may have gone unrecorded");
+    }
+
     /// Read back the `i`-th flag support probe recorded after
     /// [`Test::collect_flag_supported_probes`].
     pub fn get_flag_supported_probes(&self, i: usize) -> Execution {
